@@ -18,6 +18,8 @@ export interface BenchScene {
   /** True when this is not the game's own renderer, so the numbers must not be read as the game's. */
   readonly standIn: boolean;
   setup(canvas: HTMLCanvasElement): void;
+  /** Resolves when the scene has everything it needs to be drawn: nothing that is still downloading is timed. */
+  ready?(): Promise<void>;
   /** Draws the frame at `seconds` along the fixed path. The same time always draws the same thing. */
   frame(seconds: number): void;
   dispose(): void;
@@ -105,6 +107,7 @@ export function measureSim(steps = 200): number {
 export async function runBench(scene: BenchScene & { worst?: () => { draws: number; triangles: number; height: number; graphics: string } }, canvas: HTMLCanvasElement, seconds: number): Promise<BenchResult> {
   scene.setup(canvas);
   try {
+    await scene.ready?.();
     const frames = await measureFrames(scene, seconds);
     const worst = scene.worst?.();
     return {

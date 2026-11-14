@@ -124,6 +124,8 @@ export const manifestSchema = z.strictObject({
     override: z.literal("zero").nullable(),
   }),
   adSlots: z.array(adSlot),
+  /** Sheets of water: the bay, a lagoon. [minX, minZ, maxX, maxZ] in metres, and the height of the surface. */
+  water: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), level: z.number() })),
   strings: file,
   sizes: z.strictObject({ firstView: count, total: tierBytes }),
 });

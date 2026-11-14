@@ -34,7 +34,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { lightingAt, type Lighting } from "./lighting.ts";
-import { ATLAS_CELLS, ATLAS_CELL_PX, BLOB_SHADOW, BLOB_SHADOW_EDGE, WORLD, atlasPixels, type Rgb } from "@nzila/world/client";
+import { ATLAS_CELLS, ATLAS_CELL_PX, BLOB_SHADOW, BLOB_SHADOW_EDGE, WORLD, atlasGlowPixels, atlasPixels, type Rgb } from "@nzila/world/client";
 import { ResolutionGovernor, TIERS, type Tier, type TierName } from "./tiers.ts";
 
 /** Sets a Three colour from one of ours. */
@@ -59,21 +59,28 @@ const SKY_VERTEX = /* glsl */ `
     gl_Position = projectionMatrix * at;
   }`;
 
-// The sky: a blend from the horizon up, a little darker below it, and the sun as a disc with a glow.
+// The sky. A wide band of the horizon's colour, so that what stands far off
+// fades into the same colour as the sky behind it; above that it climbs to
+// the zenith. The sun is a soft disc inside a broad glow that warms the whole
+// quarter of the sky it stands in, which is most of what golden hour is.
 const SKY_FRAGMENT = /* glsl */ `
   uniform vec3 uZenith;
   uniform vec3 uHorizon;
   uniform vec3 uSun;
   uniform vec3 uSunDirection;
   uniform float uSunDisc;
+  uniform float uSunGlow;
   varying vec3 vDirection;
   void main() {
     vec3 direction = normalize(vDirection);
     float up = clamp(direction.y, 0.0, 1.0);
-    vec3 colour = mix(uHorizon, uZenith, pow(up, 0.5));
-    colour = mix(colour, uHorizon * 0.72, clamp(-direction.y * 6.0, 0.0, 1.0));
+    float climb = 1.0 - exp(-up * 3.4);
+    vec3 colour = mix(uHorizon, uZenith, climb);
+    colour = mix(colour, uHorizon * 0.78, clamp(-direction.y * 5.0, 0.0, 1.0));
     float toward = max(dot(direction, uSunDirection), 0.0);
-    colour += uSun * (pow(toward, 48.0) * 0.35 + smoothstep(0.9992, 0.9996, toward) * uSunDisc);
+    float glow = pow(toward, 6.0) * 0.22 + pow(toward, 40.0) * 0.38;
+    float disc = smoothstep(0.99885, 0.99945, toward);
+    colour += uSun * (glow * uSunGlow + disc * uSunDisc);
     gl_FragColor = vec4(colour, 1.0);
     #include <colorspace_fragment>
   }`;
@@ -106,9 +113,12 @@ const WATER_FRAGMENT = /* glsl */ `
   void main() {
     vec3 view = normalize(cameraPosition - vWorld);
     float swell = sin(vWorld.x * 0.31 + uTime * 0.8) * sin(vWorld.z * 0.23 - uTime * 0.6);
-    vec3 colour = mix(uDeep, uShallow, 0.45 + 0.3 * swell) * uLight;
-    float grazing = pow(1.0 - max(view.y, 0.0), 3.0);
-    colour = mix(colour, uHorizon, grazing * 0.7);
+    // The sea is lit by the day but keeps its own colour: under an orange sky it is still water,
+    // not sand. Only where it is seen nearly edge on does it take the colour of the sky.
+    vec3 lit = mix(vec3(dot(uLight, vec3(0.3, 0.6, 0.1))), uLight, 0.3);
+    vec3 colour = mix(uDeep, uShallow, 0.5 + 0.3 * swell) * lit;
+    float grazing = pow(1.0 - max(view.y, 0.0), 5.0);
+    colour = mix(colour, uHorizon * 0.92, grazing * 0.62);
     vec3 halfway = normalize(view + uSunDirection);
     float glint = pow(max(halfway.y, 0.0), 220.0);
     float ripple = step(0.15, sin(vWorld.x * 2.9 + uTime * 2.1) * sin(vWorld.z * 2.2 - uTime * 1.6));
@@ -140,8 +150,9 @@ export class WorldRenderer {
     this.canvas = canvas;
     this.tierValue = TIERS[tier];
     this.governor = new ResolutionGovernor(this.tierValue);
-    // No antialiasing by the browser: on a cheap phone it costs more than it gives at these sizes.
-    this.gl = new WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance", alpha: false, stencil: false });
+    // Edges are smoothed by the graphics card (4x multisampling). On a phone's kind of graphics
+    // chip this is nearly free, and without it every roofline is a staircase (finding F-39).
+    this.gl = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", alpha: false, stencil: false });
     this.gl.shadowMap.type = PCFSoftShadowMap;
     this.scene.fog = this.fog;
     this.scene.add(this.ambient, this.sun, this.sun.target);
@@ -155,7 +166,7 @@ export class WorldRenderer {
         depthWrite: false,
         depthTest: false,
         fog: false,
-        uniforms: { uZenith: { value: new Color() }, uHorizon: { value: new Color() }, uSun: { value: new Color() }, uSunDirection: { value: new Vector3(0, 1, 0) }, uSunDisc: { value: 1 } },
+        uniforms: { uZenith: { value: new Color() }, uHorizon: { value: new Color() }, uSun: { value: new Color() }, uSunDirection: { value: new Vector3(0, 1, 0) }, uSunDisc: { value: 1 }, uSunGlow: { value: 1 } },
       }),
     );
     this.sky.frustumCulled = false;
@@ -220,13 +231,18 @@ export class WorldRenderer {
     paint(this.ambient.color, light.skyLight);
     paint(this.ambient.groundColor, light.groundLight);
     this.ambient.intensity = light.ambientStrength * 1.6;
-    paint(this.fog.color, light.horizon);
+    // The haze is the colour of the sky at the horizon, a shade deeper, so that what is far
+    // away stands as a silhouette against the sky and never glows brighter than it.
+    paint(this.fog.color, [light.horizon[0] * 0.93, light.horizon[1] * 0.93, light.horizon[2] * 0.95]);
     const sky = this.sky.material.uniforms;
     paint(sky.uZenith!.value as Color, light.zenith);
     paint(sky.uHorizon!.value as Color, light.horizon);
     paint(sky.uSun!.value as Color, light.sun);
     (sky.uSunDirection!.value as Vector3).copy(direction);
-    sky.uSunDisc!.value = light.sunUp ? 3 : 0.9;
+    sky.uSunDisc!.value = light.sunUp ? 2.4 : 0.8;
+    // The moon has no glow to speak of; the low sun has the most.
+    sky.uSunGlow!.value = light.sunUp ? 0.35 + (1 - Math.min(1, light.sunDirection[1] * 2.2)) * 1.55 : 0.12;
+    if (this.palette) this.palette.emissiveIntensity = light.night;
     for (const water of this.waters) {
       const u = water.uniforms;
       paint(u.uHorizon!.value as Color, light.horizon);
@@ -265,7 +281,12 @@ export class WorldRenderer {
       // Flat squares of colour: never blended with their neighbours.
       picture.magFilter = picture.minFilter = NearestFilter;
       picture.needsUpdate = true;
-      this.palette = new MeshLambertMaterial({ map: picture });
+      // What glows after dark: the same squares, lit windows and lamps bright, everything else black.
+      const glow = new DataTexture(atlasGlowPixels(), size, size);
+      glow.colorSpace = SRGBColorSpace;
+      glow.magFilter = glow.minFilter = NearestFilter;
+      glow.needsUpdate = true;
+      this.palette = new MeshLambertMaterial({ map: picture, emissiveMap: glow, emissive: new Color(1, 1, 1), emissiveIntensity: this.light.night });
     }
     return this.palette;
   }

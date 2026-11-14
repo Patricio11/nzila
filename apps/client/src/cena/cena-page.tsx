@@ -1,22 +1,27 @@
-// /cena: the test scene, to look at. Drag the hour to see the whole day,
-// switch the quality tier, read what it costs to draw. A page for the team
-// and the founder to judge the light on; its words are plain English and are
-// not in the catalog.
+// /cena: the world, to look at. Drag the hour to see the whole day, switch
+// the quality tier, read what it costs to draw and to download. A page for
+// the team and the founder to judge the look on; its words are plain English
+// and are not in the catalog.
 //
-//   /cena?hour=17.5&tier=poupanca&still    starts there; `still` holds the camera on one
-//                                          view, which is what screenshots use
+// It shows the development district (`pnpm pack:dev`), streamed as the game
+// streams it. Where that has not been built, the plain test scene stands in.
+//
+//   /cena                                  strolls the promenade
+//   /cena?hour=17.5&tier=poupanca&still    starts there; `still` holds one view, for screenshots
+//   /cena?at=120,96&look=160,90            stands at a spot (x,z or x,z,eye height) looking at another
 //   /cena?clock                            follows the world clock: a game day every real hour
-//   /cena?pack=dev                         streams the development district instead of the test
-//                                          scene, walking its streets; `&at=120,96` stands still there
+//   /cena?pack=other                       another pack served under /packs/
+//   /cena?scene=test                       the test scene of boxes
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { DataMeter } from "@nzila/ui";
 import { DEFAULT_CLOCK, compileClock, gameTimeAt } from "@nzila/sim";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { buildTestScene } from "../render/test-scene.ts";
+import { buildTestScene, type TestScene } from "../render/test-scene.ts";
+import { DistrictScene } from "../render/district-scene.ts";
 import { runBench } from "../bench/bench.ts";
 import { dataMeter } from "../net/data-meter.ts";
-import { ChunkStream, type StreamState } from "../render/chunk-stream.ts";
+import { type StreamState } from "../render/chunk-stream.ts";
 import { renderBenchScene } from "../render/bench-scene.ts";
 import { rememberTier, rememberedTier } from "../render/tier-store.ts";
 import { TIERS, chooseTier, type TierName } from "../render/tiers.ts";
@@ -42,7 +47,7 @@ export function Cena() {
   const [tier, setTier] = useState<TierName>(TIER_NAMES.includes(params.get("tier") as TierName) ? (params.get("tier") as TierName) : (rememberedTier() ?? "poupanca"));
   const [choosing, setChoosing] = useState(false);
   const followClock = params.has("clock");
-  const pack = params.get("pack");
+  const pack = params.get("pack") ?? "dev";
   const [stream, setStream] = useState<StreamState | null>(null);
   const [bytes, setBytes] = useState(dataMeter.session);
   useEffect(() => dataMeter.subscribe(() => setBytes(dataMeter.session)), []);
@@ -53,20 +58,29 @@ export function Cena() {
   useEffect(() => {
     if (!canvas.current || choosing) return;
     const renderer = new WorldRenderer(canvas.current, tier);
-    const scene = pack ? null : buildTestScene(renderer);
     live.current.renderer = renderer;
     const still = params.has("still");
-    // A streamed district: the viewer walks its middle street, or stands where it is told to.
-    let chunks: ChunkStream | null = null;
+    let boxes: TestScene | null = null;
+    let district: DistrictScene | null = null;
     let closed = false;
-    const fixed = params.get("at")?.split(",").map(Number);
-    const place = { x: fixed?.[0] ?? 40, z: fixed?.[1] ?? 96, held: fixed !== undefined };
-    window.__cenaGoto = (x, z) => Object.assign(place, { x, z, held: true });
-    if (pack) {
-      void ChunkStream.open(renderer, `/packs/${pack}/`).then((opened) => {
-        if (closed) opened.close();
-        else chunks = opened;
-      });
+    const numbers = (name: string): number[] | undefined => params.get(name)?.split(",").map(Number);
+    const asked = numbers("at");
+    let spot = asked;
+    const look = numbers("look");
+    window.__cenaGoto = (x, z) => void (spot = [x, z]);
+    if (params.get("scene") === "test") {
+      boxes = buildTestScene(renderer);
+    } else {
+      DistrictScene.open(renderer, `/packs/${pack}/`).then(
+        (opened) => {
+          if (closed) opened.close();
+          else district = opened;
+        },
+        () => {
+          // No such pack on this machine: the boxes are better than a blank page.
+          if (!closed) boxes = buildTestScene(renderer);
+        },
+      );
     }
     let frame = 0;
     let last = 0;
@@ -80,31 +94,24 @@ export function Cena() {
         if (now - shown > 500) setHour(second / 3600);
       }
       renderer.setTime(live.current.hour * 3600);
-      if (scene) {
-        scene.update(still ? 6 : now / 1000);
-        if (still) scene.postcard();
-      } else {
-        // Up and down the middle street at a walk, looking where it goes.
-        if (!place.held) {
-          const lap = (now / 1000) * 6;
-          const along = lap % 432;
-          place.x = 20 + (along < 216 ? along : 432 - along);
-        }
-        const ahead = place.held || (now / 1000) * 6 % 432 < 216 ? 1 : -1;
-        renderer.camera.position.set(place.x, 1.65, place.z);
-        renderer.camera.lookAt(place.x + 20 * ahead, 3, place.z + 2);
-        renderer.setFocus(place.x, 0, place.z);
-        chunks?.update(place.x, place.z);
+      if (boxes) {
+        boxes.update(still ? 6 : now / 1000);
+        if (still) boxes.postcard();
+      } else if (district) {
+        if (spot) district.stand(spot, spot === asked ? look : undefined);
+        else if (still) district.postcard();
+        else district.stroll(now / 1000);
+        district.update();
       }
       renderer.render(elapsed);
       const measured = renderer.counts();
-      const streamed = chunks?.state();
+      const streamed = district?.state();
       window.__cena = {
         ...measured,
         graphics: renderer.graphics,
         sessionBytes: dataMeter.session,
         ...(streamed ? { stream: streamed } : {}),
-        ...(chunks ? { packBytes: chunks.manifest.sizes.total } : {}),
+        ...(district ? { packBytes: district.manifest.sizes.total } : {}),
       };
       if (now - shown > 500) {
         shown = now;
@@ -120,7 +127,7 @@ export function Cena() {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
       closed = true;
-      chunks?.close();
+      district?.close();
       renderer.dispose();
     };
   }, [tier, choosing]);
@@ -157,11 +164,11 @@ export function Cena() {
         </div>
         {counts ? (
           <p class="cena-counts">
-            {counts.draws} draw calls of 120 · {tr.number(counts.triangles)} triangles of 120.000 · drawn {counts.height} px tall of {TIERS[tier].height}
+            {counts.draws} draw calls (budget 120) · {tr.number(counts.triangles)} triangles (budget 120.000) · picture {counts.height} px tall{counts.height < TIERS[tier].height ? `, lowered from ${TIERS[tier].height} to keep up` : ""}
             {stream ? ` · ${stream.shown} of ${stream.wanted} chunks shown, ${stream.loading} on their way` : ""}
           </p>
         ) : null}
-        {pack ? <DataMeter sessionBytes={bytes} monthBytes={dataMeter.month} /> : null}
+        {stream ? <DataMeter sessionBytes={bytes} monthBytes={dataMeter.month} /> : null}
       </section>
     </main>
   );

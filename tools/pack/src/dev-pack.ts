@@ -6,7 +6,7 @@
 // are built against until the first real district exists, and it goes through
 // the same road as a real one: Blender, export, build, check.
 
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
@@ -60,6 +60,15 @@ export async function writePalette(dir: string): Promise<{ png: string; json: st
   return { png: picture, json: list };
 }
 
+/** What art/scripts/make_dev_district.py says about the town it made. */
+interface DevLayout {
+  bounds: { minX: number; minZ: number; maxX: number; maxZ: number };
+  spawn: [number, number, number];
+  corners: [number, number, number][];
+  paragens: [number, number, number][];
+  water: { rect: [number, number, number, number]; level: number };
+}
+
 export const DEV_REGISTRY: Registry = {
   provinces: [{ id: "zz-dev", nameKey: "world.zz-dev.name", open: false }],
   districts: [{ id: "zz-dev/d1", provinceId: "zz-dev", nameKey: "world.zz-dev.d1.name", open: false }],
@@ -73,32 +82,36 @@ export async function buildDevPack(workDir: string, outDir: string) {
   await blender(join(scripts, "make_dev_district.py"), [src, palette.json, palette.png]);
   const chunks = await exportChunks(join(src, "district.blend"), src, join(scripts, "export_chunks.py"));
 
+  const layout = JSON.parse(await readFile(join(src, "layout.json"), "utf8")) as DevLayout;
   const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio" };
   const manifest: SourceManifest = {
     id: "zz-dev/d1",
     province: "zz-dev",
-    version: 1,
+    version: 2,
     nameKey: "world.zz-dev.d1.name",
     artPass: 0,
-    bounds: { minX: 0, minZ: 0, maxX: 256, maxZ: 192 },
+    bounds: layout.bounds,
     ambient: { set: "dev", soundBeds: [] },
     chunks: chunks.map((chunk) => ({ id: chunk.id, aabb: chunk.aabb, lods: chunk.lods, walkGrid: `chunks/${chunk.id}.walk.json` })),
-    // On the pavement beside the first crossroads.
-    spawns: [{ id: "arrival", pos: [40, 0, 40], facing: 90, kind: "first_arrival" }],
+    spawns: [{ id: "arrival", pos: layout.spawn, facing: 90, kind: "first_arrival" }],
     gateways: [],
-    pois: [1, 2, 3, 4, 5].map((n) => {
-      strings[`dev.poi.${n}.name`] = `Esquina ${n}`;
-      strings[`dev.poi.${n}.line`] = `A esquina número ${n} do bairro de ensaio.`;
-      return { id: `corner-${n}`, pos: [40 * n, 0, 38], nameKey: `dev.poi.${n}.name`, lineKey: `dev.poi.${n}.line`, positive: true, stamp: false };
+    pois: layout.corners.slice(4, 9).map((pos, n) => {
+      strings[`dev.poi.${n}.name`] = `Esquina ${n + 1}`;
+      strings[`dev.poi.${n}.line`] = `A esquina número ${n + 1} do bairro de ensaio.`;
+      return { id: `corner-${n + 1}`, pos, nameKey: `dev.poi.${n}.name`, lineKey: `dev.poi.${n}.line`, positive: true, stamp: false };
     }),
     routes: [],
-    paragens: [],
+    paragens: layout.paragens.map((pos, n) => {
+      strings[`dev.paragem.${n}`] = `Paragem ${n + 1}`;
+      return { id: `p-${n + 1}`, pos, nameKey: `dev.paragem.${n}` };
+    }),
     lots: [],
     residences: [],
     interiors: [],
     npc: { crowd: null, vendors: null, police: null },
     heat: { lighting: null, policePosts: [], override: null },
     adSlots: [],
+    water: [{ id: "bay", rect: layout.water.rect, level: layout.water.level }],
     strings: "strings.pt-AO.json",
   };
   await writeFile(join(src, "district.json"), `${JSON.stringify(manifest, null, 2)}\n`);

@@ -10,7 +10,7 @@
 
 import { Button, RoadMark } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { FPS_BUDGET, runBench, type BenchResult } from "./bench.ts";
+import { FPS_BUDGET, runBench, type BenchResult, type BenchScene } from "./bench.ts";
 import "./bench.css";
 import { renderBenchScene } from "../render/bench-scene.ts";
 import { type TierName } from "../render/tiers.ts";
@@ -32,11 +32,19 @@ export function Bench() {
   const params = new URLSearchParams(location.search);
   const seconds = Math.max(2, Math.min(120, Number(params.get("seconds")) || 10));
 
+  const makeScene = (): BenchScene => {
+    const tier = (params.get("tier") ?? "poupanca") as TierName;
+    return params.get("scene") === "2d" ? standInScene() : renderBenchScene(tier === "normal" || tier === "alta" ? tier : "poupanca");
+  };
+  /** The scene shown while the page waits for the button: the first frame of the run, held still. */
+  const preview = useRef<BenchScene | null>(null);
+
   const run = async (): Promise<void> => {
     if (!canvas.current || state === "running") return;
     setState("running");
-    const tier = (params.get("tier") ?? "poupanca") as TierName;
-    const scene = params.get("scene") === "2d" ? standInScene() : renderBenchScene(tier === "normal" || tier === "alta" ? tier : "poupanca");
+    preview.current?.dispose();
+    preview.current = null;
+    const scene = makeScene();
     const outcome = await runBench(scene, canvas.current, seconds);
     window.__bench = outcome;
     setResult(outcome);
@@ -44,7 +52,21 @@ export function Bench() {
   };
 
   useEffect(() => {
-    if (params.has("auto")) void run();
+    if (params.has("auto")) {
+      void run();
+      return;
+    }
+    if (!canvas.current) return;
+    const scene = makeScene();
+    preview.current = scene;
+    scene.setup(canvas.current);
+    void (scene.ready?.() ?? Promise.resolve()).then(() => {
+      if (preview.current === scene) scene.frame(0);
+    });
+    return () => {
+      preview.current?.dispose();
+      preview.current = null;
+    };
   }, []);
 
   const pass = result !== null && result.fpsSustained >= FPS_BUDGET;

@@ -82,6 +82,7 @@ function district(): SourceManifest {
     npc: { crowd: "npc/crowd.json", vendors: null, police: null },
     heat: { lighting: null, policePosts: [[10, 0, 10]], override: null },
     adSlots: [{ id: "outdoor-1", kind: "outdoor", pos: [5, 6, 5], size: [6, 3] }],
+    water: [],
     strings: "strings.pt-AO.json",
   };
 }

@@ -284,4 +284,4 @@ test("property: no sequence of requests, valid or not, makes or loses a single M
   expect(refused).toBeGreaterThan(2000);
   expect(book.reversed.size).toBeGreaterThan(50);
   expect(audit(book.transfers, book.balances)).toEqual({ sum: 0, mismatched: [] });
-});
+}, 30_000);

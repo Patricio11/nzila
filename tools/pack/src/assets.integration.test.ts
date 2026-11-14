@@ -6,6 +6,7 @@
 // (CI, today) every test here is skipped and the reason is printed, so a green
 // run on such a machine does not claim the asset pipeline was checked.
 
+import { PACK_BUDGETS } from "@nzila/world";
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -135,6 +136,7 @@ describe.skipIf(missing.length > 0)("from Blender to a pack", () => {
       npc: { crowd: null, vendors: null, police: null },
       heat: { lighting: null, policePosts: [], override: null },
       adSlots: [],
+      water: [],
       strings: "strings.pt-AO.json",
     };
     await writeFile(join(src, "district.json"), JSON.stringify(manifest));
@@ -178,18 +180,25 @@ describe.skipIf(missing.length > 0)("the development district", () => {
       expect(chunk.stats.near.draws).toBe(1);
       expect(chunk.stats.far.draws).toBe(1);
       expect(chunk.stats.far.tris).toBeLessThan(chunk.stats.near.tris);
-      // Every building is still a whole box in the reduced model (16 of them, 12 triangles each),
-      // with the ground and the streets; the window bands are left out and the trees are rounder.
-      expect(chunk.stats.far.tris).toBeGreaterThan(16 * 12);
-      // No texture travels with it: under 40 KB a chunk at Normal.
-      expect(chunk.bytes.normal).toBeLessThan(40_000);
+      // The reduced model is made on purpose by the kit (simpler trees, no sills or parapets), not by
+      // crushing the full one: it is well under half the triangles and still a street.
+      expect(chunk.stats.far.tris).toBeGreaterThan(800);
+      expect(chunk.stats.far.tris).toBeLessThan(chunk.stats.near.tris * 0.5);
+      // Rule 1: a chunk up close is a small share of the 120 000 triangles in view.
+      expect(chunk.stats.near.tris).toBeLessThan(12_000);
+      // No texture travels with it. The budget for a chunk at Normal is 400 KB; this is a full street of
+      // buildings and trees in well under that.
+      expect(chunk.bytes.normal).toBeLessThan(PACK_BUDGETS.chunkNormalBytes * 0.7);
       // Every face still knows its square of the palette.
       expect(Buffer.from(await readFile(join(dir, "pack", chunk.lods[0]!))).includes("TEXCOORD_0")).toBe(true);
       expect(chunk.walkGrid).toMatch(/\.walk\.[0-9a-f]{12}\.walkz$/);
     }
-    // The whole district is a few hundred kilobytes, and less than half of that on the reference phone.
-    expect(manifest.sizes.total.normal).toBeLessThan(500_000);
-    expect(manifest.sizes.total.poupanca).toBeLessThan(manifest.sizes.total.normal * 0.6);
+    // The whole district is under a third of a district's budget, and the reference phone downloads a third of that.
+    expect(manifest.sizes.total.normal).toBeLessThan(PACK_BUDGETS.districtNormalBytes / 3);
+    expect(manifest.sizes.total.poupanca).toBeLessThan(manifest.sizes.total.normal * 0.4);
+    // The bay is in the manifest, and the paragens can be walked to (pack check passed inside buildDevPack).
+    expect(manifest.water.map((sheet) => sheet.id)).toEqual(["bay"]);
+    expect(manifest.paragens.length).toBe(4);
     const files = await readdir(join(dir, "pack"));
     expect(files.filter((name) => name.endsWith(".ktx2"))).toEqual([]);
   }, 300_000);

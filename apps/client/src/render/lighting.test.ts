@@ -29,7 +29,8 @@ describe("the light of the day", () => {
   test("golden hour is warm and low: the sun is redder than it is blue, and near the horizon", () => {
     for (const hour of [17, 17.3, 17.6, 17.9]) {
       const light = at(hour);
-      expect(light.sun[0]).toBeGreaterThan(light.sun[2] * 1.8);
+      // Warm, and honey before it is orange: a redder sun turned pale pavements to rust (finding F-56).
+      expect(light.sun[0]).toBeGreaterThan(light.sun[2] * 1.5);
       expect(light.horizon[0]).toBeGreaterThan(light.horizon[2]);
       // Under twenty degrees up: long shadows.
       expect(light.sunDirection[1]).toBeLessThan(0.35);

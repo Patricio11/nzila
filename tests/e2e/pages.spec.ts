@@ -62,17 +62,20 @@ test.describe("the styleguide", () => {
 const SOFTWARE = /swiftshader|llvmpipe|software|basic render/i;
 
 test.describe("the renderer", () => {
-  test("draws the test scene at every tier and hour inside the drawing budgets, with nothing wrong", async ({ page }, info) => {
+  test("draws the world at every tier and hour inside the drawing budgets, with nothing wrong", async ({ page }, info) => {
     const seen = watch(page);
     for (const view of ["hour=17.4&tier=poupanca", "hour=12&tier=normal", "hour=22&tier=alta"]) {
       await page.goto(`/cena?${view}&still`);
-      await page.waitForFunction(() => window.__cena !== undefined && window.__cena.draws > 0, undefined, { timeout: 30_000 });
+      // The district when it has been built, every chunk of it arrived; the test scene of boxes when not.
+      await page.waitForFunction(() => window.__cena !== undefined && window.__cena.draws > 0 && (window.__cena.stream === undefined || (window.__cena.stream.shown === window.__cena.stream.wanted && window.__cena.stream.loading === 0)), undefined, { timeout: 30_000 });
+      await page.waitForTimeout(400);
       const counts = await page.evaluate(() => window.__cena!);
       info.annotations.push({ type: "renderer", description: `${view}: ${counts.draws} draw calls, ${counts.triangles} triangles, ${counts.height} px tall, ${counts.graphics}` });
       // Rule 1. These are counted, not timed, so they hold on any machine.
       expect(counts.draws).toBeLessThanOrEqual(120);
       expect(counts.triangles).toBeLessThanOrEqual(120_000);
-      expect(counts.draws).toBeGreaterThan(8);
+      // The sky, the bay and a chunk or more at the least.
+      expect(counts.draws).toBeGreaterThanOrEqual(4);
       // Something is really on screen: a blank canvas compresses to almost nothing.
       const picture = await page.locator(".cena-canvas").screenshot();
       expect(picture.length).toBeGreaterThan(15_000);

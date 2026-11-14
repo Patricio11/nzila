@@ -12,12 +12,14 @@
 //       frontdoor_phone.png
 //       ...
 //       report.txt               what was checked on each page
+//       index.html               every picture on one page
+//       todas_1.png ...          the same, as pictures: look at ALL of them before calling a task done
 //
 // It also fails when a page scrolls sideways or logs an error, which no unit
 // test can see.
 
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -29,19 +31,35 @@ if (!label || !/^[A-Za-z0-9._-]+$/.test(label)) {
   process.exit(1);
 }
 
+// The district is 256 m by 192 m: streets every 64 m, the promenade and the bay along the south.
+const RUA = "at=70,97.6,1.65&look=130,95,7";
+const ESQUINA = "at=103,104&look=116,88,5";
 const PAGES = [
   ["frontdoor", "/"],
   ["styleguide", "/styleguide"],
   ["bench", "/bench"],
-  ["cena-dourada", "/cena?hour=17.4&still"],
-  ["cena-meio-dia", "/cena?hour=12&still"],
-  ["cena-por-do-sol", "/cena?hour=17.95&still"],
-  ["cena-noite", "/cena?hour=22&still"],
-  ["cena-normal", "/cena?hour=17.4&tier=normal&still"],
-  ["cena-alta", "/cena?hour=17.4&tier=alta&still"],
-  ["bairro-poupanca", "/cena?pack=dev&hour=17.4&tier=poupanca&at=60,96"],
-  ["bairro-normal", "/cena?pack=dev&hour=17.4&tier=normal&at=60,96"],
-  ["bairro-noite", "/cena?pack=dev&hour=21&tier=normal&at=60,96"],
+  ["bench-feito", "/bench?auto&seconds=3"],
+  ["marginal-dourada", "/cena?hour=17.4&tier=normal&still"],
+  ["marginal-poupanca", "/cena?hour=17.4&tier=poupanca&still"],
+  ["marginal-alta", "/cena?hour=17.4&tier=alta&still"],
+  ["marginal-meio-dia", "/cena?hour=12&tier=normal&still"],
+  ["marginal-por-do-sol", "/cena?hour=17.95&tier=normal&still"],
+  ["marginal-noite", "/cena?hour=21&tier=normal&still"],
+  ["marginal-noite-poupanca", "/cena?hour=21&tier=poupanca&still"],
+  ["rua-dourada", `/cena?hour=17.4&tier=normal&${RUA}`],
+  ["rua-poupanca", `/cena?hour=17.4&tier=poupanca&${RUA}`],
+  ["rua-manha", `/cena?hour=8&tier=normal&${RUA}`],
+  ["rua-noite", `/cena?hour=21&tier=normal&${RUA}`],
+  ["esquina-dourada", `/cena?hour=17.4&tier=normal&${ESQUINA}`],
+  ["esquina-poupanca", `/cena?hour=12&tier=poupanca&${ESQUINA}`],
+  ["baia", "/cena?hour=17.4&tier=normal&at=140,176,1.8&look=200,215,2"],
+  ["baia-meio-dia", "/cena?hour=12&tier=poupanca&at=140,176,1.8&look=200,215,2"],
+  ["do-alto", "/cena?hour=15&tier=alta&at=128,210,46&look=128,110,0"],
+];
+/** Pages whose movement is worth a film: the interface, and one walk down the promenade. */
+const FILMS = [
+  ["styleguide", "/styleguide"],
+  ["passeio", "/cena?hour=17.4&tier=normal"],
 ];
 const SIZES = [
   ["phone", 360, 740],
@@ -71,6 +89,7 @@ async function waitForServer() {
 
 const report = [`${label}, taken ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`, ""];
 let problems = 0;
+const taken = [];
 let browser;
 try {
   await waitForServer();
@@ -83,8 +102,12 @@ try {
       page.on("pageerror", (error) => errors.push(error.message));
       await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: "networkidle" });
       await page.evaluate("document.fonts.ready");
-      // A page that draws a 3D scene needs a moment to put its first frames on screen.
-      await page.waitForTimeout(path.includes("pack=") ? 2500 : 900);
+      // A page that draws the world is ready when every chunk it wants is on screen; a bench, when it has its result.
+      if (path.startsWith("/cena")) {
+        await page.waitForFunction("window.__cena?.stream ? window.__cena.stream.shown > 0 && window.__cena.stream.shown === window.__cena.stream.wanted && window.__cena.stream.loading === 0 : false", undefined, { timeout: 30000 }).catch(() => errors.push("the world never finished arriving"));
+      }
+      if (path.includes("auto")) await page.waitForFunction("window.__bench !== undefined", undefined, { timeout: 60000 });
+      await page.waitForTimeout(path === "/bench" ? 3500 : 900);
       const sideways = await page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth");
       const file = `${pageName}_${sizeName}.png`;
       await page.screenshot({ path: join(out, file), fullPage: true });
@@ -92,10 +115,11 @@ try {
       const faults = [...(sideways > 0 ? [`scrolls sideways by ${sideways} px`] : []), ...errors.map((e) => `error: ${e}`)];
       problems += faults.length;
       report.push(`${file}  ${width}x${height}  ${faults.length ? faults.join("; ") : "ok"}`);
+      taken.push(file);
     }
   }
   // Movement cannot be seen in a still: one slow scroll down each long page, as a video.
-  for (const [pageName, path] of PAGES) {
+  for (const [pageName, path] of FILMS) {
     const context = await browser.newContext({ viewport: { width: 390, height: 780 }, recordVideo: { dir: out, size: { width: 390, height: 780 } } });
     const page = await context.newPage();
     await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: "networkidle" });
@@ -104,13 +128,36 @@ try {
       await page.evaluate(`window.scrollTo(0, ${y})`);
       await page.waitForTimeout(110);
     }
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(path.startsWith("/cena") ? 9000 : 1500);
     const video = page.video();
     await context.close();
     const file = `${pageName}_motion.webm`;
     await video.saveAs(join(out, file));
     await video.delete();
     report.push(`${file}  390x780  a slow scroll, to see what moves`);
+  }
+  // Every picture on one page (index.html), and that page as pictures (todas_N.png): nothing is
+  // judged from three screenshots out of thirty.
+  const cell = (file) => `<figure><img src="${file}" loading="lazy"><figcaption>${file.replace(".png", "")}</figcaption></figure>`;
+  const sheet = (files, columns) => `<!doctype html><meta charset="utf-8"><title>${label}</title><style>body{margin:16px;background:#1b1d24;color:#eee;font:13px system-ui}.g{display:grid;grid-template-columns:repeat(${columns},1fr);gap:12px;align-items:start}figure{margin:0}img{width:100%;display:block;border-radius:6px;max-height:760px;object-fit:cover;object-position:top}figcaption{padding:4px 0 8px}</style><div class="g">${files.map(cell).join("")}</div>`;
+  writeFileSync(join(out, "index.html"), sheet(taken, 4));
+  // The world, which is what has to be judged at a glance; the long interface pages are read one by one.
+  const world = taken.filter((f) => !f.startsWith("styleguide") && !f.startsWith("frontdoor"));
+  const groups = [world.filter((f) => f.endsWith("_phone.png")), world.filter((f) => f.endsWith("_desktop.png"))];
+  let n = 0;
+  for (const [g, group] of groups.entries()) {
+    const per = g === 0 ? 10 : 6;
+    for (let i = 0; i < group.length; i += per) {
+      n++;
+      const name = `todas_${n}.html`;
+      writeFileSync(join(out, name), sheet(group.slice(i, i + per), g === 0 ? 5 : 3));
+      const page = await browser.newPage({ viewport: { width: 1900, height: 1000 } });
+      await page.goto(`file://${join(out, name).replaceAll("\\", "/")}`);
+      await page.waitForLoadState("networkidle");
+      await page.screenshot({ path: join(out, `todas_${n}.png`), fullPage: true });
+      await page.close();
+      rmSync(join(out, name));
+    }
   }
 } finally {
   await browser?.close();

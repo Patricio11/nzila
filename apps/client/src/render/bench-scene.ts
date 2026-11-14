@@ -1,8 +1,13 @@
-// The game's renderer as a bench scene: the test scene of twenty buildings,
-// walked along its fixed path at golden hour. This is what the frame budget
-// is measured on from Task 1.1.
+// The game's renderer as a bench scene: the development district, streamed
+// as the game streams it, walked along a fixed path on its promenade at
+// golden hour. This is what the frame budget is measured on.
+//
+// On a machine where the district has not been built (it needs Blender) the
+// plain test scene of twenty boxes stands in, and the result says so in its
+// name.
 
 import { type BenchScene } from "../bench/bench.ts";
+import { DistrictScene } from "./district-scene.ts";
 import { buildTestScene, type TestScene } from "./test-scene.ts";
 import { type TierName } from "./tiers.ts";
 import { WorldRenderer, type FrameCounts } from "./world-renderer.ts";
@@ -12,9 +17,12 @@ export interface RenderBenchScene extends BenchScene {
   worst(): FrameCounts & { graphics: string };
 }
 
+export const DEV_PACK = "/packs/dev/";
+
 export function renderBenchScene(tier: TierName, hour = 17.3): RenderBenchScene {
   let renderer: WorldRenderer | null = null;
-  let scene: TestScene | null = null;
+  let district: DistrictScene | null = null;
+  let boxes: TestScene | null = null;
   let last = 0;
   let draws = 0;
   let triangles = 0;
@@ -22,18 +30,37 @@ export function renderBenchScene(tier: TierName, hour = 17.3): RenderBenchScene 
   let graphics = "";
 
   return {
-    name: `test scene, ${tier}`,
+    get name() {
+      return `${boxes ? "test scene" : "development district"}, ${tier}`;
+    },
     standIn: false,
     setup(canvas) {
       renderer = new WorldRenderer(canvas, tier);
       renderer.setTime(hour * 3600);
-      scene = buildTestScene(renderer);
       graphics = renderer.graphics;
       last = 0;
     },
+    async ready() {
+      if (!renderer) return;
+      const mine = renderer;
+      try {
+        const opened = await DistrictScene.open(mine, DEV_PACK);
+        if (renderer !== mine) return opened.close();
+        district = opened;
+        // Everything round the start of the path is on screen before a frame is timed.
+        await opened.settle();
+      } catch {
+        if (renderer === mine) boxes = buildTestScene(mine);
+      }
+    },
     frame(seconds) {
-      if (!renderer || !scene) return;
-      scene.update(seconds);
+      if (!renderer) return;
+      if (district) {
+        district.walk(seconds);
+        district.update();
+      } else {
+        boxes?.update(seconds);
+      }
       renderer.render(last === 0 ? 33 : (seconds - last) * 1000);
       last = seconds;
       const counts = renderer.counts();
@@ -43,9 +70,11 @@ export function renderBenchScene(tier: TierName, hour = 17.3): RenderBenchScene 
     },
     worst: () => ({ draws, triangles, height: Number.isFinite(height) ? height : 0, graphics }),
     dispose() {
+      district?.close();
       renderer?.dispose();
       renderer = null;
-      scene = null;
+      district = null;
+      boxes = null;
     },
   };
 }

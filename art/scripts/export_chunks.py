@@ -15,8 +15,14 @@
 #               - a larger mesh is reduced to <lod ratio> of its triangles
 #                 (0.35 by default);
 #               - an object with the custom property `lod0_only` is left out:
-#                 small detail that cannot be seen at a distance, such as
-#                 window bands.
+#                 small detail that cannot be seen at a distance;
+#               - an object with `lod1_only` is in the reduced model alone: a
+#                 lighter version made on purpose, or the patch of shade baked
+#                 under a tree for phones that draw no shadows;
+#               - an object with `lod_exact` is never reduced by this script:
+#                 whoever made it has already decided its shape.
+#             An object with `nzila_chunk` ("2,1") belongs to that chunk
+#             wherever its middle falls.
 #   Export    Binary glTF, Y up, modifiers applied, no cameras, lights or animation.
 #
 # It writes <out dir>/chunks/<id>.l0.glb and .l1.glb, and <out dir>/chunks.json,
@@ -59,8 +65,11 @@ for obj in bpy.context.scene.objects:
     if obj.type != "MESH" or obj.hide_render:
         continue
     low, high = game_box(obj)
-    ix = math.floor((low[0] + high[0]) / 2 / chunk_m)
-    iz = math.floor((low[2] + high[2]) / 2 / chunk_m)
+    if obj.get("nzila_chunk"):
+        ix, iz = (int(part) for part in obj["nzila_chunk"].split(","))
+    else:
+        ix = math.floor((low[0] + high[0]) / 2 / chunk_m)
+        iz = math.floor((low[2] + high[2]) / 2 / chunk_m)
     if ix < 0 or iz < 0:
         raise SystemExit(f'"{obj.name}" lies outside the district: model from the origin toward +X and -Y.')
     chunks.setdefault((ix, iz), []).append((obj, low, high))
@@ -79,10 +88,10 @@ def export(objects, path, ratio):
     added = []
     reduced = ratio < 1.0
     for obj in objects:
-        if reduced and obj.get("lod0_only"):
+        if (reduced and obj.get("lod0_only")) or (not reduced and obj.get("lod1_only")):
             continue
         obj.select_set(True)
-        if reduced and triangles(obj) > KEEP_WHOLE_TRIANGLES:
+        if reduced and not obj.get("lod_exact") and triangles(obj) > KEEP_WHOLE_TRIANGLES:
             modifier = obj.modifiers.new(name="nzila_lod", type="DECIMATE")
             modifier.ratio = ratio
             added.append((obj, modifier))
