@@ -14,6 +14,8 @@
     "db:migrate": "node packages/db/src/cli.ts migrate",
     "db:seed": "node packages/db/src/cli.ts seed",
     "db:journal": "node packages/db/src/cli.ts journal",
+    "pack:build": "node tools/pack/src/cli.ts build",
+    "pack:check": "node tools/pack/src/cli.ts check",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "eslint .",
@@ -21,7 +23,7 @@
     "test:engines": "vitest run --project engines",
     "test:integration": "vitest run --project integration",
     "budget": "node tools/budget/check-shell.mjs",
-    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm build && pnpm budget"
+    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm build && pnpm budget"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,7 +1,8 @@
 // The rows a fresh database needs before anything can run: the system
 // accounts of the ledger and the first province and district. Safe to run
 // again at any time: it adds what is missing and changes nothing that is
-// there. Which places exist is data (seed/world.json), not code (Rule 9).
+// there. Which places exist is data (content/registry.json, the same file `pack check`
+// reads), not code (Rule 9).
 
 import { parseAccountId, systemAccountIds } from "@nzila/economy";
 import { readFile } from "node:fs/promises";
@@ -13,7 +14,7 @@ interface WorldSeed {
 }
 
 export async function loadWorldSeed(): Promise<WorldSeed> {
-  return JSON.parse(await readFile(new URL("../seed/world.json", import.meta.url), "utf8")) as WorldSeed;
+  return JSON.parse(await readFile(new URL("../../../content/registry.json", import.meta.url), "utf8")) as WorldSeed;
 }
 
 export async function seed(sql: Sql, world?: WorldSeed): Promise<void> {

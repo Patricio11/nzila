@@ -1,0 +1,45 @@
+# Terms that may not appear in a pack without a signed agreement in docs/legal
+# (Rule 8, D-0.11). `pack check` refuses a pack whose strings or file names
+# contain one of them as a whole word. One term per line. Team-only.
+#
+# This is a first list, written on 2026-11-14 from general knowledge of brands
+# present in Angola. The founder completes it: banks, telecoms, beers, shops,
+# airlines, football clubs, parties, churches, and the names of real people.
+# Real place names (streets, bairros, monuments) are welcome and do not go here.
+# Leave out a brand whose name is also an everyday word or a place (a drink
+# called after a colour, a club called after a date): the check matches whole
+# words and would refuse honest copy. Those are caught by review instead.
+
+# Telecoms
+Unitel
+Africell
+Movicel
+
+# Banks and payments
+BAI
+BFA
+BIC
+Millennium Atlântico
+Multicaixa
+
+# Energy and transport
+Sonangol
+Pumangol
+TAAG
+
+# Drinks
+Cuca
+Nocal
+Eka
+
+# Retail and food
+Kero
+Candando
+Shoprite
+
+# Football clubs
+Petro de Luanda
+
+# Political parties
+MPLA
+UNITA

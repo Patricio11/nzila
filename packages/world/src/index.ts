@@ -1,3 +1,6 @@
-// Pack manifest schema, validators and the province and district registry. Filled by Task 0.6.
-export type ProvinceId = string;
-export type DistrictId = string;
+// Pack manifest schema, walk grid files, budgets and the registry of places.
+// The client imports from "./walkgrid.ts" and the types only: see manifest.ts.
+
+export * from "./manifest.ts";
+export * from "./walkgrid.ts";
+export * from "./budgets.ts";

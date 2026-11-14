@@ -241,7 +241,30 @@ importers:
         version: 6.0.3
 
   packages/world:
+    dependencies:
+      '@nzila/sim':
+        specifier: workspace:*
+        version: link:../sim
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  tools/pack:
+    dependencies:
+      '@nzila/sim':
+        specifier: workspace:*
+        version: link:../../packages/sim
+      '@nzila/world':
+        specifier: workspace:*
+        version: link:../../packages/world
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1479,6 +1502,9 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
 snapshots:
 
   '@babel/helper-string-parser@7.29.14': {}
@@ -2518,3 +2544,5 @@ snapshots:
   ws@8.23.0: {}
 
   yocto-queue@0.1.0: {}
+
+  zod@4.6.7: {}
