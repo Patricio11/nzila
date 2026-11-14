@@ -46,7 +46,7 @@ const PAGES = [
   ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((n) => [[`corpo-${n}`, `/corpo?hour=16.6&quem=${n}&ang=20`], [`corpo-${n}-rosto`, `/corpo?hour=15&quem=${n}&perto&ang=18`]]),
   ["corpo-2-tras", "/corpo?hour=16.6&quem=0&ang=160"],
   ["hud", "/andar?hour=16.8&cam=200"],
-  ...["acenar", "rir", "aplaudir", "chamar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
+  ...["acenar", "rir", "aplaudir", "chamar", "dancar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
   ["hud-sentar", "/andar?hour=16.8&cam=40&quem=4&sentar"],
   ["hud-sentar-calcas", "/andar?hour=12&cam=320&quem=1&sentar"],
   ["hud-esquerda", "/andar?hour=16.8&cam=200&mao=esquerda&quem=2"],
@@ -79,6 +79,9 @@ const FILMS = [
   ["passeio", "/cena?hour=17.4&tier=normal"],
   ["andar-frente", "/andar?auto&cam=75&quem=1&hour=16.8"],
   ["andar-gestos", "/andar?auto&cam=200&quem=3&hour=16.8"],
+  ["danca-frente", "/andar?cam=0&quem=1&hour=16.8&gesto=dancar"],
+  ["danca-lado", "/andar?cam=95&quem=5&hour=16.8&gesto=dancar"],
+  ["danca-pano", "/andar?cam=20&quem=0&hour=16.8&gesto=dancar"],
   ["andar-lado", "/andar?auto&cam=0&quem=0&hour=16.8"],
   ["andar-tras", "/andar?auto&cam=270&quem=5&hour=16.8"],
 ];

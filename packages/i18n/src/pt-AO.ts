@@ -50,6 +50,7 @@ export const ptAO = {
   "emote.rir": "Rir",
   "emote.aplaudir": "Aplaudir",
   "emote.chamar": "Chamar",
+  "emote.dancar": "Dançar",
   "chat.placeholder": "Escreve aqui…",
   "needs.fome": "Fome",
   "needs.energia": "Energia",

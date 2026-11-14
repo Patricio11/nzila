@@ -166,7 +166,8 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 10. The culto (D-0.33): two churchgoers of different congregations to review the brief.
 15. Run the bench on your own phone and send the numbers: `pnpm dev:client`, then open `http://<this computer's address>:5173/bench` on the phone, on the same wifi.
 16. Review `docs/legal/BRAND_TERMS.txt` and the first chat filter list in `packages/i18n/filter/pt.txt`; write the Angolan list `ao.txt`.
-11. A video of a real kuduro dancer, filmed by the founder with the dancer's permission, as reference for the hand-keyed animation.
+11. ~~A video of a real kuduro dancer.~~ Two films supplied 2026-11-15 (found online, not filmed by the founder), kept outside git in `screenshots/Videos/` and used only to look at: the first Dançar was keyed from them. A film of his own, with the dancer's permission, is still the better reference.
+20. **The music in those films cannot go in the game as it is (D-0.18).** The founder asked on 2026-11-15 that the kuduro in the videos and a third file (a full track from a known artist's album, as uploaded by a channel) be the radio in the candongueiros. They are commercial recordings: playing them needs a written licence from whoever owns each one, and a game that streams them without one can be taken down and sued, in Angola and in South Africa. What is needed from the founder: the name of each track and artist, and a first conversation with the artist or label (item 13). Until then the radio is built to play whatever is licensed, and plays nothing that is not.
 12. A first conversation with a mobile operator about zero-rated data, once the alpha has numbers (D-0.35).
 
 ---
