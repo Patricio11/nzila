@@ -45,6 +45,8 @@ export const ptAO = {
   "needs.energia": "Energia",
   "heat.line": "Zona quente agora. Fica atento.",
   "chat.typing": "A escrever",
+  "route.next": "Próxima",
+  "route.atStop": "Estamos em",
 
   // Paper: the receipt and the BI.
   "receipt.line": "{qty} × {label}",

@@ -50,6 +50,7 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-25 | 0.7 | Engine code named a place: the pack schema's error messages gave the first district's id as their example (Rule 9). Caught by the new house-rules test on its first run. | The messages describe the shape of an id without naming one. | 2026-11-14 |
 | F-26 | 0.7 | The size budget did not count the font, which is the largest single file a first visit downloads. | Fonts count toward the shell budget at their full weight. The shell is 52 KB of its 300 KB. | 2026-11-14 |
 | F-27 | 0.7 | Seen in the browser screenshots, not by any test: the front door sat at the top of the screen instead of the middle; titles on paper inherited a pale colour from the page around them; long stop names broke in the middle of a word; the loading placeholder had no width. | All four fixed and looked at again. | 2026-11-14 |
+| F-30 | 0.7 | The first components were correct but plain: flat buttons, a route band that was a list of dots, a banner that was a line of text. The founder: "it must all feel like a game". | Redrawn the same day: depth and press on buttons, the breathing gold button, the van driving along the route band, the road mark in place of any spinner, the receipt that prints, the BI that is stamped. Rules in `UX_UI_SPEC.md` §1.3b, D-0.39. | 2026-11-14 |
 
 ## Ideas
 

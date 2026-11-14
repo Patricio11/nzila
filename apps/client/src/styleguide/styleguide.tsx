@@ -18,6 +18,7 @@ import {
   NeedsBars,
   PriceTag,
   Receipt,
+  RoadMark,
   RouteBand,
   Skeleton,
   SpeechBalloon,
@@ -68,6 +69,8 @@ function Case({ name, on = "sheet", children }: { name: string; on?: "sheet" | "
 
 export function Styleguide() {
   const [poupanca, setPoupanca] = useState(true);
+  const [ride, setRide] = useState(0.35);
+  const [paid, setPaid] = useState(0);
   const hud = Object.keys(GLYPHS).filter((name) => !(APP_GLYPHS as readonly string[]).includes(name)) as GlyphName[];
   return (
     <main class="sg">
@@ -77,6 +80,11 @@ export function Styleguide() {
           <span class="sg-plate n-on-dark"><Wordmark width={200} /></span>
         </div>
         <h1>Styleguide</h1>
+        <div class="sg-marks">
+          <span class="sg-plate"><RoadMark size={44} /></span>
+          <span class="sg-plate"><RoadMark size={44} state="done" /></span>
+          <span class="sg-plate"><RoadMark size={44} state="stopped" /></span>
+        </div>
         <p class="sg-note">Hora Dourada. Every house component in every state. The sample names and amounts are placeholders.</p>
       </header>
 
@@ -134,6 +142,10 @@ export function Styleguide() {
           <Case name="wallet" on="world"><WalletChip amount={sample.wallet.amount} /></Case>
           <Case name="wallet, Makuta in" on="world"><WalletChip amount={sample.wallet.amount + sample.wallet.fare} change="in" /></Case>
           <Case name="wallet, Makuta out" on="night"><WalletChip amount={sample.wallet.amount - sample.wallet.fare} change="out" /></Case>
+          <Case name="pay a fare (press it)" on="world">
+            <WalletChip key={paid} amount={sample.wallet.amount - paid * sample.wallet.fare} {...(paid > 0 ? { change: "out" as const } : {})} />
+            <ContextAction label={t("action.board")} price={sample.wallet.fare} onPress={() => setPaid((n) => n + 1)} />
+          </Case>
           <Case name="clock" on="world"><ClockChip secondOfDay={17 * 3600 + 42 * 60} /></Case>
           <Case name="clock, Modo Poupança" on="night"><ClockChip secondOfDay={21 * 3600 + 5 * 60} poupanca /></Case>
           <Case name="needs: hidden above half" on="world"><NeedsBars fome={8000} energia={9000} /><small class="sg-ghost">nothing shown</small></Case>
@@ -148,19 +160,21 @@ export function Styleguide() {
         </div>
       </Section>
 
-      <Section title="The route band" note="Shown while riding. Blue and white, like the van.">
+      <Section title="The route band" note="Shown while riding. The linha on the van's plate, the road with its stops, and the van driving along it.">
         <div class="sg-grid sg-wide">
-          <Case name="leaving the first stop"><RouteBand line={sample.route.line} stops={sample.route.stops} next={1} /></Case>
-          <Case name="last stop next"><RouteBand line={sample.route.line} stops={sample.route.stops} next={3} /></Case>
+          <Case name="waiting at the first stop" on="world"><RouteBand line={sample.route.line} stops={sample.route.stops} next={0} waiting /></Case>
+          <Case name={`on the road (press Drive: ${Math.round(ride * 100)}%)`} on="world"><RouteBand line={sample.route.line} stops={sample.route.stops} next={Math.min(3, Math.floor(ride * 3) + 1)} progress={(ride * 3) % 1} /></Case>
+          <Case name="arriving at the last stop" on="night"><RouteBand line={sample.route.line} stops={sample.route.stops} next={3} progress={0.8} /></Case>
+          <Case name="drive the van"><Button onPress={() => setRide((r) => (r >= 0.95 ? 0 : r + 0.12))}>{t("action.board")}</Button></Case>
         </div>
       </Section>
 
-      <Section title="The system line" note="One banner at the top, never a popup.">
+      <Section title="The system line" note="One banner at the top, never a popup. The road of the wordmark is the sign that something is under way; there is no spinner in the game.">
         <div class="sg-grid sg-wide">
-          <Case name="saving"><Banner>{t("state.saving")}</Banner></Case>
-          <Case name="saved"><Banner>{t("state.saved")}</Banner></Case>
-          <Case name="reconnecting"><Banner>{t("state.reconnecting")}</Banner></Case>
-          <Case name="offline"><Banner tone="problem">{t("state.offline")}</Banner></Case>
+          <Case name="saving: the road runs" on="world"><Banner>{t("state.saving")}</Banner></Case>
+          <Case name="saved: the sun comes up" on="world"><Banner state="done">{t("state.saved")}</Banner></Case>
+          <Case name="reconnecting" on="night"><Banner>{t("state.reconnecting")}</Banner></Case>
+          <Case name="offline: the road stops" on="night"><Banner state="stopped">{t("state.offline")}</Banner></Case>
         </div>
       </Section>
 

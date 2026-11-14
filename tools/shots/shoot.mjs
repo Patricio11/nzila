@@ -82,6 +82,24 @@ try {
       report.push(`${file}  ${width}x${height}  ${faults.length ? faults.join("; ") : "ok"}`);
     }
   }
+  // Movement cannot be seen in a still: one slow scroll down each long page, as a video.
+  for (const [pageName, path] of PAGES) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 780 }, recordVideo: { dir: out, size: { width: 390, height: 780 } } });
+    const page = await context.newPage();
+    await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: "networkidle" });
+    const tall = await page.evaluate("document.documentElement.scrollHeight");
+    for (let y = 0; y < tall - 780; y += 26) {
+      await page.evaluate(`window.scrollTo(0, ${y})`);
+      await page.waitForTimeout(110);
+    }
+    await page.waitForTimeout(1500);
+    const video = page.video();
+    await context.close();
+    const file = `${pageName}_motion.webm`;
+    await video.saveAs(join(out, file));
+    await video.delete();
+    report.push(`${file}  390x780  a slow scroll, to see what moves`);
+  }
 } finally {
   await browser?.close();
   // On Windows the server is a tree of processes; taskkill takes the whole tree.

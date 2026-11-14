@@ -129,6 +129,16 @@ Rules: gold is only ever "the thing to press"; one gold element per screen. Blue
 - Elevation: sheets cast one soft shadow up onto the world; chips have none (the scrim is enough); paper has a hard 1 px edge and a slight tilt of one degree on receipts.
 - Targets: at least 48 px; the context action 64 px; the joystick zone the whole lower-left (or right) third.
 
+### 1.3b How it feels: a game, not an app (founder, 2026-11-14)
+The first components were correct and plain, and the founder sent them back: "it must all feel like a game". The rules that came out of the redraw, kept in `packages/ui/src/ui.css`:
+- **What you press has depth.** A button stands on a lip, a darker shade of itself, and sinks onto it under the thumb. Light falls from above, as at golden hour. Labels on things you press are in the display face.
+- **The gold button is the low sun.** It breathes while it waits and a band of light crosses it now and then.
+- **What arrives springs in:** a little past where it stops, then it settles. The banner drops from the top, a balloon pops from its tail, a receipt prints out of its slot, the BI is stamped.
+- **The road is the sign of work under way.** The centre line of the wordmark's z runs while the game is doing something, and the sun comes up over it when it is done. There is no spinner anywhere in the game.
+- **The route band is the ride:** the linha on the van's own plate, the road with its stops, and the blue and white van driving along it.
+- **Everything is drawn by us,** and none of it borrows the look of the leading game in the market (cream, heavy black sans-serif, yellow highlighter, black outlines with hard shadows).
+- All of it stops for a player who asked for reduced motion.
+
 ### 1.4 Motion and haptics
 - Sheets rise in 180 ms (transform only). Receipts print: they slide out line by line in 300 ms, once.
 - The context action label cross-fades in 100 ms when what it does changes.

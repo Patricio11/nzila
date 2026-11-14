@@ -138,6 +138,8 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 
 - **D-0.38 The display typeface is Fraunces, and the wordmark is drawn (founder, 2026-11-14).** Chosen from five on a preview page, as the one that makes the BI and the receipt read as printed paper and that cannot be mistaken for the leading game in this market. One self-hosted file, weights 600 to 700, cut down to Portuguese, 35 KB, SIL Open Font License (`docs/legal/ASSET_LICENCES.md`). An open typeface can be used by anyone, so what is ours alone is what we draw: the wordmark (the z is a road, the dot of the i is the low sun), the app icon, the stamps, the glyphs.
 
+- **D-0.39 The interface feels like a game, and everything in it is drawn by us (founder, 2026-11-14).** Plain, app-like components are not acceptable: what you press has depth and sinks, what arrives springs in, the road of the wordmark is the only sign of loading, and the route band shows the van driving its linha. The rules are in `UX_UI_SPEC.md` §1.3b. Every new component is held to them and shown on `/styleguide` before it is used.
+
 ## WAITING ON THE FOUNDER (not code)
 2. The model of the founder's Android phone, to check it against the reference class (D-0.5). If it is a mid-range or better phone, a second, cheaper unit is still needed before beta: the game is judged on the cheap one.
 3. Photographs the founder owns or may use, of every landmark in L1, as reference for the art (D-0.23).

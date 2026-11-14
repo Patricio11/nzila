@@ -2,7 +2,12 @@
 // shows as properties and holds no words of its own: every word a player
 // reads comes from the catalog, and every colour from tokens.css.
 //
-// Built in Task 0.7: the pieces a screen is made of. The ones that need the
+// Built in Task 0.7 and redrawn the same day at the founder's word ("it must
+// feel like a game"): things you press have depth and sink, things that
+// arrive spring in, and the road of the wordmark is the sign that something
+// is under way. The motion is all in ui.css.
+//
+// These are the pieces a screen is made of. The ones that need the
 // world or touch input (the joystick, the compass, the Telemóvel sheet, the
 // emote wheel, the chat bar) are built with them in Tasks 1.4 and 1.7.
 
@@ -38,6 +43,38 @@ export function Wordmark({ width = 160 }: { width?: number }) {
   );
 }
 
+/**
+ * The mark in motion: the road of the wordmark's z, small. While something is
+ * under way its centre line runs; when it is done the sun comes up over it;
+ * when it cannot go on the line stops and the sun is red. It is the game's
+ * only "loading" sign: there is no spinner anywhere.
+ */
+export function RoadMark({ state = "moving", size = 22 }: { state?: "moving" | "done" | "stopped"; size?: number }) {
+  const z = "M6 9H22L6 25H22";
+  return (
+    <svg class={`n-road n-road-${state}`} width={size} height={size} viewBox="0 0 28 30" aria-hidden="true">
+      <path class="n-road-tar" d={z} />
+      <path class="n-road-line" d={z} />
+      <circle class="n-road-sun" cx="23" cy="5" r="3.5" />
+    </svg>
+  );
+}
+
+/** The blue and white van, from the side. Drawn for Nzila. */
+export function Van({ width = 44 }: { width?: number }) {
+  return (
+    <svg class="n-van" width={width} viewBox="0 0 44 26" aria-hidden="true">
+      <path class="n-van-body" d="M3 6.5A3.5 3.5 0 0 1 6.5 3H30c2.5 0 4.6 1.2 6 3.3l4.4 6.6c.4.6.6 1.3.6 2V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6.5z" />
+      <path class="n-van-stripe" d="M3 13h38v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6z" />
+      <path class="n-van-glass" d="M7 6h6v5H7zM15 6h6v5h-6zM23 6h6.5c1 0 2 .5 2.6 1.4L34.5 11H23z" />
+      <circle class="n-van-wheel" cx="12" cy="21" r="3.6" />
+      <circle class="n-van-wheel" cx="31" cy="21" r="3.6" />
+      <circle class="n-van-hub" cx="12" cy="21" r="1.3" />
+      <circle class="n-van-hub" cx="31" cy="21" r="1.3" />
+    </svg>
+  );
+}
+
 /** A plain button. `kind` "quiet" is for the second choice on a screen. */
 export function Button({ children, kind = "solid", disabled, busy, onPress }: { children: ComponentChildren; kind?: "solid" | "quiet"; disabled?: boolean; busy?: boolean; onPress?: () => void }) {
   return (
@@ -57,12 +94,14 @@ export function ContextAction({ label, price, disabled, onPress }: { label: stri
   );
 }
 
-/** Cash on hand. `change` flashes green or red when the amount has just moved. */
+/** Cash on hand. `change` makes the amount jump, green or red, when it has just moved. */
 export function WalletChip({ amount, change }: { amount: number; change?: "in" | "out" }) {
   return (
     <span class={`n-chip n-wallet${change ? ` n-wallet-${change}` : ""}`}>
-      <Glyph name="carteira" size={18} label={tr.t("hud.wallet")} />
-      <span class="n-num">{tr.makuta(amount)}</span>
+      <span class="n-coin">
+        <Glyph name="carteira" size={16} label={tr.t("hud.wallet")} />
+      </span>
+      <span class="n-num n-display">{tr.makuta(amount)}</span>
     </span>
   );
 }
@@ -96,11 +135,15 @@ export function NeedsBars({ fome, energia }: { fome: number; energia: number }) 
   );
 }
 
-/** The single system line at the top: reconnecting, saving, offline. */
-export function Banner({ children, tone = "calm" }: { children: ComponentChildren; tone?: "calm" | "problem" }) {
+/**
+ * The single system line at the top: saving, saved, reconnecting, offline.
+ * The road mark beside the words says which without being read.
+ */
+export function Banner({ children, state = "moving" }: { children: ComponentChildren; state?: "moving" | "done" | "stopped" }) {
   return (
-    <div class={`n-banner n-banner-${tone}`} role="status">
-      {children}
+    <div class={`n-banner n-banner-${state}`} role="status">
+      <RoadMark state={state} />
+      <span>{children}</span>
     </div>
   );
 }
@@ -174,6 +217,9 @@ export function IdCard({ name, number, bairro, arrived, shielded, photo }: { nam
           {field(tr.t("bi.bairro"), bairro)}
           {field(tr.t("bi.arrived"), arrived)}
         </dl>
+        <span class="n-bi-stamp" aria-hidden="true">
+          <RoadMark state="done" size={26} />
+        </span>
         {shielded ? (
           <p class="n-bi-shield">
             <Glyph name="escudo" size={16} />
@@ -185,16 +231,39 @@ export function IdCard({ name, number, bairro, arrived, shielded, photo }: { nam
   );
 }
 
-/** The blue and white band shown while riding: the linha, its stops, the next one. */
-export function RouteBand({ line, stops, next }: { line: string; stops: readonly string[]; next: number }) {
+/**
+ * Shown while riding: the linha on the van's own plate, the road with its
+ * stops, and the van driving along it. `next` is the stop ahead and
+ * `progress` (0 to 1) how far the van is from the stop behind toward it;
+ * `waiting` means it is standing at `next` with the door open.
+ */
+export function RouteBand({ line, stops, next, progress = 0, waiting }: { line: string; stops: readonly string[]; next: number; progress?: number; waiting?: boolean }) {
+  const last = Math.max(1, stops.length - 1);
+  const at = waiting ? next : Math.max(0, next - 1 + Math.max(0, Math.min(1, progress)));
   return (
-    <div class="n-route" role="status">
-      <strong class="n-route-line">{line}</strong>
+    <div class={`n-route${waiting ? " n-route-waiting" : ""}`} role="status">
+      <div class="n-route-top">
+        <strong class="n-route-plate">{line}</strong>
+        <span class="n-route-next">
+          <small>{tr.t(waiting ? "route.atStop" : "route.next")}</small>
+          <b>{stops[next]}</b>
+        </span>
+      </div>
+      <div class="n-route-road">
+        <div class="n-route-lane">
+          <span class="n-route-dashes" aria-hidden="true" />
+          {stops.map((_, i) => (
+            <span class={`n-route-post${i < next ? " n-post-past" : i === next ? " n-post-next" : ""}`} style={{ left: `${(i / last) * 100}%` }} aria-hidden="true" />
+          ))}
+          <span class="n-route-van" style={{ left: `${(at / last) * 100}%` }}>
+            <Van />
+          </span>
+        </div>
+      </div>
       <ol class="n-route-stops">
         {stops.map((stop, i) => (
           <li class={i < next ? "n-stop-past" : i === next ? "n-stop-next" : undefined} aria-current={i === next ? "step" : undefined}>
-            <span class="n-stop-dot" aria-hidden="true" />
-            <span class="n-stop-name">{stop}</span>
+            {stop}
           </li>
         ))}
       </ol>
@@ -205,8 +274,16 @@ export function RouteBand({ line, stops, next }: { line: string; stops: readonly
 /** Words over a head. Too far away to read, it is a balloon with no words in it. */
 export function SpeechBalloon({ text, typing }: { text?: string; typing?: boolean }) {
   return (
-    <span class={`n-balloon${text ? "" : " n-balloon-far"}`}>
-      {typing ? <span class="n-dots" role="img" aria-label={tr.t("chat.typing")} /> : (text ?? "")}
+    <span class={`n-balloon${text || typing ? "" : " n-balloon-far"}`}>
+      {typing ? (
+        <span class="n-dots" role="img" aria-label={tr.t("chat.typing")}>
+          <i />
+          <i />
+          <i />
+        </span>
+      ) : (
+        (text ?? "")
+      )}
     </span>
   );
 }
