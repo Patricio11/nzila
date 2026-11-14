@@ -1,0 +1,75 @@
+// The words below are stand-ins. The real lists are written in Task 3.6.
+import { readFile } from "node:fs/promises";
+import { describe, expect, test } from "vitest";
+import { createChatFilter, parseWordList, plainForm } from "./filter.ts";
+
+describe("the plain form", () => {
+  test("lower case, no accents, single spaces", () => {
+    expect(plainForm("  Coração   de MÃE ")).toBe("coracao de mae");
+  });
+
+  test("digits and symbols read as the letters they imitate", () => {
+    expect(plainForm("b4n4n4 p0dr3 $1m 7udo @qui")).toBe("banana podre sim tudo aqui");
+  });
+
+  test("repeated letters collapse and separators inside a word are dropped", () => {
+    expect(plainForm("baaaanaaana")).toBe("banana");
+    expect(plainForm("b.a-n*a_n.a")).toBe("banana");
+    expect(plainForm("Bom dia! Tudo fixe?")).toBe("bom dia tudo fixe");
+  });
+
+  test("text with no letters at all is empty", () => {
+    expect(plainForm("... 😀 ---")).toBe("");
+  });
+});
+
+describe("the filter", () => {
+  const filter = createChatFilter(["banana", "Limão Podre", "  ", "ovo"]);
+
+  test("finds a listed word however it is disguised", () => {
+    for (const text of ["banana", "BANANA", "b4n4n4", "baaanaaana", "b.a.n.a.n.a", "b a n a n a", "és uma bánaná mesmo", "banana!"]) {
+      expect(filter.find(text), text).toEqual(["banana"]);
+    }
+  });
+
+  test("digits and symbols stuck on the ends of a word hide nothing", () => {
+    for (const text of ["banana1", "banana!!!1", "123banana", "**banana**", "és banana7 pá", "b4n4n4 99"]) {
+      expect(filter.find(text), text).toEqual(["banana"]);
+    }
+  });
+
+  test("finds a phrase across its words", () => {
+    expect(filter.find("isso é limao podre, pá")).toEqual(["Limão Podre"]);
+    expect(filter.find("l1m40 p0dr3")).toEqual(["Limão Podre"]);
+    expect(filter.find("limão muito podre")).toEqual([]);
+  });
+
+  test("does not find a word inside another word", () => {
+    expect(filter.find("uma bananada com povo novo")).toEqual([]);
+    expect(filter.find("bananas")).toEqual([]);
+  });
+
+  test("reports each word once, and nothing in clean text", () => {
+    expect(filter.find("banana banana ovo banana")).toEqual(["banana", "ovo"]);
+    expect(filter.find("Bom dia! Tudo fixe? Bora à Ilha comer mufete.")).toEqual([]);
+    expect(filter.find("")).toEqual([]);
+    expect(filter.find("a b")).toEqual([]);
+  });
+
+  test("an empty list finds nothing", () => {
+    expect(createChatFilter([]).find("banana")).toEqual([]);
+  });
+});
+
+describe("the word list files", () => {
+  test("comments and blank lines are skipped", () => {
+    expect(parseWordList("# heading\n\nbanana # why\r\n  limão podre  \n#\n")).toEqual(["banana", "limão podre"]);
+  });
+
+  test("both scaffolds parse, and are still empty until Task 3.6 fills them", async () => {
+    for (const name of ["pt.txt", "ao.txt"]) {
+      const words = parseWordList(await readFile(new URL(`../filter/${name}`, import.meta.url), "utf8"));
+      expect(words, name).toEqual([]);
+    }
+  });
+});

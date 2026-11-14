@@ -17,5 +17,6 @@ Then:
 - No Makuta moves outside the ledger.
 - Nothing is done until it is measured against the reference-phone and data budgets.
 - When a phase ships, follow the doc convention in `TO_START_EVERY_SESSION.md`.
+- A bug, a gap or an idea found while working on a task is never lost: fix it in the task when you can, and record it in `docs/FINDINGS.md` either way (the convention is at the top of that file).
 
 Gate before any commit: `pnpm test:all`.

@@ -5,7 +5,23 @@
 import { getTableColumns, getTableName } from "drizzle-orm";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { connect, databaseUrl, loadMigrations, loadWorldSeed, migrate, seed, tables } from "./index.ts";
+import {
+  CONSENT_PURPOSES,
+  audit as auditLog,
+  connect,
+  consentsOf,
+  databaseUrl,
+  decryptField,
+  loadMigrations,
+  loadWorldSeed,
+  migrate,
+  parseKeyring,
+  parsePepper,
+  protectPhone,
+  recordConsent,
+  seed,
+  tables,
+} from "./index.ts";
 import { audit, faucet, sink, systemAccountIds, type Transfer } from "@nzila/economy";
 
 const name = `nzila_test_${process.pid}_${Date.now()}`;
@@ -58,7 +74,7 @@ async function balance(id: string): Promise<number> {
 
 describe("migrations", () => {
   test("apply once, and a second run applies nothing", async () => {
-    expect(await migrate(sql)).toEqual(["0001_core"]);
+    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact"]);
     expect(await migrate(sql)).toEqual([]);
   });
 
@@ -236,6 +252,54 @@ describe("players", () => {
     await sql`UPDATE players SET age_band = '15_17' WHERE id = ${guest!.id}`;
     expect(await refusal(sql`UPDATE players SET age_band = '2011' WHERE id = ${guest!.id}`)).toBe(CHECK);
     const columns = await sql<{ column_name: string }[]>`SELECT column_name FROM information_schema.columns WHERE table_name = 'players'`;
-    expect(columns.map((c) => c.column_name).filter((c) => /birth|phone|email|real_name/.test(c))).toEqual([]);
+    // The only trace of a phone number is its encrypted copy and its keyed hash.
+    expect(columns.map((c) => c.column_name).filter((c) => /birth|phone|email|real_name/.test(c)).sort()).toEqual(["phone_enc", "phone_hash"]);
+  });
+
+  test("a phone number is stored encrypted and hashed, found by its hash, and belongs to one account", async () => {
+    const keyring = parseKeyring(`1:${Buffer.alloc(32, 1).toString("base64")}`);
+    const pepper = parsePepper(Buffer.alloc(32, 2).toString("base64"));
+    const stored = protectPhone("923 456 789", keyring, pepper)!;
+    const [player] = await sql<{ id: string }[]>`
+      INSERT INTO players (kind, phone_enc, phone_hash) VALUES ('linked', ${stored.phoneEnc}, ${stored.phoneHash}) RETURNING id`;
+    // Typed another way at sign-in, the same number finds the same account.
+    const again = protectPhone("+244 923-456-789", keyring, pepper)!;
+    const found = await sql<{ id: string; phone_enc: Uint8Array }[]>`SELECT id, phone_enc FROM players WHERE phone_hash = ${again.phoneHash}`;
+    expect(found.map((r) => r.id)).toEqual([player!.id]);
+    expect(decryptField(found[0]!.phone_enc, "players.phone", keyring)).toBe("+244923456789");
+    // Nothing in the row contains the number.
+    const [raw] = await sql<{ row: string }[]>`SELECT players::text AS row FROM players WHERE id = ${player!.id}`;
+    expect(raw!.row).not.toContain("923456789");
+    expect(await refusal(sql`INSERT INTO players (phone_hash) VALUES (${again.phoneHash})`)).toBe(UNIQUE);
+  });
+});
+
+describe("audit.log and consents", () => {
+  test("audit.log writes who, what, whom and why, and refuses to write without a why", async () => {
+    await auditLog.log(sql, { actorKind: "staff", actorId: "s-7", kind: "player.read", subjectKind: "player", subjectId: "p-1", reason: " ticket 77 ", meta: { fields: ["phone"] }, provinceId: "ao-lua", districtId: "ao-lua/l1" });
+    const [row] = await sql`SELECT actor_kind, actor_id, kind, subject_id, reason, meta, district_id FROM audit_log WHERE actor_id = 's-7'`;
+    expect(row).toEqual({ actor_kind: "staff", actor_id: "s-7", kind: "player.read", subject_id: "p-1", reason: "ticket 77", meta: { fields: ["phone"] }, district_id: "ao-lua/l1" });
+    await auditLog.log(sql, { actorKind: "system", actorId: "worker", kind: "ledger.audit", subjectKind: "ledger", subjectId: "all", reason: "nightly" });
+    await expect(auditLog.log(sql, { actorKind: "staff", actorId: "s-7", kind: "player.read", subjectKind: "player", subjectId: "p-1", reason: "  " })).rejects.toThrow(/needs a reason/);
+    expect((await sql`SELECT 1 FROM audit_log WHERE actor_id = 's-7'`).length).toBe(1);
+  });
+
+  test("a consent is a history: the latest answer for the current wording is the one that counts", async () => {
+    const [player] = await sql<{ id: string }[]>`INSERT INTO players DEFAULT VALUES RETURNING id`;
+    const id = player!.id;
+    // Never asked: everything is a no.
+    expect(await consentsOf(sql, id)).toEqual({ play: false, analytics: false, notifications: false });
+    await recordConsent(sql, id, "play", true);
+    await recordConsent(sql, id, "analytics", true);
+    expect(await consentsOf(sql, id)).toEqual({ play: true, analytics: true, notifications: false });
+    await recordConsent(sql, id, "analytics", false);
+    expect(await consentsOf(sql, id)).toEqual({ play: true, analytics: false, notifications: false });
+    expect((await sql`SELECT 1 FROM consents WHERE player_id = ${id}`).length).toBe(3);
+    // Playing cannot be un-agreed to; the account is deleted instead.
+    await expect(recordConsent(sql, id, "play", false)).rejects.toThrow(/cannot be withdrawn/);
+    // A yes given to older wording no longer counts: the player is asked again.
+    await sql`INSERT INTO consents (player_id, purpose, version, granted) VALUES (${id}, 'notifications', ${CONSENT_PURPOSES.notifications.version + 1}, true)`;
+    expect((await consentsOf(sql, id)).notifications).toBe(false);
+    expect(await refusal(sql`INSERT INTO consents (player_id, purpose, version, granted) VALUES (${id}, 'marketing', 1, true)`)).toBe(CHECK);
   });
 });

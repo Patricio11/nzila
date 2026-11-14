@@ -186,9 +186,9 @@ flowchart LR
 - Depends on: 0.1 · Unblocks: 1.1, 1.9, 13.4.
 
 ### Task 0.10: Privacy and safety spine
-- [ ] `audit.log()` writing actor, kind, subject, reason; field encryption for phone numbers; hashing for device ids.
-- [ ] `consents` (purpose, version, time); purposes seeded: `play` (required), `analytics`, `notifications`.
-- [ ] Chat filter word lists scaffolded for Portuguese and Angolan slang (filled in 3.6); `docs/legal/RETENTION.md` with a row per table.
+- [x] `audit.log()` writing actor, kind, subject, reason; field encryption for phone numbers; hashing for device ids. *(2026-11-14: in `packages/db`. `audit.log()` refuses to write without a reason. A phone number is kept as an AES-256-GCM copy bound to its column, with numbered keys that can be rotated, and as a keyed hash for finding the account at sign-in (migration `0002_player_contact`). A device id is kept only as a keyed hash. Keys come from `FIELD_KEYS` and `HASH_PEPPER`; the values in `.env.example` are for a laptop only.)*
+- [x] `consents` (purpose, version, time); purposes seeded: `play` (required), `analytics`, `notifications`. *(2026-11-14: the purposes are a constant with a version each, checked by the table. A consent counts only if the latest answer is yes and was given for the current wording; `play` cannot be withdrawn, only ended by deleting the account.)*
+- [x] Chat filter word lists scaffolded for Portuguese and Angolan slang (filled in 3.6); `docs/legal/RETENTION.md` with a row per table. *(2026-11-14: the filter's machinery is in `packages/i18n/src/filter.ts` and tested with stand-in words: accents, look-alike digits, repeated and spelled-out letters, and digits stuck on the ends of words hide nothing. The two lists in `packages/i18n/filter/` are empty on purpose: only Luandans can write them. The retention periods are proposals for counsel.)*
 - Depends on: 0.5 · Unblocks: 2.6, 3.6, 13.3.
 
 ### Task 0.11: Wiring, verification, doc convention

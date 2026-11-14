@@ -1,0 +1,5 @@
+# Chat filter: Angolan slang, Kimbundu and Umbundu insults, and what only
+# someone from Luanda would recognise as abuse. Same format as pt.txt.
+#
+# Scaffold only (Task 0.10). Only a Luandan can write this list: the founder
+# and the moderators fill it in Task 3.6. Nothing here is guessed from outside.

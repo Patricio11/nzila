@@ -1,0 +1,8 @@
+# Chat filter: Portuguese in general. One word or phrase per line; "#" starts a comment.
+#
+# Words are compared in their plain form (packages/i18n/src/filter.ts): lower
+# case, no accents, digits and symbols read as the letters they imitate,
+# repeated letters collapsed. Write each word once, as it is normally spelled.
+#
+# Scaffold only (Task 0.10). The list is written in Task 3.6 with the founder
+# and the moderators, and reviewed with the first reports from real players.

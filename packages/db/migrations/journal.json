@@ -2,5 +2,9 @@
   {
     "id": "0001_core",
     "sha256": "d67a2612dd7909873cbba70ff0f0afb2ae80c706eb16adcde196c497a9b1c629"
+  },
+  {
+    "id": "0002_player_contact",
+    "sha256": "51274093b7a999bb3e7ac7121f678c0b6a44cfb34ed2b34c4f10718a380fea5d"
   }
 ]

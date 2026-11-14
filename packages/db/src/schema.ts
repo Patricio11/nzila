@@ -2,9 +2,10 @@
 // ../migrations are the source of truth for what exists in the database; an
 // integration test fails when a column here and a column there disagree.
 
-import { bigint, boolean, integer, jsonb, pgTable, primaryKey, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, customType, integer, jsonb, pgTable, primaryKey, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 const at = (name: string) => timestamp(name, { withTimezone: true });
+const bytea = customType<{ data: Uint8Array }>({ dataType: () => "bytea" });
 
 // ------------------------------------------------------------------ world
 
@@ -53,6 +54,9 @@ export const players = pgTable("players", {
   x: integer("x"),
   y: integer("y"),
   z: integer("z"),
+  // Never the number itself: see privacy.ts.
+  phoneEnc: bytea("phone_enc"),
+  phoneHash: text("phone_hash"),
   arrivedAt: at("arrived_at").notNull().defaultNow(),
   createdAt: at("created_at").notNull().defaultNow(),
   deletedAt: at("deleted_at"),
