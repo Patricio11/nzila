@@ -86,7 +86,32 @@ The founder's correction: **most of Angola is houses, not blocks of flats.** Blo
 
 **Outside Luanda** the same holds more strongly: a provincial capital has a small centre of colonial and modern buildings and is otherwise houses. The provinces are planned in `WORLD_ATLAS.md` §3; each brief states its housing mix.
 
-**Still to come from the founder or from Luandans (nobody can look this up well):** what a typical street in Cazenga, in Rangel and in a newer bairro like Zango actually looks like at eye level (photographs of his own, not from the internet); the colours people paint a casa de bloco once they can; what stands in a quintal.
+**The quintal is the backyard** (founder, 2026-11-14): behind the house, not in front of it.
+
+## 6d. What the founder's photographs show (fourteen, 2026-11-14)
+
+Kept in `art/reference/founder-2026-11-14/` on the founder's machine, outside git: several are other people's pictures, for looking at and never for publishing. This table is what the kit is built from. More can be found by searching for a place with "Angola" after it (founder's advice).
+
+| Photograph | What is in it that the game must have |
+|---|---|
+| A bairro street of earth | Pale grey-brown earth, rutted, not red here. A wall of **chapa painted red** with a hand-painted round sign; a wall of **bare grey block**; a house painted **mint green below and white above** under a zinc roof with a deep overhang. A concrete pavement with a kerb on one side only. An iron drain grating across the road. **Leaning wooden poles with a tangle of wires** crossing the street: the single most telling detail. People walking in the middle of the road. Litter. |
+| A bairro street with tar | The same houses on a narrow tarred street with short centre dashes: single-storey, a metre or two apart, **pastel green, pink, ochre, blue**, each with a wall and a metal gate at the street. Zinc roofs, some red. Satellite dishes. Plants in pots at the door. Decorative lamp posts. Children and adults in the road, a pickup parked half on the pavement. |
+| A musseque from above | Hundreds of small roofs of sheet metal in **rust, silver, red and blue**, close together, with red earth paths between and one great tree in the middle. No straight line anywhere. |
+| A neighbourhood sports court | A fenced court painted green, blue and yellow among rusty roofs, **ringed three deep with people watching**. Cars parked on earth; a hand cart; a blue awning. The court is the square of the bairro. |
+| A school from above | Long single-storey wings with **maroon zinc roofs and orange walls** round grassed courtyards with benches, a fenced green court, a wall round the whole. Another with a roofed court where pupils are lined up. This is the school of Task 10.17 and Phase 9. |
+| An avenue, a candongueiro from behind | **The Hiace: white above, a clear mid blue below the window line**, blue bumper, a yellow plate. Tall grey lamp posts with a long arm. A raised concrete median with small trees. Beside the road, single-storey shops in pink and green and unfinished buildings of bare brick. A woman carrying bags. A wide sandy verge of concrete slabs. |
+| An avenue with a three-storey building | Cream and ochre institutional block with a blue roof; a shop with a **yellow sign-board**; motorbikes with riders; an open drain running along the kerb; sand where the pavement should be. |
+| A centralidade's blocks | Nine storeys, **white with one broad vertical stripe of colour each (pink, green, orange)**, balconies with washing, air-conditioning boxes, billboards at street level. |
+| Kilamba | Cream blocks of five to eleven storeys with **yellow hipped roofs**, set in clusters of four round a court, on a wide regular grid with pale paving. |
+| An expressway junction | Six lanes each way, full of cars; loops of the junction round bare sandy earth; **flags on every lamp post**; blocks on the horizon. |
+| The Assembleia and the Memorial | The orange dome and colonnades; the memorial's tall dark tower in a formal garden of clipped grass in a fan; and round both, **low houses with red tiled roofs**. Even the centre is ringed with houses. |
+| The Marginal | The bay, the palms in rows, the pink bank with its dome, and behind it glass towers. As §1 and §2. |
+| The Ilha de Luanda from above | A thin strip: open sea and a beach with stone groynes on one side, the road down the middle, low houses with orange roofs and the bay with boats on the other. |
+| Talatona from above | A condominium of **white flat-roofed two-storey vivendas** in tight rows on paved lanes, a mall and mid-rise blocks beyond. |
+
+**What this corrects in what was built on 2026-11-14.** The rehearsal town has pavements everywhere, trees in neat pits and no wires: it is tidier than any street in these pictures. The house kit needs the wall and gate at the street, the zinc roof with its overhang, the two-colour paint, the pole with its wires, the dish, the pots, the open drain and the sand verge. The van's blue must be this blue and its split at the window line.
+
+**Still to come from the founder or from Luandans:** a quintal seen from inside; the inside of an ordinary house; a cantina's front.
 
 ## 7. What still has to come from the founder (nobody can look this up)
 - [ ] Photographs he owns or may use of: the promenade from both ends, the pink building's corner and arcade, the fortress from below and the view from the top, the Palácio de Ferro, the Mutamba, one inner street of the Baixa, a full paragem at rush hour, a candongueiro inside and out.

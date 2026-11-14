@@ -481,6 +481,13 @@ flowchart LR
 - [ ] Limits against hoarding: a tunable cap on homes owned per player, and an unlet, unlived-in home pays a higher tax.
 - Depends on: 5.2, 5.4, 5.7 · Unblocks: 8B.4, 15.3.
 
+### Task 5.9: Cães e gatos (founder, 2026-11-14)
+- [ ] A player may keep a dog or a cat. **Five dogs to begin with**, different in what they are good for and what they cost to keep: the rafeiro (the street dog every bairro has, cheap, loyal, alert), a big guard dog, a small house dog, a fast lean hunting dog, and a puppy of any of them that grows. Named in the catalog by the founder; breeds are described by kind, not by a kennel club's name, until he says which. A cat is one kind in several coats.
+- [ ] **Where they come from depends on the zone** (founder): street dogs and cats live in the bairros and can be fed over days until one follows you home; a breeder or a shop sells the others in the districts that would have one. Nothing is bought with real money.
+- [ ] A pet lives at the home: it eats (a small real cost through the ledger), follows its owner on foot in the street when asked, sleeps in its place, greets housemates and children, and is drawn and moved by the game like the ambient animals of 1.6. It has moods, not hit points: a pet is never hurt, killed, fought or sold on for profit, and one left unfed goes to a neighbour who returns it when it is fed.
+- [ ] The dog guards (Task 7.2); the cat keeps the kitchen's stock from spoiling to rats, a small steady saving. Both lift Humor at home.
+- Depends on: 5.1, 4.2, 1.6 · Unblocks: 7.2.
+
 ### Task 5.6: Wiring, verification, doc convention
 - [ ] Rent taken exactly once per period under retries; an evicted player's belongings are intact; an interior loads under 1 MB.
 - [ ] Invariants for player landlords: a deposit is always returned or settled by rule; an owner cannot reach a tenant's items; included appliances cannot leave the home during a tenancy.
@@ -539,9 +546,10 @@ flowchart LR
 - Depends on: 0.2, 3.1 · Unblocks: 7.2, 7.3.
 
 ### Task 7.2: Offences
-- [ ] Each is an intention the zone resolves with `offence.ts`: furto (take from a shop shelf), carteirista (pick a pocket in a crowd), assalto (demand cash from a player in a hot block; the victim may hand over, resist in a short contest, or run), arrombamento (pick a home's lock in a noisy timed minigame; the owner's phone rings), roubo de viatura (take an unlocked or poorly locked vehicle).
+- [ ] Each is an intention the zone resolves with `offence.ts`: furto (take from a shop shelf), carteirista (pick a pocket in a crowd), assalto (demand cash from a player in a hot block; the victim may hand over, resist in a short contest, or run), arrombamento (pick a home's lock in a noisy timed minigame; the owner's phone rings; **what can be carried out is taken as in life: the television, the phone on the table, the generator, cash** (founder, 2026-11-14). A thief carries one large thing or a few small ones a visit; what is built in or too heavy stays; a stolen thing is a real item that can be recovered by the police of 7.3, bought back, or claimed on insurance; a home cannot be entered again for a time after a burglary, and a newcomer's home not at all), roubo de viatura (take an unlocked or poorly locked vehicle).
 - [ ] Witnesses: NPCs and players nearby raise the chance of a call to the police; players can press "Chamar a polícia".
-- Depends on: 4.2, 5.4, 5.5, 6.3, 7.1 · Unblocks: 7.3, 7.5.
+- [ ] A dog in the home (Task 5.9) barks before the lock gives, which shortens the thief's time and brings the neighbours; a big one may hold the door.
+- Depends on: 4.2, 5.4, 5.5, 5.9, 6.3, 7.1 · Unblocks: 7.3, 7.5.
 
 ### Task 7.3: Police
 - [ ] NPC patrols on foot and in cars, denser where heat is high; a response to a call arrives in a time that depends on distance; pursuit on foot and by car; arrest when caught or cornered.
@@ -744,17 +752,17 @@ flowchart LR
 - Depends on: 10.10 · Unblocks: 10.13.
 
 ### Task 10.13: Namoro, casamento e família (D-0.34)
-- [ ] Namoro is declared by both players and shown on the BI only if both wish. Any two players who both agree may marry; there is no pedido and no alambamento for now (founder, 2026-11-14). Namoro and marriage exist only for players in the 18-or-over band (D-0.34, proposed).
+- [ ] Namoro is declared by both players and shown on the BI only if both wish. Any two players who both agree may marry; there is no pedido and no alambamento for now (founder, 2026-11-14). Namoro and marriage exist only for players in the 18-or-over band (D-0.34, confirmed by the founder 2026-11-14).
 - [ ] The wedding: a date in the calendar, invitations by Mensagens, the ceremony (at the church of 10.12 or at the registry), the convoy with ribbons along the Marginal, the photographs against the bay (photo mode), the party in a quintal or a hired venue (a booking for a player's business).
 - [ ] Afterwards: a shared home with both names on the door, an optional joint account, a page in the Álbum. Separation is possible, private and without penalty beyond dividing what is shared by rule.
 - Depends on: 5.4, 10.7, 10.12 · Unblocks: 10.6, 10.17.
 
 
-### Task 10.17: Filhos e a escola (proposed, 2026-11-14; awaits the founder on the rules marked)
-- [ ] A household may have children. A child is a member of the household that the game plays, never a body a player controls and never another player. A child comes to a married couple, or to one player alone, by a decision made in the Casa app, and the game says nothing about how: there is no pregnancy to play and nothing a 15-year-old's parent would object to. *(Rule proposed: 18-or-over band only, as for marriage.)*
+### Task 10.17: Filhos e a escola (founder agreed the rules, 2026-11-14)
+- [ ] A household may have children. A child is a member of the household that the game plays, never a body a player controls and never another player. A child comes to a married couple, or to one player alone, by a decision made in the Casa app, and the game says nothing about how: there is no pregnancy to play and nothing a 15-year-old's parent would object to. For players in the 18-or-over band only, as for marriage (founder, 2026-11-14).
 - [ ] A child has a name, an age that moves with real weeks, a few needs the household meets together (meals at home, a bed, someone home in the evening), and a place at the table. Neglect is never shown as harm: an aunt takes the child in until the home is in order, and says so.
 - [ ] **School.** The parents choose a school in their district and pay the propinas each term through the ledger; uniform, books and the daily candongueiro fare are real costs. Homework is a two-minute shared minigame, better with both parents. Report cards arrive; a child who does well opens things for the family (a bursary, a prize day at the school the household attends, a page in the Álbum).
-- [ ] Schools are player-facing places with staff jobs from Phase 9 (professor/a, contínuo, directora); a classroom has chat held to the stricter filter of 3.6 whoever is in it.
+- [ ] **Real players teach** (founder, 2026-11-14): professor/a is a career of Phase 9 held by players, with the contínuo and the directora. A lesson is a short shared minigame the teacher leads; a class goes ahead with the game's own teacher when no player is on shift. A classroom has chat held to the stricter filter of 3.6 whoever is in it. The school is built like the ones in the founder's photographs: long wings with maroon roofs round a courtyard, a court, a wall (`LUANDA_REFERENCE.md` §6d).
 - [ ] Invariants: a child cannot be traded, sold, bet or used as a container for Makuta; separation divides nothing of the child and both keep their place in the child's page.
 - Depends on: 5.1, 9.1, 10.13 · Unblocks: nothing yet.
 
