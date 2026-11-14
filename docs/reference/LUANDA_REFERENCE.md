@@ -109,9 +109,41 @@ Kept in `art/reference/founder-2026-11-14/` on the founder's machine, outside gi
 | The Ilha de Luanda from above | A thin strip: open sea and a beach with stone groynes on one side, the road down the middle, low houses with orange roofs and the bay with boats on the other. |
 | Talatona from above | A condominium of **white flat-roofed two-storey vivendas** in tight rows on paved lanes, a mall and mid-rise blocks beyond. |
 
+**A second set the same day: houses, quintais and cantinas (thirteen photographs).**
+
+| Photograph | What is in it that the game must have |
+|---|---|
+| A house behind its wall on an earth street | **Red earth here** (the bairro street of the first set was grey-brown: both exist, by district). A long rendered wall in cream with grey piers, **two wide grey sliding gates** for cars and a small door for people, razor wire on top, royal palms planted outside it, an orange tiled roof showing above. The wall is the face of the house. |
+| A single-storey house in a garden | Cream yellow walls, a low **orange clay-tile roof**, dark barred windows, a barred door standing open, a lawn, a paved path, a brick-and-lattice gate pier. The better-off bairro house. |
+| A two-storey vivenda | Grey render with white trim, a tiled porch on white columns as a carport, air-conditioning boxes on the wall, a car on pale paving, clipped shrubs in a bed. |
+| A large vivenda with a pool | White, bay windows, a stone-clad ground floor, a small pool in a paved terrace, a lawn, a mango tree shading it. Talatona's top rung. |
+| A modern vivenda (an architect's drawing) | Flat-roofed boxes in ochre, grey and white, a balcony, a boundary wall with a recessed car gate. What is being built now. |
+| A condominium from above | Dozens of the same house, cream with **orange hipped tile roofs**, each in a walled garden with a lawn, curving roads with lamp posts, one shared pool. |
+| A quintal as a sitting place | Artificial grass, timber decking, garden chairs with cushions, **a big red parasol on a side arm**, a table and chairs, palms in clay pots, an outside stair to the upper floor, a fire extinguisher on the wall. |
+| A quintal as a paved court | Pale concrete with trees in round pits, a long table under a pergola, **bougainvillea in flower up the wall**, a bicycle. |
+| A cantina, painted | The whole front in **yellow, with its name hand-lettered in red and blue** along the top and slogans painted on the wall; a heavy barred iron door standing open; a window grille; a band of pierced concrete blocks under the roof for air; a product's name painted on, not printed. |
+| A cantina with a banner | A printed banner the width of the shop with its name and **a telephone number**; roller shutters either side of a central grille; the lower wall painted in a brand's colours; **a blue kupapata parked in front**, its cargo box in front of the rider. |
+| A shop in a rendered building | White scrolled iron grilles over windows and door, a small orange sign for phone top-ups, steps up from the pavement, men standing at the door, a car and a motorbike passing. |
+| A shop under an old two-storey building | Pierced-block balustrades above; below, shelves packed to the ceiling, **cartons and crates stacked on the pavement**, a wooden hand cart with one wheel, a motorbike, a seller's umbrellas, a woman in pano. |
+| A market stall | **Plastic bacias in every colour heaped with grain, flour and beans, each with a tin set in it as the measure**; behind, tables of tins and packets under cloth. How things are sold: by the tin. |
+
+**A cantina is a shop: it sells things** (founder, 2026-11-14, with three more photographs). It is the corner grocery of the bairro, not a bar and not a decoration.
+
+| Photograph | What is in it that the game must have |
+|---|---|
+| A cantina inside | A small room with orange walls and a tiled floor; **metal shelves on three sides packed with tins, packets, oil, rice, pasta, soap, nappies**; a glass-fronted drinks fridge with a lit header; a plastic stool. Everything within reach of one person behind or beside the goods. |
+| A cantina's front | A pink rendered wall; a **window behind a white iron grille through which things are sold**; a white barred door; a printed strip of drink adverts along the top; **a popcorn machine on a wooden table outside**; a round sticker for mobile money on the door. |
+| Several fronts together | A whole wall hand-painted in a soft-drink's red with the cantina's name worked into it; another with "CANTINA" lettered over the door, a table of goods outside and a grille; shelves crammed to the ceiling. |
+
+What a cantina stocks, from these: rice, fuba, pasta, oil, sugar, salt, tinned fish and tomato, milk powder, biscuits, sweets, soft drinks and water from the fridge, beer, bread, eggs, soap and washing powder, candles, matches, batteries, phone top-ups, charcoal by the bag, and one thing made on the spot (popcorn, a fried snack). In the game every label is an invented brand (Rule 8).
+
+**The quintal differs with the house** (founder, 2026-11-14): one is where the car stands, one is full of plants, one is a horta (a kitchen garden: tomate, repolho, batata-doce and others), one is a place to sit. The kit's quintal therefore has kinds, and the horta is something a player can work (Task 5.10).
+
+Every brand visible in these photographs is real and none appears in the game (Rule 8): a painted wall carries an invented name.
+
 **What this corrects in what was built on 2026-11-14.** The rehearsal town has pavements everywhere, trees in neat pits and no wires: it is tidier than any street in these pictures. The house kit needs the wall and gate at the street, the zinc roof with its overhang, the two-colour paint, the pole with its wires, the dish, the pots, the open drain and the sand verge. The van's blue must be this blue and its split at the window line.
 
-**Still to come from the founder or from Luandans:** a quintal seen from inside; the inside of an ordinary house; a cantina's front.
+**Still to come from the founder or from Luandans:** the inside of an ordinary house (sala, quarto, cozinha).
 
 ## 7. What still has to come from the founder (nobody can look this up)
 - [ ] Photographs he owns or may use of: the promenade from both ends, the pink building's corner and arcade, the fortress from below and the view from the top, the Palácio de Ferro, the Mutamba, one inner street of the Baixa, a full paragem at rush hour, a candongueiro inside and out.

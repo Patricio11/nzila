@@ -63,6 +63,15 @@ The founder's instruction with them: do not look like a toy; make what we can ou
 | **Family and school** (founder's account of the game): players have relationships, have children and put them in school. Profiles show an age ("18 anos · Jovem"), a job ("Nadador-salvador no Mussulo", "Maquilhador/a"), a home ("Vivenda em condomínio · casa própria") and "Proteção de novato · 3 dias". | A life has stages there. Ours gains the household: children and their schooling are proposed as Task 10.17, on rules that keep it safe in a game played from 15. A newcomer's protection is already ours. |
 | **The districts**: Kilamba (seen from above as houses and gardens), Talatona (a car stand, "Condomínio Jardim"), Mussulo, Ilha de Luanda, Baixa / Mutamba, Maianga, Cazenga. | They cover the city. We cannot match the count early; each of ours has to be a place somebody recognises at eye level. |
 
+## 1d. Vida na Banda, third set (three screenshots supplied by the founder, 2026-11-14)
+
+| Seen | What it means for us |
+|---|---|
+| **The bank**: Carteira 21.371 Kb, Poupança 181.315 Kb, Dívida 0 Kb, "IRT esta semana 10%". "Pôr na poupança: rende 0,5% por dia, até 1.000.000 Kb". "Levantar: volta para a carteira". More tiles below (loans, it seems). A toast: "Depositaste 140.000 Kb na poupança. Rende 0,5% por dia." | Savings that pay **half a per cent a day** create money from nothing for whoever is already rich: it is a faucet with no work behind it, capped only at a million. They also tax income weekly (IRT), which is a sink. **Ours:** the bank keeps money safe from theft, which is reason enough to use it; interest, if any, is small, paid from the bank's real earnings on loans to players, and never a faucet (Rule: no Makuta outside the ledger). A tax on wages is worth having as a sink and as something Angolan and true (IRT), shown on the payslip, not as a surprise. For 4.1 and 4.6. |
+| **A restaurant interior** in the same cut-away view: a counter, a kitchen behind it, round tables, staff and customers, and a panel "Balcão · pedir comida" listing dishes with prices. | Eating out is ordering from a list at a counter. Ours (8.x): a player cooks it, a player serves it, and the table is where you sit and talk; the list is the menu the owner wrote. |
+| **Both are being played on a computer and filmed**, a creator's face in the corner, the game in a desktop browser. | Streamers play on a big screen. Ours must be good there too: the same HUD at a larger scale (`UX_UI_SPEC.md` sizes), keyboard and mouse working from 1.4, and a world that looks its best in a wide frame, which street level does and a fixed high angle does not. |
+| The street from above again: the same toy trees (green balls), block buildings in pastel, yellow taxis, names over every head. | Nothing new; it confirms the look we are measured against. |
+
 ## 2. Mwangolé (mwangole.ao)
 
 | Seen | Source | What it means for us |

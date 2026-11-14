@@ -347,7 +347,7 @@ for cx in range(ACROSS):
             while at < x1 - 3:
                 if abs(at - corner_x) > 4.5:
                     block(at, edge_z, kit.acacia(b, at, edge_z, rng, KERB, shade_reach=1.4))
-                    if rng.random() < 0.35:
+                    if rng.random() < 0.35 and at + 3.2 < x1 - 1.0:
                         block(at + 3.2, edge_z - south * 0.6, kit.bench(b, at + 3.2, edge_z - south * 0.6, 0.0, KERB))
                 at += rng.uniform(8.5, 13.5)
             at = z0 + rng.uniform(4, 8)
@@ -399,6 +399,11 @@ for cx in range(ACROSS):
             for i in range(rng.randint(1, 2)):
                 px, pz = ox + rng.uniform(6, 58), oz + hi + rng.uniform(5, 9)
                 block(px, pz, kit.parasol(b, px, pz, rng, KERB))
+
+# Everything must belong to a chunk that exists: a bench one step over the edge once made a thirteenth.
+stray = sorted({chunk for (chunk, level) in b.groups if not (0 <= chunk[0] < ACROSS and 0 <= chunk[1] < DOWN)})
+if stray:
+    raise SystemExit(f"nzila: something was built outside the district, in chunk(s) {stray}")
 
 b.write()
 

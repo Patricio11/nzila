@@ -67,7 +67,8 @@ test.describe("the renderer", () => {
     for (const view of ["hour=17.4&tier=poupanca", "hour=12&tier=normal", "hour=22&tier=alta"]) {
       await page.goto(`/cena?${view}&still`);
       // The district when it has been built, every chunk of it arrived; the test scene of boxes when not.
-      await page.waitForFunction(() => window.__cena !== undefined && window.__cena.draws > 0 && (window.__cena.stream === undefined || (window.__cena.stream.shown === window.__cena.stream.wanted && window.__cena.stream.loading === 0)), undefined, { timeout: 30_000 });
+      // (Before either is there the page draws only the sky: two calls. Waiting for four is waiting for a world.)
+      await page.waitForFunction(() => window.__cena !== undefined && window.__cena.draws >= 4 && (window.__cena.stream === undefined || (window.__cena.stream.shown === window.__cena.stream.wanted && window.__cena.stream.loading === 0)), undefined, { timeout: 30_000 });
       await page.waitForTimeout(400);
       const counts = await page.evaluate(() => window.__cena!);
       info.annotations.push({ type: "renderer", description: `${view}: ${counts.draws} draw calls, ${counts.triangles} triangles, ${counts.height} px tall, ${counts.graphics}` });

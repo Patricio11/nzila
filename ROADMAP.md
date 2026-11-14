@@ -375,6 +375,7 @@ flowchart LR
 
 ### Task 4.3: NPC shops and markets
 - [ ] Buy and sell at shop counters and market stalls; price tables in tunables; a receipt for every purchase; clothes shops extend the wardrobe.
+- [ ] **The cantina is the first shop a player meets, and it sells things (founder, 2026-11-14):** the bairro's grocery. Bought through its grille from the street or at the shelves inside (a small interior: shelves on three walls, the drinks fridge, the popcorn machine at the door). Its stock is the everyday list of `LUANDA_REFERENCE.md` §6d: food to cook at home, drinks, soap, candles, charcoal, phone top-ups. Sold by the unit and by the tin; a fiado tab comes with Respeito (10.x).
 - Depends on: 4.2 · Unblocks: 4.4, 8.2.
 
 ### Task 4.4: Needs, lightly
@@ -460,6 +461,9 @@ flowchart LR
 
 ### Task 5.4: Doors, visits and housemates
 - [ ] Lock levels (fechadura simples, reforçada, grade, alarme) as purchasable upgrades; invite a friend in; knock; share a home with housemates who split the rent.
+- [ ] **Security is a ladder, and each rung means less can be taken (founder, 2026-11-14: "the more security you have the less they can steal from you").** In order: the lock, the reinforced lock, the grade on door and windows, the wall with glass or wire on top, the dog (5.9), the alarm, a hired segurança. Each one makes the break-in longer and louder and lowers what a thief can carry out (a tunable share: an unguarded home can lose one large thing; a home with everything loses, at most, something small from the quintal).
+- [ ] **The alarm.** When someone forces the door or a window the siren sounds in the street for everyone near, the thief's time is cut short, and **the owner is told at once wherever they are**: a banner in the game, and a push notification when they are away from it and have allowed notifications ("Alarme em casa, na Maianga"). The owner can come back, call the police from the Telemóvel, or watch what was taken appear in the notice. An alarm needs electricity: when the power is out it runs on its battery for a time, or on the generator.
+- [ ] **Hired security.** A household or a condominium may contract a segurança by the week through the ledger: a player on a shift of the security career (9.x) or, when none is on shift, the game's own guard. A guard at the gate stops a break-in from starting while present, asks visitors who they are for, and reports. The same contract serves a business (8.x).
 - Depends on: 5.1, 3.5 · Unblocks: 7.2.
 
 ### Task 5.5: Storage and what is on display
@@ -482,11 +486,17 @@ flowchart LR
 - Depends on: 5.2, 5.4, 5.7 · Unblocks: 8B.4, 15.3.
 
 ### Task 5.9: Cães e gatos (founder, 2026-11-14)
-- [ ] A player may keep a dog or a cat. **Five dogs to begin with**, different in what they are good for and what they cost to keep: the rafeiro (the street dog every bairro has, cheap, loyal, alert), a big guard dog, a small house dog, a fast lean hunting dog, and a puppy of any of them that grows. Named in the catalog by the founder; breeds are described by kind, not by a kennel club's name, until he says which. A cat is one kind in several coats.
-- [ ] **Where they come from depends on the zone** (founder): street dogs and cats live in the bairros and can be fed over days until one follows you home; a breeder or a shop sells the others in the districts that would have one. Nothing is bought with real money.
+- [ ] A player may keep a dog or a cat. **Six dogs to begin with (founder, 2026-11-14):** Rottweiler, Bulldog, Golden Retriever, Africanis (the dog of the African street and yard), Pastor Alemão, and a small lap dog (the founder wrote "cão de sela"; the word for the catalog is his to confirm). They differ in what they are good for and what they cost to keep: the Rottweiler and the Pastor Alemão guard best and eat most; the Africanis is cheap, hardy and alert; the Golden Retriever lifts Humor most and guards least; the Bulldog is stubborn and loved; the lap dog only barks. **The owner gives the name.** A cat is one kind in several coats.
+- [ ] **Where they come from depends on the zone** (founder): street dogs and cats live in the bairros, **have no name**, and can be befriended: feed one over some days and it lets you close, then follows you home, and only then is it yours to name. A breeder or a shop sells the others in the districts that would have one. Nothing is bought with real money.
 - [ ] A pet lives at the home: it eats (a small real cost through the ledger), follows its owner on foot in the street when asked, sleeps in its place, greets housemates and children, and is drawn and moved by the game like the ambient animals of 1.6. It has moods, not hit points: a pet is never hurt, killed, fought or sold on for profit, and one left unfed goes to a neighbour who returns it when it is fed.
 - [ ] The dog guards (Task 7.2); the cat keeps the kitchen's stock from spoiling to rats, a small steady saving. Both lift Humor at home.
 - Depends on: 5.1, 4.2, 1.6 · Unblocks: 7.2.
+
+### Task 5.10: O quintal e a horta (founder, 2026-11-14)
+- [ ] A house's quintal is the owner's to use, and no two are alike: where the car stands (a gate wide enough, a roof of zinc over it), a place of plants in pots, a place to sit (chairs, a parasol, the brazier), or a **horta**. It is furnished with the same build mode as the inside (5.3), open to the sky, and is where a quintal party happens (L7).
+- [ ] The horta: beds dug in the quintal and planted with tomate, repolho, batata-doce, mandioca, gindungo, couve. A crop takes real days, wants water (the drum, the rain of the season) and a few minutes of care, and comes in as items: to cook at home, to sell to a cantina or a zungueira at a tunable price, to give to a neighbour. It is the first thing a player with a house and no job can do to eat.
+- [ ] Limits: a horta feeds a household and earns pocket money, never a living that outdoes a job (a tunable ceiling a day through the ledger's faucets); crops left too long spoil; a dog keeps the chickens of 5.9's later cousins out of it.
+- Depends on: 5.1, 5.3, 4.2 · Unblocks: nothing yet.
 
 ### Task 5.6: Wiring, verification, doc convention
 - [ ] Rent taken exactly once per period under retries; an evicted player's belongings are intact; an interior loads under 1 MB.
@@ -549,6 +559,7 @@ flowchart LR
 - [ ] Each is an intention the zone resolves with `offence.ts`: furto (take from a shop shelf), carteirista (pick a pocket in a crowd), assalto (demand cash from a player in a hot block; the victim may hand over, resist in a short contest, or run), arrombamento (pick a home's lock in a noisy timed minigame; the owner's phone rings; **what can be carried out is taken as in life: the television, the phone on the table, the generator, cash** (founder, 2026-11-14). A thief carries one large thing or a few small ones a visit; what is built in or too heavy stays; a stolen thing is a real item that can be recovered by the police of 7.3, bought back, or claimed on insurance; a home cannot be entered again for a time after a burglary, and a newcomer's home not at all), roubo de viatura (take an unlocked or poorly locked vehicle).
 - [ ] Witnesses: NPCs and players nearby raise the chance of a call to the police; players can press "Chamar a polícia".
 - [ ] A dog in the home (Task 5.9) barks before the lock gives, which shortens the thief's time and brings the neighbours; a big one may hold the door.
+- [ ] What a thief can take is set by the target's security ladder (Task 5.4): time allowed, noise made and the size of what can be carried all follow from it, resolved by the zone, never by the thief's client. **Cantinas, restaurants and shops are targets too** (founder, 2026-11-14): after closing, with stock and the till at risk, on the same ladder with a shutter, a grade, an alarm that rings the owner and a segurança at the door.
 - Depends on: 4.2, 5.4, 5.5, 5.9, 6.3, 7.1 · Unblocks: 7.3, 7.5.
 
 ### Task 7.3: Police
@@ -608,8 +619,13 @@ flowchart LR
 - Depends on: 0.3, 8.3, 8.4 · Unblocks: 8.8.
 
 ### Task 8.6: More kinds of business
-- [ ] On the same model: cantina (corner shop), barbearia and salão (changes a player's hair), oficina (repairs vehicles from 6.3), roulotte (street food on a pitch).
+- [ ] On the same model: cantina (the corner grocery: the owner buys stock wholesale at the market or from a kupapata delivery, sets prices, stands at the grille or hires someone to, and paints the front), barbearia and salão (changes a player's hair), oficina (repairs vehicles from 6.3), roulotte (street food on a pitch).
 - Depends on: 8.5 · Unblocks: 15.x content.
+
+### Task 8.9: Segurança for a business (founder, 2026-11-14)
+- [ ] A business buys the same protections as a home (Task 5.4): roller shutter, grade, alarm, a contracted segurança. The alarm notifies the owner and every member of staff with keys. The till is emptied to the bank at closing by default, so what is at risk overnight is stock and whatever cash the owner chose to leave.
+- [ ] **Segurança is a job players do**: a shift at a door (a cantina, a restaurant, a condominium gate, a bank), paid by the contract through the ledger, with something to do in it: checking who comes in after hours, answering an alarm, calling the police. Listed as a career in Phase 9; a guard who lets a robbery happen on his shift loses Respeito in that bairro, and one bribed to do so is an offence of 7.2.
+- Depends on: 5.4, 7.2, 8.1 · Unblocks: nothing yet.
 
 ### Task 8.7: Ad slots (S-3, seam 3)
 - [ ] Named slots in the pack manifest: outdoors along roads, posters in shop windows, a table card in restaurants, the radio spot in a candongueiro, the panel above the windscreen inside a candongueiro, the back wall of a paragem, the back of a kupapata (the last three added 2026-11-14: the leading game already sells the first, `MARKET_NOTES.md` §1c). A slot is drawn like Luanda's real outdoor advertising (painted walls, hand-lettered boards, vinyl banners), never a plain rectangle. They show the game's own posters. A business owner may place their own poster in their own slots.

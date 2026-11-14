@@ -544,7 +544,10 @@ def casa(b, x, z, yaw, rng, kind="bloco", width=8.0, depth=6.0, ground=0.0, shop
 
     right = _turn((1.0, 0.0, 0.0), yaw)
     front = _turn((0.0, 0.0, 1.0), yaw)
-    if kind == "bloco":
+    if shop:
+        # A cantina is painted to be seen from the end of the street.
+        low = high = rng.choice(["cloth", "cloth", "zincBlue", "awningTeal"])
+    elif kind == "bloco":
         low, high = rng.choice(PAINT)
     elif kind == "cru":
         low = high = "blockGrey"
@@ -583,6 +586,14 @@ def casa(b, x, z, yaw, rng, kind="bloco", width=8.0, depth=6.0, ground=0.0, shop
     side_x = rng.choice([-1, 1])
     b.rect(at(side_x * (width / 2 + 0.035), 1.6, rng.uniform(-1.0, 1.0)), _mul(front, -side_x), (0.0, 1.0, 0.0), 0.9, 0.9, "window")
 
+    if shop:
+        # The band its name is lettered on, and what will not fit inside, stacked at the door.
+        b.rect(at(0.0, height - 0.28, depth / 2 + 0.03), right, (0.0, 1.0, 0.0), width, 0.5, "awningRed" if high != "awningRed" else "paintWhite")
+        b.level = FULL
+        for i in range(rng.randint(4, 7)):
+            cx_, layer = door_x - rng.uniform(1.0, 2.6), rng.randint(0, 1)
+            b.box(at(cx_, 0.2 + layer * 0.4, depth / 2 + rng.uniform(0.5, 1.1)), (0.55, 0.4, 0.42), rng.choice(["wood", "paintWhite", "zincBlue", "awningRed", "concrete"]), yaw=yaw + rng.uniform(-0.2, 0.2), skip_bottom=False)
+        b.level = BOTH
     b.level = FULL
     if kind == "chapa":
         # Sheets of another colour where it was patched.
@@ -663,11 +674,47 @@ def fio(b, a, c, sag=0.7, parts=4):
     b.level = BOTH
 
 
-def quintal(b, x, z, rng, ground=0.0):
-    """What stands in a backyard: the water drum, the washing on its line, a brazier's worth of chairs."""
+def quintal(b, x, z, rng, ground=0.0, kind=None):
+    """
+    What stands in a backyard. Every one has the water drum; beyond that no two
+    are alike (founder, 2026-11-14): "horta" is a kitchen garden in beds, "plantas"
+    is pots and a banana plant, "estar" is a place to sit under a parasol, "roupa"
+    is the washing line and little else.
+    """
     b.at(x, z)
+    kind = kind or rng.choice(["horta", "horta", "plantas", "estar", "roupa"])
     b.level = BOTH
     b.tube([(x, ground, z), (x, ground + 0.95, z)], [0.3, 0.3], 7, "drum")
+    if kind == "horta":
+        for row in range(rng.randint(2, 3)):
+            bx, bz = x - 1.6 - row * 1.0, z + rng.uniform(-0.4, 0.4)
+            b.level = BOTH
+            b.box((bx, ground + 0.07, bz), (0.7, 0.14, 3.0), "palmTrunkDark")
+            b.level = FULL
+            crop = rng.choice(["acaciaLeaf", "palmLeaf", "palmLeafDark"])
+            for i in range(5):
+                b.gem((bx, ground + 0.3, bz - 1.2 + i * 0.6), (0.2, 0.2, 0.2), 4, crop, rng)
+                if crop == "acaciaLeaf" and rng.random() < 0.4:
+                    b.gem((bx + 0.12, ground + 0.36, bz - 1.2 + i * 0.6), (0.07, 0.07, 0.07), 4, "awningRed", rng)
+    elif kind == "plantas":
+        b.level = FULL
+        for i in range(rng.randint(3, 5)):
+            px, pz = x + rng.uniform(-2.4, -0.7), z + rng.uniform(-1.6, 1.6)
+            b.tube([(px, ground, pz), (px, ground + 0.34, pz)], [0.15, 0.2], 5, "roof")
+            b.gem((px, ground + 0.7, pz), (0.34, 0.42, 0.34), 4, rng.choice(["palmLeaf", "acaciaLeaf"]), rng)
+        # A banana plant: a thick green stem and a few great leaves.
+        px, pz = x - 2.6, z + rng.uniform(-1.0, 1.0)
+        b.tube([(px, ground, pz), (px, ground + 1.7, pz)], [0.16, 0.1], 5, "palmLeafDark", cap=False)
+        for k in range(5):
+            a_ = 2 * math.pi * k / 5 + rng.uniform(-0.3, 0.3)
+            out = (math.cos(a_), 0.0, math.sin(a_))
+            side = (-out[2] * 0.38, 0.0, out[0] * 0.38)
+            root, tip = (px, ground + 1.65, pz), (px + out[0] * 1.5, ground + 1.9 - rng.uniform(0.2, 0.9), pz + out[2] * 1.5)
+            middle = (px + out[0] * 0.8, ground + 2.2, pz + out[2] * 0.8)
+            b.face([root, _add(middle, side), tip, _sub(middle, side)], "palmLeaf", two_sided=True)
+    elif kind == "estar":
+        parasol(b, x - 2.0, z + rng.uniform(-0.8, 0.8), rng, ground)
+        b.at(x, z)
     b.level = FULL
     lx, lz = x + rng.uniform(1.2, 2.2), z + rng.uniform(-1.5, 1.5)
     a, c = (lx, ground + 1.8, lz - 1.6), (lx, ground + 1.8, lz + 1.6)
