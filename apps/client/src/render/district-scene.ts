@@ -5,6 +5,7 @@
 
 import { type Manifest } from "@nzila/world/client";
 import { type Mesh } from "three";
+import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
@@ -20,7 +21,11 @@ export class DistrictScene {
   /** The line the walks follow: the promenade when there is a bay, the middle of the district when not. */
   private readonly lineZ: number;
 
-  private constructor(renderer: WorldRenderer, chunks: ChunkStream) {
+  /** The district's own words (the names of its places), by key: they travel with the pack, not with the game. */
+  private readonly words: Readonly<Record<string, string>>;
+
+  private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>) {
+    this.words = words;
     this.renderer = renderer;
     this.chunks = chunks;
     for (const sheet of this.manifest.water) {
@@ -38,7 +43,14 @@ export class DistrictScene {
 
   /** Opens the pack served at `base` (which ends with a slash). Rejects when there is no such pack. */
   static async open(renderer: WorldRenderer, base: string): Promise<DistrictScene> {
-    return new DistrictScene(renderer, await ChunkStream.open(renderer, base));
+    const chunks = await ChunkStream.open(renderer, base);
+    const words = JSON.parse(new TextDecoder().decode(await meteredFetch(base + chunks.manifest.strings))) as Record<string, string>;
+    return new DistrictScene(renderer, chunks, words);
+  }
+
+  /** A word of the district, or the key itself when the pack does not have it. */
+  word(key: string): string {
+    return this.words[key] ?? key;
   }
 
   get manifest(): Manifest {

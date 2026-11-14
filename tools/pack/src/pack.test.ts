@@ -83,6 +83,7 @@ function district(): SourceManifest {
     heat: { lighting: null, policePosts: [[10, 0, 10]], override: null },
     adSlots: [{ id: "outdoor-1", kind: "outdoor", pos: [5, 6, 5], size: [6, 3] }],
     water: [],
+    seats: [],
     strings: "strings.pt-AO.json",
   };
 }

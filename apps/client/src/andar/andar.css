@@ -1,5 +1,27 @@
-/* The walking page. Tokens only. The stick here is a stand-in: the real one is Task 1.4. */
-.andar-stage { position: relative; flex: 1; min-height: 0; display: flex; }
-.andar-canvas { touch-action: none; }
-.andar-stick { position: absolute; left: 0; top: 0; width: 112px; height: 112px; border-radius: 50%; opacity: 0; pointer-events: none; box-shadow: inset 0 0 0 2px var(--n-luz); transition: opacity 120ms; }
-.andar-stick::after { content: ""; position: absolute; left: 34px; top: 34px; width: 44px; height: 44px; border-radius: 50%; background: var(--n-luz); transform: translate(var(--knob-x, 0), var(--knob-y, 0)); }
+/* The first walk: the canvas full-bleed and the HUD laid over it (UX_UI_SPEC.md §3.1).
+   Tokens only. The HUD lets touches through to the world except on its own buttons. */
+.andar { position: fixed; inset: 0; overflow: hidden; background: var(--n-noite-2); }
+.andar-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.andar-note { position: absolute; left: var(--s-4); right: var(--s-4); top: 40%; margin: 0; color: var(--n-luz); font: var(--type-small); text-align: center; }
+.andar-hud { position: absolute; inset: 0; pointer-events: none;
+  padding: max(var(--s-3), env(safe-area-inset-top)) max(var(--s-3), env(safe-area-inset-right)) max(var(--s-3), env(safe-area-inset-bottom)) max(var(--s-3), env(safe-area-inset-left)); }
+.andar-hud button { pointer-events: auto; }
+.andar-top { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-3); }
+.andar-top-right { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-2); }
+/* Bottom right: the Telemóvel, then gestures and run, then the gold action; the chat bar along the foot. */
+.andar-buttons { position: absolute; right: max(var(--s-3), env(safe-area-inset-right)); bottom: calc(max(var(--s-3), env(safe-area-inset-bottom)) + var(--target) + var(--s-3));
+  display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-3); }
+.andar-pair { display: flex; gap: var(--s-3); }
+.andar-wheel-anchor { position: relative; display: inline-flex; }
+.andar-action-space { height: calc(var(--target-action) + 6px); }
+.andar-chat { position: absolute; left: max(var(--s-3), env(safe-area-inset-left)); right: max(var(--s-3), env(safe-area-inset-right)); bottom: max(var(--s-3), env(safe-area-inset-bottom)); display: flex; }
+.andar-chat .n-chatbar { flex: 1; max-width: 420px; }
+/* Left-handed: the buttons change sides, and so does the thumb's zone. */
+.andar-left .andar-buttons { right: auto; left: max(var(--s-3), env(safe-area-inset-left)); align-items: flex-start; }
+.andar-left .andar-chat { justify-content: flex-end; }
+/* Lying down, there is no room for the chat bar under the buttons: it sits beside them. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .andar-buttons { bottom: max(var(--s-3), env(safe-area-inset-bottom)); }
+  .andar-chat { right: 45%; }
+  .andar-left .andar-chat { right: max(var(--s-3), env(safe-area-inset-right)); left: 45%; }
+}

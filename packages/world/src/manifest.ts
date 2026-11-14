@@ -124,6 +124,8 @@ export const manifestSchema = z.strictObject({
     override: z.literal("zero").nullable(),
   }),
   adSlots: z.array(adSlot),
+  /** Places to sit: a bench, a wall, a step. Where the seat is, and the way a sitter faces, in degrees clockwise from the game's +Z. */
+  seats: z.array(z.strictObject({ id, pos: z.tuple([z.number(), z.number(), z.number()]), facing: z.number() })),
   /** Sheets of water: the bay, a lagoon. [minX, minZ, maxX, maxZ] in metres, and the height of the surface. */
   water: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), level: z.number() })),
   strings: file,

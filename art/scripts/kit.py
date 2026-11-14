@@ -71,6 +71,8 @@ class Builder:
         self.part = None
         self.weigher = None
         self.objects = []
+        # Where a person can sit: (x, seat height, z, the way they face, as a turn about the vertical).
+        self.seats = []
 
     def at(self, x, z):
         """Whatever is built next belongs to the chunk this point is in, however far it overhangs."""
@@ -470,6 +472,7 @@ def lamp(b, x, z, toward, ground=0.14, pool=True):
 def bench(b, x, z, yaw, ground=0.14):
     """A bench of wooden slats on metal legs."""
     b.at(x, z)
+    b.seats.append((x, ground + 0.46, z, yaw))
     b.level = FULL
     for i in range(3):
         b.box(_add((x, ground + 0.46, z), _turn((0.0, 0.0, -0.17 + i * 0.17), yaw)), (1.7, 0.05, 0.13), "wood", yaw=yaw, skip_bottom=False)

@@ -66,6 +66,7 @@ interface DevLayout {
   spawn: [number, number, number];
   corners: [number, number, number][];
   paragens: [number, number, number][];
+  seats: { pos: [number, number, number]; facing: number }[];
   water: { rect: [number, number, number, number]; level: number };
 }
 
@@ -111,6 +112,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
     npc: { crowd: null, vendors: null, police: null },
     heat: { lighting: null, policePosts: [], override: null },
     adSlots: [],
+    seats: layout.seats.map((seat, n) => ({ id: `seat-${n + 1}`, pos: seat.pos, facing: seat.facing })),
     water: [{ id: "bay", rect: layout.water.rect, level: layout.water.level }],
     strings: "strings.pt-AO.json",
   };

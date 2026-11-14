@@ -21,6 +21,7 @@ export const ptAO = {
   "action.talk": "Falar",
   "action.board": "Apanhar",
   "action.sit": "Sentar",
+  "action.stand": "Levantar",
   "action.buy": "Comprar",
   "action.withPrice": "{label} · {price}",
 
@@ -41,6 +42,15 @@ export const ptAO = {
   // The HUD.
   "hud.wallet": "Carteira",
   "hud.poupanca": "Modo Poupança",
+  "hud.phone": "Telemóvel",
+  "hud.run": "Correr",
+  "hud.emotes": "Gestos",
+  "hud.compass": "Bússola",
+  "emote.acenar": "Acenar",
+  "emote.rir": "Rir",
+  "emote.aplaudir": "Aplaudir",
+  "emote.chamar": "Chamar",
+  "chat.placeholder": "Escreve aqui…",
   "needs.fome": "Fome",
   "needs.energia": "Energia",
   "heat.line": "Zona quente agora. Fica atento.",

@@ -137,6 +137,7 @@ describe.skipIf(missing.length > 0)("from Blender to a pack", () => {
       heat: { lighting: null, policePosts: [], override: null },
       adSlots: [],
       water: [],
+    seats: [],
       strings: "strings.pt-AO.json",
     };
     await writeFile(join(src, "district.json"), JSON.stringify(manifest));

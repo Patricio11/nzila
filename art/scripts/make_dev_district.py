@@ -424,6 +424,7 @@ layout = {
     "spawn": places["corners"][3],
     "corners": places["corners"],
     "paragens": places["paragens"],
+    "seats": [{"pos": [round(x, 2), round(y, 2), round(z, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for x, y, z, yaw in b.seats],
     # The bay: from the foot of the sea wall out past the edge of what is modelled.
     "water": {"rect": [-300, sea_wall + 0.6, ACROSS * CHUNK + 300, DOWN * CHUNK + 400], "level": -0.45},
     "promenade": {"z": sea_wall - 5.0},

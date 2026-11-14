@@ -48,6 +48,41 @@
 .n-button[aria-busy="true"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 7px; height: 3px; border-radius: var(--r-chip);
   background: repeating-linear-gradient(90deg, var(--n-tinta-suave) 0 8px, transparent 8px 16px); animation: n-road-slide 500ms linear infinite; }
 
+/* ---- The HUD's own pieces (Task 1.4) ---- */
+/* The joystick: a ring where the thumb landed and a knob that follows it. The ring turns gold when pushed far enough to run. */
+.n-stick { position: absolute; left: 0; top: 0; width: 120px; height: 120px; border-radius: 50%; opacity: 0; pointer-events: none; transition: opacity 140ms;
+  background: radial-gradient(circle, transparent 54%, var(--n-linha) 55%); box-shadow: inset 0 0 0 2.5px var(--n-luz), 0 4px 0 var(--n-noite-fundo); }
+.n-stick-on { opacity: 1; }
+.n-stick-run { box-shadow: inset 0 0 0 3.5px var(--n-dourado), 0 4px 0 var(--n-noite-fundo); }
+.n-stick-knob { position: absolute; left: 36px; top: 36px; width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(180deg, var(--n-luz) 0%, var(--n-luz-fundo) 100%); box-shadow: 0 4px 0 var(--n-noite-fundo); }
+.n-stick-run .n-stick-knob { background: linear-gradient(180deg, var(--n-dourado-claro) 0%, var(--n-dourado) 100%); }
+/* A round button of the HUD: it has a lip and sinks, like everything that is pressed. */
+.n-hud-button { width: var(--target); height: var(--target); display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 50%; cursor: pointer; color: var(--n-luz); background: var(--n-noite);
+  box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 4px 0 var(--n-noite-fundo); transition: transform 90ms; }
+.n-hud-button:active { transform: translateY(4px); box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 0 0 var(--n-noite-fundo); }
+.n-hud-button-on { color: var(--n-tinta); background: linear-gradient(180deg, var(--n-dourado-claro) 0%, var(--n-dourado) 70%); box-shadow: 0 2px 0 var(--n-dourado-fundo); transform: translateY(2px); }
+.n-hud-button:focus-visible, .n-wheel-item:focus-visible, .n-compass:focus-visible, .n-chatbar:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 2px; }
+/* The gestures rise out of their button, one after another. */
+.n-wheel { position: absolute; right: 0; bottom: calc(100% + var(--s-3)); display: flex; flex-direction: column-reverse; align-items: flex-end; gap: var(--s-2); pointer-events: none; }
+.n-wheel-item { pointer-events: auto; min-height: var(--target); padding: 0 var(--s-4); border: 0; border-radius: var(--r-chip); cursor: pointer; white-space: nowrap; color: var(--n-tinta); background: var(--n-luz); font: var(--type-label);
+  box-shadow: 0 4px 0 var(--n-luz-fundo); animation: n-pop 320ms var(--ease-mola) backwards; animation-delay: calc(var(--i) * 45ms); }
+.n-wheel-item:active { transform: translateY(4px); box-shadow: 0 0 0 var(--n-luz-fundo); }
+/* The compass: you in the middle, north a gold tick on the rim, the paragens as blue dots. */
+.n-compass { position: relative; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: var(--n-noite); box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 4px 0 var(--n-noite-fundo); }
+.n-compass-north { position: absolute; inset: 0; }
+.n-compass-north::after { content: ""; position: absolute; left: 50%; top: 3px; width: 6px; height: 10px; margin-left: -3px; border-radius: 3px; background: var(--n-dourado); }
+.n-compass-you { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--n-luz); box-shadow: 0 0 0 2px var(--n-noite); }
+.n-compass-mark { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--n-escudo); }
+.n-compass-kamba { background: var(--n-ganho); }
+.n-compass-target { background: var(--n-dourado); }
+/* The chat bar, asleep until there is someone to talk to. */
+.n-chatbar { display: inline-flex; align-items: center; gap: var(--s-2); min-height: var(--target); padding: 0 var(--s-4); border: 0; border-radius: var(--r-chip); cursor: text; text-align: left; color: var(--n-luz-suave); background: var(--n-noite); font: var(--type-label);
+  box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.n-chatbar:disabled { opacity: 0.6; cursor: default; }
+/* The name of the place, set over the world on arriving. */
+.n-arrival { position: absolute; left: 0; right: 0; top: 24%; margin: 0; text-align: center; color: var(--n-luz); font-size: 30px; text-shadow: 0 2px 0 var(--n-noite-fundo), 0 0 18px var(--n-noite); animation: n-arrive 2600ms ease-in-out both; pointer-events: none; }
+@keyframes n-arrive { 0% { opacity: 0; transform: translateY(10px); } 14%, 78% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-6px); } }
+
 /* The one gold button: the low sun. It breathes while it waits, and sinks when pressed. */
 .n-action { min-height: var(--target-action); min-width: var(--target-action); padding: 0 var(--s-5); white-space: nowrap; margin-bottom: 6px; border-radius: 22px; color: var(--n-tinta); overflow: hidden;
   background: linear-gradient(180deg, var(--n-dourado-claro) 0%, var(--n-dourado) 58%);
@@ -226,7 +261,7 @@
 @keyframes n-shimmer { to { background-position-x: -220%; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .n-wordmark-road, .n-wordmark-sun, .n-road-line, .n-road-sun, .n-action, .n-action::after, .n-button::after, .n-chip, .n-coin, .n-need-low .n-glyph, .n-banner, .n-heat, .n-heat .n-glyph,
+  .n-wheel-item, .n-arrival, .n-wordmark-road, .n-wordmark-sun, .n-road-line, .n-road-sun, .n-action, .n-action::after, .n-button::after, .n-chip, .n-coin, .n-need-low .n-glyph, .n-banner, .n-heat, .n-heat .n-glyph,
   .n-route, .n-route-dashes, .n-post-next, .n-route-van, .n-balloon, .n-dots i, .n-receipt, .n-bi, .n-bi::after, .n-bi-stamp, .n-empty > .n-glyph, .n-skeleton span { animation: none !important; }
   .n-button, .n-action, .n-route-van, .n-need-fill, .n-toggle-track, .n-toggle-track::after { transition: none !important; }
   .n-road-moving .n-road-sun { opacity: 0; }

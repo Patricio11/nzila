@@ -1,6 +1,6 @@
 declare global {
   interface Window {
-    __andar?: { x: number; z: number; speed: number; ready: boolean };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null };
   }
 }
 
@@ -122,6 +122,38 @@ test.describe("a person", () => {
     info.annotations.push({ type: "walk", description: `from x ${start.toFixed(1)} to ${moving.x.toFixed(1)} m, at ${moving.speed.toFixed(2)} m/s` });
     expect(moving.speed).toBeGreaterThan(0.8);
     expect(moving.speed).toBeLessThan(4.6);
+    await expectNoSidewaysScroll(page);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
+test.describe("the first walk's HUD", () => {
+  test("shows the wallet, the compass, the clock and the buttons; a gesture is made, a bench is sat on and left", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The HUD was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/andar?tier=poupanca&hour=12&sentar");
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await expect(page.locator(".n-wallet")).toContainText("Mk");
+    await expect(page.getByRole("button", { name: "Bússola" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Telemóvel" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Correr" })).toHaveAttribute("aria-pressed", "false");
+    await page.getByRole("button", { name: "Correr" }).click();
+    await expect(page.getByRole("button", { name: "Correr" })).toHaveAttribute("aria-pressed", "true");
+
+    // Seated on the nearest bench: the gold button offers to get up, and does.
+    await page.waitForFunction(() => window.__andar!.seated, undefined, { timeout: 15_000 });
+    await page.getByRole("button", { name: "Levantar" }).click();
+    await page.waitForFunction(() => !window.__andar!.seated && window.__andar!.action !== "stand", undefined, { timeout: 15_000 });
+
+    // A gesture from the wheel.
+    await page.getByRole("button", { name: "Gestos" }).click();
+    await page.getByRole("menuitem", { name: "Acenar" }).click();
+    await page.waitForFunction(() => window.__andar!.emote === "acenar", undefined, { timeout: 5_000 });
+    await page.waitForFunction(() => window.__andar!.emote === null, undefined, { timeout: 10_000 });
     await expectNoSidewaysScroll(page);
     expect(seen.errors).toEqual([]);
   });

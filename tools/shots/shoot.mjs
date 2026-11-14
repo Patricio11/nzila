@@ -45,6 +45,11 @@ const PAGES = [
   ["corpo-fila-poupanca", "/corpo?hour=12&tier=poupanca"],
   ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((n) => [[`corpo-${n}`, `/corpo?hour=16.6&quem=${n}&ang=20`], [`corpo-${n}-rosto`, `/corpo?hour=15&quem=${n}&perto&ang=18`]]),
   ["corpo-2-tras", "/corpo?hour=16.6&quem=0&ang=160"],
+  ["hud", "/andar?hour=16.8&cam=200"],
+  ...["acenar", "rir", "aplaudir", "chamar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
+  ["hud-sentar", "/andar?hour=16.8&cam=40&quem=4&sentar"],
+  ["hud-sentar-calcas", "/andar?hour=12&cam=320&quem=1&sentar"],
+  ["hud-esquerda", "/andar?hour=16.8&cam=200&mao=esquerda&quem=2"],
   ["marginal-dourada", "/cena?hour=17.4&tier=normal&still"],
   ["marginal-poupanca", "/cena?hour=17.4&tier=poupanca&still"],
   ["marginal-alta", "/cena?hour=17.4&tier=alta&still"],
@@ -72,9 +77,10 @@ const PAGES = [
 const FILMS = [
   ["styleguide", "/styleguide"],
   ["passeio", "/cena?hour=17.4&tier=normal"],
-  ["andar-frente", "/andar?auto&cam=75&quem=1"],
-  ["andar-lado", "/andar?auto&cam=0&quem=0"],
-  ["andar-tras", "/andar?auto&cam=270&quem=5"],
+  ["andar-frente", "/andar?auto&cam=75&quem=1&hour=16.8"],
+  ["andar-gestos", "/andar?auto&cam=200&quem=3&hour=16.8"],
+  ["andar-lado", "/andar?auto&cam=0&quem=0&hour=16.8"],
+  ["andar-tras", "/andar?auto&cam=270&quem=5&hour=16.8"],
 ];
 const SIZES = [
   ["phone", 360, 740],
@@ -127,7 +133,11 @@ try {
         await page.waitForFunction("window.__cena?.stream ? window.__cena.stream.shown > 0 && window.__cena.stream.shown === window.__cena.stream.wanted && window.__cena.stream.loading === 0 : false", undefined, { timeout: 30000 }).catch(() => errors.push("the world never finished arriving"));
       }
       if (path.startsWith("/corpo")) await page.waitForFunction("window.__corpo !== undefined", undefined, { timeout: 30000 }).catch(() => errors.push("the people never arrived"));
-      if (path.includes("auto")) await page.waitForFunction("window.__bench !== undefined", undefined, { timeout: 60000 });
+      if (path.startsWith("/andar")) {
+        await page.waitForFunction("window.__andar?.ready === true", undefined, { timeout: 30000 }).catch(() => errors.push("the person never arrived"));
+        await page.waitForTimeout(3000);
+      }
+      if (path.includes("auto") && path.startsWith("/bench")) await page.waitForFunction("window.__bench !== undefined", undefined, { timeout: 60000 });
       await page.waitForTimeout(path === "/bench" ? 3500 : 900);
       const sideways = await page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth");
       const file = `${pageName}_${sizeName}.png`;
@@ -153,8 +163,8 @@ try {
     if (path.startsWith("/andar")) {
       await page.waitForFunction("window.__andar?.ready === true", undefined, { timeout: 30000 }).catch(() => report.push(`${pageName}: the person never arrived`));
       // Stills out of the film, to look at the stride without playing it.
-      for (let i = 0; i < 8; i++) {
-        await page.waitForTimeout(i === 0 ? 1200 : 1100);
+      for (let i = 0; i < 12; i++) {
+        await page.waitForTimeout(i === 0 ? 1200 : 1000);
         await page.screenshot({ path: join(out, `${pageName}_${i}.png`) });
       }
     }
