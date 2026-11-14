@@ -10,7 +10,7 @@ Dependency gate: Phase 0 complete (`docs/completed/PHASE_0_COMPLETE.md`). The fi
 |---|---|---|
 | 1.1 Renderer core and the Hora Dourada look | 0.9 | Ready |
 | 1.2 Chunk streaming with a data meter | 0.6, 1.1 | After 1.1 |
-| 1.3 The avatar | 0.2, 1.1 | After 1.1. Needs a CC0 base rig read and filed before a file is imported (Q4), and the founder's kuduro video for one emote (not blocking the rest) |
+| 1.3 The avatar | 0.2, 1.1 | After 1.1. The body and its movement are made by us (Q4, D-0.40), and the founder's kuduro video for one emote (not blocking the rest) |
 | 1.4 Touch controls and the HUD shell | 0.7, 0.8, 1.3 | After 1.3 |
 | 1.5 District L1 | 0.6, 1.1, 1.2 | After 1.2. Greybox needs nothing from the founder; art pass 2 on the six landmarks needs his photographs (Waiting, item 3) |
 | 1.6 Ambient life | 0.2, 1.5 | After 1.5. The cobrador's call needs the founder's words |
@@ -33,6 +33,8 @@ Order of work: the build order of `UX_UI_SPEC.md` §14. Its step 1 (tokens, the 
 
 **Q4. The base rig.** The roadmap names Quaternius's universal base characters as first candidate, and says: read the licence at the source and file it before a file is imported.
 *Recommendation:* do exactly that at the start of 1.3; if the licence is not plainly CC0 or the rig does not suit a phone (bone count), say so and bring two alternatives.
+
+**Answered 2026-11-14 (founder): none of them; we make our own (D-0.40).** Four were looked at, none downloaded. Quaternius's universal base characters and animation library: good proportions, labelled CC0, but the publisher's licence page now carries terms that forbid passing the files on, which a public repository would do. Mixamo: not free to redistribute. KayKit and Kenney: free, and both have the toy look (chibi, blocky) the founder refuses. The body, the skeleton and the animations are therefore written by us as Blender scripts, like the world kit. The risk is plain: movement keyed by hand in code can look stiff. It is judged in the look test of 1.9; the fallback is in Task 1.3.
 
 **Q5. How is distance drawn?** (F-34, F-18.) Impostor cards, or only the reduced models fading into haze.
 *Recommendation:* see D-1.4.

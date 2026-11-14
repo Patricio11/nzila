@@ -56,6 +56,24 @@ The order is the plan. It follows three things: what is most recognisable, what 
 | L8 | Sul: Benfica, Miradouro da Lua, Barra do Kwanza | 15.6 | The road south | The first long drive, the craft market, the lookout |
 | L9 | Gateways: aeroporto e terminais | 15.7 | The way out to the rest of Angola | Intercity travel |
 
+### 2b. What stands in each district (the housing mix, founder 2026-11-14)
+
+Most of Angola lives in houses. A district's brief states its mix before a single model is placed, and the pack is judged against it in the look test. Sources and detail: `LUANDA_REFERENCE.md` §6c.
+
+| District | Mostly | Also | Never |
+|---|---|---|---|
+| L1 Marginal e Baixa | Colonial sobrados, late-colonial modernist blocks with galleries, a few new towers on the bay | The fortress, the bank, churches, a small market | Rows of identical blocks |
+| L2 Ilha de Luanda | Low beach restaurants, fishermen's houses, vivendas | A few hotels | Towers inland |
+| L3 Mussulo | Beach houses, bungalows, palm shelters | The cais | Tar roads |
+| L4 Talatona | Gated condominiums, vivendas behind walls | The shopping centre, car dealers, offices | Open streets of houses |
+| L5 Kilamba | Blocks of 5 to 13 storeys in a few clear colours, wide avenues | Schools and shops built into the plan | Self-built houses |
+| L6 Viana | Casas de bloco on plots, warehouses, factories | The big market, the railway | Glass towers |
+| L7 Cazenga, Sambizanga e Rangel | Casas de bloco and de chapa with quintais, earth streets, becos | Cantinas, a football pitch of earth, a market | Blocks of flats, except the few old colonial ones |
+| L8 Sul | Scattered houses, craft stalls, open land | The lookout | Dense streets |
+| A provincial capital | Houses, with a small centre of colonial and modern buildings | The governo provincial, the church, the market, the station | A Luanda skyline |
+
+**The kit grows to match** (`art/scripts/kit.py`), each part made by us: casa de bloco (plastered and painted, or bare), casa de chapa, vivenda, the wall and gate of a plot, the quintal's furniture (the tank, the washing line, the brazier, plastic chairs), cantina, container shop, roulotte, sobrado, modernist block with galleries, Kilamba block; and the trees of the country beside the palm and the acácia rubra: imbondeiro, mulemba, mangueira.
+
 ### L1 · Marginal e Baixa (the first slice)
 - **Researched detail:** `docs/reference/LUANDA_REFERENCE.md` holds what published sources say about each landmark, the candongueiros, the light and the seasons, and the decision each fact leads to. Read it before building this pack.
 - **Why first:** it is the image of Luanda every Angolan carries. If a Luandan recognises it on a cheap phone in ten seconds, the project works.

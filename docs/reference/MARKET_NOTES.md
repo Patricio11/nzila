@@ -41,6 +41,28 @@ These settle several of the questions above.
 | Four need bars with numbers, always on screen. | We keep two, shown only when low. |
 | The video itself: a creator filming her play for followers, in parts. | **People film this kind of game without being asked.** Our game must look good in a vertical video. See `GROWTH_PLAN.md` §3, item 8. |
 
+## 1c. Vida na Banda in play, second set (fourteen screenshots supplied by the founder, 2026-11-14)
+
+The founder's instruction with them: do not look like a toy; make what we can ourselves; everything Angolan; do each of these things better.
+
+| Seen | What it means for us |
+|---|---|
+| **A home seen as a doll's house**: the roof off, the walls cut low, a fixed high angle. Rooms (quarto, casa de banho, sala), furniture, five players inside, a guard NPC saying "Portão fechado." A classroom is drawn the same way: desks, a blackboard, a "Professor/a". | Interiors are their social heart and they have one way of seeing them. **Ours has three (D-0.41):** walk in through the door at eye level with the street still outside the window; the cut-away from above, for arranging furniture and seeing a whole party; and sitting (sofa, table, window, bed) with the camera where your eyes are. Nobody else in this market lets a player feel inside a room. |
+| **Their avatars and passengers are toys**: round heads with no face, block bodies, block hands. | **The founder's line is drawn here.** Our people have human proportions, faces, real hair and real clothes, made by us (D-0.40). The two CC0 kits considered for 1.3 that share this toy look (blocky, chibi) are refused. |
+| **Names over heads overlap into noise** where a dozen players stand at a paragem; a place label covers them too. | Ours: the nearest few names only, never overlapping, fading with distance; kambas first; a place label never covers a person. Rule for 1.4 and 3.5. |
+| **Chat is unfiltered and public in a schoolroom**: a player offers the teacher sex for help in a test, in a crude word, in a balloon over a classroom. Another announces she will rob everyone's furniture in revenge. | Players as young as 15 are in our world. The filter, report, mute and the 18+ band (D-0.32, D-0.34) are not optional extras, and a school is the last place to be careless. Phase 3.6 before any classroom opens. |
+| **Furniture can be stolen from homes**, and players retaliate: "é melhor controlarem vossas mobílias". | Theft that erases an evening's saving drives people out. Ours (7.2): a burglary takes a bounded share, never a home's fixtures; locks and insurance are real counters; a new player is protected. Confirmed as the right shape. |
+| **A public criminal record on every profile**, with entries written by the accuser: "Condenado/a em tribunal: «Roubou-me 50.000 da carteira !!!!»". | A record others can write on is a tool for harassment. Ours shows only what the game itself recorded (an offence, a date, a sentence), in the game's words, and it expires. Task 7.4. |
+| **Birth is a lottery of class**: "Nasceste filho/a de uma ministra e um importador. Cresceste em Ilha de Luanda. Começas com 4.557.203 Kz e um colchão." Profiles carry "Família rica" or "Classe média". | It is a strong, funny first minute and worth learning from; the lottery of money is not. Ours: everyone starts with the same 25.000 Mk. Where you were born and who raised you is a **story** the player is dealt or chooses (a bairro, a family trade, a saying from the avó) that gives a first kamba, a first discount, a first errand, never a fortune. Idea I-12. |
+| **Their currency is now "Kz"** (it was "Kb"), with amounts in the millions. | They use the real currency's name. We keep the Makuta, at one to one with the kwanza in what it buys (founder, 2026-11-14): the game's own money with a history behind the word. |
+| **Food is the real food**: funge com peixe 600, milho cozido 150, bombó cozido 200, batata-doce cozida 200, banana-pão 200, funge simples 350, pão com chouriço 300, frango no churrasco 1.500, kitaba 250; each gives Barriga and sometimes Humor. | Good and local, and their prices agree with our scale. Ours must be as true and be cooked, served and eaten somewhere, not picked from a list: the zungueira's bacia, the roulotte, the quintal. |
+| **Four need bars always on screen, often near empty** (Energia 1, Energia 5, Barriga 11); travel says "Vais chegar exausto/a". | The game nags. We keep two needs, shown only when low, and never punish a player for arriving. |
+| **Travel is still a menu of picture cards**, with a price and an energy cost for candongueiro (500), kupapata (1.300), táxi (4.400). Mussulo: "Estás numa ilha! Para sair, apanha o barco no cais." (3.000). | As in §1b: ours is the real street. The boat as the only way off Mussulo is right and is ours too (15.1). |
+| **An advertising panel inside the van: "O teu anúncio aqui · vidanabanda.com/anunciar"**, and billboards in the street. | **They sell advertising now, self-service.** Ours is Phase 17; the slots are built in 8.7. The inside of the candongueiro, the paragem's shelter and the back of a kupapata are added to the slot kinds. Ours must look like Luanda's real outdoor advertising, not a yellow rectangle. |
+| **A redesigned interface since the first set**: cream cards with black outlines and a band of triangles in red, black and yellow across the top. | They ship design changes fast, and the triangle band reaches for an Angolan pattern. Ours has to be as plainly Angolan without copying a cultural pattern carelessly (see `WORLD_ATLAS.md` §7). |
+| **Family and school** (founder's account of the game): players have relationships, have children and put them in school. Profiles show an age ("18 anos · Jovem"), a job ("Nadador-salvador no Mussulo", "Maquilhador/a"), a home ("Vivenda em condomínio · casa própria") and "Proteção de novato · 3 dias". | A life has stages there. Ours gains the household: children and their schooling are proposed as Task 10.17, on rules that keep it safe in a game played from 15. A newcomer's protection is already ours. |
+| **The districts**: Kilamba (seen from above as houses and gardens), Talatona (a car stand, "Condomínio Jardim"), Mussulo, Ilha de Luanda, Baixa / Mutamba, Maianga, Cazenga. | They cover the city. We cannot match the count early; each of ours has to be a place somebody recognises at eye level. |
+
 ## 2. Mwangolé (mwangole.ao)
 
 | Seen | Source | What it means for us |
@@ -56,6 +78,9 @@ These settle several of the questions above.
 3. **Belonging.** Respeito by bairro, turmas, table games, the culto, weddings, the Carnaval.
 4. **The data promise.** A meter, a saving mode, a size on every download, and a zero-rating deal if we can sign one.
 5. **Craft.** One light and one art bible.
+6. **People who look like people.** Their bodies are toys. Ours are made by us with human proportions, faces, Angolan hair and clothes (D-0.40).
+7. **Being inside.** Three ways to be in a room, one of them through your own eyes (D-0.41).
+8. **Safety that is built in.** A record nobody else can write on, theft that cannot ruin you, names you can read, chat a 15-year-old can be in.
 
 ## 4. Where they are ahead today, plainly
 

@@ -219,7 +219,7 @@ flowchart LR
 - [ ] One shared skeleton; modular body, head, hair, top, bottom, shoes, one accessory slot; skin tones and Angolan hairstyles done with care (tranças, afro, dreads, corte baixo, lenço).
 - [ ] Animations: idle, walk, run, sit, enter and leave a vehicle, carry, five emotes (acenar, rir, dançar kuduro, aplaudir, chamar).
 - [ ] Character controller from `packages/sim`; a third-person camera that never clips into buildings, with a portrait framing and a landscape framing. The camera sits behind one module with three implementations in order of preference: free, street-level follow locked behind the player, and fixed three-quarter turning in four steps (D-0.29). Which one ships is decided by the measurement in step 2 of the build order.
-- [ ] The base rig and the everyday animations come from a CC0 library (first candidate: Quaternius's universal base characters and animation library; read the licence at the source and file it in `docs/legal/ASSET_LICENCES.md` before a single file is imported). Proportions are reshaped to the art bible; heads, hair and clothes are ours. Dançar kuduro is keyed by hand from the founder's reference video.
+- [ ] **The body, the skeleton and the animations are made by us (D-0.40, founder 2026-11-14: "if possible we do ourselves what we can", "we don't want to look like a toy").** They are written as Blender scripts beside the world kit (`art/scripts/`), so they belong to the project outright and no licence stands between the game and a public repository. Human proportions, a face, hands; never a ball for a head. The candidates looked at and refused are recorded in `docs/PHASE_1_PLAN.md` (Q4). If hand-made movement does not pass the look test, the fallback is motion data under a plainly free licence applied to our own skeleton, by the founder's decision, never a kit's body. Dançar kuduro is keyed by hand from the founder's reference video.
 - [ ] **Cheap by construction (D-0.30):** an avatar is baked to one mesh, one material and one draw call when its outfit changes. Only the nearest avatars are skinned (8 at Poupança, 16 at Normal, 30 at Alta); everyone farther away and every NPC is drawn instanced from animation baked to a texture, a whole crowd in a handful of draw calls. Draw-call split at Poupança, enforced by the bench: world 60, skinned avatars 8, instanced crowd and traffic 12, water and sky 4, effects and spare 36.
 - [ ] WebGL context loss is handled: the game restores itself after the browser takes the context away, which cheap phones do often.
 - Depends on: 0.2, 1.1 · Unblocks: 1.4, 2.3.
@@ -232,7 +232,7 @@ flowchart LR
 
 ### Task 1.5: District L1, Marginal e Baixa
 - [ ] Greybox at postcard scale from the atlas brief: the Marginal promenade and the bay, the Fortaleza de São Miguel on its hill, the pink bank building, the Mutamba square and its paragem, two inner streets with shop fronts, one residential building, a small market, the causeway toward the Ilha (closed, with a sign).
-- [ ] Art pass 1 with kit models, then art pass 2 on the six landmarks (stub S-2).
+- [ ] Art pass 1 with our own kit (`art/scripts/kit.py`, grown for the Baixa: the sobrado, the modernist block with galleries, the new tower, the calçada of the Marginal), then art pass 2 on the six landmarks (stub S-2). The housing mix of `WORLD_ATLAS.md` §2b is the brief: three kinds of building, not rows of one.
 - [ ] Walk grid, spawns, twelve points of interest with a line each in the catalog, two candongueiro routes that loop inside the district.
 - [ ] Passes `pack:check` inside the 8 MB budget.
 - Depends on: 0.6, 1.1, 1.2 · Unblocks: 1.6, 1.9.
@@ -446,6 +446,8 @@ flowchart LR
 
 ### Task 5.1: Property model
 - [ ] Residential buildings in the pack hold many units; a unit's interior is its own small instance from a layout template (quarto, T1, T2, vivenda). The address is building and number, the same in every channel.
+- [ ] **Houses on plots (founder, 2026-11-14: most of Angola lives in houses).** A casa de chapa, a casa de bloco or a vivenda stands on its own plot with a wall or fence, a gate and a quintal; the quintal is part of the home, open to the sky and to the street's sound. The first rung of the ladder is a room or a casa de chapa, not a flat.
+- [ ] **Three ways to be inside (D-0.41).** Through the door at eye level, with no loading screen where the budget allows and the street visible through the window; the cut-away from above (roof off, near walls low) for furnishing and for seeing a whole gathering; and seated, through the player's own eyes, from any seat, bed or window. One button changes between them and the game remembers the choice per home.
 - Depends on: 4.1 · Unblocks: 5.2 to 5.5, 8.1.
 
 ### Task 5.2: Renting
@@ -602,7 +604,7 @@ flowchart LR
 - Depends on: 8.5 · Unblocks: 15.x content.
 
 ### Task 8.7: Ad slots (S-3, seam 3)
-- [ ] Named slots in the pack manifest: outdoors along roads, posters in shop windows, a table card in restaurants, the radio spot in a candongueiro. They show the game's own posters. A business owner may place their own poster in their own slots.
+- [ ] Named slots in the pack manifest: outdoors along roads, posters in shop windows, a table card in restaurants, the radio spot in a candongueiro, the panel above the windscreen inside a candongueiro, the back wall of a paragem, the back of a kupapata (the last three added 2026-11-14: the leading game already sells the first, `MARKET_NOTES.md` §1c). A slot is drawn like Luanda's real outdoor advertising (painted walls, hand-lettered boards, vinyl banners), never a plain rectangle. They show the game's own posters. A business owner may place their own poster in their own slots.
 - Depends on: 0.6, 8.1 · Unblocks: 17.1.
 
 ### Task 8.8: Wiring, verification, doc convention
@@ -745,7 +747,16 @@ flowchart LR
 - [ ] Namoro is declared by both players and shown on the BI only if both wish. Any two players who both agree may marry; there is no pedido and no alambamento for now (founder, 2026-11-14). Namoro and marriage exist only for players in the 18-or-over band (D-0.34, proposed).
 - [ ] The wedding: a date in the calendar, invitations by Mensagens, the ceremony (at the church of 10.12 or at the registry), the convoy with ribbons along the Marginal, the photographs against the bay (photo mode), the party in a quintal or a hired venue (a booking for a player's business).
 - [ ] Afterwards: a shared home with both names on the door, an optional joint account, a page in the Álbum. Separation is possible, private and without penalty beyond dividing what is shared by rule.
-- Depends on: 5.4, 10.7, 10.12 · Unblocks: 10.6.
+- Depends on: 5.4, 10.7, 10.12 · Unblocks: 10.6, 10.17.
+
+
+### Task 10.17: Filhos e a escola (proposed, 2026-11-14; awaits the founder on the rules marked)
+- [ ] A household may have children. A child is a member of the household that the game plays, never a body a player controls and never another player. A child comes to a married couple, or to one player alone, by a decision made in the Casa app, and the game says nothing about how: there is no pregnancy to play and nothing a 15-year-old's parent would object to. *(Rule proposed: 18-or-over band only, as for marriage.)*
+- [ ] A child has a name, an age that moves with real weeks, a few needs the household meets together (meals at home, a bed, someone home in the evening), and a place at the table. Neglect is never shown as harm: an aunt takes the child in until the home is in order, and says so.
+- [ ] **School.** The parents choose a school in their district and pay the propinas each term through the ledger; uniform, books and the daily candongueiro fare are real costs. Homework is a two-minute shared minigame, better with both parents. Report cards arrive; a child who does well opens things for the family (a bursary, a prize day at the school the household attends, a page in the Álbum).
+- [ ] Schools are player-facing places with staff jobs from Phase 9 (professor/a, contínuo, directora); a classroom has chat held to the stricter filter of 3.6 whoever is in it.
+- [ ] Invariants: a child cannot be traded, sold, bet or used as a container for Makuta; separation divides nothing of the child and both keep their place in the child's page.
+- Depends on: 5.1, 9.1, 10.13 · Unblocks: nothing yet.
 
 ### Task 10.14: O Carnaval
 - [ ] A turma registers as a grupo. Over the weeks before, members earn the costume and the banner together, and rehearse a routine (the dance minigame, in formation).
