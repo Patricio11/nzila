@@ -1,10 +1,47 @@
-// The base catalog. Every word a player reads lives here, in Portuguese of Angola.
-// First drafts only: the founder is the first reviewer of every line.
+// The base catalog. Every word a player reads lives here, in Portuguese of
+// Angola, written against glossary.md. First drafts only: the founder is the
+// first reviewer of every line, then two more Luandans (Rule 10).
+//
+// Keys are grouped by where the words appear. Two groups have rules a test
+// enforces: "action.*" labels fit the gold context button (14 characters),
+// and only "chat.quick.*" may carry an exclamation mark, because those are
+// words the player says, not the game.
 export const ptAO = {
   "app.name": "Nzila",
+
+  // The front door.
   "frontdoor.tagline": "O teu caminho começa aqui.",
   "frontdoor.enter": "Entrar em Luanda",
   "frontdoor.building": "Ainda estamos a construir. Volta em breve.",
+  "frontdoor.download": "{done} de {total}",
+  "frontdoor.poupanca": "Entrar em Modo Poupança ({size})",
+
+  // The context action: one or two words that say what the button will do.
+  "action.enter": "Entrar",
+  "action.talk": "Falar",
+  "action.board": "Apanhar",
+  "action.sit": "Sentar",
+  "action.buy": "Comprar",
+  "action.withPrice": "{label} · {price}",
+
+  // States every surface has.
+  "state.soon": "Em breve",
+  "state.saving": "A guardar",
+  "state.saved": "Guardado",
+  "state.reconnecting": "A ligar de novo…",
+  "state.offline": "Sem rede. Guardámos onde estavas.",
+  "state.retry": "Tentar de novo",
+  "state.refresh": "Há uma versão nova do jogo. Actualiza a página para continuar.",
+
+  // Time and quantities.
+  "time.minutes": "{n, plural, one {# minuto} other {# minutos}}",
+  "time.hours": "{n, plural, one {# hora} other {# horas}}",
+  "route.nextVan": "{n, plural, =0 {A chegar} one {Chega em # minuto} other {Chega em # minutos}}",
+
+  // Quick phrases: said by the player with one tap.
+  "chat.quick.goodMorning": "Bom dia!",
+  "chat.quick.allGood": "Tudo fixe?",
+  "chat.quick.letsGo": "Bora!",
 } as const;
 
 export type MessageKey = keyof typeof ptAO;

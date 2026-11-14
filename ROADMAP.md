@@ -174,8 +174,8 @@ flowchart LR
 - Depends on: 0.1 · Unblocks: 1.4, 1.7.
 
 ### Task 0.8: i18n seam
-- [ ] `packages/i18n`: `pt-AO` catalog (base), ICU plurals, `glossary.md` (the approved Angolan words and what never to write), a test that every key used in code exists.
-- [ ] Length tests for HUD labels (a context action label fits 14 characters).
+- [x] `packages/i18n`: `pt-AO` catalog (base), ICU plurals, `glossary.md` (the approved Angolan words and what never to write), a test that every key used in code exists. *(2026-11-14: a small ICU reader of our own (arguments, plural, select), with plurals and number formats written by hand, because the browser's rule for `pt-AO` gives "0 minuto" and its number format varies between versions. Tests also fail the build on a word from the glossary's "Never write" table, on an exclamation mark outside a player's quick phrases, and on another game's name. The catalog and the glossary are first drafts by a non-Luandan and wait for the founder's review (item 6); three questions in the glossary are marked for him.)*
+- [x] Length tests for HUD labels (a context action label fits 14 characters).
 - Depends on: 0.1 · Unblocks: 1.4, 1.7, every screen.
 
 ### Task 0.9: Reference-phone harness and budgets
