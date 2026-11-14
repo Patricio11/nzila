@@ -54,24 +54,76 @@ standing = []
 for i, spec in enumerate(SPECS):
     px = (i - (len(SPECS) - 1) / 2) * SPACING
     tall = person.pessoa(b, px, 0.0, 0.0, spec, rng)
-    standing.append({"name": spec["name"], "x": round(px, 3), "z": 0.0, "height": tall})
+    standing.append({"name": spec["name"], "x": round(px, 3), "z": 0.0, "height": tall, "model": f"pessoa-{i}.glb", "skirt": spec.get("bottom") in ("skirt", "pano") or spec.get("top") in ("dress", "vestido")})
 b.write()
 
 triangles = sum(len(polygon.vertices) - 2 for obj in bpy.data.objects if obj.type == "MESH" for polygon in obj.data.polygons)
+
+
+def export(path, skins):
+    bpy.ops.export_scene.gltf(
+        filepath=path,
+        export_format="GLB",
+        use_selection=True,
+        export_apply=not skins,
+        export_yup=True,
+        export_cameras=False,
+        export_lights=False,
+        export_animations=False,
+        export_extras=False,
+        export_normals=True,
+        export_skins=skins,
+    )
+
+
 for obj in bpy.data.objects:
     obj.select_set(obj.type == "MESH")
-bpy.ops.export_scene.gltf(
-    filepath=os.path.join(out_dir, "pessoas.glb"),
-    export_format="GLB",
-    use_selection=True,
-    export_apply=True,
-    export_yup=True,
-    export_cameras=False,
-    export_lights=False,
-    export_animations=False,
-    export_extras=False,
-    export_normals=True,
-)
+export(os.path.join(out_dir, "pessoas.glb"), False)
+
+# Each person again, alone at the origin, with a skeleton: what the game moves.
+for i, spec in enumerate(SPECS):
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    image = bpy.data.images.load(os.path.abspath(args[2]))
+    material = bpy.data.materials.new("palette")
+    material.use_nodes = True
+    nodes = material.node_tree.nodes
+    texture = nodes.new("ShaderNodeTexImage")
+    texture.image = image
+    shader = next(node for node in nodes if node.type == "BSDF_PRINCIPLED")
+    material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Base Color"])
+
+    one = kit.Builder(palette, material, 10_000.0, smooth=True)
+    one.at(0.0, 0.0)
+    one.weigher = person.pesos(spec)
+    person.pessoa(one, 0.0, 0.0, 0.0, spec, random.Random(11 + i))
+    one.write()
+    body = one.objects[0]
+    body.name = "body"
+
+    scale = spec.get("height", 1.70) / 1.70
+    data = bpy.data.armatures.new("skeleton")
+    rig = bpy.data.objects.new("skeleton", data)
+    bpy.context.scene.collection.objects.link(rig)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    made = {}
+    for name, parent, head, tail in person.ossos(spec):
+        bone = data.edit_bones.new(name)
+        # The game's (x, y, z) is Blender's (x, -z, y).
+        bone.head = (head[0] * scale, -head[2] * scale, head[1] * scale)
+        bone.tail = (tail[0] * scale, -tail[2] * scale, tail[1] * scale)
+        bone.roll = 0.0
+        if parent:
+            bone.parent = made[parent]
+        made[name] = bone
+    bpy.ops.object.mode_set(mode="OBJECT")
+    body.parent = rig
+    modifier = body.modifiers.new("skeleton", "ARMATURE")
+    modifier.object = rig
+    for obj in bpy.data.objects:
+        obj.select_set(True)
+    export(os.path.join(out_dir, f"pessoa-{i}.glb"), True)
+
 with open(os.path.join(out_dir, "pessoas.json"), "w", encoding="utf-8") as handle:
     json.dump({"people": standing, "triangles": triangles, "each": round(triangles / len(SPECS))}, handle, indent=2)
 print(f"nzila: {len(SPECS)} people, {triangles} triangles in all, saved to {out_dir}")

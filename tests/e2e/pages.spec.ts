@@ -1,3 +1,9 @@
+declare global {
+  interface Window {
+    __andar?: { x: number; z: number; speed: number; ready: boolean };
+  }
+}
+
 import { expect, test } from "@playwright/test";
 import { FPS_BUDGET, SHELL_BUDGET_BYTES, expectLooksTheSame, expectNoSidewaysScroll, slowPhone, watch } from "./harness.ts";
 
@@ -96,6 +102,28 @@ test.describe("the renderer", () => {
     await expect(page.getByRole("button", { name: "alta" })).toHaveAttribute("aria-pressed", "true");
     // Alta draws real shadows, which costs draw calls the lowest tier does not spend.
     await page.waitForFunction((before) => window.__cena!.draws > before, low);
+  });
+});
+
+test.describe("a person", () => {
+  test("walks the district by the simulation's rules: the body moves over the ground, and nothing errors", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Walking was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/andar?auto&tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    const start = await page.evaluate(() => window.__andar!.x);
+    // The scripted turn begins by walking east at a metre and a half a second.
+    await page.waitForFunction((from) => window.__andar!.x > from + 2, start, { timeout: 20_000 });
+    const moving = await page.evaluate(() => window.__andar!);
+    info.annotations.push({ type: "walk", description: `from x ${start.toFixed(1)} to ${moving.x.toFixed(1)} m, at ${moving.speed.toFixed(2)} m/s` });
+    expect(moving.speed).toBeGreaterThan(0.8);
+    expect(moving.speed).toBeLessThan(4.6);
+    await expectNoSidewaysScroll(page);
+    expect(seen.errors).toEqual([]);
   });
 });
 

@@ -132,6 +132,9 @@ export async function buildPeople(workDir: string, outDir: string): Promise<{ pe
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   await writeFile(join(outDir, "pessoas.glb"), model);
+  // Each person alone with a skeleton. These are not put through the optimiser yet: it is
+  // written for the world's still models, and a skeleton is not something to risk in it unseen.
+  for (let i = 0; i < list.people.length; i++) await writeFile(join(outDir, `pessoa-${i}.glb`), await readFile(join(workDir, `pessoa-${i}.glb`)));
   await writeFile(join(outDir, "pessoas.json"), JSON.stringify(list));
   return { ...list, bytes: model.length };
 }

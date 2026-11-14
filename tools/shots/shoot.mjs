@@ -72,6 +72,9 @@ const PAGES = [
 const FILMS = [
   ["styleguide", "/styleguide"],
   ["passeio", "/cena?hour=17.4&tier=normal"],
+  ["andar-frente", "/andar?auto&cam=75&quem=1"],
+  ["andar-lado", "/andar?auto&cam=0&quem=0"],
+  ["andar-tras", "/andar?auto&cam=270&quem=5"],
 ];
 const SIZES = [
   ["phone", 360, 740],
@@ -137,7 +140,8 @@ try {
     }
   }
   // Movement cannot be seen in a still: one slow scroll down each long page, as a video.
-  for (const [pageName, path] of only ? [] : FILMS) {
+  for (const [pageName, path] of FILMS) {
+    if (only && !pageName.startsWith(only)) continue;
     const context = await browser.newContext({ viewport: { width: 390, height: 780 }, recordVideo: { dir: out, size: { width: 390, height: 780 } } });
     const page = await context.newPage();
     await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: "networkidle" });
@@ -145,6 +149,14 @@ try {
     for (let y = 0; y < tall - 780; y += 26) {
       await page.evaluate(`window.scrollTo(0, ${y})`);
       await page.waitForTimeout(110);
+    }
+    if (path.startsWith("/andar")) {
+      await page.waitForFunction("window.__andar?.ready === true", undefined, { timeout: 30000 }).catch(() => report.push(`${pageName}: the person never arrived`));
+      // Stills out of the film, to look at the stride without playing it.
+      for (let i = 0; i < 8; i++) {
+        await page.waitForTimeout(i === 0 ? 1200 : 1100);
+        await page.screenshot({ path: join(out, `${pageName}_${i}.png`) });
+      }
     }
     await page.waitForTimeout(path.startsWith("/cena") ? 9000 : 1500);
     const video = page.video();

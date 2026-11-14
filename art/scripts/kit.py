@@ -67,6 +67,10 @@ class Builder:
         self.groups = {}
         self.chunk = (0, 0)
         self.level = BOTH
+        # For a body: the part being built ("arm.L"), and what turns a part and a point into bone weights.
+        self.part = None
+        self.weigher = None
+        self.objects = []
 
     def at(self, x, z):
         """Whatever is built next belongs to the chunk this point is in, however far it overhangs."""
@@ -83,9 +87,9 @@ class Builder:
         elif toward is not None and _dot(normal, toward) < 0:
             points.reverse()
         group = self.groups.setdefault((self.chunk, self.level), [])
-        group.append((points, colour))
+        group.append((points, colour, self.part))
         if two_sided:
-            group.append((list(reversed(points)), colour))
+            group.append((list(reversed(points)), colour, self.part))
 
     # ------------------------------------------------------------ shapes
 
@@ -171,7 +175,9 @@ class Builder:
         """Makes one Blender object for each chunk and level of detail."""
         for ((cx, cz), level), faces in sorted(self.groups.items()):
             verts, polys, uvs = [], [], []
-            for points, colour in faces:
+            parts = []
+            for points, colour, part in faces:
+                parts.extend([part] * len(points))
                 index = self.squares[colour]
                 u = (index % self.cells + 0.5) / self.cells
                 v = 1 - (index // self.cells + 0.5) / self.cells
@@ -187,6 +193,17 @@ class Builder:
             layer = mesh.uv_layers.new(name="UVMap")
             layer.data.foreach_set("uv", uvs)
             mesh.materials.append(self.material)
+            obj = bpy.data.objects.new(name, mesh)
+            self.objects.append(obj)
+            if self.weigher:
+                # Every corner still belongs to one face here, so it knows its part; merging comes after.
+                groups = {}
+                for index, part in enumerate(parts):
+                    for bone, weight in self.weigher(part, (verts[index][0], verts[index][2], -verts[index][1])):
+                        if weight > 0.001:
+                            if bone not in groups:
+                                groups[bone] = obj.vertex_groups.new(name=bone)
+                            groups[bone].add([index], weight, "REPLACE")
             if self.smooth:
                 import bmesh
                 work = bmesh.new()
@@ -197,7 +214,6 @@ class Builder:
                 for polygon in mesh.polygons:
                     polygon.use_smooth = True
                 mesh.set_sharp_from_angle(angle=math.radians(66))
-            obj = bpy.data.objects.new(name, mesh)
             # What the export script reads: which chunk, which level, and that the shape is final.
             obj["nzila_chunk"] = f"{cx},{cz}"
             obj["lod_exact"] = True

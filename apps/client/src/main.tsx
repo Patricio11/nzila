@@ -17,6 +17,10 @@ if (path === "/bench") {
   // The test scene, to look at the light on.
   const { Cena } = await import("./cena/cena-page.tsx");
   render(<Cena />, app);
+} else if (path === "/andar") {
+  // One person walking the development district.
+  const { Andar } = await import("./andar/andar-page.tsx");
+  render(<Andar />, app);
 } else if (path === "/corpo") {
   // The people, to look at before they are given a skeleton.
   const { Corpo } = await import("./corpo/corpo-page.tsx");

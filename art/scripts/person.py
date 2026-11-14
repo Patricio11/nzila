@@ -87,6 +87,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     def box(c, size, colour):
         b.box(T(c), (size[0] * s, size[1] * s, size[2] * s), colour, yaw=yaw, skip_bottom=False)
 
+    b.part = "torso"
     # ------------------------------------------------------------------ torso
     if female:
         shoulder, chest, chest_z, waist, waist_z, hip, hip_z = 0.172, 0.150, 0.118, 0.122, 0.092, 0.176, 0.116
@@ -121,6 +122,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     cap(rings[0], low_colour, T((0.0, 0.9, 0.0)))
 
     # A skirt, a pano or a dress hangs from the waist over the legs.
+    b.part = "skirt"
     if bottom in ("skirt", "pano") or long_top:
         colour = top_colour if long_top else bottom_colour
         length = 0.50 if bottom == "skirt" or (long_top and spec.get("short")) else 0.30
@@ -141,6 +143,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
 
     # ------------------------------------------------------------------- legs
     for side in (-1, 1):
+        b.part = "leg.L" if side > 0 else "leg.R"
         lx = side * hip * 0.50
         trousers = bottom == "trousers"
         shorts = bottom == "shorts"
@@ -161,6 +164,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         leg_rings = [ring(lx, y, off, rx * grow, rz * grow, 10) for (y, rx, rz, off, grow, _) in leg]
         loft(leg_rings, [leg[i + 1][5] if leg[i][0] != leg[i + 1][0] else leg[i][5] for i in range(len(leg) - 1)])
         # The shoe: a heel and a toe that is lower and longer.
+        b.part = "foot.L" if side > 0 else "foot.R"
         if shoe == "chinelo":
             box((lx, 0.012, 0.035), (0.092, 0.024, 0.25), "shoe")
             box((lx, 0.04, 0.03), (0.08, 0.035, 0.21), skin)
@@ -173,6 +177,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     # ------------------------------------------------------------------- arms
     sleeve = {"tshirt": 1.25, "shirt": 1.25, "blusa": 1.33, "dress": 1.31, "vestido": 1.31, "long": 0.90, "alcas": 9.0, "none": 9.0}[top]
     for side in (-1, 1):
+        b.part = "arm.L" if side > 0 else "arm.R"
         joints = [(side * shoulder * 0.93, 1.405), (side * (shoulder * 0.93 + 0.070), 1.145), (side * (shoulder * 0.93 + 0.118), 0.895)]
 
         def arm_x(y):
@@ -198,6 +203,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         cap(arm_rings[-1], arm_colours[-1], T((arm_x(1.3), 1.3, 0.0)))
         # The hand: a palm, the fingers together, and a thumb forward of them.
         wx = arm_x(0.895) + side * 0.012
+        b.part = "hand.L" if side > 0 else "hand.R"
         hand = refine([(0.895, 0.024, 0.030, 0.0), (0.862, 0.017, 0.040, 0.004), (0.815, 0.015, 0.042, 0.006), (0.765, 0.012, 0.036, 0.004), (0.735, 0.007, 0.022, 0.002)], 1)
         hand.reverse()
         hand_rings = [ring(wx + side * (0.895 - y) * 0.10, y, off, rx, rz, 8) for (y, rx, rz, off) in hand]
@@ -208,6 +214,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         loft(thumb, [skin, skin])
         cap(thumb[0], skin, T((wx, 0.84, 0.03)))
 
+    b.part = "head"
     # ------------------------------------------------------------------- head
     yc, zc = 1.640, 0.014
     jaw = 1.0 if female else 1.12
@@ -339,6 +346,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         loft(afro, [hair_colour] * 4)
         cap(afro[-1], hair_colour, T((0.0, yc, zc)))
     elif style in ("trancas", "dreads"):
+        b.part = "hairfall"
         thick = 0.0085 if style == "trancas" else 0.015
         count = 22 if style == "trancas" else 13
         reach = spec.get("hair_length", 1.20 if style == "trancas" else 1.38)
@@ -368,4 +376,104 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         loft(wrap, [cloth] * 3)
         cap(wrap[-1], cloth, T((0.0, yc, zc)))
         b.gem(T((0.0, yc + 0.135, zc + 0.03)), (0.045 * s, 0.035 * s, 0.04 * s), 5, cloth, rng, rough=0.1)
+    b.part = None
     return height
+
+
+# ==================================================================== the skeleton
+# Seventeen bones, the same names in every body. Positions are for someone
+# 1.70 m tall and follow the same measurements the body was built from, so a
+# joint is where the limb was made to bend.
+
+def shoulder_width(spec):
+    female = spec.get("sex", "f") == "f"
+    return (0.172 if female else 0.205) * spec.get("build", 1.0)
+
+
+def hip_width(spec):
+    female = spec.get("sex", "f") == "f"
+    return (0.176 if female else 0.164) * spec.get("build", 1.0)
+
+
+def ossos(spec):
+    """The bones as (name, parent, head, tail), in metres at 1.70 m, in the game's axes (x left, y up, z forward)."""
+    sx = shoulder_width(spec) * 0.93
+    hx = hip_width(spec) * 0.50
+    bones = [
+        ("hips", None, (0.0, 0.95, 0.0), (0.0, 1.07, 0.0)),
+        ("spine", "hips", (0.0, 1.07, 0.0), (0.0, 1.25, 0.0)),
+        ("chest", "spine", (0.0, 1.25, 0.0), (0.0, 1.46, 0.0)),
+        ("neck", "chest", (0.0, 1.46, 0.0), (0.0, 1.535, 0.008)),
+        ("head", "neck", (0.0, 1.535, 0.008), (0.0, 1.76, 0.008)),
+    ]
+    for side, tag in ((1, "L"), (-1, "R")):
+        bones += [
+            (f"upperArm.{tag}", "chest", (side * sx, 1.405, 0.0), (side * (sx + 0.070), 1.145, 0.0)),
+            (f"lowerArm.{tag}", f"upperArm.{tag}", (side * (sx + 0.070), 1.145, 0.0), (side * (sx + 0.118), 0.895, 0.0)),
+            (f"hand.{tag}", f"lowerArm.{tag}", (side * (sx + 0.118), 0.895, 0.0), (side * (sx + 0.135), 0.74, 0.0)),
+            (f"thigh.{tag}", "hips", (side * hx, 0.90, 0.0), (side * hx, 0.50, 0.004)),
+            (f"shin.{tag}", f"thigh.{tag}", (side * hx, 0.50, 0.004), (side * hx, 0.09, -0.004)),
+            (f"foot.{tag}", f"shin.{tag}", (side * hx, 0.09, -0.004), (side * hx, 0.02, 0.16)),
+        ]
+    return bones
+
+
+def _blend(value, low, high):
+    """0 at or under low, 1 at or over high, eased between."""
+    u = min(1.0, max(0.0, (value - low) / (high - low)))
+    return u * u * (3 - 2 * u)
+
+
+def pesos(spec, x=0.0, z=0.0, ground=0.0):
+    """
+    Returns the function that says which bones move a point of the body, and how much.
+    The body must have been built facing forward (yaw 0) at (x, z).
+    """
+    s = spec.get("height", 1.70) / 1.70
+
+    def weigh(part, point):
+        if part is None:
+            return [("hips", 1.0)]
+        lx, y = (point[0] - x) / s, (point[1] - ground) / s
+        side = part[-1] if part[-2:] in (".L", ".R") else ("L" if lx > 0 else "R")
+        if part == "torso":
+            if y > 1.44:
+                u = _blend(y, 1.44, 1.52)
+                return [("chest", 1 - u), ("neck", u)]
+            if y > 1.16:
+                u = _blend(y, 1.16, 1.32)
+                return [("spine", 1 - u), ("chest", u)]
+            u = _blend(y, 0.96, 1.14)
+            if y < 0.9:
+                # The seat follows the thighs a little, so a step does not tear it.
+                v = _blend(y, 0.9, 0.8) * 0.45 * _blend(abs(lx), 0.0, 0.05)
+                return [("hips", 1 - v), (f"thigh.{side}", v)]
+            return [("hips", 1 - u), ("spine", u)]
+        if part == "skirt":
+            # Cloth hangs from the hips and is carried by the leg under it, more toward the hem.
+            v = _blend(y, 0.95, 0.45) * 0.62 * _blend(abs(lx), 0.0, 0.06)
+            return [("hips", 1 - v), (f"thigh.{side}", v)]
+        if part.startswith("leg"):
+            if y > 0.50:
+                u = _blend(y, 0.57, 0.43)
+                top = _blend(y, 0.80, 0.90) * 0.35
+                return [(f"thigh.{side}", (1 - u) * (1 - top)), (f"shin.{side}", u), ("hips", (1 - u) * top)]
+            u = _blend(y, 0.57, 0.43)
+            v = _blend(y, 0.13, 0.07)
+            return [(f"thigh.{side}", 1 - u), (f"shin.{side}", u * (1 - v)), (f"foot.{side}", u * v)]
+        if part.startswith("foot"):
+            return [(f"foot.{side}", 1.0)]
+        if part.startswith("arm"):
+            u = _blend(y, 1.20, 1.09)
+            top = _blend(y, 1.36, 1.43) * 0.5
+            return [(f"upperArm.{side}", (1 - u) * (1 - top)), (f"lowerArm.{side}", u), ("chest", (1 - u) * top)]
+        if part.startswith("hand"):
+            u = _blend(y, 0.90, 0.86)
+            return [(f"lowerArm.{side}", 1 - u), (f"hand.{side}", u)]
+        if part == "hairfall":
+            u = _blend(y, 1.52, 1.40)
+            return [("head", 1 - u), ("chest", u)]
+        return [("head", 1.0)]
+
+    return weigh
+
