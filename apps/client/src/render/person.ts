@@ -231,20 +231,25 @@ export class Person {
         this.toward("neck", e, -0.2 - 0.2 * squat);
         this.toward("head", e, -0.08 + 0.07 * Math.sin(beat), -0.1 * half * (bounce + lean), 0.08 * lean * half);
         if (this.female) {
-          // Her third figure: knees bent, hands on the thighs, the back held, and the hips tilting up and down on the beat.
+          // Her third figure: knees bent, leaning in with a hand on each knee, the back held, and the hips
+          // tilting up and down on the beat.
           const work = Math.sin(beat);
           this.toward("hips", e * squat, 0.42 + 0.3 * work, 0, 0.05 * half);
-          this.toward("spine", e * squat, 0.08 - 0.26 * work);
-          this.toward("chest", e * squat, -0.12 - 0.05 * work);
-          this.toward("neck", e * squat, -0.3);
+          this.toward("spine", e * squat, 0.2 - 0.27 * work);
+          this.toward("chest", e * squat, -0.12 - 0.03 * work);
+          this.toward("neck", e * squat, -0.34);
           for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
-            this.toward(`thigh${tag}`, e * squat, -0.95 - 0.3 * work * 0.3, 0, side * 0.3);
-            this.toward(`shin${tag}`, e * squat, 1.25);
-            this.toward(`foot${tag}`, e * squat, -0.3);
-            this.toward(`upperArm${tag}`, e * squat, -0.5, 0, side * 0.02);
-            this.toward(`lowerArm${tag}`, e * squat, -0.25);
+            // A leg hangs from the hips, so it is turned back by as much as the hips tilt: the knees and the
+            // feet stay where they are while the hips move.
+            this.toward(`thigh${tag}`, e * squat, -1.0 - (0.42 + 0.3 * work), 0, side * 0.3);
+            this.toward(`shin${tag}`, e * squat, 1.35);
+            this.toward(`foot${tag}`, e * squat, -0.35);
+            // The arms straight down to the knees, and staying there while the hips move.
+            this.toward(`upperArm${tag}`, e * squat, -0.72, 0, -side * 0.12);
+            this.toward(`lowerArm${tag}`, e * squat, -0.06);
+            this.toward(`hand${tag}`, e * squat, 0.35, 0, 0);
           }
-          drop += squat * (0.4 * (1 - Math.cos(0.95)) + 0.41 * (1 - Math.cos(0.3)) + 0.02 * work - drop);
+          drop += squat * (0.4 * (1 - Math.cos(1.0)) + 0.41 * (1 - Math.cos(0.35)) - drop);
         }
         hipsY -= e * drop * scale;
       } else {

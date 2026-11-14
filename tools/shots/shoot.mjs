@@ -47,6 +47,8 @@ const PAGES = [
   ["corpo-2-tras", "/corpo?hour=16.6&quem=0&ang=160"],
   ["hud", "/andar?hour=16.8&cam=200"],
   ...["acenar", "rir", "aplaudir", "chamar", "dancar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
+  ["ela-joelhos-lado", "/andar?hour=15&cam=90&quem=6&gesto=dancar&t=6.0&pausa"],
+  ["ela-joelhos-frente", "/andar?hour=15&cam=20&quem=2&gesto=dancar&t=6.1&pausa"],
   ["hud-sentar", "/andar?hour=16.8&cam=40&quem=4&sentar"],
   ["hud-sentar-calcas", "/andar?hour=12&cam=320&quem=1&sentar"],
   ["hud-esquerda", "/andar?hour=16.8&cam=200&mao=esquerda&quem=2"],
@@ -139,7 +141,7 @@ try {
       if (path.startsWith("/corpo")) await page.waitForFunction("window.__corpo !== undefined", undefined, { timeout: 30000 }).catch(() => errors.push("the people never arrived"));
       if (path.startsWith("/andar")) {
         await page.waitForFunction("window.__andar?.ready === true", undefined, { timeout: 30000 }).catch(() => errors.push("the person never arrived"));
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(pageName.startsWith("ela-") ? 1900 : 3000);
       }
       if (path.includes("auto") && path.startsWith("/bench")) await page.waitForFunction("window.__bench !== undefined", undefined, { timeout: 60000 });
       await page.waitForTimeout(path === "/bench" ? 3500 : 900);

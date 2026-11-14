@@ -89,6 +89,10 @@ export function Andar() {
     let sit = 0;
     let lastHud = 0;
     // Asked for in the address, to hold a pose for a picture.
+    // `&t=5.2` begins a held gesture that far in, to catch one figure of a dance in a still.
+    const skip = Number(params.get("t")) || 0;
+    // `&pausa` holds the gesture at exactly that moment.
+    const frozen = params.has("pausa");
     const held = { sit: params.has("sentar"), emote: EMOTES.find((kind) => kind === params.get("gesto")) ?? null };
 
     void (async () => {
@@ -180,7 +184,7 @@ export function Andar() {
         }
         if (held.emote && !emote) asks.current.emote = held.emote;
         if (asks.current.emote) {
-          emote = { kind: asks.current.emote, began: seconds };
+          emote = { kind: asks.current.emote, began: seconds - (held.emote ? skip : 0) };
           asks.current.emote = null;
         }
         if (emote && (seconds - emote.began > EMOTE_SECONDS[emote.kind] || (moving && asks.current.run))) emote = null;
@@ -213,7 +217,7 @@ export function Andar() {
         }
         person.root.position.set(x, y, z);
         person.root.rotation.y = facing;
-        person.pose({ speed, phase, time: seconds }, { sit, ...(emote ? { emote: { kind: emote.kind, seconds: seconds - emote.began } } : {}) });
+        person.pose({ speed, phase, time: seconds }, { sit, ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
 
         // The camera: behind and above the head, pulled in before it would pass into a building.
         const upright = renderer.camera.aspect < 1;
