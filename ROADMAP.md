@@ -278,6 +278,7 @@ flowchart LR
 - Depends on: 2.1 · Unblocks: 2.5, 14.1.
 
 ### Task 2.3: Avatar creator and the BI
+- [ ] **A lotaria da vida, ours (D-0.44, founder 2026-11-14):** after the avatar, a card is drawn and turned over: the parents' trades, the family's province, the bairro, the starting Makuta (never under 1.500) and the first home. Written with wit, made to be screenshotted. The draw is made by the server, recorded once, and paid through the ledger from a named faucet.
 - [ ] Creator: body, skin, face, hair, clothes from a starter wardrobe; rotate with a thumb; under 20 seconds to something you like.
 - [ ] The BI (Bilhete de Identidade of the game): in-game name (unique, filtered), photo of the avatar, number, date of arrival, bairro. It is the player's profile card everywhere.
 - Depends on: 1.3, 1.7 · Unblocks: 3.5, 10.1.
