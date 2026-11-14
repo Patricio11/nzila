@@ -25,7 +25,7 @@ import { WorldRenderer } from "../render/world-renderer.ts";
 import "./andar.css";
 
 interface Standing {
-  people: { name: string; height: number; model: string; skirt: boolean }[];
+  people: { name: string; height: number; model: string; skirt: boolean; female?: boolean }[];
 }
 
 declare global {
@@ -95,7 +95,7 @@ export function Andar() {
       try {
         const [opened, list] = await Promise.all([DistrictScene.open(renderer, DEV_PACK), fetch(`${PEOPLE}pessoas.json`).then((r) => r.json() as Promise<Standing>)]);
         const who = list.people[Number(params.get("quem")) || 0] ?? list.people[0]!;
-        const loaded = await loadPerson(renderer, PEOPLE + who.model, who.height, who.skirt);
+        const loaded = await loadPerson(renderer, PEOPLE + who.model, who.height, who.skirt, who.female === true);
         if (closed) return opened.close();
         const spawn = opened.manifest.spawns[0]!.pos;
         Object.assign(state, { x: Math.round(spawn[0] * 1000), y: Math.round(spawn[1] * 1000), z: Math.round(spawn[2] * 1000) });

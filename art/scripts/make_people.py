@@ -54,7 +54,7 @@ standing = []
 for i, spec in enumerate(SPECS):
     px = (i - (len(SPECS) - 1) / 2) * SPACING
     tall = person.pessoa(b, px, 0.0, 0.0, spec, rng)
-    standing.append({"name": spec["name"], "x": round(px, 3), "z": 0.0, "height": tall, "model": f"pessoa-{i}.glb", "skirt": spec.get("bottom") in ("skirt", "pano") or spec.get("top") in ("dress", "vestido")})
+    standing.append({"name": spec["name"], "x": round(px, 3), "z": 0.0, "height": tall, "model": f"pessoa-{i}.glb", "female": spec.get("sex", "f") == "f", "skirt": spec.get("bottom") in ("skirt", "pano") or spec.get("top") in ("dress", "vestido")})
 b.write()
 
 triangles = sum(len(polygon.vertices) - 2 for obj in bpy.data.objects if obj.type == "MESH" for polygon in obj.data.polygons)

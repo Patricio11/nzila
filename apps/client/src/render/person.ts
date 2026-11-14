@@ -70,6 +70,9 @@ export class Person {
   private readonly hipsRestY: number;
   private readonly mesh: SkinnedMesh;
 
+  /** A woman's Dançar works the hips (founder, 2026-11-15). */
+  female = false;
+
   constructor(scene: Group, mesh: SkinnedMesh, height: number, skirt: boolean) {
     this.height = height;
     this.skirt = skirt;
@@ -227,6 +230,22 @@ export class Person {
         this.toward("chest", e, 0.1 + 0.06 * Math.sin(beat + 1), 0.16 * half * bounce, -0.1 * lean * half);
         this.toward("neck", e, -0.2 - 0.2 * squat);
         this.toward("head", e, -0.08 + 0.07 * Math.sin(beat), -0.1 * half * (bounce + lean), 0.08 * lean * half);
+        if (this.female) {
+          // Her third figure: knees bent, hands on the thighs, the back held, and the hips tilting up and down on the beat.
+          const work = Math.sin(beat);
+          this.toward("hips", e * squat, 0.42 + 0.3 * work, 0, 0.05 * half);
+          this.toward("spine", e * squat, 0.08 - 0.26 * work);
+          this.toward("chest", e * squat, -0.12 - 0.05 * work);
+          this.toward("neck", e * squat, -0.3);
+          for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+            this.toward(`thigh${tag}`, e * squat, -0.95 - 0.3 * work * 0.3, 0, side * 0.3);
+            this.toward(`shin${tag}`, e * squat, 1.25);
+            this.toward(`foot${tag}`, e * squat, -0.3);
+            this.toward(`upperArm${tag}`, e * squat, -0.5, 0, side * 0.02);
+            this.toward(`lowerArm${tag}`, e * squat, -0.25);
+          }
+          drop += squat * (0.4 * (1 - Math.cos(0.95)) + 0.41 * (1 - Math.cos(0.3)) + 0.02 * work - drop);
+        }
         hipsY -= e * drop * scale;
       } else {
         // Chamar: the arm out in front, palm down, the hand folding toward the body again and again.
@@ -258,7 +277,7 @@ export class Person {
 }
 
 /** Loads one person's model and dresses it in the world's palette. */
-export async function loadPerson(renderer: WorldRenderer, url: string, height: number, skirt: boolean): Promise<Person> {
+export async function loadPerson(renderer: WorldRenderer, url: string, height: number, skirt: boolean, female = false): Promise<Person> {
   const gltf = await new GLTFLoader().loadAsync(url);
   let body: SkinnedMesh | null = null;
   gltf.scene.traverse((node) => {
@@ -270,5 +289,7 @@ export async function loadPerson(renderer: WorldRenderer, url: string, height: n
     if (node instanceof SkinnedMesh) body = node;
   });
   if (!body) throw new Error(`${url} has no skeleton`);
-  return new Person(gltf.scene, body, height, skirt);
+  const person = new Person(gltf.scene, body, height, skirt);
+  person.female = female;
+  return person;
 }

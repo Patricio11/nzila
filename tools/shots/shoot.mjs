@@ -82,6 +82,7 @@ const FILMS = [
   ["danca-frente", "/andar?cam=0&quem=1&hour=16.8&gesto=dancar"],
   ["danca-lado", "/andar?cam=95&quem=5&hour=16.8&gesto=dancar"],
   ["danca-pano", "/andar?cam=20&quem=0&hour=16.8&gesto=dancar"],
+  ["danca-ela", "/andar?cam=110&quem=6&hour=16.8&gesto=dancar"],
   ["andar-lado", "/andar?auto&cam=0&quem=0&hour=16.8"],
   ["andar-tras", "/andar?auto&cam=270&quem=5&hour=16.8"],
 ];
