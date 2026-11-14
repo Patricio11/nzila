@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@nzila/i18n": "workspace:*",
+    "@nzila/sim": "workspace:*",
     "@nzila/ui": "workspace:*",
     "preact": "^11.2.0"
   }

@@ -32,6 +32,7 @@ if (!label || !/^[A-Za-z0-9._-]+$/.test(label)) {
 const PAGES = [
   ["frontdoor", "/"],
   ["styleguide", "/styleguide"],
+  ["bench", "/bench"],
 ];
 const SIZES = [
   ["phone", 360, 740],

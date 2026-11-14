@@ -22,12 +22,14 @@
     "test": "vitest run --project node --coverage",
     "test:engines": "vitest run --project engines",
     "test:integration": "vitest run --project integration",
-    "budget": "node tools/budget/check-shell.mjs",
-    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm build && pnpm budget",
-    "shots": "node tools/shots/shoot.mjs"
+    "budget": "node tools/budget/check.mjs",
+    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm build && pnpm budget && pnpm test:e2e",
+    "shots": "node tools/shots/shoot.mjs",
+    "test:e2e": "playwright test -c tests/e2e/playwright.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.65.0",
     "@vitest/browser-playwright": "5.1.0",
     "@vitest/coverage-v8": "5.1.0",
     "eslint": "^10.14.0",

@@ -179,10 +179,10 @@ flowchart LR
 - Depends on: 0.1 · Unblocks: 1.4, 1.7, every screen.
 
 ### Task 0.9: Reference-phone harness and budgets
-- [ ] `tools/budget`: compressed size of the shell and of each pack, failing CI over budget; a Playwright profile (360×740, CPU ×4, slow network) that records frame times on a fixed camera path and fails under 30 fps.
-- [ ] A page at `/bench` that runs the same path on a real phone and shows the numbers, so the founder can test on the reference units.
-- [ ] `docs/BUDGETS.md` with every number from Rules 1 and 2 and how each is measured, including the draw-call split of D-0.30.
-- [ ] A second Playwright profile on WebKit at iPhone size. The diaspora plays on iPhones; Safari has its own limits (audio unlock, memory, install flow) and is checked from the first commit, not discovered at beta.
+- [x] `tools/budget`: compressed size of the shell and of each pack, failing CI over budget; a Playwright profile (360×740, CPU ×4, slow network) that records frame times on a fixed camera path and fails under 30 fps. *(2026-11-14: `pnpm budget` weighs the shell, fonts included, and every built pack. `pnpm test:e2e` runs the phone profile: it counts the bytes a first visit really downloads (17 KB), runs the bench, and fails under 30 frames a second sustained. The fixed path is drawn by a stand-in 2D scene until the renderer exists; the 3D scene of 1.1 takes its place behind the same interface. It also compares `/styleguide` with a reference picture, which closes finding F-28.)*
+- [x] A page at `/bench` that runs the same path on a real phone and shows the numbers, so the founder can test on the reference units. *(2026-11-14: press Start, read the sustained frame rate against the budget, and copy the numbers from a box to send them. It also times the simulation with 80 people and 20 vehicles.)*
+- [x] `docs/BUDGETS.md` with every number from Rules 1 and 2 and how each is measured, including the draw-call split of D-0.30. *(2026-11-14: each budget says whether it is enforced today or from which task, and the page ends with what the profiles cannot tell us.)*
+- [x] A second Playwright profile on WebKit at iPhone size. The diaspora plays on iPhones; Safari has its own limits (audio unlock, memory, install flow) and is checked from the first commit, not discovered at beta. *(2026-11-14: every test runs on both profiles. WebKit's frame rate is recorded but not judged, because the test browser draws without a graphics card; a real iPhone is measured by hand in 1.9.)*
 - Depends on: 0.1 · Unblocks: 1.1, 1.9, 13.4.
 
 ### Task 0.10: Privacy and safety spine

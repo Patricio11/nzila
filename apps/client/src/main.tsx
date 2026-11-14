@@ -8,7 +8,12 @@ import "./shell.css";
 const app = document.querySelector<HTMLElement>("#app");
 if (!app) throw new Error("#app missing");
 
-if (location.pathname.replace(/\/$/, "") === "/styleguide") {
+const path = location.pathname.replace(/\/$/, "");
+if (path === "/bench") {
+  // The team's page too: the fixed run the founder does on the reference phones.
+  const { Bench } = await import("./bench/bench-page.tsx");
+  render(<Bench />, app);
+} else if (path === "/styleguide") {
   // The team's page. Loaded only when asked for, so it adds nothing to the shell a player downloads.
   const { Styleguide } = await import("./styleguide/styleguide.tsx");
   render(<Styleguide />, app);

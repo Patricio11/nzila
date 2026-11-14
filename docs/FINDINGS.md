@@ -31,8 +31,8 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 
 | F-23 | 0.7 | **The spec's examples still show the old scale** ("Apanhar · 150 Mk" and others). A note at the top of the typography rules says to read 200; the examples themselves are corrected when each screen is built. | With each screen, from 1.4 |
 | F-24 | 0.6 | **Blender moved to version 5** since the roadmap was written, and the export scripts of Task 1.5 must be written against its current scripting interface, read from its documentation, not from memory. | 1.5 |
-| F-28 | 0.7 | **Nothing compares how a screen looks with how it looked before.** The four faults of F-27 were found only because the page was opened and looked at. `pnpm shots` (2026-11-14) now saves every page at phone and desktop size and fails on sideways scrolling or an error in the page; what is still missing is keeping a reference picture and failing when a screen changes unexpectedly. | 0.9 |
-| F-29 | 0.7 | **The glyphs and components are first drawings** and have not been seen by the founder (D-0.23). | Founder, on `/styleguide` |
+| F-31 | 0.9 | **Reference pictures exist for Windows only.** On CI, which runs Linux, the look of the styleguide is not compared (the test says so). | When the repository first runs on CI: make the Linux pictures there, look at each, commit them |
+| F-32 | 0.9 | **Nothing in the harness is an iPhone or a cheap phone.** The profiles catch large regressions; they do not prove the budgets. The numbers that count come from the bench on real units. | Founder: the two reference phones (D-0.5); one real iPhone in 1.9 |
 
 ## Fixed
 
@@ -51,6 +51,9 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-26 | 0.7 | The size budget did not count the font, which is the largest single file a first visit downloads. | Fonts count toward the shell budget at their full weight. The shell is 52 KB of its 300 KB. | 2026-11-14 |
 | F-27 | 0.7 | Seen in the browser screenshots, not by any test: the front door sat at the top of the screen instead of the middle; titles on paper inherited a pale colour from the page around them; long stop names broke in the middle of a word; the loading placeholder had no width. | All four fixed and looked at again. | 2026-11-14 |
 | F-30 | 0.7 | The first components were correct but plain: flat buttons, a route band that was a list of dots, a banner that was a line of text. The founder: "it must all feel like a game". | Redrawn the same day: depth and press on buttons, the breathing gold button, the van driving along the route band, the road mark in place of any spinner, the receipt that prints, the BI that is stamped. Rules in `UX_UI_SPEC.md` §1.3b, D-0.39. | 2026-11-14 |
+| F-28 | 0.7 | Nothing compared how a screen looks with how it looked before. | The browser tests keep a reference picture of `/styleguide` for the phone and the iPhone profile and fail when it changes by more than one pixel in a hundred. | 2026-11-14 |
+| F-29 | 0.7 | The glyphs and components had not been seen by the founder (D-0.23). | Seen and approved on 2026-11-14 after the redraw of F-30 ("I like it, you did well"). | 2026-11-14 |
+| F-33 | 0.9 | The bench first judged a run by its worst one per cent of frames, which in a short run is two or three frames and measured start-up hitches, not the scene. | The pass mark is now what "sustained" means: 95 frames in 100 at 30 a second or better, after half a second of warm-up. The worst one per cent is still shown. | 2026-11-14 |
 
 ## Ideas
 

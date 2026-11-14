@@ -65,7 +65,11 @@ function literalCopy(s: Source): string[] {
 }
 
 const playerFacing = code.filter(
-  (s) => (s.path.startsWith("apps/client/src/") || s.path.startsWith("packages/ui/src/")) && !s.path.startsWith("apps/client/src/styleguide/"),
+  // The styleguide and the bench are pages for the team, in plain English, and are not shown to players.
+  (s) =>
+    (s.path.startsWith("apps/client/src/") || s.path.startsWith("packages/ui/src/")) &&
+    !s.path.startsWith("apps/client/src/styleguide/") &&
+    !s.path.startsWith("apps/client/src/bench/"),
 );
 
 describe("Rule 10: every word a player reads is in the catalog", () => {
