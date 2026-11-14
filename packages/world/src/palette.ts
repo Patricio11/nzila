@@ -72,6 +72,25 @@ export const WORLD = {
   drum: hex("#2F6FB5"), // the blue plastic drum that holds the water
   cloth: hex("#E8C23A"), // washing on the line, a shop's board
   lampPoolSand: hex("#C9B79A"), // the earth under a bairro's lamp: earth by day, a pool of light at night
+  // The Marginal and the Baixa (art/scripts/kit_baixa.py; from the founder's photographs)
+  calcadaLight: hex("#E6DCC6"),
+  calcadaDark: hex("#B9AE9A"),
+  cycleRed: hex("#B5483C"),
+  lawn: hex("#7FA654"),
+  royalTrunk: hex("#B9B3A6"),
+  bankPink: hex("#EE9CA7"),
+  bankWhite: hex("#F7F1E6"),
+  fortStone: hex("#D8CCB0"),
+  fortStoneDark: hex("#B5A888"),
+  hillGrass: hex("#8FA35C"),
+  hillGrassDark: hex("#7C9050"),
+  ferroYellow: hex("#F0C02E"),
+  ferroDark: hex("#7A5E14"),
+  glassBlue: hex("#6FA6C4"),
+  glassFrame: hex("#3F5568"),
+  roofTile: hex("#C8643A"),
+  courtGreen: hex("#3F8F5C"),
+  courtBlue: hex("#3D78B8"),
   // People (art/scripts/person.py)
   hairBlack: hex("#17120F"),
   hairGrey: hex("#8D8A84"),

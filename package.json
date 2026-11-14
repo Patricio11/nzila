@@ -23,12 +23,13 @@
     "test:engines": "vitest run --project engines",
     "test:integration": "vitest run --project integration",
     "budget": "node tools/budget/check.mjs",
-    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm pack:dev && pnpm build && pnpm budget && pnpm test:e2e",
+    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm pack:dev && pnpm pack:l1 && pnpm build && pnpm budget && pnpm test:e2e",
     "shots": "node tools/shots/shoot.mjs",
     "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
     "pack:export": "node tools/pack/src/cli.ts export",
     "pack:palette": "node tools/pack/src/dev-pack.ts palette",
-    "pack:dev": "node tools/pack/src/dev-pack.ts dev"
+    "pack:dev": "node tools/pack/src/dev-pack.ts dev",
+    "pack:l1": "node tools/pack/src/dev-pack.ts l1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

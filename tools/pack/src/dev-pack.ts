@@ -124,6 +124,25 @@ export async function buildDevPack(workDir: string, outDir: string) {
   return built;
 }
 
+/**
+ * Builds a real district from the script that draws it. The script writes the models' source, the
+ * walk grids, the routes, the district's words and everything of the manifest but its chunks.
+ */
+export async function buildDistrict(script: string, workDir: string, outDir: string, registry: Registry, brandTerms: readonly string[]) {
+  await rm(workDir, { recursive: true, force: true });
+  const src = join(workDir, "district");
+  const palette = await writePalette(join(root, "art"));
+  await blender(join(scripts, script), [src, palette.json, palette.png]);
+  const chunks = await exportChunks(join(src, "district.blend"), src, join(scripts, "export_chunks.py"));
+  const partial = JSON.parse(await readFile(join(src, "district.partial.json"), "utf8")) as Omit<SourceManifest, "chunks">;
+  const manifest: SourceManifest = { ...partial, chunks: chunks.map((chunk) => ({ id: chunk.id, aabb: chunk.aabb, lods: chunk.lods, walkGrid: `chunks/${chunk.id}.walk.json` })) };
+  await writeFile(join(src, "district.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  const built = await buildPack(src, outDir);
+  const problems = await checkPack(outDir, { registry, brandTerms });
+  if (problems.length > 0) throw new PackError(problems);
+  return built;
+}
+
 /** Builds the line of people the /corpo page shows (art/scripts/make_people.py) into `outDir`. */
 export async function buildPeople(workDir: string, outDir: string): Promise<{ people: unknown[]; triangles: number; each: number; bytes: number }> {
   await rm(workDir, { recursive: true, force: true });
@@ -167,8 +186,26 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         process.exitCode = 1;
       }
     }
+  } else if (command === "l1") {
+    if (!findBlender() || !findKtx()) {
+      console.warn("pack l1: SKIPPED, Blender or KTX-Software not installed. Marginal e Baixa was not built.");
+    } else {
+      try {
+        const registry = JSON.parse(await readFile(join(root, "content", "registry.json"), "utf8")) as Registry;
+        const brands = (await readFile(join(root, "docs", "legal", "BRAND_TERMS.txt"), "utf8")).split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
+        const manifest = await buildDistrict("make_l1.py", join(root, "dist", "l1"), join(root, "apps", "client", "public", "packs", "l1"), registry, brands);
+        const mb = (bytes: number): string => (bytes / 1_000_000).toFixed(2);
+        const heaviest = Math.max(...manifest.chunks.map((chunk) => chunk.stats.near.tris));
+        console.log(`pack l1: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal (budget 8), the heaviest chunk ${heaviest} triangles, ${manifest.pois.length} points of interest. Served at /packs/l1/.`);
+      } catch (error) {
+        if (!(error instanceof PackError)) throw error;
+        console.error(`pack l1: ${error.problems.length} problem(s):`);
+        for (const problem of error.problems.slice(0, 40)) console.error(`  - ${problem}`);
+        process.exitCode = 1;
+      }
+    }
   } else {
-    console.error("usage: dev-pack.ts palette | dev");
+    console.error("usage: dev-pack.ts palette | dev | l1");
     process.exitCode = 1;
   }
 }

@@ -6,6 +6,8 @@
 // line of help at the foot is for the team and is plain English.
 //
 //   /andar                 left thumb to walk (push far to run), drag to look, W A S D and Shift on a keyboard
+//   /andar?pack=l1         walks Marginal e Baixa instead of the rehearsal town
+//   /andar?em=250,70       starts there (x,z in metres) instead of where arrivals do
 //   /andar?quem=3          which of the people to be
 //   /andar?mao=esquerda    left-handed: the stick on the right, the buttons on the left
 //   /andar?auto            walks, runs, stops and waves by itself, for films
@@ -97,14 +99,16 @@ export function Andar() {
 
     void (async () => {
       try {
-        const [opened, list] = await Promise.all([DistrictScene.open(renderer, DEV_PACK), fetch(`${PEOPLE}pessoas.json`).then((r) => r.json() as Promise<Standing>)]);
+        const [opened, list] = await Promise.all([DistrictScene.open(renderer, params.get("pack") ? `/packs/${params.get("pack")}/` : DEV_PACK), fetch(`${PEOPLE}pessoas.json`).then((r) => r.json() as Promise<Standing>)]);
         const who = list.people[Number(params.get("quem")) || 0] ?? list.people[0]!;
         const loaded = await loadPerson(renderer, PEOPLE + who.model, who.height, who.skirt, who.female === true);
         if (closed) return opened.close();
-        const spawn = opened.manifest.spawns[0]!.pos;
-        Object.assign(state, { x: Math.round(spawn[0] * 1000), y: Math.round(spawn[1] * 1000), z: Math.round(spawn[2] * 1000) });
+        const asked = params.get("em")?.split(",").map(Number);
+        const arrival = opened.manifest.spawns[0]!.pos;
+        const spawn: readonly number[] = asked && asked.length >= 2 ? [asked[0]!, arrival[1], asked[1]!] : arrival;
+        Object.assign(state, { x: Math.round(spawn[0]! * 1000), y: Math.round(spawn[1]! * 1000), z: Math.round(spawn[2]! * 1000) });
         Object.assign(before, state);
-        opened.stand([spawn[0], spawn[2]]);
+        opened.stand([spawn[0]!, spawn[2]!]);
         await opened.settle();
         if (closed) return opened.close();
         renderer.scene.add(loaded.root);

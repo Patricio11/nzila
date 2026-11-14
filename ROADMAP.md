@@ -231,7 +231,7 @@ flowchart LR
 - Depends on: 0.7, 0.8, 1.3 · Unblocks: 1.7.
 
 ### Task 1.5: District L1, Marginal e Baixa
-- [ ] Greybox at postcard scale from the atlas brief: the Marginal promenade and the bay, the Fortaleza de São Miguel on its hill, the pink bank building, the Mutamba square and its paragem, two inner streets with shop fronts, one residential building, a small market, the causeway toward the Ilha (closed, with a sign).
+- [ ] *(2026-11-15: a first pass exists, greybox and kit together, `art/scripts/make_l1.py`; see findings F-82 and F-83 for what is and is not there. Not ticked: lots, landmarks by hand and the founder's review of the words remain.)* Greybox at postcard scale from the atlas brief: the Marginal promenade and the bay, the Fortaleza de São Miguel on its hill, the pink bank building, the Mutamba square and its paragem, two inner streets with shop fronts, one residential building, a small market, the causeway toward the Ilha (closed, with a sign).
 - [ ] Art pass 1 with our own kit (`art/scripts/kit.py`, grown for the Baixa: the sobrado, the modernist block with galleries, the new tower, the calçada of the Marginal), then art pass 2 on the six landmarks (stub S-2). The housing mix of `WORLD_ATLAS.md` §2b is the brief: three kinds of building, not rows of one.
 - [ ] Walk grid, spawns, twelve points of interest with a line each in the catalog, two candongueiro routes that loop inside the district.
 - [ ] Passes `pack:check` inside the 8 MB budget.

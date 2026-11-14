@@ -349,7 +349,7 @@ def acacia(b, x, z, rng, ground=0.0, shade="pavementShade", shade_reach=None):
 # ================================================================== buildings
 
 
-def building(b, x, z, width, depth, floors, wall, rng, ground=0.0):
+def building(b, x, z, width, depth, floors, wall, rng, ground=0.0, face=None, extras=True):
     """
     A block of flats or offices: a plinth, a ground floor with a door and
     shop windows under an awning, rows of windows above, some lit at night, a
@@ -367,7 +367,8 @@ def building(b, x, z, width, depth, floors, wall, rng, ground=0.0):
         ((width / 2, 0.0, 0.0), (0.0, 0.0, -1.0), (1.0, 0.0, 0.0), depth),
         ((-width / 2, 0.0, 0.0), (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), depth),
     ]
-    front = rng.randrange(4)
+    # `face` chooses the side the door is on: 0 toward +Z, 1 toward -Z, 2 toward +X, 3 toward -X.
+    front = rng.randrange(4) if face is None else face
     shop = rng.random() < 0.6
     awning = rng.choice(["awningRed", "awningGold", "awningTeal"])
     roof = rng.choice(["roofZinc", "roofZinc", "roof", "plinth"])
@@ -419,23 +420,24 @@ def building(b, x, z, width, depth, floors, wall, rng, ground=0.0):
     for offset, right, out, length in sides:
         b.box(_add((x, top + 0.25, z), _mul(out, (depth if abs(out[2]) > 0.5 else width) / 2 - 0.1)), (length if abs(right[0]) > 0.5 else 0.2, 0.5, 0.2 if abs(right[0]) > 0.5 else length), wall)
 
-    # On the roof: the water tank, always; the rest up close.
-    tank_x = x + rng.uniform(-width * 0.25, width * 0.25)
-    tank_z = z + rng.uniform(-depth * 0.25, depth * 0.25)
-    b.level = FULL
-    for sx in (-0.5, 0.5):
-        for sz in (-0.5, 0.5):
-            b.box((tank_x + sx, top + 0.5, tank_z + sz), (0.1, 1.0, 0.1), "metal")
-    b.tube([(tank_x, top + 1.0, tank_z), (tank_x, top + 2.3, tank_z)], [0.85, 0.85], 10, "tank")
-    for i in range(rng.randint(1, 3)):
-        b.box((x + rng.uniform(-width * 0.38, width * 0.38), top + 0.3, z + rng.uniform(-depth * 0.38, depth * 0.38)), (0.9, 0.6, 0.6), "metal")
-    if rng.random() < 0.7:
-        dish = (x + rng.uniform(-width * 0.3, width * 0.3), top + 0.9, z + rng.uniform(-depth * 0.3, depth * 0.3))
-        b.box((dish[0], top + 0.45, dish[2]), (0.08, 0.9, 0.08), "metal")
-        tilt = _unit((rng.uniform(-1, 1), 0.9, rng.uniform(-1, 1)))
-        side = _unit(_cross(tilt, (0.0, 1.0, 0.0)))
-        up = _cross(side, tilt)
-        b.face([_add(dish, _add(_mul(side, math.cos(a) * 0.55), _mul(up, math.sin(a) * 0.55))) for a in [2 * math.pi * k / 8 for k in range(8)]], "line", two_sided=True)
+    if extras:
+        # On the roof: the water tank, always; the rest up close.
+        tank_x = x + rng.uniform(-width * 0.25, width * 0.25)
+        tank_z = z + rng.uniform(-depth * 0.25, depth * 0.25)
+        b.level = FULL
+        for sx in (-0.5, 0.5):
+            for sz in (-0.5, 0.5):
+                b.box((tank_x + sx, top + 0.5, tank_z + sz), (0.1, 1.0, 0.1), "metal")
+        b.tube([(tank_x, top + 1.0, tank_z), (tank_x, top + 2.3, tank_z)], [0.85, 0.85], 10, "tank")
+        for i in range(rng.randint(1, 3)):
+            b.box((x + rng.uniform(-width * 0.38, width * 0.38), top + 0.3, z + rng.uniform(-depth * 0.38, depth * 0.38)), (0.9, 0.6, 0.6), "metal")
+        if rng.random() < 0.7:
+            dish = (x + rng.uniform(-width * 0.3, width * 0.3), top + 0.9, z + rng.uniform(-depth * 0.3, depth * 0.3))
+            b.box((dish[0], top + 0.45, dish[2]), (0.08, 0.9, 0.08), "metal")
+            tilt = _unit((rng.uniform(-1, 1), 0.9, rng.uniform(-1, 1)))
+            side = _unit(_cross(tilt, (0.0, 1.0, 0.0)))
+            up = _cross(side, tilt)
+            b.face([_add(dish, _add(_mul(side, math.cos(a) * 0.55), _mul(up, math.sin(a) * 0.55))) for a in [2 * math.pi * k / 8 for k in range(8)]], "line", two_sided=True)
     # Balconies down one side of some of them.
     if floors >= 3 and rng.random() < 0.55:
         offset, right, out, length = sides[(front + 1) % 4]
@@ -443,8 +445,9 @@ def building(b, x, z, width, depth, floors, wall, rng, ground=0.0):
             centre = _add(_add((x, ground + plinth + floor * storey + 0.06, z), offset), _mul(out, 0.55))
             b.box(centre, (length * 0.6 if abs(right[0]) > 0.5 else 1.1, 0.12, 1.1 if abs(right[0]) > 0.5 else length * 0.6), "plinth", skip_bottom=False)
             b.box(_add(centre, _add(_mul(out, 0.52), (0.0, 0.5, 0.0))), (length * 0.6 if abs(right[0]) > 0.5 else 0.06, 0.9, 0.06 if abs(right[0]) > 0.5 else length * 0.6), "metal", skip_bottom=False)
-    b.level = LIGHT
-    b.tube([(tank_x, top, tank_z), (tank_x, top + 2.3, tank_z)], [0.85, 0.85], 6, "tank")
+    if extras:
+        b.level = LIGHT
+        b.tube([(tank_x, top, tank_z), (tank_x, top + 2.3, tank_z)], [0.85, 0.85], 6, "tank")
     b.level = BOTH
 
 
