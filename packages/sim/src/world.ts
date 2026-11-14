@@ -1,0 +1,115 @@
+// The stepped world: the people and vehicles of one channel, advanced one
+// fixed step at a time from the inputs of that step. The zone owns the real
+// one. A client keeps a copy to predict with, and replays its own inputs on
+// it when the zone's answer arrives.
+
+import { type Obstacle } from "./collision.ts";
+import { type Ground } from "./grid.ts";
+import { DEFAULT_CHARACTER, NO_MOVE, stepCharacter, type CharacterParams, type CharacterState, type MoveInput } from "./movement.ts";
+import { createRng, hashInts, type Rng } from "./rng.ts";
+import { NO_DRIVE, VEHICLES, stepVehicle, vehicleObstacle, type DriveInput, type VehicleKind, type VehicleState } from "./vehicle.ts";
+
+/** What does not change from step to step. */
+export interface SimMap {
+  readonly ground: Ground;
+  readonly obstacles: readonly Obstacle[];
+}
+
+export interface CharacterEntity {
+  readonly id: number;
+  readonly state: CharacterState;
+}
+
+export interface VehicleEntity {
+  readonly id: number;
+  readonly kind: VehicleKind;
+  readonly state: VehicleState;
+}
+
+export interface SimWorld {
+  tick: number;
+  readonly rng: Rng;
+  /** Kept in order of id, so every machine steps them in the same order. */
+  readonly characters: CharacterEntity[];
+  readonly vehicles: VehicleEntity[];
+}
+
+/** The inputs of one step, by entity id. An entity with no input stands still or coasts. */
+export interface StepInputs {
+  readonly moves?: ReadonlyMap<number, MoveInput>;
+  readonly drives?: ReadonlyMap<number, DriveInput>;
+}
+
+export function createWorld(seed: number): SimWorld {
+  return { tick: 0, rng: createRng(seed), characters: [], vehicles: [] };
+}
+
+function insertById<T extends { readonly id: number }>(list: T[], entity: T): void {
+  let i = list.length;
+  while (i > 0 && list[i - 1]!.id > entity.id) i--;
+  if (i > 0 && list[i - 1]!.id === entity.id) throw new Error("an entity with this id is already in the world");
+  list.splice(i, 0, entity);
+}
+
+export function addCharacter(world: SimWorld, id: number, state: CharacterState): void {
+  insertById(world.characters, { id, state });
+}
+
+export function addVehicle(world: SimWorld, id: number, kind: VehicleKind, state: VehicleState): void {
+  insertById(world.vehicles, { id, kind, state });
+}
+
+/** Removes a character or a vehicle. Returns false when the id is not there. */
+export function removeEntity(world: SimWorld, id: number): boolean {
+  for (const list of [world.characters, world.vehicles]) {
+    const i = list.findIndex((entity) => entity.id === id);
+    if (i >= 0) {
+      list.splice(i, 1);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Advances the world by one step. Vehicles move first, each against the map
+ * and the other vehicles; then people move against the map and the vehicles.
+ * People do not block each other: nobody can be walled into a doorway.
+ */
+export function stepWorld(
+  world: SimWorld,
+  map: SimMap,
+  inputs: StepInputs = {},
+  character: CharacterParams = DEFAULT_CHARACTER,
+): void {
+  world.tick++;
+  const bodies = world.vehicles.map((vehicle) => vehicleObstacle(vehicle.state, VEHICLES[vehicle.kind]));
+  for (let i = 0; i < world.vehicles.length; i++) {
+    const vehicle = world.vehicles[i]!;
+    const others = map.obstacles.concat(bodies.filter((_, k) => k !== i));
+    stepVehicle(vehicle.state, inputs.drives?.get(vehicle.id) ?? NO_DRIVE, map.ground, others, VEHICLES[vehicle.kind]);
+    bodies[i] = vehicleObstacle(vehicle.state, VEHICLES[vehicle.kind]);
+  }
+  const solid = map.obstacles.concat(bodies);
+  for (const person of world.characters) {
+    stepCharacter(person.state, inputs.moves?.get(person.id) ?? NO_MOVE, map.ground, solid, character);
+  }
+}
+
+/** A deep copy, for prediction and rollback. */
+export function cloneWorld(world: SimWorld): SimWorld {
+  return {
+    tick: world.tick,
+    rng: { s: world.rng.s },
+    characters: world.characters.map((c) => ({ id: c.id, state: { ...c.state } })),
+    vehicles: world.vehicles.map((v) => ({ id: v.id, kind: v.kind, state: { ...v.state } })),
+  };
+}
+
+/** One number for the whole state. Two machines that agree on it agree on the world. */
+export function hashWorld(world: SimWorld): number {
+  const values: number[] = [world.tick, world.rng.s];
+  for (const c of world.characters) values.push(c.id, c.state.x, c.state.y, c.state.z, c.state.yaw);
+  for (const v of world.vehicles) values.push(v.id, v.state.x, v.state.y, v.state.z, v.state.yaw, v.state.speed);
+  return hashInts(0, values);
+}

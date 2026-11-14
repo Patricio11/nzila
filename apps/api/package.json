@@ -1,0 +1,19 @@
+{
+  "name": "@nzila/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Stateless HTTP API.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "node --watch src/index.ts",
+    "start": "node src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "fastify": "^5.12.8"
+  }
+}

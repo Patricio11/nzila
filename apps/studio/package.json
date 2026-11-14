@@ -1,0 +1,13 @@
+{
+  "name": "@nzila/studio",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Estudio, the staff console.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

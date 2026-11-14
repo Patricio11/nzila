@@ -1,0 +1,33 @@
+{
+  "name": "nzila",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "docker compose -f infra/docker-compose.yml up -d && turbo run dev",
+    "dev:client": "pnpm --filter @nzila/client dev",
+    "dev:down": "docker compose -f infra/docker-compose.yml down",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "test": "vitest run --project node --coverage",
+    "test:engines": "vitest run --project engines",
+    "test:integration": "vitest run --dir tests/integration --passWithNoTests",
+    "budget": "node tools/budget/check-shell.mjs",
+    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm build && pnpm budget"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitest/browser-playwright": "5.1.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "eslint": "^10.14.0",
+    "playwright": "^1.65.0",
+    "turbo": "^2.11.11",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
+  }
+}

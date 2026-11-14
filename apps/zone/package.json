@@ -1,0 +1,16 @@
+{
+  "name": "@nzila/zone",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zone servers. One room is one channel of one district.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "node --watch src/index.ts",
+    "start": "node src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3"
+  }
+}

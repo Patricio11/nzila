@@ -1,0 +1,16 @@
+{
+  "name": "@nzila/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "pt-AO catalog (base), glossary, ICU helpers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

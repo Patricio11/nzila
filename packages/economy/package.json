@@ -1,0 +1,16 @@
+{
+  "name": "@nzila/economy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure TS, zero runtime deps. Ledger rules, prices, wages, taxes.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}
