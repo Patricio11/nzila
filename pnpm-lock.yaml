@@ -164,6 +164,9 @@ importers:
       '@nzila/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@nzila/world':
+        specifier: workspace:*
+        version: link:../../packages/world
       preact:
         specifier: ^11.2.0
         version: 11.2.0

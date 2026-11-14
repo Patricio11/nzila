@@ -10,6 +10,7 @@ import {
   Button,
   ClockChip,
   ContextAction,
+  DataMeter,
   EmptyState,
   GLYPHS,
   Glyph,
@@ -193,6 +194,8 @@ export function Styleguide() {
           <Case name="minutes"><PriceTag kind="minutes" value={12} /></Case>
           <Case name="megabytes"><PriceTag kind="data" value={3_200_000} /></Case>
           <Case name="kilobytes"><PriceTag kind="data" value={340_000} /></Case>
+          <Case name="data meter, this session"><DataMeter sessionBytes={340_000} /></Case>
+          <Case name="data meter, with the month"><DataMeter sessionBytes={3_200_000} monthBytes={41_000_000} /></Case>
         </div>
       </Section>
 

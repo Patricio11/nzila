@@ -288,6 +288,17 @@ export function SpeechBalloon({ text, typing }: { text?: string; typing?: boolea
   );
 }
 
+/** What the game has downloaded, in megabytes: this session, and this month on this device. */
+export function DataMeter({ sessionBytes, monthBytes }: { sessionBytes: number; monthBytes?: number }) {
+  return (
+    <span class="n-data" role="status" aria-label={tr.t("data.label")}>
+      <Glyph name="dados" size={16} />
+      <span class="n-num">{tr.t("data.session", { size: tr.dataSize(sessionBytes) })}</span>
+      {monthBytes === undefined ? null : <span class="n-num n-data-month">{tr.t("data.month", { size: tr.dataSize(monthBytes) })}</span>}
+    </span>
+  );
+}
+
 /** An honest empty state: what is not here yet, and what to do about it. */
 export function EmptyState({ glyph, title, children }: { glyph: GlyphName; title: string; children?: ComponentChildren }) {
   return (

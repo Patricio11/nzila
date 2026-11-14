@@ -35,10 +35,20 @@ shader = next(node for node in nodes if node.type == "BSDF_PRINCIPLED")
 material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Base Color"])
 
 
-def finish(name):
+# A second material with a picture of its own, as a landmark's hand-painted detail will have:
+# its texture must come through the build, compressed. The palette's must not.
+detail = bpy.data.materials.new("detail-ground")
+detail.use_nodes = True
+detail_texture = detail.node_tree.nodes.new("ShaderNodeTexImage")
+detail_texture.image = palette
+detail_shader = next(node for node in detail.node_tree.nodes if node.type == "BSDF_PRINCIPLED")
+detail.node_tree.links.new(detail_texture.outputs["Color"], detail_shader.inputs["Base Color"])
+
+
+def finish(name, painted=False):
     obj = bpy.context.active_object
     obj.name = name
-    obj.data.materials.append(material)
+    obj.data.materials.append(detail if painted else material)
     return obj
 
 
@@ -46,7 +56,7 @@ def finish(name):
 for chunk in range(2):
     east = chunk * 64
     bpy.ops.mesh.primitive_plane_add(size=60, location=(east + 32, -32, 0))
-    finish(f"ground-{chunk}")
+    finish(f"ground-{chunk}", painted=True)
     for i in range(4):
         height = 6 + 3 * i
         bpy.ops.mesh.primitive_cube_add(size=1, location=(east + 10 + i * 13, -14, height / 2))

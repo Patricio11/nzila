@@ -1,6 +1,8 @@
 // The colours of the world. The interface takes its colours from the tokens
 // in packages/ui; the 3D world takes them from here and from nowhere else (a
 // test fails the build on a colour written in any other file of the client).
+// They live in this package because the renderer, the pack tools and the
+// Blender scripts must all mean the same colour by the same name.
 //
 // This is the seed of the art bible (docs/ART_BIBLE.md, written with the
 // first real district): Luanda at five in the afternoon. Confident colour,

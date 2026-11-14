@@ -7,7 +7,8 @@ import { join } from "node:path";
 import { CELL_WALK, DEFAULT_CHARACTER, floorDiv, type Ground } from "@nzila/sim";
 import {
   PACK_BUDGETS,
-  VIEW,
+  STREAM,
+  distanceToChunk,
   decodeWalkGrid,
   groundOf,
   manifestSchema,
@@ -15,8 +16,7 @@ import {
   type Manifest,
   type Registry,
 } from "@nzila/world";
-import { distanceToChunk } from "./build.ts";
-import { contentHash, hashInName, transferBytes } from "./files.ts";
+import { contentHash, hashInName, transferBytes, unpackWalkGrid } from "./files.ts";
 
 export interface CheckContext {
   /** Which places exist (content/registry.json). */
@@ -132,23 +132,16 @@ export async function checkPack(packDir: string, context: CheckContext): Promise
   }
 
   // --- The reference phone (Rule 1): an estimate of what is in view from where players stand.
+  // It follows the streaming rule of the lowest tier, because that is the phone the budgets
+  // are for: every chunk inside the haze, at its reduced model; nothing beyond it.
   const viewpoints = [...manifest.spawns.map((s) => ({ what: `spawns.${s.id}`, pos: s.pos })), ...manifest.paragens.map((p) => ({ what: `paragens.${p.id}`, pos: p.pos }))];
   for (const { what, pos } of viewpoints) {
     let tris = 0;
     let draws = 0;
     for (const chunk of manifest.chunks) {
-      const distance = distanceToChunk(chunk.aabb, pos[0], pos[2]);
-      if (distance <= VIEW.nearM) {
-        tris += chunk.stats.near.tris;
-        draws += chunk.stats.near.draws;
-      } else if (distance <= VIEW.farM) {
-        tris += chunk.stats.far.tris;
-        draws += chunk.stats.far.draws;
-      } else {
-        // Beyond that a chunk is an impostor: one flat card.
-        tris += 2;
-        draws += 1;
-      }
+      if (distanceToChunk(chunk.aabb, pos[0], pos[2]) > STREAM.poupanca.farM) continue;
+      tris += chunk.stats.far.tris;
+      draws += chunk.stats.far.draws;
     }
     if (tris > PACK_BUDGETS.trisInView) problems.push(`${what}: about ${tris} triangles in view, over ${PACK_BUDGETS.trisInView}`);
     if (draws > PACK_BUDGETS.worldDrawsInView) problems.push(`${what}: about ${draws} draw calls in view, over ${PACK_BUDGETS.worldDrawsInView}`);
@@ -157,7 +150,7 @@ export async function checkPack(packDir: string, context: CheckContext): Promise
   // --- Everything a player must get to can be walked to.
   let ground: Ground | null = null;
   try {
-    ground = groundOf(manifest.chunks.map((chunk) => decodeWalkGrid(files.get(chunk.walkGrid)!)));
+    ground = groundOf(manifest.chunks.map((chunk) => decodeWalkGrid(unpackWalkGrid(files.get(chunk.walkGrid)!))));
   } catch (error) {
     problems.push(`walk grids: ${(error as Error).message}`);
   }

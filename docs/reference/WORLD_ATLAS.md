@@ -188,7 +188,7 @@ A district is one directory under `content/<province>/<district>/`. `tools/pack 
   "chunks": [                                    // streamed; each under 400 KB at the Normal tier
     { "id": "c-03-02", "aabb": [192,0,128, 256,40,192],
       "lods": ["c-03-02.l0.<hash>.glb", "c-03-02.l1.<hash>.glb", "c-03-02.imp.<hash>.ktx2"],
-      "walkGrid": "c-03-02.walk.<hash>.bin", "bytes": { "poupanca": 141000, "normal": 322000, "alta": 610000 } }
+      "walkGrid": "c-03-02.walk.<hash>.walkz", "bytes": { "poupanca": 141000, "normal": 322000, "alta": 610000 } }
   ],
 
   "spawns":   [ { "id": "arrival", "pos": [210, 2, 150], "facing": 90, "kind": "first_arrival" } ],

@@ -6,7 +6,7 @@
 // (CI, today) every test here is skipped and the reason is printed, so a green
 // run on such a machine does not claim the asset pipeline was checked.
 
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +18,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { blender, exportChunks, findBlender, findKtx, optimiseGlb, type ExportedChunk } from "./assets.ts";
 import { buildPack } from "./build.ts";
 import { checkPack } from "./check.ts";
+import { buildDevPack } from "./dev-pack.ts";
 import { glbStats } from "./files.ts";
 
 const scripts = fileURLToPath(new URL("../../../art/scripts/", import.meta.url));
@@ -72,7 +73,9 @@ describe.skipIf(missing.length > 0)("from Blender to a pack", () => {
       expect(near.tris).toBeGreaterThan(2500);
       expect(far.draws).toBe(8);
       expect(far.tris).toBeLessThan(near.tris * 0.5);
-      expect(far.tris).toBeGreaterThan(100);
+      // The ground and the four boxes are left whole in the reduced model: 2 + 4 x 12 triangles.
+      // Only the round trees had anything to give up. A box "simplified" is a box wrecked.
+      expect(far.tris).toBeGreaterThan(50 + 3 * 100);
     }
   });
 
@@ -87,15 +90,18 @@ describe.skipIf(missing.length > 0)("from Blender to a pack", () => {
     const used = document.getRoot().listExtensionsUsed().map((extension) => extension.extensionName);
     expect(used).toContain("EXT_meshopt_compression");
     expect(used).toContain("KHR_texture_basisu");
+    // One texture is left: the painted ground's. The palette's own picture is gone, because the game already has it.
     const textures = document.getRoot().listTextures();
-    expect(textures.length).toBeGreaterThan(0);
+    expect(textures.length).toBe(1);
+    expect(document.getRoot().listMaterials().map((m) => [m.getName(), m.getBaseColorTexture() !== null]).sort()).toEqual([["detail-ground", true], ["palette", false]]);
     for (const texture of textures) {
       expect(texture.getMimeType()).toBe("image/ktx2");
       // KTX2 files begin with these bytes.
       expect([...texture.getImage()!.subarray(0, 8)]).toEqual([0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb]);
     }
-    // What it costs to draw has not changed.
-    expect(glbStats(small)).toEqual(glbStats(raw));
+    // Eight objects have become two draw calls, one a material, with every triangle still there.
+    expect(glbStats(raw).draws).toBe(8);
+    expect(glbStats(small)).toEqual({ tris: glbStats(raw).tris, draws: 2 });
     // Doing it again changes nothing more: the same pack builds from an already compressed file.
     const again = await optimiseGlb(small);
     expect(glbStats(again)).toEqual(glbStats(small));
@@ -141,6 +147,8 @@ describe.skipIf(missing.length > 0)("from Blender to a pack", () => {
     // What the build measured, from the compressed files it wrote.
     for (const chunk of built.chunks) {
       expect(chunk.stats.near.tris).toBeGreaterThan(2500);
+      expect(chunk.stats.near.draws).toBe(2);
+      expect(chunk.stats.far.draws).toBe(2);
       expect(chunk.stats.far.tris).toBeLessThan(chunk.stats.near.tris * 0.5);
       const rawBytes = (await stat(join(src, `chunks/${chunk.id}.l0.glb`))).size + (await stat(join(src, `chunks/${chunk.id}.l1.glb`))).size;
       expect(chunk.bytes.normal).toBeLessThan(rawBytes * 0.7);
@@ -153,4 +161,36 @@ describe.skipIf(missing.length > 0)("from Blender to a pack", () => {
     const twice = await buildPack(src, join(dir, "pack-again"));
     expect(twice).toEqual(built);
   }, 180_000);
+});
+
+describe.skipIf(missing.length > 0)("the development district", () => {
+  let dir: string;
+  afterAll(async () => {
+    if (dir) await rm(dir, { recursive: true, force: true });
+  });
+
+  test("builds from nothing into a pack that may be published: twelve chunks, one draw call each, inside the reference phone's budgets", async () => {
+    dir = await mkdtemp(join(tmpdir(), "nzila-dev-"));
+    const manifest = await buildDevPack(join(dir, "work"), join(dir, "pack"));
+    expect(manifest.chunks.map((chunk) => chunk.id)).toEqual(["c-00-00", "c-00-01", "c-00-02", "c-01-00", "c-01-01", "c-01-02", "c-02-00", "c-02-01", "c-02-02", "c-03-00", "c-03-01", "c-03-02"]);
+    for (const chunk of manifest.chunks) {
+      // Everything in a chunk shares the palette, so the whole chunk is one draw call at either level of detail.
+      expect(chunk.stats.near.draws).toBe(1);
+      expect(chunk.stats.far.draws).toBe(1);
+      expect(chunk.stats.far.tris).toBeLessThan(chunk.stats.near.tris);
+      // Every building is still a whole box in the reduced model (16 of them, 12 triangles each),
+      // with the ground and the streets; the window bands are left out and the trees are rounder.
+      expect(chunk.stats.far.tris).toBeGreaterThan(16 * 12);
+      // No texture travels with it: under 40 KB a chunk at Normal.
+      expect(chunk.bytes.normal).toBeLessThan(40_000);
+      // Every face still knows its square of the palette.
+      expect(Buffer.from(await readFile(join(dir, "pack", chunk.lods[0]!))).includes("TEXCOORD_0")).toBe(true);
+      expect(chunk.walkGrid).toMatch(/\.walk\.[0-9a-f]{12}\.walkz$/);
+    }
+    // The whole district is a few hundred kilobytes, and less than half of that on the reference phone.
+    expect(manifest.sizes.total.normal).toBeLessThan(500_000);
+    expect(manifest.sizes.total.poupanca).toBeLessThan(manifest.sizes.total.normal * 0.6);
+    const files = await readdir(join(dir, "pack"));
+    expect(files.filter((name) => name.endsWith(".ktx2"))).toEqual([]);
+  }, 300_000);
 });

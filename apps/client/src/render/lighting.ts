@@ -3,7 +3,7 @@
 // second of the day, with no renderer in it, so it can be tested and so the
 // zone and the client always agree on whether it is dark (heat depends on it).
 
-import { DAY, type LightKey, type Rgb } from "./palette.ts";
+import { DAY, type LightKey, type Rgb } from "@nzila/world/client";
 
 export interface Lighting {
   /** A unit vector toward the sun (or at night, the moon) in game coordinates: X east, Y up, Z south. */

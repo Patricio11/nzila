@@ -96,6 +96,10 @@
 .n-price { display: inline-flex; align-items: center; gap: 6px; padding: 4px var(--s-3) 4px var(--s-2); border-radius: var(--r-chip); background: var(--n-noite-fundo); color: var(--n-luz); font: var(--type-label); box-shadow: inset 0 0 0 1.5px var(--n-linha); }
 .n-price .n-glyph { color: var(--n-dourado); }
 
+.n-data { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px var(--s-2); padding: 4px var(--s-3) 4px var(--s-2); border-radius: var(--r-chip); background: var(--n-noite-fundo); color: var(--n-luz); font: var(--type-label); box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.n-data .n-glyph { color: var(--n-mar); }
+.n-data-month { color: var(--n-luz-suave); font-weight: 400; }
+
 /* ------------------------------------------------------------ the route band */
 .n-route { width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-3); border-radius: var(--r-sheet); background: var(--n-luz); color: var(--n-tinta);
   box-shadow: 0 5px 0 var(--n-azul-fundo), 0 14px 26px var(--n-sombra); animation: n-drop 380ms var(--ease-mola) both; }

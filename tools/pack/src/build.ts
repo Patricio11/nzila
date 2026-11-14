@@ -17,7 +17,8 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  VIEW,
+  STREAM,
+  distanceToChunk,
   encodeWalkGrid,
   manifestSchema,
   schemaProblems,
@@ -28,7 +29,7 @@ import {
   type WalkGridSource,
 } from "@nzila/world";
 import { optimiseGlb } from "./assets.ts";
-import { glbStats, hashedName, transferBytes, type DrawStats } from "./files.ts";
+import { glbStats, hashedName, packWalkGrid, transferBytes, type DrawStats } from "./files.ts";
 
 export class PackError extends Error {
   readonly problems: string[];
@@ -37,13 +38,6 @@ export class PackError extends Error {
     this.name = "PackError";
     this.problems = problems;
   }
-}
-
-/** Horizontal distance in metres from a point to a chunk's box; 0 inside it. */
-export function distanceToChunk(aabb: readonly number[], x: number, z: number): number {
-  const dx = Math.max(aabb[0]! - x, 0, x - aabb[3]!);
-  const dz = Math.max(aabb[2]! - z, 0, z - aabb[5]!);
-  return Math.hypot(dx, dz);
 }
 
 export interface BuildOptions {
@@ -85,8 +79,8 @@ export async function buildPack(sourceDir: string, outDir: string, options: Buil
   };
   const emitOptional = async (path: string | null) => (path === null ? null : await emit(path));
 
-  const walkToBinary = (bytes: Uint8Array): Uint8Array =>
-    encodeWalkGrid(walkGridFromSource(JSON.parse(new TextDecoder().decode(bytes)) as WalkGridSource));
+  const walkFromSource = (bytes: Uint8Array): Uint8Array =>
+    packWalkGrid(encodeWalkGrid(walkGridFromSource(JSON.parse(new TextDecoder().decode(bytes)) as WalkGridSource)));
 
   const total: TierBytes = { poupanca: 0, normal: 0, alta: 0 };
   const addToAll = (cost: number): void => {
@@ -99,8 +93,12 @@ export async function buildPack(sourceDir: string, outDir: string, options: Buil
   for (const chunk of source.chunks) {
     const lods = [];
     for (const lod of chunk.lods) lods.push(await emit(lod));
-    // A hand-written grid (.json) is compiled; a compiled one (.bin) is taken as it is.
-    const walk = chunk.walkGrid.endsWith(".json") ? await emit(chunk.walkGrid, walkToBinary, ".bin") : await emit(chunk.walkGrid);
+    // A hand-written grid (.json) is compiled and packed; a compiled one (.bin) is packed; a packed one is taken as it is.
+    const walk = chunk.walkGrid.endsWith(".json")
+      ? await emit(chunk.walkGrid, walkFromSource, ".walkz")
+      : chunk.walkGrid.endsWith(".bin")
+        ? await emit(chunk.walkGrid, packWalkGrid, ".walkz")
+        : await emit(chunk.walkGrid);
 
     const models = lods.filter((lod) => lod.name.endsWith(".glb"));
     const near: DrawStats = models[0] ? glbStats(models[0].bytes) : { tris: 0, draws: 0 };
@@ -139,12 +137,13 @@ export async function buildPack(sourceDir: string, outDir: string, options: Buil
     interiors.push({ id: interior.id, file: built.name, bytes: built.cost });
   }
 
-  // First view: what a new player downloads before standing in the world.
+  // First view: what a new player downloads before standing in the world, at the Normal
+  // tier: every chunk inside the haze round the first spawn.
   const arrival = source.spawns.find((spawn) => spawn.kind === "first_arrival") ?? source.spawns[0]!;
   const firstView =
     strings.cost +
     routeCost +
-    chunks.filter((c) => distanceToChunk(c.aabb, arrival.pos[0], arrival.pos[2]) <= VIEW.nearM).reduce((sum, c) => sum + c.bytes.normal, 0);
+    chunks.filter((c) => distanceToChunk(c.aabb, arrival.pos[0], arrival.pos[2]) <= STREAM.normal.farM).reduce((sum, c) => sum + c.bytes.normal, 0);
 
   const manifest = manifestSchema.parse({
     ...source,

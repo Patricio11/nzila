@@ -2,7 +2,7 @@
 // reading how much a model costs to draw.
 
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
+import { deflateRawSync, gzipSync, inflateRawSync } from "node:zlib";
 
 /** The first 12 hex characters of the SHA-256: enough to name a file for ever. */
 export function contentHash(bytes: Uint8Array): string {
@@ -23,7 +23,7 @@ export function hashInName(name: string): string | null {
   return /\.([0-9a-f]{12})(\.[a-z0-9]+)?$/.exec(name)?.[1] ?? null;
 }
 
-const ALREADY_COMPRESSED = [".glb", ".ktx2", ".opus", ".m4a"];
+const ALREADY_COMPRESSED = [".glb", ".ktx2", ".opus", ".m4a", ".walkz"];
 
 /**
  * What a file costs a player to download. Models, textures and audio are
@@ -64,4 +64,19 @@ export function glbStats(bytes: Uint8Array): DrawStats {
     }
   }
   return stats;
+}
+
+/**
+ * A walk grid as a pack carries it (.walkz): the grid's bytes, deflated. A
+ * grid is mostly the same value over and over, so it shrinks thirty times,
+ * and it is shrunk here so that its size does not depend on how a server is
+ * set up. Plain deflate has no header, so the same grid gives the same bytes
+ * on every machine.
+ */
+export function packWalkGrid(grid: Uint8Array): Uint8Array {
+  return deflateRawSync(grid, { level: 9 });
+}
+
+export function unpackWalkGrid(packed: Uint8Array): Uint8Array {
+  return inflateRawSync(packed);
 }

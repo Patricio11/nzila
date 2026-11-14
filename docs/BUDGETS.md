@@ -21,15 +21,16 @@ All but the last are part of `pnpm test:all`, the gate before any commit, and of
 
 | Budget | Limit | Measured by | Enforced | Today |
 |---|---|---|---|---|
-| The shell: HTML, CSS, JS and fonts, the renderer included (D-1.2) | 300 KB compressed | The size check; and the phone profile, which counts the bytes the first visit really downloads | Yes | 180 KB in all, of which the renderer is 133 KB; the front door alone downloads 17 KB |
+| The shell: HTML, CSS, JS and fonts, the renderer included (D-1.2) | 300 KB compressed | The size check; and the phone profile, which counts the bytes the first visit really downloads | Yes | 209 KB in all, of which the renderer with its model loader is 162 KB; the front door alone downloads 17 KB |
 | First play, shell included | 6 MB | The pack check holds a district's first view to 5,7 MB (6 MB less the shell) | Yes, from the first pack | No pack yet |
-| A district at the Normal tier | 8 MB | The pack check and the size check | Yes, from the first pack | No pack yet |
-| One streamed chunk at the Normal tier | 400 KB | The pack check and the size check | Yes, from the first pack | No pack yet |
+| A district at the Normal tier | 8 MB | The pack check and the size check | Yes | The development district (boxes): 0,34 MB at Normal, 0,12 MB on the lowest tier |
+| One streamed chunk at the Normal tier | 400 KB | The pack check and the size check | Yes | Under 40 KB in the development district |
 | An interior | 1 MB | The pack check records each interior's size | From Task 5.6 | — |
 | Standing in a busy street | 10 MB an hour of network traffic | The bot swarm records bytes per client | From Task 3.7 | — |
 | One client's downstream on foot | 2 KB a second | The swarm; today a test holds a snapshot of 30 walking avatars under 300 bytes, which is under 3 KB a second with everyone moving at once | Message sizes: yes. The rate: from 3.7 | 30 avatars: under 600 bytes whole, under 300 walking, 10 standing |
 | An `Input` message | 20 bytes for four frames (200 bytes a second upstream) | A test in `packages/protocol` | Yes | 20 bytes |
-| Any download over 1 MB | The size is shown before it starts | Screens, from Task 1.2 | From 1.2 | — |
+| What a player has downloaded | Counted and shown: this session, and this month on the device | The data meter; a browser test compares it with the sizes of the files a player at a given spot should have | Yes | 77 KB to stand in the development district on the lowest tier |
+| Any download over 1 MB | The size is shown before it starts | Screens | From 1.8 | — |
 | Music | About 14 MB an hour, so always the player's choice and off in Modo Poupança | D-0.18 | From 10.15 | — |
 | The display typeface | 40 KB | A test in `packages/ui` | Yes | 35 KB |
 

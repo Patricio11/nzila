@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Pack manifest schema, validators, loader, province and district registry.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

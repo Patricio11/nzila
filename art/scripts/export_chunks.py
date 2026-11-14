@@ -7,8 +7,16 @@
 #
 #   Chunking  Every mesh object goes into the chunk its centre falls in. A
 #             chunk is a square of <chunk metres> (64 by default).
-#   LODs      Each chunk is written twice: as modelled (l0), and with every
-#             mesh reduced to <lod ratio> of its triangles (l1, 0.35 by default).
+#   LODs      Each chunk is written twice: as modelled (l0), and reduced (l1).
+#             The reduced model is the only one the reference phone ever sees
+#             (Poupança never downloads l0), so it must look right on its own:
+#               - a mesh of 48 triangles or fewer is left exactly as it is: a
+#                 box has nothing to spare, and "simplifying" it wrecks it;
+#               - a larger mesh is reduced to <lod ratio> of its triangles
+#                 (0.35 by default);
+#               - an object with the custom property `lod0_only` is left out:
+#                 small detail that cannot be seen at a distance, such as
+#                 window bands.
 #   Export    Binary glTF, Y up, modifiers applied, no cameras, lights or animation.
 #
 # It writes <out dir>/chunks/<id>.l0.glb and .l1.glb, and <out dir>/chunks.json,
@@ -58,12 +66,23 @@ for obj in bpy.context.scene.objects:
     chunks.setdefault((ix, iz), []).append((obj, low, high))
 
 
+# A mesh this light is never reduced.
+KEEP_WHOLE_TRIANGLES = 48
+
+
+def triangles(obj):
+    return sum(len(polygon.vertices) - 2 for polygon in obj.data.polygons)
+
+
 def export(objects, path, ratio):
     bpy.ops.object.select_all(action="DESELECT")
     added = []
+    reduced = ratio < 1.0
     for obj in objects:
+        if reduced and obj.get("lod0_only"):
+            continue
         obj.select_set(True)
-        if ratio < 1.0:
+        if reduced and triangles(obj) > KEEP_WHOLE_TRIANGLES:
             modifier = obj.modifiers.new(name="nzila_lod", type="DECIMATE")
             modifier.ratio = ratio
             added.append((obj, modifier))

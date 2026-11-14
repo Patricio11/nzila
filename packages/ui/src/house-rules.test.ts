@@ -102,9 +102,9 @@ function strayColour(s: Source): string[] {
 }
 
 // Two files may write a colour: the interface's tokens, and the world's palette.
-const PALETTES = ["packages/ui/src/tokens.css", "apps/client/src/render/palette.ts"];
+const PALETTES = ["packages/ui/src/tokens.css", "packages/world/src/palette.ts"];
 const styled = all.filter(
-  (s) => (s.path.startsWith("apps/client/") || s.path.startsWith("packages/ui/src/")) && !isTest(s) && !PALETTES.includes(s.path),
+  (s) => (s.path.startsWith("apps/client/") || s.path.startsWith("packages/ui/src/") || s.path.startsWith("packages/world/src/")) && !isTest(s) && !PALETTES.includes(s.path),
 );
 
 describe("two palettes and no more: the interface's tokens and the world's colours", () => {

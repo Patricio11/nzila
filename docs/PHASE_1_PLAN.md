@@ -57,7 +57,7 @@ Order of work: the build order of `UX_UI_SPEC.md` §14. Its step 1 (tokens, the 
 
 **D-1.3 Until the reference phones arrive, every frame-rate number says where it came from (proposed).** "Profile" for the slowed browser, "founder's phone" with its model, "reference" only for the real units. Nothing is called measured on the reference phone until it is.
 
-**D-1.4 Distance is haze first (proposed).** At Poupança a chunk beyond the near range is drawn at its second level of detail and fades into the distance haze, which is also what hides streaming. Impostor cards are added only if the bench shows the second level is too dear at 90 m. This keeps the pipeline simple and suits the look: far buildings as silhouettes at golden hour.
+**D-1.4 Distance is haze first (proposed; built so in 1.1 and 1.2).** At Poupança a chunk beyond the near range is drawn at its second level of detail and fades into the distance haze, which is also what hides streaming. Impostor cards are added only if the bench shows the second level is too dear at 90 m. This keeps the pipeline simple and suits the look: far buildings as silhouettes at golden hour.
 
 **D-1.5 L1 is walked as a greybox before it is modelled (proposed).** The district is first built from the atlas brief as boxes and a hand-written walk grid, and walked on a phone. Its scale and the places of the landmarks are corrected with the founder before any modelling. A district that is wrong in greybox is cheap to fix; one that is wrong in art is not.
 

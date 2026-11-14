@@ -2,6 +2,8 @@
 // phone, and how the picture is made smaller, moment by moment, to hold the
 // frame rate. No renderer in here: these are the rules, and they are tested.
 
+import { STREAM } from "@nzila/world/client";
+
 export type TierName = "poupanca" | "normal" | "alta";
 
 export interface Tier {
@@ -24,9 +26,9 @@ export interface Tier {
 
 export const TIERS: Readonly<Record<TierName, Tier>> = {
   // The reference phone, and what Modo Poupança forces. The game must be beautiful here.
-  poupanca: { name: "poupanca", height: 540, minHeight: 432, drawDistanceM: 90, shadows: "blobs", shadowReachM: 0, shadowMapSize: 0, crowd: 12, waterSparkle: false },
-  normal: { name: "normal", height: 720, minHeight: 540, drawDistanceM: 140, shadows: "sun", shadowReachM: 28, shadowMapSize: 1024, crowd: 24, waterSparkle: true },
-  alta: { name: "alta", height: 1080, minHeight: 720, drawDistanceM: 220, shadows: "sun", shadowReachM: 70, shadowMapSize: 2048, crowd: 40, waterSparkle: true },
+  poupanca: { name: "poupanca", height: 540, minHeight: 432, drawDistanceM: STREAM.poupanca.farM, shadows: "blobs", shadowReachM: 0, shadowMapSize: 0, crowd: 12, waterSparkle: false },
+  normal: { name: "normal", height: 720, minHeight: 540, drawDistanceM: STREAM.normal.farM, shadows: "sun", shadowReachM: 28, shadowMapSize: 1024, crowd: 24, waterSparkle: true },
+  alta: { name: "alta", height: 1080, minHeight: 720, drawDistanceM: STREAM.alta.farM, shadows: "sun", shadowReachM: 70, shadowMapSize: 2048, crowd: 40, waterSparkle: true },
 };
 
 export const FPS_TARGET = 30;

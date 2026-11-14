@@ -45,6 +45,9 @@ export const ptAO = {
   "needs.energia": "Energia",
   "heat.line": "Zona quente agora. Fica atento.",
   "chat.typing": "A escrever",
+  "data.session": "{size} nesta sessão",
+  "data.month": "{size} este mês",
+  "data.label": "Dados usados",
   "route.next": "Próxima",
   "route.atStop": "Estamos em",
 

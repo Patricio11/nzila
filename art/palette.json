@@ -1,0 +1,30 @@
+{
+  "cells": 8,
+  "squares": {
+    "pavement": 0,
+    "tar": 1,
+    "earth": 2,
+    "line": 3,
+    "seaDeep": 4,
+    "seaShallow": 5,
+    "palmTrunk": 6,
+    "palmLeaf": 7,
+    "vanWhite": 8,
+    "vanBlue": 9,
+    "window": 10,
+    "windowLit": 11,
+    "wall0": 12,
+    "wall1": 13,
+    "wall2": 14,
+    "wall3": 15,
+    "wall4": 16,
+    "wall5": 17,
+    "wall6": 18,
+    "wall7": 19,
+    "person0": 20,
+    "person1": 21,
+    "person2": 22,
+    "person3": 23,
+    "person4": 24
+  }
+}

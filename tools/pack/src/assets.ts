@@ -17,9 +17,9 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { NodeIO } from "@gltf-transform/core";
+import { Logger, NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
-import { dedup, meshopt, prune } from "@gltf-transform/functions";
+import { dedup, flatten, join as joinMeshes, meshopt, prune } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
 
 const run = promisify(execFile);
@@ -60,6 +60,9 @@ export async function exportChunks(blendFile: string, outDir: string, script: st
   return JSON.parse(await readFile(join(outDir, "chunks.json"), "utf8")) as ExportedChunk[];
 }
 
+/** A material named this, or beginning with it, is coloured from the palette atlas. */
+export const PALETTE_MATERIAL = "palette";
+
 let io: NodeIO | null = null;
 async function gltfIo(): Promise<NodeIO> {
   if (!io) {
@@ -71,15 +74,30 @@ async function gltfIo(): Promise<NodeIO> {
 }
 
 /**
- * Compresses one .glb for delivery: duplicate data removed, geometry
- * Meshopt-compressed, and every PNG or JPEG texture turned into KTX2
- * (Basis Universal, with mipmaps), which stays compressed in the phone's
- * memory. A file that has been through here already comes out the same.
+ * Prepares one .glb for delivery.
+ *
+ *   One draw call a material. Everything in the file that shares a material
+ *   is merged into one mesh, so a chunk coloured from the palette is drawn
+ *   in a single call however many buildings it holds.
+ *   No texture for the palette. A material whose name begins with "palette"
+ *   is coloured from the palette atlas, which the game already has; the copy
+ *   Blender embeds is dropped.
+ *   Small. Geometry is Meshopt-compressed; any other texture becomes KTX2
+ *   (Basis Universal, with mipmaps), which stays compressed in the phone's
+ *   memory.
+ *
+ * A file that has been through here already comes out the same.
  */
 export async function optimiseGlb(bytes: Uint8Array): Promise<Uint8Array> {
   const gltf = await gltfIo();
   const document = await gltf.readBinary(bytes);
-  await document.transform(dedup(), prune());
+  document.setLogger(new Logger(Logger.Verbosity.SILENT));
+  for (const material of document.getRoot().listMaterials()) {
+    if (material.getName().startsWith(PALETTE_MATERIAL)) material.setBaseColorTexture(null);
+  }
+  // The texture coordinates are kept although no texture uses them here: they are what points
+  // each face at its square of the palette, which the game supplies.
+  await document.transform(dedup(), flatten(), joinMeshes(), prune({ keepAttributes: true }));
 
   const textures = document.getRoot().listTextures().filter((texture) => texture.getMimeType() !== "image/ktx2" && texture.getImage());
   if (textures.length > 0) {

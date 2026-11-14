@@ -61,7 +61,7 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 ## AT A GLANCE (2026-11-14, session 1)
 **Phase 0 is complete; Phase 1 is under way.** The repository lives at `c:\dev\nzila` (kept out of OneDrive on purpose; never move it back). What exists is the foundation, with no 3D world: the shared simulation, the rules of money, the network messages, the database, the pack format and tools, the design tokens and first components, the text catalog, the privacy spine, and the harness that measures it all. `docs/completed/PHASE_0_COMPLETE.md` says what each is and how it was verified. **Read `docs/PHASE_1_PLAN.md` next**: its questions and decisions, and `docs/FINDINGS.md` for what is open.
 
-**Task 1.1 is done:** the renderer (`apps/client/src/render/`), with the Hora Dourada light, the sky, the bay, shadows and the three quality tiers, on a test scene of boxes at `/cena`. **The next step is Task 1.2**, chunk streaming with a data meter, following the build order of `UX_UI_SPEC.md` §14.
+**Tasks 1.1 and 1.2 are done:** the renderer (`apps/client/src/render/`) with the Hora Dourada light, the sky, the bay, shadows and three quality tiers; and chunk streaming with the data meter, against a generated development district (`pnpm pack:dev`). Look at them at `/cena` and `/cena?pack=dev`. **The next step is Task 1.3**, the avatar, following the build order of `UX_UI_SPEC.md` §14.
 
 **How to run it:** `pnpm install` once, then `pnpm exec playwright install chromium webkit firefox` once. `pnpm services` starts PostgreSQL, Redis (on port 6380) and MinIO in Docker; `pnpm db:migrate` and `pnpm db:seed` prepare the database. `pnpm dev:client` serves the client at http://localhost:5173, with the team's pages at `/styleguide`, `/bench` and `/cena`. `pnpm test:all` is the gate; it needs the services running, and Blender and KTX-Software installed for the asset tests (they skip themselves with a warning where those are missing). `pnpm shots <label>` after `pnpm build` saves screenshots and videos in `screenshots/<label>/`. TypeScript is held at 6.x because the linter does not yet support 7.
 
@@ -71,7 +71,7 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 
 **Phase list:**
 - **Phase 0** (foundations: monorepo, shared simulation, economy rules, protocol, pack format, tokens, budgets): **complete 2026-11-14.**
-- **Phase 1** (Primeiro Passeio: walk the Marginal on a real phone, local simulation): **open; 1.1 done, 1.2 next.**
+- **Phase 1** (Primeiro Passeio: walk the Marginal on a real phone, local simulation): **open; 1.1 and 1.2 done, 1.3 next.**
 - **Phase 2** (identity: guest play, linked accounts, the BI, persistence): not started.
 - **Phase 3** (multiplayer core: zones, channels, netcode, chat, safety v1, bot swarm): not started.
 - **Phase 4** (economy core: ledger, wallet and bank, items, shops, biscatos): not started.

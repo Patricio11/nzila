@@ -9,8 +9,7 @@
 
 import { createRng, rngInt, rngRange } from "@nzila/sim";
 import { BoxGeometry, BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, InstancedMesh, Matrix4, Mesh, MeshLambertMaterial, Quaternion, Vector3 } from "three";
-import { atlasIndex, atlasUv } from "./palette-atlas.ts";
-import { WORLD, type Rgb } from "./palette.ts";
+import { WORLD, atlasIndex, atlasUv, type Rgb } from "@nzila/world/client";
 import { paint, type WorldRenderer } from "./world-renderer.ts";
 
 export interface TestScene {

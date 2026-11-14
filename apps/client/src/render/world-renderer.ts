@@ -34,8 +34,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { lightingAt, type Lighting } from "./lighting.ts";
-import { ATLAS_CELLS, ATLAS_CELL_PX, atlasPixels } from "./palette-atlas.ts";
-import { BLOB_SHADOW, BLOB_SHADOW_EDGE, WORLD, type Rgb } from "./palette.ts";
+import { ATLAS_CELLS, ATLAS_CELL_PX, BLOB_SHADOW, BLOB_SHADOW_EDGE, WORLD, atlasPixels, type Rgb } from "@nzila/world/client";
 import { ResolutionGovernor, TIERS, type Tier, type TierName } from "./tiers.ts";
 
 /** Sets a Three colour from one of ours. */
@@ -262,6 +261,7 @@ export class WorldRenderer {
       const size = ATLAS_CELLS * ATLAS_CELL_PX;
       const picture = new DataTexture(atlasPixels(), size, size);
       picture.colorSpace = SRGBColorSpace;
+      // The first row of the picture is the top one, which is how a model's coordinates count (flipY stays off).
       // Flat squares of colour: never blended with their neighbours.
       picture.magFilter = picture.minFilter = NearestFilter;
       picture.needsUpdate = true;

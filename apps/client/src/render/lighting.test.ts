@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { brightness, lightingAt } from "./lighting.ts";
-import { ATLAS, ATLAS_CELLS, ATLAS_CELL_PX, atlasIndex, atlasPixels, atlasUv } from "./palette-atlas.ts";
-import { DAY, WORLD } from "./palette.ts";
+import { ATLAS, ATLAS_CELLS, ATLAS_CELL_PX, DAY, STREAM, WORLD, atlasIndex, atlasPixels, atlasUv } from "@nzila/world/client";
 import { FPS_TARGET, ResolutionGovernor, TIERS, chooseTier } from "./tiers.ts";
 
 const at = (hour: number) => lightingAt(hour * 3600);
@@ -86,6 +85,10 @@ describe("the light of the day", () => {
 });
 
 describe("quality tiers", () => {
+  test("the renderer's haze is where streaming stops: one distance, in one place", () => {
+    for (const name of ["poupanca", "normal", "alta"] as const) expect(TIERS[name].drawDistanceM).toBe(STREAM[name].farM);
+  });
+
   test("each tier draws more than the one below it", () => {
     const { poupanca, normal, alta } = TIERS;
     for (const [lower, higher] of [[poupanca, normal], [normal, alta]] as const) {
@@ -153,11 +156,11 @@ describe("the palette atlas", () => {
     expect(() => atlasIndex([1, 2, 3])).toThrow();
   });
 
-  test("a square's place in the picture: its centre, counted from the bottom left", () => {
-    expect(atlasUv(0)).toEqual([0.0625, 0.9375]);
-    expect(atlasUv(7)).toEqual([0.9375, 0.9375]);
-    expect(atlasUv(8)).toEqual([0.0625, 0.8125]);
-    expect(atlasUv(63)).toEqual([0.9375, 0.0625]);
+  test("a square's place in the picture: its centre, counted from the top left as a model counts", () => {
+    expect(atlasUv(0)).toEqual([0.0625, 0.0625]);
+    expect(atlasUv(7)).toEqual([0.9375, 0.0625]);
+    expect(atlasUv(8)).toEqual([0.0625, 0.1875]);
+    expect(atlasUv(63)).toEqual([0.9375, 0.9375]);
     for (const bad of [-1, 64, 1.5]) expect(() => atlasUv(bad)).toThrow();
   });
 

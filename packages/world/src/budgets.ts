@@ -16,10 +16,3 @@ export const PACK_BUDGETS = {
   /** A district must be loved for something: at least this many positive points of interest (Rule 7). */
   positivePois: 5,
 } as const;
-
-/**
- * How far detail reaches, in metres, for the estimate of what is in view from
- * a point. Placeholders until the renderer and its fog exist (Task 1.1): the
- * check is worth having now, and the numbers are corrected by measurement.
- */
-export const VIEW = { nearM: 96, farM: 256 } as const;

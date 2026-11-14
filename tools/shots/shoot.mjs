@@ -39,6 +39,9 @@ const PAGES = [
   ["cena-noite", "/cena?hour=22&still"],
   ["cena-normal", "/cena?hour=17.4&tier=normal&still"],
   ["cena-alta", "/cena?hour=17.4&tier=alta&still"],
+  ["bairro-poupanca", "/cena?pack=dev&hour=17.4&tier=poupanca&at=60,96"],
+  ["bairro-normal", "/cena?pack=dev&hour=17.4&tier=normal&at=60,96"],
+  ["bairro-noite", "/cena?pack=dev&hour=21&tier=normal&at=60,96"],
 ];
 const SIZES = [
   ["phone", 360, 740],
@@ -81,7 +84,7 @@ try {
       await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: "networkidle" });
       await page.evaluate("document.fonts.ready");
       // A page that draws a 3D scene needs a moment to put its first frames on screen.
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(path.includes("pack=") ? 2500 : 900);
       const sideways = await page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth");
       const file = `${pageName}_${sizeName}.png`;
       await page.screenshot({ path: join(out, file), fullPage: true });

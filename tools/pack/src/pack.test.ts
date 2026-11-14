@@ -5,11 +5,11 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decodeWalkGrid, manifestSchema, type Registry, type SourceManifest } from "@nzila/world";
+import { decodeWalkGrid, distanceToChunk, manifestSchema, type Registry, type SourceManifest } from "@nzila/world";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { PackError, buildPack, distanceToChunk } from "./build.ts";
+import { PackError, buildPack } from "./build.ts";
 import { checkPack, parseBrandTerms } from "./check.ts";
-import { contentHash, glbStats, hashInName, hashedName, transferBytes } from "./files.ts";
+import { contentHash, glbStats, hashInName, hashedName, packWalkGrid, transferBytes, unpackWalkGrid } from "./files.ts";
 
 /** A minimal .glb: `meshes` meshes, each drawn once, of `tris` triangles, padded to roughly `padBytes`. */
 function glb(meshes: number, tris: number, padBytes = 0, indexed = true): Uint8Array {
@@ -185,6 +185,16 @@ describe("file helpers", () => {
     expect(distanceToChunk(aabb, 35, 20)).toBe(5);
   });
 
+  test("a walk grid packs small and unpacks to itself, the same on every machine", () => {
+    const grid = new Uint8Array(23 + 128 * 128 * 3).fill(1);
+    const packed = packWalkGrid(grid);
+    expect(packed.length).toBeLessThan(grid.length / 30);
+    expect([...unpackWalkGrid(packed)]).toEqual([...grid]);
+    // No header with a date or a system in it: the bytes depend on the grid alone.
+    expect([...packWalkGrid(grid)]).toEqual([...packed]);
+    expect(transferBytes("c.walk.abc.walkz", packed)).toBe(packed.length);
+  });
+
   test("brand terms: comments and blank lines are skipped", () => {
     expect(context.brandTerms).toEqual(["MegaCola", "Banco Real"]);
   });
@@ -216,9 +226,11 @@ describe("pack build", () => {
     expect(manifest.sizes.total.normal).toBeLessThan(west!.bytes.normal + east!.bytes.normal + 2000);
     expect(manifest.sizes.firstView).toBeLessThanOrEqual(manifest.sizes.total.normal);
 
-    // The hand-written walk grid was compiled.
-    expect(west!.walkGrid).toMatch(/\.walk\.[0-9a-f]{12}\.bin$/);
-    expect(decodeWalkGrid(await readFile(join(out, west!.walkGrid))).width).toBe(32);
+    // The hand-written walk grid was compiled and packed: a thousand cells in well under a hundred bytes.
+    expect(west!.walkGrid).toMatch(/\.walk\.[0-9a-f]{12}\.walkz$/);
+    const packed = await readFile(join(out, west!.walkGrid));
+    expect(packed.length).toBeLessThan(100);
+    expect(decodeWalkGrid(unpackWalkGrid(packed)).width).toBe(32);
   });
 
   test("the same source builds the same pack, byte for byte", async () => {
@@ -230,7 +242,7 @@ describe("pack build", () => {
   test("a compiled walk grid is taken as it is, and missing optional files are null", async () => {
     const first = await make();
     const built = await buildPack(first.src, first.out, RAW);
-    const compiled = await readFile(join(first.out, built.chunks[0]!.walkGrid));
+    const compiled = unpackWalkGrid(await readFile(join(first.out, built.chunks[0]!.walkGrid)));
     const { src, out } = await make({
       manifest: (m) => {
         m.chunks[0]!.walkGrid = "chunks/c-00-00.walk.bin";
@@ -241,6 +253,7 @@ describe("pack build", () => {
       files: { "chunks/c-00-00.walk.bin": compiled, "light.bin": new Uint8Array(64) },
     });
     const manifest = await buildPack(src, out, RAW);
+    // The same grid, given already compiled, packs to the same file.
     expect(manifest.chunks[0]!.walkGrid).toBe(built.chunks[0]!.walkGrid);
     expect(manifest.npc.crowd).toBeNull();
     expect(manifest.heat.lighting).toMatch(/^light\.[0-9a-f]{12}\.bin$/);
@@ -336,8 +349,9 @@ describe("pack check", () => {
     ]);
   });
 
-  test("the drawing budgets, estimated from where players stand", async () => {
-    const problems = await problemsOf({ files: { "chunks/c-00-00.l0.glb": glb(70, 2000, 60_000) } });
+  test("the drawing budgets, estimated from where players stand, as the reference phone streams", async () => {
+    // The reference phone only ever draws a chunk's reduced model, so that is the one that must be light.
+    const problems = await problemsOf({ files: { "chunks/c-00-00.l1.glb": glb(70, 2000, 9000) } });
     expect(problems).toEqual([
       "spawns.arrival: about 155000 triangles in view, over 120000",
       "spawns.arrival: about 80 draw calls in view, over 60",
@@ -346,19 +360,21 @@ describe("pack check", () => {
       "paragens.p-square: about 155000 triangles in view, over 120000",
       "paragens.p-square: about 80 draw calls in view, over 60",
     ]);
+    // A heavy full-detail model is not held against the reference phone, which never downloads it.
+    expect(await problemsOf({ files: { "chunks/c-00-00.l0.glb": glb(70, 2000, 60_000) } })).toEqual([]);
   });
 
-  test("a far chunk counts at its reduced detail, a very far one as an impostor", async () => {
-    // The heavy chunk moved 150 m away is drawn from its second level; 400 m away, as a card.
-    const heavy = { "chunks/c-00-00.l0.glb": glb(70, 2000, 60_000) };
+  test("a chunk lost in the haze is not counted", async () => {
+    const heavy = { "chunks/c-00-00.l1.glb": glb(70, 2000, 9000) };
     const moved = (metres: number) => (m: SourceManifest) => {
       m.chunks[0]!.aabb = [0, 0, metres, 16, 10, metres + 16];
       m.chunks[0]!.walkGrid = "chunks/far.walk.json";
       for (const list of [m.spawns, m.pois, m.paragens, m.lots, m.residences, m.gateways]) for (const item of list) item.pos = [20, 0, 12];
     };
     const farWalk = (metres: number) => JSON.stringify({ ...WEST, cellZ0: metres * 2 });
+    // 60 m away it is inside the reference phone's 90 m and counts; 150 m away it is in the haze.
+    expect((await problemsOf({ manifest: moved(76), files: { ...heavy, "chunks/far.walk.json": farWalk(76) } })).length).toBeGreaterThan(0);
     expect(await problemsOf({ manifest: moved(150), files: { ...heavy, "chunks/far.walk.json": farWalk(150) } })).toEqual([]);
-    expect(await problemsOf({ manifest: moved(400), files: { ...heavy, "chunks/far.walk.json": farWalk(400) } })).toEqual([]);
   });
 
   test("places nobody can walk to", async () => {
