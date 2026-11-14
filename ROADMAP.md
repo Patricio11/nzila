@@ -366,6 +366,7 @@ flowchart LR
 ### Task 4.1: The ledger live, the wallet and the bank
 - [ ] `POST /ledger/transfer` (internal only) applying `packages/economy`; balances cached and verified; the nightly `ledger-audit` job; an alarm when the sum is not zero.
 - [ ] Carteira (cash on hand, at risk) and Banco (safe); deposit and withdraw at a caixa in the world or a branch; the Banco app with a statement where every line opens its receipt.
+- [ ] **No free interest (founder agreed, 2026-11-14).** The bank's use is safety from theft. Savings earn only what the bank really took in on loans to players, shared out, and never from nothing. A tax on wages (IRT) is shown on the payslip and is a sink.
 - [ ] Player to player transfer in person, with a daily cap for new accounts.
 - Depends on: 0.3, 0.5, 2.4 · Unblocks: 4.2 to 4.6, every later money feature.
 
@@ -486,7 +487,7 @@ flowchart LR
 - Depends on: 5.2, 5.4, 5.7 · Unblocks: 8B.4, 15.3.
 
 ### Task 5.9: Cães e gatos (founder, 2026-11-14)
-- [ ] A player may keep a dog or a cat. **Six dogs to begin with (founder, 2026-11-14):** Rottweiler, Bulldog, Golden Retriever, Africanis (the dog of the African street and yard), Pastor Alemão, and a small lap dog (the founder wrote "cão de sela"; the word for the catalog is his to confirm). They differ in what they are good for and what they cost to keep: the Rottweiler and the Pastor Alemão guard best and eat most; the Africanis is cheap, hardy and alert; the Golden Retriever lifts Humor most and guards least; the Bulldog is stubborn and loved; the lap dog only barks. **The owner gives the name.** A cat is one kind in several coats.
+- [ ] A player may keep a dog or a cat. **Six dogs to begin with (founder, 2026-11-14):** Rottweiler, Bulldog, Golden Retriever, Africanis (the dog of the African street and yard), Pastor Alemão, and the Poodle as the small lap dog. They differ in what they are good for and what they cost to keep: the Rottweiler and the Pastor Alemão guard best and eat most; the Africanis is cheap, hardy and alert; the Golden Retriever lifts Humor most and guards least; the Bulldog is stubborn and loved; the Poodle only barks. **The owner gives the name.** A cat is one kind in several coats.
 - [ ] **Where they come from depends on the zone** (founder): street dogs and cats live in the bairros, **have no name**, and can be befriended: feed one over some days and it lets you close, then follows you home, and only then is it yours to name. A breeder or a shop sells the others in the districts that would have one. Nothing is bought with real money.
 - [ ] A pet lives at the home: it eats (a small real cost through the ledger), follows its owner on foot in the street when asked, sleeps in its place, greets housemates and children, and is drawn and moved by the game like the ambient animals of 1.6. It has moods, not hit points: a pet is never hurt, killed, fought or sold on for profit, and one left unfed goes to a neighbour who returns it when it is fed.
 - [ ] The dog guards (Task 7.2); the cat keeps the kitchen's stock from spoiling to rats, a small steady saving. Both lift Humor at home.

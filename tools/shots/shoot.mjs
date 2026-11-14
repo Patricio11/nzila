@@ -39,6 +39,12 @@ const PAGES = [
   ["styleguide", "/styleguide"],
   ["bench", "/bench"],
   ["bench-feito", "/bench?auto&seconds=3"],
+  ["corpo-fila", "/corpo?hour=16.6"],
+  ["corpo-fila-tras", "/corpo?hour=16.6&ang=180"],
+  ["corpo-fila-lado", "/corpo?hour=12&ang=55"],
+  ["corpo-fila-poupanca", "/corpo?hour=12&tier=poupanca"],
+  ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((n) => [[`corpo-${n}`, `/corpo?hour=16.6&quem=${n}&ang=20`], [`corpo-${n}-rosto`, `/corpo?hour=15&quem=${n}&perto&ang=18`]]),
+  ["corpo-2-tras", "/corpo?hour=16.6&quem=0&ang=160"],
   ["marginal-dourada", "/cena?hour=17.4&tier=normal&still"],
   ["marginal-poupanca", "/cena?hour=17.4&tier=poupanca&still"],
   ["marginal-alta", "/cena?hour=17.4&tier=alta&still"],
@@ -100,8 +106,13 @@ let browser;
 try {
   await waitForServer();
   browser = await chromium.launch();
+  const only = process.argv[3];
   for (const [pageName, path] of PAGES) {
+    // `pnpm shots <label> corpo` takes only the pages whose name begins that way.
+    if (only && !pageName.startsWith(only)) continue;
     for (const [sizeName, width, height] of SIZES) {
+      // A face fills either screen the same way: once is enough.
+      if (pageName.endsWith("-rosto") && sizeName === "phone") continue;
       const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2 });
       const errors = [];
       page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
@@ -112,6 +123,7 @@ try {
       if (path.startsWith("/cena")) {
         await page.waitForFunction("window.__cena?.stream ? window.__cena.stream.shown > 0 && window.__cena.stream.shown === window.__cena.stream.wanted && window.__cena.stream.loading === 0 : false", undefined, { timeout: 30000 }).catch(() => errors.push("the world never finished arriving"));
       }
+      if (path.startsWith("/corpo")) await page.waitForFunction("window.__corpo !== undefined", undefined, { timeout: 30000 }).catch(() => errors.push("the people never arrived"));
       if (path.includes("auto")) await page.waitForFunction("window.__bench !== undefined", undefined, { timeout: 60000 });
       await page.waitForTimeout(path === "/bench" ? 3500 : 900);
       const sideways = await page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth");
@@ -125,7 +137,7 @@ try {
     }
   }
   // Movement cannot be seen in a still: one slow scroll down each long page, as a video.
-  for (const [pageName, path] of FILMS) {
+  for (const [pageName, path] of only ? [] : FILMS) {
     const context = await browser.newContext({ viewport: { width: 390, height: 780 }, recordVideo: { dir: out, size: { width: 390, height: 780 } } });
     const page = await context.newPage();
     await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: "networkidle" });

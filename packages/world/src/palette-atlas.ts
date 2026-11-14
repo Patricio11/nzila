@@ -4,14 +4,14 @@
 // neighbouring meshes can be drawn together. It is why a district fits in
 // megabytes: there are no painted textures to download.
 //
-// The grid is 8 by 8 squares of 4 pixels. Square 0 is the top left. A model
+// The grid is 16 by 16 squares of 4 pixels (it was 8 by 8 until people needed their colours). Square 0 is the top left. A model
 // made in Blender uses the same picture: `pnpm pack:palette` writes it, and
 // the list of squares by name, into art/ from this file, so a square means
 // the same colour in both places.
 
 import { GLOW, WORLD, type Rgb } from "./palette.ts";
 
-export const ATLAS_CELLS = 8;
+export const ATLAS_CELLS = 16;
 export const ATLAS_CELL_PX = 4;
 
 const NO_GLOW: Rgb = [0, 0, 0];
@@ -34,6 +34,8 @@ const SQUARES: readonly Square[] = [
   ...WORLD.walls.map((colour, i) => square(`wall${i}`, colour)),
   ...WORLD.person.map((colour, i) => square(`person${i}`, colour)),
   ...WORLD.skin.map((colour, i) => square(`skin${i}`, colour)),
+  ...WORLD.lip.map((colour, i) => square(`lip${i}`, colour)),
+  ...WORLD.lipDark.map((colour, i) => square(`lipDark${i}`, colour)),
 ];
 
 /** The colours in the order of their squares. */
@@ -75,7 +77,7 @@ function picture(of: (s: Square) => Rgb, empty: Rgb): Uint8Array {
   return pixels;
 }
 
-/** The picture itself, as rows of pixels from the top down, four bytes a pixel: the first row holds squares 0 to 7. */
+/** The picture itself, as rows of pixels from the top down, four bytes a pixel: the first row holds squares 0 to 15. */
 export function atlasPixels(): Uint8Array {
   return picture((s) => s.colour, WORLD.line);
 }

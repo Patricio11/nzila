@@ -57,7 +57,9 @@ def _turn(v, yaw):
 class Builder:
     """Collects faces by chunk and by level of detail, and turns them into Blender objects."""
 
-    def __init__(self, palette, material, chunk_m=64.0):
+    def __init__(self, palette, material, chunk_m=64.0, smooth=False):
+        # Smooth is for bodies: corners are shared and light rolls round a limb. The world stays faceted.
+        self.smooth = smooth
         self.cells = palette["cells"]
         self.squares = palette["squares"]
         self.material = material
@@ -185,6 +187,16 @@ class Builder:
             layer = mesh.uv_layers.new(name="UVMap")
             layer.data.foreach_set("uv", uvs)
             mesh.materials.append(self.material)
+            if self.smooth:
+                import bmesh
+                work = bmesh.new()
+                work.from_mesh(mesh)
+                bmesh.ops.remove_doubles(work, verts=work.verts, dist=0.0004)
+                work.to_mesh(mesh)
+                work.free()
+                for polygon in mesh.polygons:
+                    polygon.use_smooth = True
+                mesh.set_sharp_from_angle(angle=math.radians(46))
             obj = bpy.data.objects.new(name, mesh)
             # What the export script reads: which chunk, which level, and that the shape is final.
             obj["nzila_chunk"] = f"{cx},{cz}"

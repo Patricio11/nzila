@@ -72,12 +72,30 @@ export const WORLD = {
   drum: hex("#2F6FB5"), // the blue plastic drum that holds the water
   cloth: hex("#E8C23A"), // washing on the line, a shop's board
   lampPoolSand: hex("#C9B79A"), // the earth under a bairro's lamp: earth by day, a pool of light at night
+  // People (art/scripts/person.py)
+  hairBlack: hex("#17120F"),
+  hairGrey: hex("#8D8A84"),
+  eyeWhite: hex("#E4DDD0"),
+  eyeDark: hex("#1B1310"),
+  eyeBrown: hex("#3B2214"),
+  jeans: hex("#3A5A86"),
+  jeansDark: hex("#26364F"),
+  khaki: hex("#A8946A"),
+  clothBlack: hex("#24211F"),
+  shoe: hex("#2C2521"),
+  shoeWhite: hex("#E9E6DE"),
+  shoeTan: hex("#9B6B45"),
+  shoeSole: hex("#D8D2C4"),
   // Street lamps
   lamp: hex("#E9E2CF"),
   lampPool: hex("#D9C7A6"), // the pavement under a lamp: pavement by day, a pool of light at night
   walls: [hex("#E8D6B8"), hex("#F2C9A0"), hex("#E7A08A"), hex("#F3E3C2"), hex("#C9D6DA"), hex("#F0B6C0"), hex("#E9C46A"), hex("#B9C7B0")],
   person: [hex("#D9483B"), hex("#F2A93B"), hex("#1E63C4"), hex("#FBF8F1"), hex("#17877F")],
-  skin: [hex("#5A3B2A"), hex("#7A5238"), hex("#3F2A1E")],
+  skin: [hex("#5A3B2A"), hex("#7A5238"), hex("#3F2A1E"), hex("#4B3021"), hex("#8E6748")],
+  /** The lips that go with each skin: a shade deeper and redder. */
+  lip: [hex("#4E2B25"), hex("#693A31"), hex("#38211C"), hex("#42261F"), hex("#7A4A3D")],
+  /** The upper lip, which is always the darker of the two. */
+  lipDark: [hex("#3A1F1A"), hex("#4E2A23"), hex("#281613"), hex("#2F1A15"), hex("#5C362C")],
 } as const;
 
 /**

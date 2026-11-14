@@ -158,11 +158,12 @@ describe("the palette atlas", () => {
   });
 
   test("a square's place in the picture: its centre, counted from the top left as a model counts", () => {
-    expect(atlasUv(0)).toEqual([0.0625, 0.0625]);
-    expect(atlasUv(7)).toEqual([0.9375, 0.0625]);
-    expect(atlasUv(8)).toEqual([0.0625, 0.1875]);
-    expect(atlasUv(63)).toEqual([0.9375, 0.9375]);
-    for (const bad of [-1, 64, 1.5]) expect(() => atlasUv(bad)).toThrow();
+    // Sixteen squares a side: the first is half a square in from the corner.
+    expect(atlasUv(0)).toEqual([1 / 32, 1 / 32]);
+    expect(atlasUv(15)).toEqual([31 / 32, 1 / 32]);
+    expect(atlasUv(16)).toEqual([1 / 32, 3 / 32]);
+    expect(atlasUv(255)).toEqual([31 / 32, 31 / 32]);
+    for (const bad of [-1, 256, 1.5]) expect(() => atlasUv(bad)).toThrow();
   });
 
   test("the picture holds each colour where its square says it is", () => {

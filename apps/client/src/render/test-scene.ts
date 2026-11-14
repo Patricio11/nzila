@@ -40,7 +40,7 @@ interface Flat {
  * square of the palette atlas, so however many there are they are one draw
  * call: this is how the models of a real district are coloured too.
  */
-function ground(renderer: WorldRenderer, pieces: readonly Flat[]): Mesh {
+export function ground(renderer: WorldRenderer, pieces: readonly Flat[]): Mesh {
   const positions: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];

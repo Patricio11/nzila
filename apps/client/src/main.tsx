@@ -17,6 +17,10 @@ if (path === "/bench") {
   // The test scene, to look at the light on.
   const { Cena } = await import("./cena/cena-page.tsx");
   render(<Cena />, app);
+} else if (path === "/corpo") {
+  // The people, to look at before they are given a skeleton.
+  const { Corpo } = await import("./corpo/corpo-page.tsx");
+  render(<Corpo />, app);
 } else if (path === "/styleguide") {
   // The team's page. Loaded only when asked for, so it adds nothing to the shell a player downloads.
   const { Styleguide } = await import("./styleguide/styleguide.tsx");

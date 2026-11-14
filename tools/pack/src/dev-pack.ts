@@ -11,7 +11,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { ATLAS_CELLS, ATLAS_CELL_PX, ATLAS_NAMES, atlasPixels, type Registry, type SourceManifest } from "@nzila/world";
-import { blender, exportChunks, findBlender, findKtx } from "./assets.ts";
+import { blender, exportChunks, findBlender, findKtx, optimiseGlb } from "./assets.ts";
 import { PackError, buildPack } from "./build.ts";
 import { checkPack } from "./check.ts";
 
@@ -122,6 +122,20 @@ export async function buildDevPack(workDir: string, outDir: string) {
   return built;
 }
 
+/** Builds the line of people the /corpo page shows (art/scripts/make_people.py) into `outDir`. */
+export async function buildPeople(workDir: string, outDir: string): Promise<{ people: unknown[]; triangles: number; each: number; bytes: number }> {
+  await rm(workDir, { recursive: true, force: true });
+  const palette = await writePalette(join(root, "art"));
+  await blender(join(scripts, "make_people.py"), [workDir, palette.json, palette.png]);
+  const model = await optimiseGlb(await readFile(join(workDir, "pessoas.glb")));
+  const list = JSON.parse(await readFile(join(workDir, "pessoas.json"), "utf8")) as { people: unknown[]; triangles: number; each: number };
+  await rm(outDir, { recursive: true, force: true });
+  await mkdir(outDir, { recursive: true });
+  await writeFile(join(outDir, "pessoas.glb"), model);
+  await writeFile(join(outDir, "pessoas.json"), JSON.stringify(list));
+  return { ...list, bytes: model.length };
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const command = process.argv[2];
   if (command === "palette") {
@@ -138,6 +152,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         const manifest = await buildDevPack(join(root, "dist", "dev-district"), out);
         const mb = (bytes: number): string => (bytes / 1_000_000).toFixed(2);
         const draws = Math.max(...manifest.chunks.map((chunk) => chunk.stats.far.draws));
+        const people = await buildPeople(join(root, "dist", "dev-people"), join(root, "apps", "client", "public", "packs", "dev-people"));
+        console.log(`pack dev: ${people.people.length} people, about ${people.each} triangles each, ${(people.bytes / 1024).toFixed(0)} KB together. Shown at /corpo.`);
         console.log(`pack dev: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal, at most ${draws} draw call(s) a chunk. Served at /packs/dev/.`);
       } catch (error) {
         if (!(error instanceof PackError)) throw error;

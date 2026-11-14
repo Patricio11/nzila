@@ -42,6 +42,7 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-64 | 1.2 | **Nobody is in the town.** The stand-in people of the old test scene (coloured boxes) were not carried over: they looked wrong and measured nothing true. The bench therefore measures the world without a crowd until bodies exist. | 1.3 (the player), 1.6 (others) |
 | F-65 | 1.2, founder's review | **The kit is still short of Angola.** It has the bairro house now (F-67) but not the vivenda, the sobrado, the modernist block with galleries, the Kilamba block, the container shop, the roulotte, the school, the neighbourhood court, nor the imbondeiro, the mulemba and the mangueira. The bairro also lacks becos, litter, an open drain the length of a street and people. | 1.5, before L1 is built; the rest with each district |
 | F-66 | 1.2, founder's review | **The van in the kit is a box on wheels** and would not be taken for a Hiace by a Luandan; the kupapata and the moto-táxi do not exist yet. Vehicles are judged by the same no-toy rule as people (D-0.40). | 1.6 (ambient traffic) and 6.1 |
+| F-71 | 1.3 | **The first people are a first version, not the finished look.** Proportions, faces, hair and clothes are ours and read as people, but: the hairline is a straight cut, braids hang like straight strands, a sleeve shows a ridge at the shoulder, hands are blocks, the beard is a patch, and there is no skeleton or movement yet. The founder sees them before more is built on them. | 1.3, after the founder's word |
 
 ## Fixed
 
@@ -91,6 +92,8 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-68 | 1.2 | A bairro lamp showed its pool of light by day, as a pale patch on the earth: the pool was the colour of town paving. Seen in the first screenshot. | A pool has the colour of the ground it lies on (`lampPoolSand`). | 2026-11-14 |
 | F-69 | 1.2 | A bench placed 3 m past a street tree could land one step outside the district, which made a thirteenth chunk with no walk grid. It had always been possible; a change elsewhere moved the dice. `pack check` refused the pack. | The bench is placed only where it fits, and the district script stops with a plain message if anything is built outside its chunks. | 2026-11-14 |
 | F-70 | 1.2, founder's photographs | Every quintal was the same (a drum, a washing line, chairs) and a cantina was a house with a hatch. | The quintal has kinds: a horta in beds, plants in pots with a banana plant, a place to sit under a parasol, or the washing line alone. A cantina is painted one strong colour with a band for its name and has its stock stacked at the door. | 2026-11-14 |
+| F-72 | 1.3 | The palette's picture had room for 64 colours and people needed more (skin, lips, hair, eyes, cloth, shoes). | The picture is 16 squares a side (256 colours, still 64 by 64 pixels). Every model is rebuilt from the same list, so nothing changes colour. | 2026-11-14 |
+| F-73 | 1.3 | A face's features (eyes, lips) vanished or went black: a flat shape was turned by its first three points, which on a lip lie nearly in a line; drawing both sides instead broke smooth shading. Seen only in the close screenshots. | A shape laid on a face is turned by its whole outline. | 2026-11-14 |
 
 ## Ideas
 

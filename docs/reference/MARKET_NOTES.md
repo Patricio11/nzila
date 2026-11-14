@@ -72,6 +72,8 @@ The founder's instruction with them: do not look like a toy; make what we can ou
 | **Both are being played on a computer and filmed**, a creator's face in the corner, the game in a desktop browser. | Streamers play on a big screen. Ours must be good there too: the same HUD at a larger scale (`UX_UI_SPEC.md` sizes), keyboard and mouse working from 1.4, and a world that looks its best in a wide frame, which street level does and a fixed high angle does not. |
 | The street from above again: the same toy trees (green balls), block buildings in pastel, yellow taxis, names over every head. | Nothing new; it confirms the look we are measured against. |
 
+**The birth lottery, seen in full (founder, 2026-11-14).** After registering, a card turns over: "A lotaria da vida. Ninguém escolhe onde nasce… Luta do Musseque. A vida não vai ser fácil, mas no musseque ninguém desiste. Nasceste filho/a de uma vendedora do mercado e um segurança. A tua família é de Cuanza Sul. Cresceste em Viana. Começas com 11.486 Kz e um colchão." The draw sets the starting money and where the player lives (a centralidade, Zango, Cazenga). It is well written and it is the first thing a player screenshots. Ours keeps the card and the writing (parents' trades, the province the family is from, the bairro) and removes the unfairness: the same 25.000 Mk for everyone (idea I-12). The province of the family is worth more to us than to them, because our world has the provinces to go home to.
+
 ## 2. Mwangolé (mwangole.ao)
 
 | Seen | Source | What it means for us |
