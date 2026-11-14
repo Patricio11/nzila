@@ -196,7 +196,7 @@ class Builder:
                 work.free()
                 for polygon in mesh.polygons:
                     polygon.use_smooth = True
-                mesh.set_sharp_from_angle(angle=math.radians(46))
+                mesh.set_sharp_from_angle(angle=math.radians(66))
             obj = bpy.data.objects.new(name, mesh)
             # What the export script reads: which chunk, which level, and that the shape is final.
             obj["nzila_chunk"] = f"{cx},{cz}"

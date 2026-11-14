@@ -45,7 +45,7 @@ export const WORLD = {
   acaciaFlower: hex("#E2452E"), // the acácia rubra in flower
   // The blue and white
   vanWhite: hex("#F6F3EA"),
-  vanBlue: hex("#2B7FD4"), // the blue of the candongueiro, from the founder's photograph
+  vanBlue: hex("#2E97E6"), // the blue of the candongueiro, from the founder's photograph
   // Buildings
   window: hex("#2A3B56"),
   windowLit: hex("#5F7896"), // glass by day; at night it glows (see GLOW)

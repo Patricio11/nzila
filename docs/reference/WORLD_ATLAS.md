@@ -72,6 +72,8 @@ Most of Angola lives in houses. A district's brief states its mix before a singl
 | L8 Sul | Scattered houses, craft stalls, open land | The lookout | Dense streets |
 | A provincial capital | Houses, with a small centre of colonial and modern buildings | The governo provincial, the church, the market, the station | A Luanda skyline |
 
+**Roads, pitches and green (founder, 2026-11-14).** A district's brief also states its roads: finished (tar, kerbs, markings, lamps) in Talatona, Maianga, Kilamba and the Baixa; not done (earth, ruts, puddles, a strip of tar on the main street at most) in the other bairros. Every district has at least one place to play football (a painted court, an earth pitch, a beach) and at least one green place to sit; the Marginal has lawns, a cycle lane and the long walk by the water.
+
 **The kit grows to match** (`art/scripts/kit.py`), each part made by us: casa de bloco (plastered and painted, or bare), casa de chapa, vivenda, the wall and gate of a plot, the quintal's furniture (the tank, the washing line, the brazier, plastic chairs), cantina, container shop, roulotte, sobrado, modernist block with galleries, Kilamba block; and the trees of the country beside the palm and the acácia rubra: imbondeiro, mulemba, mangueira.
 
 ### L1 · Marginal e Baixa (the first slice)

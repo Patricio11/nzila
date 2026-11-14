@@ -53,6 +53,37 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     def cap(points, colour, inside):
         b.face(points, colour, away_from=inside)
 
+    def refine(rows, extra=1):
+        """
+        Puts `extra` rows between each pair, on a curve through them, so a limb swells and
+        narrows as a body does and not as a stack of cones. Rows are (height, numbers...,
+        colour or nothing); two rows at one height are a step on purpose and are kept.
+        """
+        def numbers(row):
+            return [v for v in row if isinstance(v, (int, float))]
+
+        def rest(row):
+            return tuple(v for v in row if not isinstance(v, (int, float)))
+
+        out = []
+        for i, row in enumerate(rows):
+            out.append(row)
+            if i == len(rows) - 1 or rows[i + 1][0] == row[0]:
+                continue
+            before = rows[i - 1] if i > 0 and rows[i - 1][0] != row[0] else row
+            after = rows[i + 1]
+            beyond = rows[i + 2] if i + 2 < len(rows) and rows[i + 2][0] != after[0] else after
+            p0, p1, p2, p3 = numbers(before), numbers(row), numbers(after), numbers(beyond)
+            for step in range(1, extra + 1):
+                u = step / (extra + 1)
+                between = []
+                for a0, a1, a2, a3 in zip(p0, p1, p2, p3):
+                    value = 0.5 * ((2 * a1) + (-a0 + a2) * u + (2 * a0 - 5 * a1 + 4 * a2 - a3) * u * u + (-a0 + 3 * a1 - 3 * a2 + a3) * u ** 3)
+                    # A curve may swing wide of its points; a body does not swell past them by much.
+                    between.append(min(max(value, min(a1, a2) - abs(a2 - a1) * 0.15), max(a1, a2) + abs(a2 - a1) * 0.15))
+                out.append(tuple(between) + rest(row))
+        return out
+
     def box(c, size, colour):
         b.box(T(c), (size[0] * s, size[1] * s, size[2] * s), colour, yaw=yaw, skip_bottom=False)
 
@@ -65,7 +96,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         chest_off, hip_off = 0.004, -0.004
     shoulder, chest, waist, hip = shoulder * build, chest * build, waist * build, hip * build
     chest_z, waist_z, hip_z = chest_z * build, waist_z * build, hip_z * build
-    n = 10
+    n = 14
     covered = top != "none"
     long_top = top in ("dress", "vestido")
     hem = 0.93 if top in ("tshirt", "shirt", "blusa") else 0.80
@@ -76,7 +107,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         (0.80, hip * 0.86, hip_z * 0.94, hip_off, 1.0, low_colour),
         (0.90, hip, hip_z, hip_off, 1.0, low_colour),
         (hem, hip * 0.985, hip_z * 0.99, hip_off * 0.6, 1.0, None),
-        (hem, hip * 0.985, hip_z * 0.99, hip_off * 0.6, puff + 0.02, torso_colour),
+        (hem, hip * 0.985, hip_z * 0.99, hip_off * 0.6, puff + 0.07, torso_colour),
         (1.07, waist, waist_z, 0.0, puff, torso_colour),
         (1.27, chest, chest_z, chest_off, puff, torso_colour),
         (1.375, shoulder * 0.93, chest_z * 0.86, 0.004, puff, torso_colour),
@@ -84,6 +115,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         (1.475, 0.060, 0.058, 0.004, 1.0, skin),
         (1.535, 0.052, 0.053, 0.010, 1.0, skin),
     ]
+    stations = refine(stations, 1)
     rings = [ring(0.0, y, off, rx * grow, rz * grow, n) for (y, rx, rz, off, grow, _) in stations]
     loft(rings, [stations[i][5] for i in range(len(stations) - 1)])
     cap(rings[0], low_colour, T((0.0, 0.9, 0.0)))
@@ -112,10 +144,11 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         lx = side * hip * 0.50
         trousers = bottom == "trousers"
         shorts = bottom == "shorts"
-        wide = 1.10 if trousers or shorts else 1.0
+        # Trousers stand a little off the leg; a bare leg under a skirt stays inside the hips.
+        wide = 1.04 if trousers or shorts else 0.9
         cloth = bottom_colour if (trousers or shorts) else skin
         leg = [
-            (0.86, 0.084 * build, 0.092 * build, 0.0, wide, cloth),
+            (0.86, 0.078 * build, 0.090 * build, 0.0, wide, cloth),
             (0.52, 0.054 * build, 0.060 * build, 0.004, wide, cloth),
             (0.52, 0.054 * build, 0.060 * build, 0.004, wide if trousers else 1.0, cloth if trousers else skin),
             (0.33, 0.052 * build, 0.058 * build, -0.010, wide if trousers else 1.0, cloth if trousers else skin),
@@ -123,8 +156,9 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
             (0.11, 0.037, 0.042, -0.004, 1.0, skin),
             (0.06, 0.036, 0.042, 0.0, 1.0, skin),
         ]
+        leg = refine(leg, 1)
         leg.reverse()
-        leg_rings = [ring(lx, y, off, rx * grow, rz * grow, 8) for (y, rx, rz, off, grow, _) in leg]
+        leg_rings = [ring(lx, y, off, rx * grow, rz * grow, 10) for (y, rx, rz, off, grow, _) in leg]
         loft(leg_rings, [leg[i + 1][5] if leg[i][0] != leg[i + 1][0] else leg[i][5] for i in range(len(leg) - 1)])
         # The shoe: a heel and a toe that is lower and longer.
         if shoe == "chinelo":
@@ -147,13 +181,14 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
                 return x1 + (x0 - x1) * (y - y1) / (y0 - y1)
             return x2 + (x1 - x2) * (y - y2) / (y1 - y2)
 
-        arm = [(1.425, 0.036 * build, 0.044 * build), (1.385, 0.046 * build, 0.050 * build), (1.28, 0.043 * build, 0.046 * build), (1.145, 0.035, 0.038), (1.06, 0.037, 0.039), (0.895, 0.026, 0.031)]
+        arm = [(1.425, 0.026 * build, 0.036 * build), (1.385, 0.046 * build, 0.050 * build), (1.28, 0.043 * build, 0.046 * build), (1.145, 0.035, 0.038), (1.06, 0.037, 0.039), (0.895, 0.026, 0.031)]
+        arm = refine(arm, 1)
         arm_rings, arm_colours = [], []
         for i, (y, rx, rz) in enumerate(arm):
             clothed = y > sleeve - 0.001
             grow = 1.07 if clothed else 1.0
             # The top of the arm sits inside the shoulder, so cloth runs from one to the other.
-            arm_rings.append(ring(arm_x(min(y, 1.405)) - (side * 0.022 if y > 1.42 else 0.0), y, 0.0, rx * grow, rz * grow, 8))
+            arm_rings.append(ring(arm_x(min(y, 1.405)) - side * 0.03 * max(0.0, (y - 1.36) / 0.065), y, 0.0, rx * grow, rz * grow, 10))
             if i < len(arm) - 1:
                 next_y = arm[i + 1][0]
                 arm_colours.append(top_colour if (next_y > sleeve - 0.001 or (y > sleeve and next_y <= sleeve)) and covered and top not in ("alcas",) else skin)
@@ -163,14 +198,21 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         cap(arm_rings[-1], arm_colours[-1], T((arm_x(1.3), 1.3, 0.0)))
         # The hand: a palm, the fingers together, and a thumb forward of them.
         wx = arm_x(0.895) + side * 0.012
-        box((wx, 0.845, 0.004), (0.030, 0.085, 0.072), skin)
-        box((wx + side * 0.006, 0.768, 0.0), (0.024, 0.075, 0.064), skin)
-        box((wx - side * 0.004, 0.83, 0.05), (0.022, 0.055, 0.026), skin)
+        hand = refine([(0.895, 0.024, 0.030, 0.0), (0.862, 0.017, 0.040, 0.004), (0.815, 0.015, 0.042, 0.006), (0.765, 0.012, 0.036, 0.004), (0.735, 0.007, 0.022, 0.002)], 1)
+        hand.reverse()
+        hand_rings = [ring(wx + side * (0.895 - y) * 0.10, y, off, rx, rz, 8) for (y, rx, rz, off) in hand]
+        loft(hand_rings, [skin] * (len(hand_rings) - 1))
+        cap(hand_rings[0], skin, T((wx, 0.8, 0.0)))
+        # The thumb, forward of the fingers and a little apart.
+        thumb = [ring(wx - side * 0.004, y, zt, 0.010, 0.011, 5) for (y, zt) in [(0.795, 0.058), (0.835, 0.050), (0.865, 0.034)]]
+        loft(thumb, [skin, skin])
+        cap(thumb[0], skin, T((wx, 0.84, 0.03)))
 
     # ------------------------------------------------------------------- head
     yc, zc = 1.640, 0.014
     jaw = 1.0 if female else 1.12
     head = [
+        (0.116, 0.022, 0.026, 0.0),
         (0.100, 0.052, 0.060, 0.0),
         (0.068, 0.076, 0.088, 0.0),
         (0.028, 0.084, 0.098, 0.0),
@@ -179,6 +221,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         (-0.080, 0.058 * jaw, 0.072, 0.010),
         (-0.104, 0.034 * jaw, 0.045, 0.018),
     ]
+    head = list(reversed(refine(list(reversed(head)), 1)))
     hairline = spec.get("hair", "baixo") != "careca"
 
     def is_hair(points):
@@ -188,18 +231,19 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         dy, lz, lx = local[1] - yc, local[2] - zc, abs(local[0])
         return hairline and (dy > 0.062 or (lz < -0.015 and dy > -0.055) or (lx > 0.055 and dy > 0.02 and lz < 0.045))
 
-    head_rings = [ring(0.0, yc + dy, zc + off, rx, rz, 12) for (dy, rx, rz, off) in reversed(head)]
+    HEAD = 16
+    head_rings = [ring(0.0, yc + dy, zc + off, rx, rz, HEAD) for (dy, rx, rz, off) in reversed(head)]
     for i in range(len(head_rings) - 1):
         low, high = head_rings[i], head_rings[i + 1]
         middle = centre(low + high)
-        for k in range(12):
-            j = (k + 1) % 12
+        for k in range(HEAD):
+            j = (k + 1) % HEAD
             quad = [low[k], low[j], high[j], high[k]]
             b.face(quad, hair_colour if is_hair(quad) else skin, away_from=middle)
-    crown = T((0.0, yc + 0.118, zc))
+    crown = T((0.0, yc + 0.121, zc))
     top_ring = head_rings[-1]
-    for k in range(12):
-        b.face([top_ring[k], top_ring[(k + 1) % 12], crown], hair_colour if hairline else skin, away_from=T((0.0, yc, zc)))
+    for k in range(HEAD):
+        b.face([top_ring[k], top_ring[(k + 1) % HEAD], crown], hair_colour if hairline else skin, away_from=T((0.0, yc, zc)))
     cap(head_rings[0], skin, T((0.0, yc, zc)))
 
     def front(dy, fx):

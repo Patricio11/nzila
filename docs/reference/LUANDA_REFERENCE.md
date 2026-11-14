@@ -127,6 +127,18 @@ Kept in `art/reference/founder-2026-11-14/` on the founder's machine, outside gi
 | A shop under an old two-storey building | Pierced-block balustrades above; below, shelves packed to the ceiling, **cartons and crates stacked on the pavement**, a wooden hand cart with one wheel, a motorbike, a seller's umbrellas, a woman in pano. |
 | A market stall | **Plastic bacias in every colour heaped with grain, flour and beans, each with a tin set in it as the measure**; behind, tables of tins and packets under cloth. How things are sold: by the tin. |
 
+**A third set the same day: the Marginal and the vehicles (ten photographs).**
+
+| Photograph | What is in it that the game must have |
+|---|---|
+| The Marginal, three views | **Royal palms in a single row along the water**, tall, with a smooth pale trunk that swells in the middle; a **red cycle lane** with white markings beside a pale walk; a broad promenade of **calçada in a pattern**, a low rounded edge to the water with **no high wall**, a yellow line; lawns between the walk and the avenue; slim lamp posts with a flat head; white concrete benches and planters; people walking, sitting on the edge, cycling. Behind: the avenue of several lanes, and glass towers beside old low buildings with orange roofs. |
+| The bay from above | The curve of the bay with the city close behind it, the avenue following the water, a junction of loops and green at the foot of the fortress hill. |
+| The candongueiro, five views | A **Toyota Hiace: white roof and upper body, a clear sky blue from the window line down**, black bumpers, a ribbed roof. Older ones have the blue lower and a dark stripe; sliding door on the right side, **standing open with the cobrador leaning out, arm raised, calling the route**; passengers' elbows out of the windows. At a paragem they park nose to tail in a pack, people threading between them; some have a red or orange roof. The back window carries advertising. |
+| The kupapata | **A three-wheeled passenger taxi like a tuk-tuk**: sky blue body, black canvas roof and back, one wheel in front, a bench behind the driver, "Moto-Táxi" and a number painted on the side. (The cargo kind with a box, seen at the cantina, also exists.) Beside it, **moto-táxi riders in blue helmets and reflective vests**, and a **branded shelter** for a paragem. |
+| The moto-táxi | A small motorbike, the rider and a passenger both in helmets, she sitting behind in a dress and sandals. |
+
+**Roads differ by district (founder, 2026-11-14):** Talatona, Maianga and Kilamba have finished roads (tar, kerbs, markings, lamps); other bairros have roads that are not done (earth, ruts, standing water). **Every district has places to play football and green places**, the Marginal most of all. The rehearsal town's promenade is too bare beside these photographs: no lawn, no cycle lane, no pattern underfoot, the wrong palm, a wall where there should be an open edge.
+
 **A cantina is a shop: it sells things** (founder, 2026-11-14, with three more photographs). It is the corner grocery of the bairro, not a bar and not a decoration.
 
 | Photograph | What is in it that the game must have |
