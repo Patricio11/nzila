@@ -517,3 +517,170 @@ def candongueiro(b, x, z, yaw, ground=0.0):
         part((sx, 0.36, 0.0), (0.7, 0.72, 1.9), "tarShade")
     b.level = BOTH
     return 2.6
+
+
+# ==================================================================== the bairro
+# Built from the founder's photographs (docs/reference/LUANDA_REFERENCE.md §6d):
+# single-storey houses of block or of sheet metal under a zinc roof, each on
+# its plot behind a wall with a gate, the quintal behind the house; wooden
+# poles that lean, and the wires between them.
+
+ZINC = ["roofZinc", "zincRust", "zincRed", "zincBlue", "roofZinc", "zincRust"]
+PAINT = [("paintMint", "paintWhite"), ("wall5", "paintWhite"), ("wall6", "wall3"), ("zincBlue", "paintWhite"), ("wall1", "wall3"), ("paintWhite", "paintWhite"), ("wall2", "wall0")]
+
+
+def casa(b, x, z, yaw, rng, kind="bloco", width=8.0, depth=6.0, ground=0.0, shop=False):
+    """
+    A house of one storey. Its front faces local +Z, turned by yaw.
+    `kind`: "bloco" (plastered and painted in two colours), "cru" (bare
+    block, still being finished), "chapa" (sheet metal throughout).
+    `shop` gives it a serving hatch, an awning and a board: a cantina.
+    """
+    b.at(x, z)
+    height = rng.uniform(2.6, 3.0)
+
+    def at(lx, ly, lz):
+        return _add((x, ground, z), _turn((lx, ly, lz), yaw))
+
+    right = _turn((1.0, 0.0, 0.0), yaw)
+    front = _turn((0.0, 0.0, 1.0), yaw)
+    if kind == "bloco":
+        low, high = rng.choice(PAINT)
+    elif kind == "cru":
+        low = high = "blockGrey"
+    else:
+        low = high = rng.choice(["zincRed", "zincRust", "zincBlue", "roofZinc"])
+    roof = rng.choice(ZINC)
+
+    b.level = BOTH
+    b.box(at(0.0, height / 2, 0.0), (width, height, depth), high, yaw=yaw, top="tarShade")
+    if low != high:
+        # The lower third in a second colour, as houses are painted.
+        b.box(at(0.0, 0.5, 0.0), (width + 0.05, 1.0, depth + 0.05), low, yaw=yaw, top=low)
+    # The roof: one slope of zinc, higher at the front, hanging well over the walls.
+    over = 0.55
+    fx, bx = width / 2 + 0.35, -(width / 2 + 0.35)
+    slab = [at(bx, height + 0.62, depth / 2 + over), at(fx, height + 0.62, depth / 2 + over), at(fx, height + 0.1, -depth / 2 - 0.3), at(bx, height + 0.1, -depth / 2 - 0.3)]
+    b.face(slab, roof, toward=(0.0, 1.0, 0.0), two_sided=True)
+    # Under the high edge, the strip of wall that closes the gap.
+    b.rect(at(0.0, height + 0.3, depth / 2 + 0.01), right, (0.0, 1.0, 0.0), width, 0.6, high)
+
+    door_x = rng.uniform(-width * 0.25, width * 0.25)
+    door = rng.choice(["zincBlue", "wood", "metal", "zincRed"])
+    b.rect(at(door_x, 1.05, depth / 2 + 0.035), right, (0.0, 1.0, 0.0), 0.95, 2.1, door)
+    for side in (-1, 1):
+        wx = door_x + side * rng.uniform(1.9, 2.6)
+        if abs(wx) < width / 2 - 0.8:
+            if shop and side == 1:
+                # The hatch a cantina sells through, its awning, and the board with its name.
+                b.rect(at(wx, 1.45, depth / 2 + 0.035), right, (0.0, 1.0, 0.0), 1.9, 1.1, "windowLit")
+                high_edge, low_edge = at(wx, 2.25, depth / 2 + 0.05), at(wx, 1.95, depth / 2 + 1.2)
+                r = _mul(right, 1.2)
+                b.face([_sub(high_edge, r), _add(high_edge, r), _add(low_edge, r), _sub(low_edge, r)], rng.choice(["awningRed", "awningTeal", "zincBlue"]), two_sided=True)
+                b.box(at(wx, 2.62, depth / 2 + 0.08), (2.2, 0.5, 0.06), "cloth", yaw=yaw)
+            else:
+                b.rect(at(wx, 1.6, depth / 2 + 0.035), right, (0.0, 1.0, 0.0), 1.0, 1.0, "windowLit" if rng.random() < 0.45 else "window")
+    side_x = rng.choice([-1, 1])
+    b.rect(at(side_x * (width / 2 + 0.035), 1.6, rng.uniform(-1.0, 1.0)), _mul(front, -side_x), (0.0, 1.0, 0.0), 0.9, 0.9, "window")
+
+    b.level = FULL
+    if kind == "chapa":
+        # Sheets of another colour where it was patched.
+        for i in range(rng.randint(2, 3)):
+            b.rect(at(rng.uniform(-width * 0.4, width * 0.4), rng.uniform(1.0, 2.0), depth / 2 + 0.02), right, (0.0, 1.0, 0.0), 0.9, rng.uniform(1.2, 2.0), rng.choice(ZINC))
+    # A step at the door, and plants in pots beside it.
+    b.box(at(door_x, 0.08, depth / 2 + 0.35), (1.3, 0.16, 0.6), "concrete", yaw=yaw)
+    for i in range(rng.randint(0, 3)):
+        pot = at(door_x + rng.choice([-1, 1]) * rng.uniform(0.8, 1.3), 0.0, depth / 2 + rng.uniform(0.3, 0.6))
+        b.tube([pot, _add(pot, (0.0, 0.32, 0.0))], [0.14, 0.19], 5, "roof")
+        b.gem(_add(pot, (0.0, 0.62, 0.0)), (0.3, 0.36, 0.3), 4, "palmLeaf", rng)
+    # What holds a zinc roof down, a patch on it, and the dish.
+    for i in range(rng.randint(2, 4)):
+        t_ = rng.uniform(0.15, 0.85)
+        b.gem(at(rng.uniform(-width * 0.4, width * 0.4), height + 0.14 + 0.52 * t_ + 0.1, -depth / 2 - 0.3 + (depth + 0.85) * t_), (0.2, 0.13, 0.2), 4, "blockGrey", rng)
+    if rng.random() < 0.6:
+        t_ = rng.uniform(0.2, 0.7)
+        centre = at(rng.uniform(-width * 0.3, width * 0.3), height + 0.115 + 0.52 * t_, -depth / 2 - 0.3 + (depth + 0.85) * t_)
+        tilt = math.atan2(0.52, depth + 0.85)
+        b.rect(centre, right, _turn((0.0, math.sin(tilt), math.cos(tilt)), yaw), 1.6, 1.3, rng.choice(ZINC))
+    if rng.random() < 0.55:
+        foot = at(rng.uniform(-width * 0.35, width * 0.35), height + 0.3, -depth * 0.2)
+        b.tube([foot, _add(foot, (0.0, 0.5, 0.0))], [0.03, 0.03], 3, "metal", cap=False)
+        aim = _unit((rng.uniform(-1, 1), 0.8, rng.uniform(-1, 1)))
+        side = _unit(_cross(aim, (0.0, 1.0, 0.0)))
+        up = _cross(side, aim)
+        centre = _add(foot, (0.0, 0.6, 0.0))
+        b.face([_add(centre, _add(_mul(side, math.cos(a) * 0.4), _mul(up, math.sin(a) * 0.4))) for a in [2 * math.pi * k / 7 for k in range(7)]], "paintWhite", two_sided=True)
+    b.level = BOTH
+    return max(width, depth) / 2
+
+
+def muro(b, x0, z0, x1, z1, colour, height=1.7, thick=0.2):
+    """A wall along a straight line that runs along X or along Z."""
+    if abs(x1 - x0) >= abs(z1 - z0):
+        b.box(((x0 + x1) / 2, height / 2, z0), (abs(x1 - x0), height, thick), colour)
+    else:
+        b.box((x0, height / 2, (z0 + z1) / 2), (thick, height, abs(z1 - z0)), colour)
+
+
+def portao(b, x, z, along_x, rng, height=1.8):
+    """A metal gate, standing open: one leaf swung into the plot."""
+    colour = rng.choice(["zincBlue", "zincRust", "metal", "zincRed", "awningTeal"])
+    yaw = (0.0 if along_x else math.pi / 2) + rng.choice([-1, 1]) * rng.uniform(1.0, 1.4)
+    hinge = (x + (0.7 if along_x else 0.0), 0.0, z + (0.0 if along_x else 0.7))
+    centre = _add(hinge, _turn((-0.65, height / 2, 0.0), yaw))
+    b.level = BOTH
+    b.box(centre, (1.3, height, 0.06), colour, yaw=yaw)
+
+
+def poste(b, x, z, rng, lamp=False):
+    """A wooden pole that leans a little, with its crossbar. Returns the points the wires hang from."""
+    b.at(x, z)
+    lean = (rng.uniform(-0.35, 0.35), 0.0, rng.uniform(-0.35, 0.35))
+    top = (x + lean[0], 7.2, z + lean[2])
+    b.level = FULL
+    b.tube([(x, 0.0, z), top], [0.11, 0.08], 5, "pole", cap=False)
+    b.level = LIGHT
+    b.tube([(x, 0.0, z), top], [0.11, 0.08], 3, "pole", cap=False)
+    b.level = BOTH
+    b.box(_add(top, (0.0, -0.5, 0.0)), (1.5, 0.1, 0.1), "pole", yaw=rng.uniform(0, math.pi), skip_bottom=False)
+    if lamp:
+        head = _add(top, (0.9, -1.2, 0.3))
+        b.box(head, (0.45, 0.14, 0.3), "lamp", skip_bottom=False)
+        b.disc((x + 0.9, 0.02, z + 0.3), 3.0, 10, "lampPoolSand")
+    return [_add(top, (0.0, -0.45, 0.0)), _add(top, (0.0, -0.9, 0.0))]
+
+
+def fio(b, a, c, sag=0.7, parts=4):
+    """A wire between two points, hanging slack. Up close only."""
+    b.level = FULL
+    previous = a
+    for i in range(1, parts + 1):
+        t_ = i / parts
+        point = (a[0] + (c[0] - a[0]) * t_, a[1] + (c[1] - a[1]) * t_ - sag * 4 * t_ * (1 - t_), a[2] + (c[2] - a[2]) * t_)
+        b.face([previous, point, _add(point, (0.0, 0.045, 0.0)), _add(previous, (0.0, 0.045, 0.0))], "pole", two_sided=True)
+        previous = point
+    b.level = BOTH
+
+
+def quintal(b, x, z, rng, ground=0.0):
+    """What stands in a backyard: the water drum, the washing on its line, a brazier's worth of chairs."""
+    b.at(x, z)
+    b.level = BOTH
+    b.tube([(x, ground, z), (x, ground + 0.95, z)], [0.3, 0.3], 7, "drum")
+    b.level = FULL
+    lx, lz = x + rng.uniform(1.2, 2.2), z + rng.uniform(-1.5, 1.5)
+    a, c = (lx, ground + 1.8, lz - 1.6), (lx, ground + 1.8, lz + 1.6)
+    for post in (a, c):
+        b.tube([(post[0], ground, post[2]), post], [0.035, 0.035], 3, "pole", cap=False)
+    fio(b, a, c, sag=0.12, parts=2)
+    b.level = FULL
+    for i in range(rng.randint(2, 4)):
+        t_ = 0.15 + 0.7 * rng.random()
+        b.rect((lx, ground + 1.35, a[2] + (c[2] - a[2]) * t_), (0.0, 0.0, 1.0), (0.0, 1.0, 0.0), 0.5, 0.75, rng.choice(["cloth", "paintWhite", "awningRed", "zincBlue", "awningTeal"]), two_sided=True)
+    for i in range(rng.randint(1, 3)):
+        cx, cz = x + rng.uniform(-2.2, -0.8), z + rng.uniform(-1.6, 1.6)
+        b.box((cx, ground + 0.22, cz), (0.42, 0.44, 0.42), rng.choice(["paintWhite", "zincBlue", "awningRed"]), yaw=rng.uniform(0, 3))
+    b.level = BOTH
+    return 0.4
+

@@ -45,7 +45,7 @@ export const WORLD = {
   acaciaFlower: hex("#E2452E"), // the acácia rubra in flower
   // The blue and white
   vanWhite: hex("#F6F3EA"),
-  vanBlue: hex("#1E63C4"),
+  vanBlue: hex("#2B7FD4"), // the blue of the candongueiro, from the founder's photograph
   // Buildings
   window: hex("#2A3B56"),
   windowLit: hex("#5F7896"), // glass by day; at night it glows (see GLOW)
@@ -58,6 +58,20 @@ export const WORLD = {
   awningRed: hex("#C8402F"),
   awningGold: hex("#F2A93B"),
   awningTeal: hex("#17877F"),
+  // The bairro (from the founder's photographs, LUANDA_REFERENCE.md §6d)
+  sand: hex("#C9B79A"), // an earth street: pale and grey-brown, not red
+  sandDark: hex("#B5A286"), // ruts, and the damp line of a drain
+  concrete: hex("#B8B1A3"),
+  blockGrey: hex("#9C978E"), // bare cement block
+  zincRust: hex("#8E4F33"),
+  zincRed: hex("#A8463A"),
+  zincBlue: hex("#5C84A6"),
+  paintMint: hex("#A8D8B6"),
+  paintWhite: hex("#F0EDE4"),
+  pole: hex("#5A4A3B"), // a wooden post, and the wires it carries
+  drum: hex("#2F6FB5"), // the blue plastic drum that holds the water
+  cloth: hex("#E8C23A"), // washing on the line, a shop's board
+  lampPoolSand: hex("#C9B79A"), // the earth under a bairro's lamp: earth by day, a pool of light at night
   // Street lamps
   lamp: hex("#E9E2CF"),
   lampPool: hex("#D9C7A6"), // the pavement under a lamp: pavement by day, a pool of light at night
@@ -76,6 +90,7 @@ export const GLOW = {
   windowLit: hex("#FFCB73"),
   lamp: hex("#FFE9B8"),
   lampPool: hex("#8A5F26"),
+  lampPoolSand: hex("#7A5628"),
 } as const;
 
 /** The soft dark patch under a person or a vehicle on the lower tiers. */

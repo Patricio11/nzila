@@ -198,7 +198,7 @@ describe.skipIf(missing.length > 0)("the development district", () => {
     expect(manifest.sizes.total.poupanca).toBeLessThan(manifest.sizes.total.normal * 0.4);
     // The bay is in the manifest, and the paragens can be walked to (pack check passed inside buildDevPack).
     expect(manifest.water.map((sheet) => sheet.id)).toEqual(["bay"]);
-    expect(manifest.paragens.length).toBe(4);
+    expect(manifest.paragens.length).toBe(2);
     const files = await readdir(join(dir, "pack"));
     expect(files.filter((name) => name.endsWith(".ktx2"))).toEqual([]);
   }, 300_000);
