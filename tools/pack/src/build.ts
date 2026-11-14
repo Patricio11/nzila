@@ -4,14 +4,15 @@
 // Out: a flat directory of content-hashed files and a manifest.json that
 //      records what each one costs to download and to draw.
 //
-// What this does today: reads and checks the source manifest, converts
-// hand-written walk grids, hashes and copies every file, measures sizes per
-// tier and drawing costs per chunk, and writes the manifest.
+// The whole road from a Blender file to a pack has two steps:
 //
-// What joins it when there is art to process (Task 1.5) and the tools are
-// installed: exporting chunks from Blender to glTF, Meshopt and KTX2
-// compression, cutting a district into chunks, and generating LODs. Until
-// then the build expects .glb files that are already exported.
+//   pack export   Blender cuts the district into chunks, makes two levels of
+//                 detail of each and writes them as .glb (assets.ts,
+//                 art/scripts/export_chunks.py).
+//   pack build    this file: compresses every model (Meshopt for geometry,
+//                 KTX2 for textures), converts hand-written walk grids,
+//                 hashes and copies every file, measures sizes per tier and
+//                 drawing costs per chunk, and writes the manifest.
 
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -26,6 +27,7 @@ import {
   type TierBytes,
   type WalkGridSource,
 } from "@nzila/world";
+import { optimiseGlb } from "./assets.ts";
 import { glbStats, hashedName, transferBytes, type DrawStats } from "./files.ts";
 
 export class PackError extends Error {
@@ -44,7 +46,16 @@ export function distanceToChunk(aabb: readonly number[], x: number, z: number): 
   return Math.hypot(dx, dz);
 }
 
-export async function buildPack(sourceDir: string, outDir: string): Promise<Manifest> {
+export interface BuildOptions {
+  /**
+   * Compress every model before it is hashed. On by default: a pack is never
+   * published with uncompressed models. Tests that use stand-in files turn it off.
+   */
+  readonly optimise?: boolean;
+}
+
+export async function buildPack(sourceDir: string, outDir: string, options: BuildOptions = {}): Promise<Manifest> {
+  const optimise = options.optimise ?? true;
   const parsed = sourceManifestSchema.safeParse(JSON.parse(await readFile(join(sourceDir, "district.json"), "utf8")));
   if (!parsed.success) throw new PackError(schemaProblems(parsed.error));
   const source = parsed.data;
@@ -61,6 +72,13 @@ export async function buildPack(sourceDir: string, outDir: string): Promise<Mani
       throw new PackError([`${path}: named in district.json but not found`]);
     }
     if (transform) bytes = transform(bytes);
+    if (optimise && path.endsWith(".glb")) {
+      try {
+        bytes = await optimiseGlb(bytes);
+      } catch (error) {
+        throw new PackError([`${path}: could not be compressed: ${(error as Error).message}`]);
+      }
+    }
     const name = hashedName(path, bytes, extension);
     await writeFile(join(outDir, name), bytes);
     return { name, bytes, cost: transferBytes(name, bytes) };

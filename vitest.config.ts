@@ -33,9 +33,11 @@ export default defineConfig({
         },
       },
       {
-        // Files named *.integration.test.ts, against real PostgreSQL. `pnpm services` starts it;
-        // each run makes and drops its own database.
-        test: { name: "integration", include: ["tests/integration/**/*.test.ts", "packages/*/src/**/*.integration.test.ts", "apps/*/src/**/*.integration.test.ts"] },
+        // Files named *.integration.test.ts: tests that need something outside the code.
+        // The database tests need PostgreSQL (`pnpm services` starts it; each run makes and
+        // drops its own database). The asset tests need Blender and KTX-Software, and skip
+        // themselves, saying so, on a machine without them.
+        test: { name: "integration", include: ["tests/integration/**/*.test.ts", "packages/*/src/**/*.integration.test.ts", "apps/*/src/**/*.integration.test.ts", "tools/**/*.integration.test.ts"] },
       },
       {
         test: {

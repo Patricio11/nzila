@@ -15,7 +15,6 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 
 | # | Found in | What | Closes in |
 |---|---|---|---|
-| F-9 | 0.6 | **`pack build` cannot process art yet.** The Blender export, Meshopt and KTX2 compression, chunking and LODs are not built. Blender 5.3 and KTX-Software 4.4.2 were installed on 2026-11-14 with the founder's permission, so the only thing missing now is art to run them on. | 1.5, with the first real chunk |
 | F-11 | 0.2 | **A person pressed straight into a wall drawn diagonally on the walk grid stops instead of sliding.** Obstacles (posts, kiosks, vans) slide properly; grid walls slide only along the axes. It will be felt along the curve of the Marginal. | 1.3, when the controller is first walked on a real phone |
 | F-12 | 0.2 | **A van that stops on top of a standing person leaves them inside it** until they move. Pedestrians are meant to be pushed aside (6.4). | 6.4 |
 | F-13 | 0.2 | **Obstacles are checked one by one.** Fine for a few hundred; a dense district needs a spatial index. | 3.7, if the swarm's tick time says so |
@@ -30,9 +29,11 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-22 | 0.10 | **Retention periods in `docs/legal/RETENTION.md` are proposals,** not legal advice. | Counsel, before 4B |
 
 | F-23 | 0.7 | **The spec's examples still show the old scale** ("Apanhar · 150 Mk" and others). A note at the top of the typography rules says to read 200; the examples themselves are corrected when each screen is built. | With each screen, from 1.4 |
-| F-24 | 0.6 | **Blender moved to version 5** since the roadmap was written, and the export scripts of Task 1.5 must be written against its current scripting interface, read from its documentation, not from memory. | 1.5 |
 | F-31 | 0.9 | **Reference pictures exist for Windows only.** On CI, which runs Linux, the look of the styleguide is not compared (the test says so). | When the repository first runs on CI: make the Linux pictures there, look at each, commit them |
 | F-32 | 0.9 | **Nothing in the harness is an iPhone or a cheap phone.** The profiles catch large regressions; they do not prove the budgets. The numbers that count come from the bench on real units. | Founder: the two reference phones (D-0.5); one real iPhone in 1.9 |
+| F-34 | 0.6 | **Impostors are not made.** The manifest has a place for a chunk's far-away picture, and the pack check counts a distant chunk as one flat card, but nothing renders that picture yet: how the renderer draws distance (one card, crossed cards, or only silhouettes in haze) decides what to render. | 1.1 decides; 1.5 builds |
+| F-35 | 0.6 | **A walk grid cannot be drawn in Blender yet.** Grids are written by hand as rows of characters, which is enough for a greybox. Turning a walkable mesh into a grid is needed before a district with real slopes. | 1.5 |
+| F-36 | 0.6 | **CI does not check the asset pipeline:** Blender and KTX-Software are not installed there, and the test skips itself with a printed warning. | When the repository first runs on CI: install both in the workflow |
 
 ## Fixed
 
@@ -54,6 +55,10 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-28 | 0.7 | Nothing compared how a screen looks with how it looked before. | The browser tests keep a reference picture of `/styleguide` for the phone and the iPhone profile and fail when it changes by more than one pixel in a hundred. | 2026-11-14 |
 | F-29 | 0.7 | The glyphs and components had not been seen by the founder (D-0.23). | Seen and approved on 2026-11-14 after the redraw of F-30 ("I like it, you did well"). | 2026-11-14 |
 | F-33 | 0.9 | The bench first judged a run by its worst one per cent of frames, which in a short run is two or three frames and measured start-up hitches, not the scene. | The pass mark is now what "sustained" means: 95 frames in 100 at 30 a second or better, after half a second of warm-up. The worst one per cent is still shown. | 2026-11-14 |
+| F-9 | 0.6 | `pack build` could not process art: no Blender export, no compression, no chunking, no LODs. | Built once Blender and KTX-Software were installed: `pnpm pack:export` and the compression step in `pack build`, tested for real from a Blender scene to a pack that passes the check. | 2026-11-14 |
+| F-24 | 0.6 | Blender had moved to version 5 since the roadmap was written. | The export script was written against the installed 5.3, with the exporter's options read from the program itself and not from memory. | 2026-11-14 |
+| F-37 | 0.6 | The texture compressor refused the pictures Blender writes, because they carry no statement of their colour space and it will not guess. | The build tells it they are sRGB, and passes on the tool's own message when it fails. | 2026-11-14 |
+| F-38 | 0.9 | The bench test failed once in a full run of the gate and passed alone: the machine was still busy from the tests before it, and a frame rate measured then is the machine's, not the page's. | The bench is judged on the best of three runs. | 2026-11-14 |
 
 ## Ideas
 

@@ -95,6 +95,9 @@ function strings(): Record<string, string> {
   return s;
 }
 
+/** The models in this file are stand-ins with no geometry in them, so they are not compressed. */
+const RAW = { optimise: false };
+
 let tmp: string;
 let serial = 0;
 
@@ -128,7 +131,7 @@ async function make(change: { manifest?: (m: SourceManifest) => void; files?: Re
 }
 async function problemsOf(change: Parameters<typeof make>[0]): Promise<string[]> {
   const { src, out } = await make(change);
-  await buildPack(src, out);
+  await buildPack(src, out, RAW);
   return checkPack(out, context);
 }
 
@@ -190,7 +193,7 @@ describe("file helpers", () => {
 describe("pack build", () => {
   test("writes a flat directory of hashed files and a manifest that measures them", async () => {
     const { src, out } = await make();
-    const manifest = await buildPack(src, out);
+    const manifest = await buildPack(src, out, RAW);
     const names = await readdir(out);
     expect(names).toContain("manifest.json");
     expect(names.length).toBe(11);
@@ -221,12 +224,12 @@ describe("pack build", () => {
   test("the same source builds the same pack, byte for byte", async () => {
     const a = await make();
     const b = await make();
-    expect(await buildPack(a.src, a.out)).toEqual(await buildPack(b.src, b.out));
+    expect(await buildPack(a.src, a.out, RAW)).toEqual(await buildPack(b.src, b.out, RAW));
   });
 
   test("a compiled walk grid is taken as it is, and missing optional files are null", async () => {
     const first = await make();
-    const built = await buildPack(first.src, first.out);
+    const built = await buildPack(first.src, first.out, RAW);
     const compiled = await readFile(join(first.out, built.chunks[0]!.walkGrid));
     const { src, out } = await make({
       manifest: (m) => {
@@ -237,7 +240,7 @@ describe("pack build", () => {
       },
       files: { "chunks/c-00-00.walk.bin": compiled, "light.bin": new Uint8Array(64) },
     });
-    const manifest = await buildPack(src, out);
+    const manifest = await buildPack(src, out, RAW);
     expect(manifest.chunks[0]!.walkGrid).toBe(built.chunks[0]!.walkGrid);
     expect(manifest.npc.crowd).toBeNull();
     expect(manifest.heat.lighting).toMatch(/^light\.[0-9a-f]{12}\.bin$/);
@@ -246,7 +249,7 @@ describe("pack build", () => {
 
   test("a chunk with no model at all still builds, and costs nothing to draw", async () => {
     const { src, out } = await make({ manifest: (m) => void (m.chunks[1]!.lods = ["chunks/c-00-00.imp.ktx2"]) });
-    const manifest = await buildPack(src, out);
+    const manifest = await buildPack(src, out, RAW);
     expect(manifest.chunks[1]!.stats.near).toEqual({ tris: 0, draws: 0 });
   });
 
@@ -258,7 +261,7 @@ describe("pack build", () => {
         m.pois[0]!.nameKey = "Um nome escrito aqui";
       },
     });
-    const error = await buildPack(src, out).catch((e: unknown) => e);
+    const error = await buildPack(src, out, RAW).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(PackError);
     const problems = (error as PackError).problems.join("\n");
     expect(problems).toMatch(/^id: /m);
@@ -268,7 +271,7 @@ describe("pack build", () => {
 
   test("a file that is named but missing is refused by name", async () => {
     const { src, out } = await make({ files: { "chunks/c-01-00.l0.glb": null } });
-    await expect(buildPack(src, out)).rejects.toThrow("chunks/c-01-00.l0.glb: named in district.json but not found");
+    await expect(buildPack(src, out, RAW)).rejects.toThrow("chunks/c-01-00.l0.glb: named in district.json but not found");
   });
 });
 
@@ -280,14 +283,14 @@ describe("pack check", () => {
   test("no manifest, or one that does not fit the schema", async () => {
     const { src, out } = await make();
     expect(await checkPack(join(out, "nowhere"), context)).toEqual(["manifest.json: missing or not JSON. Run `pack build` first."]);
-    const manifest = await buildPack(src, out);
+    const manifest = await buildPack(src, out, RAW);
     await writeFile(join(out, "manifest.json"), JSON.stringify({ ...manifest, version: 0 }));
     expect(await checkPack(out, context)).toEqual([expect.stringMatching(/^version: /)]);
   });
 
   test("a file changed or removed after the build", async () => {
     const { src, out } = await make();
-    const manifest = await buildPack(src, out);
+    const manifest = await buildPack(src, out, RAW);
     await writeFile(join(out, manifest.strings), "{}");
     await rm(join(out, manifest.chunks[1]!.lods[0]!));
     expect(await checkPack(out, context)).toEqual([
@@ -298,7 +301,7 @@ describe("pack check", () => {
 
   test("a manifest edited by hand to hide a size", async () => {
     const { src, out } = await make();
-    const manifest = await buildPack(src, out);
+    const manifest = await buildPack(src, out, RAW);
     manifest.chunks[0]!.bytes.normal = 10;
     manifest.chunks[0]!.bytes.poupanca = 20;
     manifest.sizes.total.normal = 30;
@@ -393,7 +396,7 @@ describe("pack check", () => {
     const elsewhere = await problemsOf({ manifest: (m) => void (m.gateways[0]!.to = "zz-tst/d9") });
     expect(elsewhere).toEqual(["gateways.bridge: leads to zz-tst/d9, which is not in the registry"]);
     const { src, out } = await make();
-    await buildPack(src, out);
+    await buildPack(src, out, RAW);
     const moved = { ...registry, districts: [{ ...registry.districts[0]!, provinceId: "zz-oth" }, registry.districts[1]!] };
     expect(await checkPack(out, { ...context, registry: moved })).toEqual(["province: the registry places zz-tst/d1 in zz-oth"]);
     expect(await checkPack(out, { ...context, registry: { ...registry, districts: [registry.districts[1]!] } })).toEqual(["id: zz-tst/d1 is not in the registry"]);
