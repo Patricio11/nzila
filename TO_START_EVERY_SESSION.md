@@ -59,11 +59,11 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 # CURRENT STATE (read this before doing anything)
 
 ## AT A GLANCE (2026-11-14, session 1)
-**Phase 0 is complete; Phase 1 is open and nothing of it is built yet.** The repository lives at `c:\dev\nzila` (kept out of OneDrive on purpose; never move it back). What exists is the foundation, with no 3D world: the shared simulation, the rules of money, the network messages, the database, the pack format and tools, the design tokens and first components, the text catalog, the privacy spine, and the harness that measures it all. `docs/completed/PHASE_0_COMPLETE.md` says what each is and how it was verified. **Read `docs/PHASE_1_PLAN.md` next**: its questions and decisions, and `docs/FINDINGS.md` for what is open.
+**Phase 0 is complete; Phase 1 is under way.** The repository lives at `c:\dev\nzila` (kept out of OneDrive on purpose; never move it back). What exists is the foundation, with no 3D world: the shared simulation, the rules of money, the network messages, the database, the pack format and tools, the design tokens and first components, the text catalog, the privacy spine, and the harness that measures it all. `docs/completed/PHASE_0_COMPLETE.md` says what each is and how it was verified. **Read `docs/PHASE_1_PLAN.md` next**: its questions and decisions, and `docs/FINDINGS.md` for what is open.
 
-**The next step is Task 1.1**, the renderer core, following the build order of `UX_UI_SPEC.md` §14 from its step 2.
+**Task 1.1 is done:** the renderer (`apps/client/src/render/`), with the Hora Dourada light, the sky, the bay, shadows and the three quality tiers, on a test scene of boxes at `/cena`. **The next step is Task 1.2**, chunk streaming with a data meter, following the build order of `UX_UI_SPEC.md` §14.
 
-**How to run it:** `pnpm install` once, then `pnpm exec playwright install chromium webkit firefox` once. `pnpm services` starts PostgreSQL, Redis (on port 6380) and MinIO in Docker; `pnpm db:migrate` and `pnpm db:seed` prepare the database. `pnpm dev:client` serves the client at http://localhost:5173, with the team's pages at `/styleguide` and `/bench`. `pnpm test:all` is the gate; it needs the services running, and Blender and KTX-Software installed for the asset tests (they skip themselves with a warning where those are missing). `pnpm shots <label>` after `pnpm build` saves screenshots and videos in `screenshots/<label>/`. TypeScript is held at 6.x because the linter does not yet support 7.
+**How to run it:** `pnpm install` once, then `pnpm exec playwright install chromium webkit firefox` once. `pnpm services` starts PostgreSQL, Redis (on port 6380) and MinIO in Docker; `pnpm db:migrate` and `pnpm db:seed` prepare the database. `pnpm dev:client` serves the client at http://localhost:5173, with the team's pages at `/styleguide`, `/bench` and `/cena`. `pnpm test:all` is the gate; it needs the services running, and Blender and KTX-Software installed for the asset tests (they skip themselves with a warning where those are missing). `pnpm shots <label>` after `pnpm build` saves screenshots and videos in `screenshots/<label>/`. TypeScript is held at 6.x because the linter does not yet support 7.
 
 **Before changing `packages/sim`:** the golden numbers in `determinism.test.ts` are what every client predicts with. A change that moves one is a protocol change, never a refactor.
 
@@ -71,7 +71,7 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 
 **Phase list:**
 - **Phase 0** (foundations: monorepo, shared simulation, economy rules, protocol, pack format, tokens, budgets): **complete 2026-11-14.**
-- **Phase 1** (Primeiro Passeio: walk the Marginal on a real phone, local simulation): **open; 1.1 next.**
+- **Phase 1** (Primeiro Passeio: walk the Marginal on a real phone, local simulation): **open; 1.1 done, 1.2 next.**
 - **Phase 2** (identity: guest play, linked accounts, the BI, persistence): not started.
 - **Phase 3** (multiplayer core: zones, channels, netcode, chat, safety v1, bot swarm): not started.
 - **Phase 4** (economy core: ledger, wallet and bank, items, shops, biscatos): not started.

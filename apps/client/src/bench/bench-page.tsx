@@ -5,11 +5,15 @@
 //   /bench             waits for the button
 //   /bench?auto        starts by itself (the test harness uses this)
 //   /bench?seconds=20  runs longer; the default is 10
+//   /bench?tier=normal the quality tier to draw at; the default is poupanca, the reference phone's
+//   /bench?scene=2d    the flat stand-in scene, to tell a slow phone from a slow renderer
 
 import { Button, RoadMark } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { FPS_BUDGET, runBench, type BenchResult } from "./bench.ts";
 import "./bench.css";
+import { renderBenchScene } from "../render/bench-scene.ts";
+import { type TierName } from "../render/tiers.ts";
 import { standInScene } from "./stand-in.ts";
 
 declare global {
@@ -31,7 +35,9 @@ export function Bench() {
   const run = async (): Promise<void> => {
     if (!canvas.current || state === "running") return;
     setState("running");
-    const outcome = await runBench(standInScene(), canvas.current, seconds);
+    const tier = (params.get("tier") ?? "poupanca") as TierName;
+    const scene = params.get("scene") === "2d" ? standInScene() : renderBenchScene(tier === "normal" || tier === "alta" ? tier : "poupanca");
+    const outcome = await runBench(scene, canvas.current, seconds);
     window.__bench = outcome;
     setResult(outcome);
     setState("done");
@@ -47,6 +53,7 @@ export function Bench() {
         `Nzila bench · ${result.scene}`,
         `sustained ${one(result.fpsSustained)} fps · average ${one(result.fps)} · worst 1% ${one(result.fpsLow)} · worst frame ${one(result.worstFrameMs)} ms`,
         `sim step ${result.simStepMs.toFixed(2)} ms of 50`,
+        ...(result.draws === undefined ? [] : [`draw calls ${result.draws} of 120 · triangles ${result.triangles} of 120000 · drawn ${result.drawnHeight} px tall`, `graphics: ${result.graphics}`]),
         `${result.width}x${result.height} @${result.pixelRatio}x · ${result.seconds} s · ${result.frames} frames`,
         result.device,
       ].join("\n")
@@ -77,6 +84,16 @@ export function Bench() {
               <dd>{one(result.fpsLow)} fps</dd>
               <dt>Worst frame</dt>
               <dd>{one(result.worstFrameMs)} ms</dd>
+              {result.draws === undefined ? null : (
+                <>
+                  <dt>Draw calls</dt>
+                  <dd>{result.draws} of 120</dd>
+                  <dt>Triangles</dt>
+                  <dd>{result.triangles} of 120000</dd>
+                  <dt>Picture height</dt>
+                  <dd>{result.drawnHeight} px</dd>
+                </>
+              )}
               <dt>Simulation step</dt>
               <dd>{result.simStepMs.toFixed(2)} ms of 50</dd>
               <dt>Canvas</dt>
@@ -84,8 +101,8 @@ export function Bench() {
                 {result.width}×{result.height} at {result.pixelRatio}×
               </dd>
             </dl>
-            {result.standIn ? <p class="bench-note">This is the stand-in scene. It measures the phone and the harness, not the game: the 3D world replaces it in Task 1.1.</p> : null}
-            <textarea class="bench-report" readOnly rows={5} value={report} onFocus={(event) => event.currentTarget.select()} />
+            {result.standIn ? <p class="bench-note">This is the stand-in scene. It measures the phone, not the game. Open /bench without ?scene=2d for the real renderer.</p> : null}
+            <textarea class="bench-report" readOnly rows={7} value={report} onFocus={(event) => event.currentTarget.select()} />
             <p class="bench-note">Tap the box to select the numbers, copy them, and send them.</p>
           </>
         ) : null}

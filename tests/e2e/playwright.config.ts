@@ -33,7 +33,17 @@ export default defineConfig({
   projects: [
     {
       name: "phone",
-      use: { browserName: "chromium", viewport: { width: 360, height: 740 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+      use: {
+        browserName: "chromium",
+        viewport: { width: 360, height: 740 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+        // Draw with the machine's graphics card where it has one; without these the browser
+        // falls back to drawing with the processor, and a frame rate measured that way is
+        // not a phone's.
+        launchOptions: { args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=default"] },
+      },
     },
     {
       name: "iphone",

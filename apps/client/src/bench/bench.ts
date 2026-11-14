@@ -6,10 +6,10 @@
 //   2. The simulation. A channel's worth of people and vehicles is stepped as
 //      fast as the device can, to see how much of each 50 ms step it eats.
 //
-// The scene is whatever implements BenchScene. Until the renderer exists
-// (Task 1.1) that is a stand-in drawn on a 2D canvas, which measures the
-// device and the harness, not the game; the 3D scene takes its place by
-// implementing the same three functions, and nothing else here changes.
+// The scene is whatever implements BenchScene. From Task 1.1 that is the
+// game's own renderer on the test scene (render/bench-scene.ts). The 2D
+// stand-in that came before it is kept (`/bench?scene=2d`) because it tells a
+// slow phone from a slow renderer.
 
 import { CELL_DRIVE, CELL_WALK, addCharacter, addVehicle, createRng, createWalkGrid, createWorld, fillCells, gridGround, rngChance, rngRange, stepWorld, type DriveInput, type MoveInput } from "@nzila/sim";
 
@@ -44,6 +44,13 @@ export interface BenchResult {
   readonly height: number;
   readonly pixelRatio: number;
   readonly device: string;
+  /** From the game's renderer only: the most any frame of the run needed, against 120 and 120 000 (Rule 1). */
+  readonly draws?: number;
+  readonly triangles?: number;
+  /** The smallest height the picture was drawn at: lower than the tier's means the phone was struggling. */
+  readonly drawnHeight?: number;
+  /** What the graphics card calls itself. A software one makes the frame rate meaningless. */
+  readonly graphics?: string;
 }
 
 export const FPS_BUDGET = 30;
@@ -95,15 +102,17 @@ export function measureSim(steps = 200): number {
   return (performance.now() - start) / steps;
 }
 
-export async function runBench(scene: BenchScene, canvas: HTMLCanvasElement, seconds: number): Promise<BenchResult> {
+export async function runBench(scene: BenchScene & { worst?: () => { draws: number; triangles: number; height: number; graphics: string } }, canvas: HTMLCanvasElement, seconds: number): Promise<BenchResult> {
   scene.setup(canvas);
   try {
     const frames = await measureFrames(scene, seconds);
+    const worst = scene.worst?.();
     return {
       scene: scene.name,
       standIn: scene.standIn,
       seconds,
       ...frames,
+      ...(worst ? { draws: worst.draws, triangles: worst.triangles, drawnHeight: worst.height, graphics: worst.graphics } : {}),
       simStepMs: measureSim(),
       width: canvas.width,
       height: canvas.height,

@@ -69,7 +69,8 @@ const playerFacing = code.filter(
   (s) =>
     (s.path.startsWith("apps/client/src/") || s.path.startsWith("packages/ui/src/")) &&
     !s.path.startsWith("apps/client/src/styleguide/") &&
-    !s.path.startsWith("apps/client/src/bench/"),
+    !s.path.startsWith("apps/client/src/bench/") &&
+    !s.path.startsWith("apps/client/src/cena/"),
 );
 
 describe("Rule 10: every word a player reads is in the catalog", () => {
@@ -100,11 +101,13 @@ function strayColour(s: Source): string[] {
   return [...text.matchAll(COLOUR), ...text.matchAll(NAMED)].map((m) => `a colour outside tokens.css: ${m[0].trim()}`);
 }
 
+// Two files may write a colour: the interface's tokens, and the world's palette.
+const PALETTES = ["packages/ui/src/tokens.css", "apps/client/src/render/palette.ts"];
 const styled = all.filter(
-  (s) => (s.path.startsWith("apps/client/") || s.path.startsWith("packages/ui/src/")) && !isTest(s) && s.path !== "packages/ui/src/tokens.css",
+  (s) => (s.path.startsWith("apps/client/") || s.path.startsWith("packages/ui/src/")) && !isTest(s) && !PALETTES.includes(s.path),
 );
 
-describe("one palette: every colour is a token", () => {
+describe("two palettes and no more: the interface's tokens and the world's colours", () => {
   test("the check catches hex, functions and named colours", () => {
     const bad: Source = { path: "x.css", text: ".a { color: #F2A93B; background: rgba(0,0,0,.5); border-color: red; }\n/* #123456 in a comment is fine */" };
     expect(violations([bad], strayColour)).toEqual([

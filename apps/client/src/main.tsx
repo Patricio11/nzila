@@ -13,6 +13,10 @@ if (path === "/bench") {
   // The team's page too: the fixed run the founder does on the reference phones.
   const { Bench } = await import("./bench/bench-page.tsx");
   render(<Bench />, app);
+} else if (path === "/cena") {
+  // The test scene, to look at the light on.
+  const { Cena } = await import("./cena/cena-page.tsx");
+  render(<Cena />, app);
 } else if (path === "/styleguide") {
   // The team's page. Loaded only when asked for, so it adds nothing to the shell a player downloads.
   const { Styleguide } = await import("./styleguide/styleguide.tsx");

@@ -38,7 +38,7 @@ if (!existsSync(dist)) {
 }
 
 // The team's own pages are not part of what a player downloads to play.
-const teamOnly = /(^|[\\/])(styleguide|bench)[\w-]*\.(js|css)$/;
+const teamOnly = /(^|[\\/])(styleguide|bench|cena)[\w-]*\.(js|css)$/;
 let shell = 0;
 let team = 0;
 for (const file of walk(dist)) {

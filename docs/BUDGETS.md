@@ -21,7 +21,7 @@ All but the last are part of `pnpm test:all`, the gate before any commit, and of
 
 | Budget | Limit | Measured by | Enforced | Today |
 |---|---|---|---|---|
-| The shell: HTML, CSS, JS and fonts | 300 KB compressed | The size check; and the phone profile, which counts the bytes the first visit really downloads | Yes | 51 KB in all; the front door alone downloads 17 KB |
+| The shell: HTML, CSS, JS and fonts, the renderer included (D-1.2) | 300 KB compressed | The size check; and the phone profile, which counts the bytes the first visit really downloads | Yes | 180 KB in all, of which the renderer is 133 KB; the front door alone downloads 17 KB |
 | First play, shell included | 6 MB | The pack check holds a district's first view to 5,7 MB (6 MB less the shell) | Yes, from the first pack | No pack yet |
 | A district at the Normal tier | 8 MB | The pack check and the size check | Yes, from the first pack | No pack yet |
 | One streamed chunk at the Normal tier | 400 KB | The pack check and the size check | Yes, from the first pack | No pack yet |
@@ -37,9 +37,9 @@ All but the last are part of `pnpm test:all`, the gate before any commit, and of
 
 | Budget | Limit | Measured by | Enforced | Today |
 |---|---|---|---|---|
-| Frame rate at the Poupança tier | 30 frames a second, sustained: 95 frames in every 100 are at least that fast, after half a second of warm-up | The bench, on the phone profile and by hand on the real units | The harness: yes. The game: from Task 1.1, when the 3D scene replaces the stand-in | 59 on the phone profile, on the stand-in scene, which is not the game |
-| Draw calls in view | 120 | The renderer's own count on the bench path; before that, the pack check's estimate from each spawn and paragem | The estimate: yes, from the first pack. The count: from 1.1 | — |
-| Triangles in view | 120 000 | The same | The same | — |
+| Frame rate at the Poupança tier | 30 frames a second, sustained: 95 frames in every 100 are at least that fast, after half a second of warm-up | The bench, on the phone profile and by hand on the real units | Yes, where the browser has a real graphics card to draw with | 59 on the phone profile, on the test scene of boxes (Task 1.1). No real phone yet |
+| Draw calls in view | 120 | The renderer's own count, on the bench path and at every tier; and the pack check's estimate from each spawn and paragem | Yes | 14 at Poupança, 19 at Alta, on the test scene |
+| Triangles in view | 120 000 | The same | Yes | 2 200 at Poupança, 3 800 at Alta, on the test scene |
 | Texture memory | 96 MB | The renderer's count of what it has uploaded | From 1.1 | — |
 | JavaScript heap | 180 MB | Chromium's memory report on the phone profile, after ten minutes of play | From 1.9 | — |
 | Input to visible response | 100 ms | The phone profile, from a tap to the next frame that shows it | From 1.4 | — |
@@ -84,4 +84,5 @@ The game must be beautiful at Poupança. The budgets above are Poupança's.
 - **The phone profile is a guess.** A processor slowed four times is not a cheap phone: it has a desktop's graphics, memory and storage. It catches a change that makes things much slower; it does not prove the game runs on the reference phone. Only the bench on the real units does (Rule 1).
 - **The iPhone profile is not an iPhone.** It is the same browser engine drawing without a graphics card, so its frame rate means nothing and is recorded but not judged. It does catch what Safari refuses to run. A real iPhone is measured by hand in Task 1.9.
 - **Reference pictures belong to one operating system.** Text is drawn differently on Windows, Linux and macOS. The pictures in `tests/e2e/reference/` were made on Windows; on another system the comparison is skipped, and says so, until its own are made (`pnpm test:e2e --update-snapshots`, then look at each before committing).
-- **The stand-in scene is not the game.** Until Task 1.1 the bench draws a flat street on a 2D canvas. Its numbers show that the harness works and what the device can do with almost nothing; they say nothing about the 3D world.
+- **The test scene is not the game.** The bench draws twenty boxes, a road and the bay: a few thousand triangles. A real district has many times that. Its numbers show the renderer's fixed costs and that the harness works; the budgets are proved on the first real district (Task 1.5).
+- **A frame rate is judged only with a real graphics card.** On a machine without one the browser draws with the processor, and the tests record the number without judging it. The counts of draw calls and triangles are judged everywhere, because they do not depend on the machine.

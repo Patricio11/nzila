@@ -34,6 +34,9 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-34 | 0.6 | **Impostors are not made.** The manifest has a place for a chunk's far-away picture, and the pack check counts a distant chunk as one flat card, but nothing renders that picture yet: how the renderer draws distance (one card, crossed cards, or only silhouettes in haze) decides what to render. | 1.1 decides; 1.5 builds |
 | F-35 | 0.6 | **A walk grid cannot be drawn in Blender yet.** Grids are written by hand as rows of characters, which is enough for a greybox. Turning a walkable mesh into a grid is needed before a district with real slopes. | 1.5 |
 | F-36 | 0.6 | **CI does not check the asset pipeline:** Blender and KTX-Software are not installed there, and the test skips itself with a printed warning. | When the repository first runs on CI: install both in the workflow |
+| F-39 | 1.1 | **Edges are stair-stepped at Poupança.** The picture is drawn 540 pixels tall with no smoothing and stretched to the screen, which shows on every roofline. Smoothing costs frames on a cheap phone, so it was left out on purpose; whether the look survives that is for the real phones and the look test to say. A cheap smoothing pass is the remedy if not. | 1.9, on the reference phones |
+| F-40 | 1.1 | **The test scene is boxes and its colours are a first guess.** The light is what was built; the ground under it at golden hour may be too orange. The founder judges the light on `/cena`, and the first real district replaces the scene. | Founder, on `/cena`; 1.5 |
+| F-41 | 1.1 | **The iPhone profile cannot tell a real graphics card from a pretend one:** Playwright's WebKit always calls itself "Apple GPU". Its frame rate is therefore never judged. | Stays so; a real iPhone in 1.9 |
 
 ## Fixed
 
@@ -59,6 +62,8 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-24 | 0.6 | Blender had moved to version 5 since the roadmap was written. | The export script was written against the installed 5.3, with the exporter's options read from the program itself and not from memory. | 2026-11-14 |
 | F-37 | 0.6 | The texture compressor refused the pictures Blender writes, because they carry no statement of their colour space and it will not guess. | The build tells it they are sRGB, and passes on the tool's own message when it fails. | 2026-11-14 |
 | F-38 | 0.9 | The bench test failed once in a full run of the gate and passed alone: the machine was still busy from the tests before it, and a frame rate measured then is the machine's, not the page's. | The bench is judged on the best of three runs. | 2026-11-14 |
+| F-42 | 1.1 | The moon's direction was not a unit vector, and one long frame was enough to make the picture shrink. Both caught by the first run of the new tests. | The direction is normalised; no one frame counts for more than two, and it takes several slow ones in a row to move the picture. | 2026-11-14 |
+| F-43 | 1.1 | At golden hour the ground looked muddy: with the sun low, flat ground gets little of it directly. Seen in the first screenshots. | The light from the sky at golden hour is warmer and stronger, as the glow of the whole western sky is. | 2026-11-14 |
 
 ## Ideas
 
