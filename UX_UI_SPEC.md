@@ -84,7 +84,7 @@ font-variant-numeric: tabular-nums;   /* every number that changes */
 | `label` | 15 / 1.2 | UI 600 | Buttons, the context action |
 | `small` | 14 / 1.35 | UI 400 | Secondary lines, timestamps. Nothing is smaller than 14. |
 
-Rules: sentence case everywhere; no all-caps labels; a number and its unit stay on one line (`1 500 Mk`, `3,2 MB`, `12 min`); thousands separated by a thin space, decimals with a comma, as in Angola.
+Rules: sentence case everywhere; no all-caps labels; a number and its unit stay on one line (`1.500 Mk`, `3,2 MB`, `12 min`); thousands separated by a point, decimals with a comma (founder, 2026-11-14). Prices are those of Luanda: a Makuta buys what a kwanza buys (D-0.9), so a corrida is 200 Mk; where this document still shows 150 Mk on a button, read 200.
 
 ### 1.2 Colour
 The world supplies the colour; the HUD stays quiet. Text over the 3D view always sits on a scrim or a solid chip (Readable-In-The-Sun Rule).

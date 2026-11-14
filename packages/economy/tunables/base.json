@@ -1,18 +1,18 @@
 {
-  "version": 1,
+  "version": 2,
   "player": {
-    "startingCash": 2000
+    "startingCash": 25000
   },
   "fares": {
-    "candongueiroLocal": 150
+    "candongueiroLocal": 200
   },
   "transfers": {
     "newAccountDays": 7,
-    "newAccountDailyCap": 5000,
-    "dailyCap": 50000
+    "newAccountDailyCap": 50000,
+    "dailyCap": 500000
   },
   "stakes": {
-    "perGameCap": 1000,
+    "perGameCap": 10000,
     "houseCutPermille": 50
   },
   "needs": {
@@ -23,7 +23,7 @@
     "shieldPlayHours": 5,
     "shieldAccountDays": 7,
     "assaltoPermilleOfCash": 200,
-    "assaltoCeiling": 5000,
+    "assaltoCeiling": 20000,
     "burglaryCooldownHours": 24,
     "burglaryPermilleOfMovableValue": 100,
     "hotGoodsHours": 24,

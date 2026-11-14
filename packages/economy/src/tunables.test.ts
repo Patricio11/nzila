@@ -12,10 +12,10 @@ const errorsOf = (input: unknown): string[] => {
 describe("the starter file", () => {
   test("is valid and loads", () => {
     expect(validateTunables(base)).toEqual({ ok: true, tunables: base });
-    expect(BASE_TUNABLES.version).toBe(1);
+    expect(BASE_TUNABLES.version).toBeGreaterThanOrEqual(2);
   });
 
-  test("carries the numbers the rules fix (Rule 6, the fare on the HUD)", () => {
+  test("carries the numbers the rules fix (Rule 6)", () => {
     expect(BASE_TUNABLES.crime).toMatchObject({
       shieldPlayHours: 5,
       shieldAccountDays: 7,
@@ -25,7 +25,12 @@ describe("the starter file", () => {
       hotGoodsHours: 24,
       maxSentenceMinutes: 30,
     });
-    expect(BASE_TUNABLES.fares.candongueiroLocal).toBe(150);
+  });
+
+  test("carries the numbers the founder set: a Makuta buys what a kwanza buys (D-0.9)", () => {
+    expect(BASE_TUNABLES.player.startingCash).toBe(25_000);
+    // A corrida in Luanda costs 200 Kz.
+    expect(BASE_TUNABLES.fares.candongueiroLocal).toBe(200);
   });
 });
 
@@ -65,8 +70,8 @@ describe("the validator", () => {
 
   test("refuses caps that contradict each other", () => {
     const t = copy();
-    t.transfers!.newAccountDailyCap = 60_000;
-    t.stakes!.perGameCap = 50_001;
+    t.transfers!.newAccountDailyCap = 600_000;
+    t.stakes!.perGameCap = 500_001;
     expect(errorsOf(t)).toEqual([
       "transfers.newAccountDailyCap: a new account may not send more than an established one",
       "stakes.perGameCap: one stake may not be larger than the daily cap it counts against",

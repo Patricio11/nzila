@@ -3,6 +3,47 @@
 # Words are compared in their plain form (packages/i18n/src/filter.ts): lower
 # case, no accents, digits and symbols read as the letters they imitate,
 # repeated letters collapsed. Write each word once, as it is normally spelled.
+# A word is only found whole, never inside another word.
 #
-# Scaffold only (Task 0.10). The list is written in Task 3.6 with the founder
-# and the moderators, and reviewed with the first reports from real players.
+# A first list (2026-11-14, the founder asked for a start). The founder and
+# the moderators review it in Task 3.6 and with the first reports from real
+# players. What the game does with a match (hide the word, hold the message,
+# warn) is decided there too.
+#
+# Left out on purpose, because honest people say them:
+#   puto     a boy, a kid
+#   bicha    a queue
+#   macaco   the animal; as an insult it is caught by reports, not by a list
+#   porra, bolas, fogo   mild; the game is rated 15+
+
+# Sexual and scatological
+caralho
+caralhos
+foda-se
+foder
+fode-te
+fodido
+fodida
+vai-te foder
+merda
+merdas
+cona
+conas
+piça
+punheta
+cu
+
+# Aimed at a person
+puta
+putas
+filho da puta
+filha da puta
+filhos da puta
+puta que pariu
+cabrão
+cabrões
+cabrona
+corno
+cornudo
+paneleiro
+paneleiros

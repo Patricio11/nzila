@@ -2,7 +2,7 @@
 
 Every word a player reads is Portuguese of Angola (Rule 10) and is written against this page.
 
-**Status: a first draft, written by someone who is not from Luanda.** The founder reviews it first, then two more Luandans of different ages (Waiting on the founder, item 6). Until then every entry is a proposal, and the ones marked **[founder]** are open questions.
+**Status: a first draft, written by someone who is not from Luanda.** The founder answered its three open questions on 2026-11-14 (numbers, the kupapata, spelling); they are recorded below. The rest still waits for his review and for two more Luandans of different ages (Waiting on the founder, item 6).
 
 ## Voice
 
@@ -12,7 +12,8 @@ Every word a player reads is Portuguese of Angola (Rule 10) and is written again
 - The context button says what it will do in one or two words, at most 14 characters. A test enforces this.
 - Never name or compare with another game, in any line.
 - Real place names are never translated or shortened: "Fortaleza de São Miguel", "Avenida 4 de Fevereiro".
-- Numbers the Angolan way: "1 500 Mk", "2,1 MB", "17:42". **[founder: "1 500" with a space, or "1.500" with a point, for Makuta?]**
+- Numbers the Angolan way: "1.500 Mk", "2,1 MB", "17:42". Thousands take a point and decimals a comma (founder, 2026-11-14).
+- A Makuta buys what a kwanza buys: prices in the game are the prices of Luanda (D-0.9). The game still never writes "kwanza" or "Kz".
 
 ## Words we use
 
@@ -23,8 +24,9 @@ Every word a player reads is Portuguese of Angola (Rule 10) and is written again
 | corrida | one ride on a candongueiro, paid once | not "viagem" |
 | linha | a candongueiro's route | not "rota" |
 | paragem | a stop | |
-| kupapata | the moto-táxi | **[founder: the passenger moto-táxi, the three-wheeled cargo motorbike, or both?]** |
-| táxi | a car hired door to door | |
+| kupapata | the three-wheeled cargo motorbike; it carries loads, and passengers as a taxi | founder, 2026-11-14 |
+| moto-táxi | an ordinary motorbike that takes one passenger for a fare | founder, 2026-11-14: people are also taxied by ordinary motorbike and by the blue and white van. **[founder: is "moto-táxi" what people call the ordinary one?]** |
+| táxi | a car hired door to door; in speech, any of the rides above | |
 | motorizada | a motorbike you own | |
 | telemóvel | the phone, and the game's menu | never "celular" |
 | kamba | a friend | plural "kambas" |
@@ -86,4 +88,4 @@ A test reads this table and fails the build when a word in the first column appe
 - "estar a fazer", never "estar fazendo": "A ligar de novo…", "A guardar".
 - Object pronouns after the verb in plain statements: "Guardámos onde estavas."
 - First person plural past with the accent: "guardámos", "chegámos".
-- Spelling before the 1990 agreement, which Angola has not ratified: "actualizar", "acção", "direcção", "óptimo". **[founder: confirm that this is how you want the game to spell.]**
+- Spelling before the 1990 agreement, which Angola has not ratified: "actualizar", "acção", "direcção", "óptimo" (confirmed by the founder, 2026-11-14).

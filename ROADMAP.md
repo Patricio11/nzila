@@ -162,7 +162,7 @@ flowchart LR
 
 ### Task 0.6: `packages/world` and `tools/pack`
 - [x] The pack manifest schema (see `WORLD_ATLAS.md` §4): identity, chunks, walk grid, spawns, points of interest, routes and paragens, lots, residential buildings, interiors, NPC tables, heat inputs, ad slots, strings, art pass, sizes. *(2026-11-14: in `packages/world` with Zod, every object strict. Added to the atlas shape: per-chunk drawing costs (`stats`) and each route's `stopPoints`. Also there: the walk grid file format, a hand-written form of it for greybox districts, and `content/registry.json`, the one list of places that the database seed and `pack check` both read.)*
-- [ ] `tools/pack build`: Blender exports to glTF, Meshopt and KTX2 compression, chunking, LODs, content hashes, the manifest. *(2026-11-14, part done: the build reads `district.json`, compiles hand-written walk grids, hashes and copies every file, measures sizes per tier and drawing costs per chunk from the `.glb` files, and writes the manifest; the same source gives the same pack byte for byte. **Still open:** the Blender export, Meshopt and KTX2 compression, cutting a district into chunks and making LODs. Blender and the KTX tools are not installed on the development machine and there is no art to run them on yet; they are built with the first real chunk in Task 1.5, and this box is ticked then. How the three tiers differ in what they download is a placeholder until the renderer defines it in 1.1.)*
+- [ ] `tools/pack build`: Blender exports to glTF, Meshopt and KTX2 compression, chunking, LODs, content hashes, the manifest. *(2026-11-14, part done: the build reads `district.json`, compiles hand-written walk grids, hashes and copies every file, measures sizes per tier and drawing costs per chunk from the `.glb` files, and writes the manifest; the same source gives the same pack byte for byte. **Still open:** the Blender export, Meshopt and KTX2 compression, cutting a district into chunks and making LODs. Blender 5.3 and KTX-Software 4.4.2 were installed on the development machine on 2026-11-14, so nothing blocks this now except that there is no art to run it on; it is built with the first real chunk in Task 1.5, and this box is ticked then. How the three tiers differ in what they download is a placeholder until the renderer defines it in 1.1.)*
 - [x] `tools/pack check`: schema, size budgets per chunk and per tier, triangle and draw-call estimates, every spawn reachable on the walk grid, every string key present in `pt-AO`, at least five positive points of interest (Heat-Not-Labels), no forbidden brand terms (a list in `docs/legal/`). *(2026-11-14: `pnpm pack:check` builds, then checks, every district that has a `district.json`, and is part of `pnpm test:all`. It also catches a file changed after the build, a manifest edited to hide a size, a gateway to a district not in the registry, and a lot, paragem or point of interest that cannot be walked to. The view distances behind the triangle and draw-call estimates are placeholders until 1.1. `docs/legal/BRAND_TERMS.txt` is a first list for the founder to complete.)*
 - Depends on: 0.1 · Unblocks: 1.2, 1.5, 11.1.
 
@@ -497,7 +497,7 @@ flowchart LR
 - Depends on: 1.6, 4.1 · Unblocks: 6.2, 6.6, 11.2.
 
 ### Task 6.2: Kupapata and táxi
-- [ ] Hail a moto-taxi at a corner or from the Telemóvel (point to point inside the district, dearer than the candongueiro, faster); an NPC rider until 6.6.
+- [ ] Hail a moto-táxi at a corner or from the Telemóvel (point to point inside the district, dearer than the candongueiro, faster); an NPC rider until 6.6. *(Founder, 2026-11-14: the **kupapata** is the three-wheeled cargo motorbike, and it carries passengers too; an ordinary motorbike also works as a taxi. So there are two hired rides here: the moto-táxi, quick, for one; and the kupapata, slower, for two or for one with a load, which is how a geleira gets home in 5.7.)*
 - [ ] The three ways of getting somewhere are a real choice of price, speed and comfort, all in tunables: the candongueiro is cheap, sociable and keeps to its linha; the kupapata is quick and costs a little Energia; the táxi is dear, door to door, and restful. Every journey in this game happens in the world, on the road the player can see: there is no menu that moves a player from one place to another.
 - Depends on: 6.1 · Unblocks: 6.6.
 
@@ -515,7 +515,7 @@ flowchart LR
 - Depends on: 6.4 · Unblocks: 6.6, 9.1.
 
 ### Task 6.6: Driving for a living
-- [ ] Three ways to drive for a living, each chosen by the player: **kupapata** (your own motorizada, one passenger, short hops), **táxi** (your own car, players and NPCs hail you from the street or the Telemóvel, you set yourself available and see calls nearby), and **candongueiro**. Passengers ride as real seated avatars and can talk to the driver.
+- [ ] Ways to drive for a living, each chosen by the player: **moto-táxi** (your own motorizada, one passenger, short hops), **kupapata** (a three-wheeler you own: passengers, and paid deliveries of loads for other players), **táxi** (your own car, players and NPCs hail you from the street or the Telemóvel, you set yourself available and see calls nearby), and **candongueiro**. Passengers ride as real seated avatars and can talk to the driver.
 - [ ] Candongueiro as a two-player job (driver and cobrador sharing the takings) on the real routes, alongside the NPC vans.
 - Depends on: 4.5, 6.1, 6.2, 6.5 · Unblocks: 9.2.
 
@@ -762,7 +762,19 @@ flowchart LR
 - [ ] `PHASE_10_COMPLETE.md`, tick, Current State, commit.
 - [ ] Invariant: a player who has not accepted a desafio can never be hit, pushed or blocked by one.
 - [ ] Invariants: Respeito and Mestria cannot be bought, transferred or granted by a client; a fiado tab is always settled or written off through the ledger; no transfer has a church interior as its place; a player in the 15 to 17 band can never be seated at a staked table or be party to a namoro; no audio file is served without a valid licence row.
-- Depends on: 10.1 to 10.7, 10.9 to 10.15 · Unblocks: Phase 13 (10.1 only is required, and it is built in 4B.2).
+- Depends on: 10.1 to 10.7, 10.9 to 10.16 · Unblocks: Phase 13 (10.1 only is required, and it is built in 4B.2).
+
+### Task 10.16: Copos (drink, and what it does to you)
+*Asked for by the founder on 2026-11-14: a player who drinks too much should be hard to control, and should see it. D-0.37.*
+- [ ] Drinks are bought and drunk where drinking happens: the esplanada, the quintal, the discoteca, a wedding. Invented brands only (Rule 8). Each drink raises a level that falls again with time, faster with food and water.
+- [ ] Four states, shown by one small glyph on the HUD: sóbrio, alegre, tocado, bêbado *(the words are a proposal for the founder)*. Alegre changes nothing but the avatar's walk and laugh. Tocado: the body wanders off the line the thumb asks for. Bêbado: it wanders more, lurches now and then, and cannot run.
+- [x] The wandering is applied to the stick inside `packages/sim` (`intoxication.ts`), so the zone applies it too and a modified client cannot walk straight. *(2026-11-14: built and tested with Task 0.2's rules: deterministic, per player, never turns the player right round. Rates and thresholds are starting values and move to tunables with this task.)*
+- [ ] What the player sees, by the renderer: the camera sways, lights double and bloom, the edges of the screen soften, sound is muffled. With reduced motion on, the screen effects are replaced by a still tint and the glyph; the wandering stays, because it is the consequence.
+- [ ] Other players see it: the avatar's walk weaves, the emotes are louder. It is funny from outside, which is the point.
+- [ ] Consequences that hold, none that ruin: a drunk cannot start a biscato or a shift; at the wheel the steering wanders and the police can stop and fine the driver (a new offence in 7.2, with the carta suspended for repeat offences); a carteirista finds a drunk an easier mark, inside the same caps as always (Rule 6). The next game morning brings a slow start: Energia recovers less from that night's sleep. No passing out, no vomiting, no illness shown.
+- [ ] Never rewarded: no bonus, no achievement, no Respeito for drinking or for being drunk. Drinking with kambas at a table is social; the game does not count the drinks.
+- [ ] **Players in the 15 to 17 band are not served and do not see the option (proposed; it follows the rule already taken for stakes and namoro).** Counsel is told that alcohol appears, for the age rating.
+- Depends on: 2.6, 4.3, 10.4 · Unblocks: nothing.
 
 ---
 

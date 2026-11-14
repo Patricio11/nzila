@@ -2,44 +2,230 @@
 # (Rule 8, D-0.11). `pack check` refuses a pack whose strings or file names
 # contain one of them as a whole word. One term per line. Team-only.
 #
-# This is a first list, written on 2026-11-14 from general knowledge of brands
-# present in Angola. The founder completes it: banks, telecoms, beers, shops,
-# airlines, football clubs, parties, churches, and the names of real people.
-# Real place names (streets, bairros, monuments) are welcome and do not go here.
-# Leave out a brand whose name is also an everyday word or a place (a drink
-# called after a colour, a club called after a date): the check matches whole
-# words and would refuse honest copy. Those are caught by review instead.
+# Researched on 2026-11-14 from published sources (bank and club lists, the
+# business press, the Constitutional Court's list of parties); the founder
+# reviews it. Three rules decide what is on it:
+#
+#   1. Real place names are welcome in the game and never go here: Mercado do
+#      São Paulo, Kikolo, Benfica, Kinaxixi, Fortaleza de São Miguel.
+#   2. A brand whose name is also an everyday word, a date or a place is
+#      listed only in its full form ("Banco Sol", never "Sol"), because the
+#      check matches whole words and would refuse honest copy.
+#   3. Brands that cannot be listed safely at all are in the last section, as
+#      comments, for reviewers to catch by eye.
 
-# Telecoms
+# --- Banks
+Banco Angolano de Investimentos
+BAI
+Banco de Fomento Angola
+BFA
+Banco BIC
+Millennium Atlântico
+Banco Millennium Atlântico
+Banco de Poupança e Crédito
+BPC
+Banco de Comércio e Indústria
+Banco Económico
+Banco de Negócios Internacional
+Banco BNI
+Banco Caixa Geral Angola
+Banco Comercial Angolano
+Banco de Desenvolvimento de Angola
+Banco de Investimento Rural
+Banco de Crédito do Sul
+Banco Comercial do Huambo
+Banco Keve
+Banco Sol
+Banco Valor
+Banco Yetu
+Standard Bank
+Standard Chartered
+Access Bank
+
+# --- Insurers
+ENSA
+ENSA Seguros
+Nossa Seguros
+Global Seguros
+Fidelidade Angola
+Mundial Seguros
+BIC Seguros
+Fortaleza Seguros
+Saham
+Sanlam
+
+# --- Payments and mobile money
+Multicaixa
+Multicaixa Express
+EMIS
+Unitel Money
+Afrimoney
+é-Kwanza
+E-Kwanza
+Aki Paga
+
+# --- Telecoms, internet, television providers
 Unitel
 Africell
 Movicel
+Angola Telecom
+Finstar
+DStv
+TV Cabo
+StarTimes
+NetCasa
 
-# Banks and payments
-BAI
-BFA
-BIC
-Millennium Atlântico
-Multicaixa
-
-# Energy and transport
-Sonangol
-Pumangol
-TAAG
-
-# Drinks
+# --- Beers, soft drinks, water
 Cuca
 Nocal
 Eka
+Tigra
+Luandina
+Sagres
+Refriango
+Sodiba
+Castel
+Coca-Cola
+Fanta
+Sprite
+Schweppes
+Pepsi
 
-# Retail and food
+# --- Supermarkets, shopping centres, retail, fast food
 Kero
 Candando
 Shoprite
+Angomart
+Fresmart
+Nosso Super
+Alimenta Angola
+SPAR
+Newaco
+Noble Group
+Grupo Zahara
+Xyami
+Belas Shopping
+Fortaleza Shopping
+Avennida
+Atrium Nova Vida
+Shopping Kikolo
+KFC
+Pizza Hut
+Ibersol
 
-# Football clubs
+# --- Fuel, airlines, buses, ride-hailing
+Sonangol
+Pumangol
+Sonangalp
+TotalEnergies
+Puma Energy
+TAAG
+TAP
+Air France
+Ethiopian Airlines
+TCUL
+Transporte Colectivo Urbano de Luanda
+T'Leva
+Kubinga
+Yango
+Heetch
+Tirosa
+
+# --- Football and sports clubs
 Petro de Luanda
+Atlético Petróleos de Luanda
+Wiliete
+Desportivo da Huíla
+Kabuscorp
+Bravos do Maquis
+Interclube
+Desportivo da Lunda-Sul
+São Salvador do Kongo
+Académica do Lobito
+Recreativo do Libolo
+Recreativo da Caála
+Luanda City
+Guelson
+FC Cabinda
+Futebol Clube de Luanda
+Girabola
 
-# Political parties
+# --- Television, radio, newspapers
+TPA
+Televisão Pública de Angola
+TV Zimbo
+Zap Viva
+TV Girassol
+Rádio Nacional de Angola
+RNA
+Rádio Ecclesia
+Rádio Despertar
+Rádio Luanda
+Luanda Antena Comercial
+Rádio Mais
+Rádio Essencial
+Jornal de Angola
+Novo Jornal
+Valor Económico
+Medianova
+ANGOP
+
+# --- Political parties
 MPLA
 UNITA
+FNLA
+PDP-ANA
+PADDA-AP
+PNSA
+Bloco Democrático
+Partido Humanista de Angola
+PRA-JA
+Partido Liberal
+CASA-CE
+
+# --- Churches and denominations (D-0.33: the game's congregation is invented)
+Igreja Universal do Reino de Deus
+IURD
+Igreja Tocoísta
+Tocoístas
+Igreja Kimbanguista
+Igreja Evangélica Baptista em Angola
+Igreja Evangélica Congregacional em Angola
+Igreja Evangélica Reformada de Angola
+Igreja Metodista Unida
+Assembleia de Deus Pentecostal
+Convenção Baptista de Angola
+Igreja Adventista do Sétimo Dia
+Igreja Presbiteriana de Angola
+
+# --- Construction and other very visible companies
+Omatapalo
+Mota-Engil
+Odebrecht
+Mitrelli
+Tecnovia
+Mercons
+Teixeira Duarte
+Soares da Costa
+
+# --- Cannot be listed safely: reviewers catch these by eye ---------------------
+# Each is a real brand whose name alone is an ordinary word, a date or a place.
+#
+# Drinks:   Blue, Pura, Jade, Bela, Cristal, N'gola, Speed, Top, Bom Jesus, Chela
+# Shops:    Arreiou (also a street beside the São Paulo market, and market slang),
+#           Bem Barato, Sakidila (Kimbundu for "thank you"), Jumbo, Maxi
+# Clubs:    Primeiro de Agosto (a date), Primeiro de Maio (a date and a largo),
+#           Sagrada Esperança (also a book of poems), Progresso, Benfica (a bairro)
+# Media:    O País, Expansão, Maka Angola (maka is an everyday word), ZAP
+# Payments: Kamba (a wallet app; also the game's word for a friend), Agiliza, Kwik
+# Transport: Anda, Macon
+# Parties:  short acronyms such as BD, PL, PPA, PHA, PRS
+#
+# On the list above but worth the founder's eye, because they are also words:
+#   Cuca   a bairro in Cazenga, and a nickname
+#   Kero   reads like "quero" in text-message spelling
+#   Eka    short; check against Kimbundu and Umbundu text
+#
+# Not yet confirmed from a source, so not listed: Doppel, Booster, Super Bock,
+# Compal, Sumol, Intermarket, Casa dos Frescos, Tupuca, Galp, Sonair, Bestfly,
+# Folha 8, Club-K, Imogestin, Endiama, ENDE, EPAL, Elisal, Chevron.

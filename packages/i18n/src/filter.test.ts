@@ -66,10 +66,30 @@ describe("the word list files", () => {
     expect(parseWordList("# heading\n\nbanana # why\r\n  limão podre  \n#\n")).toEqual(["banana", "limão podre"]);
   });
 
-  test("both scaffolds parse, and are still empty until Task 3.6 fills them", async () => {
-    for (const name of ["pt.txt", "ao.txt"]) {
-      const words = parseWordList(await readFile(new URL(`../filter/${name}`, import.meta.url), "utf8"));
-      expect(words, name).toEqual([]);
-    }
+  const load = async (name: string): Promise<string[]> =>
+    parseWordList(await readFile(new URL(`../filter/${name}`, import.meta.url), "utf8"));
+
+  test("the Portuguese list has a first set of words, each usable and listed once", async () => {
+    const words = await load("pt.txt");
+    expect(words.length).toBeGreaterThan(20);
+    const plain = words.map((word) => plainForm(word));
+    for (const form of plain) expect(form.length).toBeGreaterThan(1);
+    expect(new Set(plain).size).toBe(plain.length);
+  });
+
+  test("the Portuguese list leaves honest words alone", async () => {
+    const filter = createChatFilter(await load("pt.txt"));
+    const honest = [
+      "O puto está na bicha do candongueiro.",
+      "Bora ver a disputa no campo, depois o computador.",
+      "Uma cuca? Não, uma gasosa. O cubo de gelo é teu.",
+      "Vou cortar o cabelo e comprar um corneto.",
+      "Tudo fixe? Bom dia! Já comeste o mufete?",
+    ];
+    for (const line of honest) expect(filter.find(line), line).toEqual([]);
+  });
+
+  test("the Angolan list stays empty until Luandans write it; its candidates are switched off", async () => {
+    expect(await load("ao.txt")).toEqual([]);
   });
 });

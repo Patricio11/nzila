@@ -29,11 +29,11 @@ export interface LocaleRules {
 
 const NBSP = " ";
 
-/** Portuguese of Angola: only exactly one is singular; "1 500" and "2,1". */
+/** Portuguese of Angola: only exactly one is singular; "1.500" and "2,1" (the founder, 2026-11-14). */
 export const PT_AO: LocaleRules = {
   locale: "pt-AO",
   plural: (n) => (n === 1 ? "one" : "other"),
-  group: NBSP,
+  group: ".",
   decimal: ",",
 };
 
@@ -41,9 +41,9 @@ export interface Translator {
   readonly locale: string;
   /** A message from the catalog, with its arguments filled in. */
   t(key: MessageKey, params?: Params): string;
-  /** A whole number: "950", "15 000". */
+  /** A whole number: "950", "15.000". */
   number(n: number): string;
-  /** An amount of Makuta: "150 Mk". */
+  /** An amount of Makuta: "1.500 Mk". */
   makuta(amount: number): string;
   /** A download size: "2,1 MB", "340 KB". */
   dataSize(bytes: number): string;

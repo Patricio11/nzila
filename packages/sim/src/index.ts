@@ -16,3 +16,4 @@ export * from "./needs.ts";
 export * from "./heat.ts";
 export * from "./offence.ts";
 export * from "./minigame/index.ts";
+export * from "./intoxication.ts";

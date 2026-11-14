@@ -96,15 +96,15 @@ describe("plurals and arguments", () => {
   });
 
   test("named arguments, and the price on the button", () => {
-    const label = t("action.withPrice", { label: t("action.board"), price: ptAOTranslator.makuta(150) });
-    expect(label).toBe("Apanhar · 150 Mk");
+    const label = t("action.withPrice", { label: t("action.board"), price: ptAOTranslator.makuta(200) });
+    expect(label).toBe("Apanhar · 200 Mk");
     expect(t("frontdoor.download", { done: "2,1", total: ptAOTranslator.dataSize(5_400_000) })).toBe("2,1 de 5,4 MB");
   });
 
   test("a number given as an argument is written the Angolan way", () => {
     const f = { plural: PT_AO.plural, number: ptAOTranslator.number };
-    expect(formatMessage("{n, plural, one {# Makuta} other {# Makuta}} para {who}", { n: 15000, who: "ti" }, f)).toBe("15 000 Makuta para ti");
-    expect(formatMessage("Tens {n}.", { n: 1500 }, f)).toBe("Tens 1 500.");
+    expect(formatMessage("{n, plural, one {# Makuta} other {# Makuta}} para {who}", { n: 15000, who: "ti" }, f)).toBe("15.000 Makuta para ti");
+    expect(formatMessage("Tens {n}.", { n: 1500 }, f)).toBe("Tens 1.500.");
   });
 
   test("select chooses by a word and falls back to other", () => {
@@ -136,25 +136,25 @@ describe("plurals and arguments", () => {
 describe("numbers, money, sizes and the clock", () => {
   const { number, makuta, dataSize, clock } = ptAOTranslator;
 
-  test("thousands are set apart by a space that does not break", () => {
+  test("thousands are set apart by a point, as on a price in Luanda", () => {
     expect(number(0)).toBe("0");
     expect(number(950)).toBe("950");
-    expect(number(1500)).toBe("1 500");
-    expect(number(1_500_000)).toBe("1 500 000");
-    expect(number(-15_000)).toBe("-15 000");
+    expect(number(1500)).toBe("1.500");
+    expect(number(1_500_000)).toBe("1.500.000");
+    expect(number(-15_000)).toBe("-15.000");
     expect(number(99.6)).toBe("100");
   });
 
   test("Makuta", () => {
     expect(makuta(150)).toBe("150 Mk");
-    expect(makuta(15_000)).toBe("15 000 Mk");
+    expect(makuta(15_000)).toBe("15.000 Mk");
   });
 
   test("download sizes round up below a megabyte and show one decimal above", () => {
     expect(dataSize(0)).toBe("0 KB");
     expect(dataSize(1)).toBe("1 KB");
     expect(dataSize(340_000)).toBe("340 KB");
-    expect(dataSize(999_999)).toBe("1 000 KB");
+    expect(dataSize(999_999)).toBe("1.000 KB");
     expect(dataSize(2_140_000)).toBe("2,1 MB");
     expect(dataSize(5_960_000)).toBe("6,0 MB");
   });

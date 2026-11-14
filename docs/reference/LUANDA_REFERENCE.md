@@ -49,7 +49,7 @@
 | Real linhas named in the press: Benfica–Mutamba, Viana–Mutamba, Cacuaco–Largo Primeiro de Maio; São Paulo as a destination. | The Mutamba is the hub, as in the game's L1. When later districts open, linhas are named in this pattern, end to end. **[founder: the call a cobrador shouts for each, word for word]** |
 | Drivers start around 05:00 and finish around 19:00. | Vans thin out after dark. At night the kupapata and the táxi are how you get home, they cost more, and streets with fewer people warm up (heat). Transport and risk are tied together by the clock, as in the city. |
 | Fuel prices squeeze what drivers take home. | Fuel is the driver's main cost in the game too (the sink in 6.4), so the job has a real margin to manage. |
-| A transport survey lists "moto-táxi" and "kupapata" as separate things. | **[founder: is a kupapata the passenger moto-táxi, the three-wheeled cargo motorbike, or both?]** The docs use kupapata for the passenger moto-táxi until corrected. |
+| A transport survey lists "moto-táxi" and "kupapata" as separate things. | **Answered by the founder, 2026-11-14:** a kupapata is the three-wheeled cargo motorbike, and it is used as a taxi as well; people are also taxied by ordinary motorbike and by the blue and white van. In the game the kupapata carries loads (a geleira home from the shop) and passengers; the ordinary motorbike taxi is a separate, quicker ride for one. |
 
 ## 6. Light, weather and the calendar
 
@@ -58,6 +58,17 @@
 | Sunset in Luanda falls within about twenty minutes of 18:00 all year; sunrise between about 05:35 and 06:25. Days are close to twelve hours in every season. | The world clock needs no seasonal day length. Golden hour is 17:00 to 18:00 on the game clock, which is why the direction is called what it is. |
 | Two seasons: the cacimbo, cool and dry, roughly May to August or September; and the hot, rainy season the rest of the year. Average about 25 °C. A cold ocean current keeps the coast cooler than its latitude suggests. | The game year has both. **Cacimbo:** a pale, hazy sky, softer shadows, people in jackets in the morning, cooler colour grading, no rain. **Rains:** tall clouds, short heavy downpours that send the street running for the arcades, puddles, a washed, saturated look afterwards. Rain waters the hortas (8B.1). Seasons are an ambient set in the pack, switched by the Estúdio calendar. |
 | The sea is warm most of the year and noticeably cooler from July to September. | On the Ilha (L2), fewer NPC swimmers in the cacimbo. A small truth that locals will notice. |
+
+## 6b. Markets
+
+Researched on 2026-11-14 from the press (sources in §8). Real place names, which the game may use. Nothing here is scheduled; it is what a market district would be built from.
+
+| What the sources say | What the game does with it |
+|---|---|
+| **Mercado do São Paulo**, in the bairro São Paulo, Sambizanga: one of the oldest markets in the capital. A formal municipal building with paid stalls, surrounded by one of the densest informal trading zones in the city. Clothing, shoes, hair and wigs, perfume, watches, furniture, toys and food, by the unit and wholesale; street sellers buy in bulk from the warehouses around it and resell. Rua Arreiou-Arreiou is its busiest street. | The founder named it (2026-11-14) as the place to look at for how people sell goods. It is the model for the game's market: a building of fixed stalls a player can rent, and the street outside where a bancada or a bacia sells the same goods bought wholesale inside (Tasks 4.3, 8B.3). Candidate for its own district after beta. **[founder: what is it like to buy there; what do sellers call out?]** |
+| It was rehabilitated in 2022 (709 stalls, parking) and from 2023 the province moved sellers off the surrounding streets; by 2026 the pavements were largely cleared, with informal selling still present. | The pull between the stall inside and the street outside is real and current. The game shows both ways of selling and takes no side: no eviction mechanic, nobody chasing zungueiras. |
+| **Roque Santeiro** (Sambizanga, 1991 to 2010), once called the largest open-air market in Africa; its replacement at **Panguila**, far to the north, never took its place. **Kikolo** (Cacuaco) is the wholesale food hub. | Roque Santeiro is remembered, not rebuilt: an older NPC may speak of it. |
+| **Congolenses** (Rangel): phone and television repair. **Asa Branca** (Cazenga): frozen fish and second-hand clothes. **Mercado do 30** (Viana): the biggest wholesale market, produce from the provinces and live animals. **Catinton**: vegetables, fruit and fuba de bombó. **Benfica**: crafts, carvings and masks. **Mabunda** (Samba): fish, on the coast. | Each market is known for one thing. When a district with a market opens, that one thing is what it sells best and cheapest, which gives players a reason to cross the city. The 30 is where a player's lavra produce goes wholesale (8B.3). |
 
 ## 7. What still has to come from the founder (nobody can look this up)
 - [ ] Photographs he owns or may use of: the promenade from both ends, the pink building's corner and arcade, the fortress from below and the view from the top, the Palácio de Ferro, the Mutamba, one inner street of the Baixa, a full paragem at rush hour, a candongueiro inside and out.
@@ -82,3 +93,4 @@
 - Expansão on linhas and the 200 Kz corrida: https://expansao.co.ao/angola/detalhe/linhas-curtas-nos-taxis-agravam-custos-e-isolam-periferias-da-cidade-de-luanda-68134.html
 - Climates to Travel, Angola: https://www.climatestotravel.com/climate/angola
 - Onde e Quando, Luanda sunrise and sunset by month: https://www.onde-e-quando.net/when/africa/angola/luanda/mes/novembro/
+- Markets (§6b): Expansão on informal selling around the São Paulo market and on the reordering of trade (2023 to 2026); Ver Angola on the rehabilitation of the Mercado do São Paulo (2022) and the reopening of Mabunda (2025); Wikipedia, "Mercado Roque Santeiro"; Global Voices on its closure (2010). Not verified: the founding date of the São Paulo market, and the exact bairro of Catinton.
