@@ -488,7 +488,8 @@ export interface LedgerTransfer {                // append-only
 export type TransferReason =
   | "wage" | "purchase" | "fare" | "rent" | "deposit" | "fuel" | "fine" | "fiance" | "tax"
   | "p2p" | "bank_in" | "bank_out" | "business_sale" | "business_wage" | "supply"
-  | "insurance_premium" | "insurance_payout" | "theft" | "theft_return" | "fence" | "kixikila" | "hospital";
+  | "insurance_premium" | "insurance_payout" | "theft" | "theft_return" | "fence" | "kixikila" | "hospital"
+  | "grant" | "stake" | "fee" | "utilities";   // added in Task 0.3; the list in packages/economy is the source
 
 export interface ReceiptView { title: string; lines: { label: string; qty?: number; amount: Mk }[]; total: Mk; at: string; place: string; ref: string; }
 

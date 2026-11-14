@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "player": {
+    "startingCash": 2000
+  },
+  "fares": {
+    "candongueiroLocal": 150
+  },
+  "transfers": {
+    "newAccountDays": 7,
+    "newAccountDailyCap": 5000,
+    "dailyCap": 50000
+  },
+  "stakes": {
+    "perGameCap": 1000,
+    "houseCutPermille": 50
+  },
+  "needs": {
+    "fomePerHour": 4000,
+    "energiaPerHour": 2500
+  },
+  "crime": {
+    "shieldPlayHours": 5,
+    "shieldAccountDays": 7,
+    "assaltoPermilleOfCash": 200,
+    "assaltoCeiling": 5000,
+    "burglaryCooldownHours": 24,
+    "burglaryPermilleOfMovableValue": 100,
+    "hotGoodsHours": 24,
+    "maxSentenceMinutes": 30
+  },
+  "heat": {
+    "darkness": 600,
+    "lighting": 300,
+    "crowd": 200,
+    "police": 400,
+    "recentOffences": 800
+  }
+}

@@ -17,6 +17,8 @@ export default defineConfig({
       thresholds: {
         // packages/sim decides what is true in the world. Every line of it is tested.
         "packages/sim/src/**": { lines: 100, statements: 100, functions: 100, branches: 100 },
+        // packages/economy decides what is true about money. The same.
+        "packages/economy/src/**": { lines: 100, statements: 100, functions: 100, branches: 100 },
       },
     },
     projects: [

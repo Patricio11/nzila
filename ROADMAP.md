@@ -141,11 +141,11 @@ flowchart LR
 - Depends on: 0.1 · Unblocks: 1.3, 1.6, 3.1, 3.3, 4.4, 6.4, 7.1.
 
 ### Task 0.3: `packages/economy` (the rules of money, zero deps)
-- [ ] `ledger.ts`: transfer validation (positive integer amount, distinct accounts, sufficient funds unless the debit account is a system faucet), reversal, idempotency semantics.
-- [ ] `accounts.ts`: account kinds (`player_cash`, `player_bank`, `business_till`, `escrow`, `system_faucet:<kind>`, `system_sink:<kind>`).
-- [ ] `tunables.ts`: the typed shape of the tunables file and its validator; a starter `tunables/base.json`.
-- [ ] `health.ts`: faucet and sink totals, velocity and inflation as pure functions over a window of transfers.
-- [ ] 100% coverage. A property test proves that any sequence of valid transfers keeps the sum at zero.
+- [x] `ledger.ts`: transfer validation (positive integer amount, distinct accounts, sufficient funds unless the debit account is a system faucet), reversal, idempotency semantics. *(2026-11-14: also an in-memory `Book` that applies the same rules, for tests, simulations and the audit's arithmetic. A transfer is reversed at most once and a reversal is never reversed. A reversal fails when the Makuta has already been spent: recovering it is a decision for support, not arithmetic.)*
+- [x] `accounts.ts`: account kinds (`player_cash`, `player_bank`, `business_till`, `escrow`, `system_faucet:<kind>`, `system_sink:<kind>`). *(2026-11-14: four named faucets and ten named sinks. Only a reversal may credit a faucet or debit a sink.)*
+- [x] `tunables.ts`: the typed shape of the tunables file and its validator; a starter `tunables/base.json`. *(2026-11-14: one description gives both the type and the validator. The numbers fixed by Rule 6 and the HUD fare are in the file as written; starting cash, the transfer and stake caps, the assalto ceiling, the house cut, the needs rates and the heat weights are placeholders for the founder and the economy designer.)*
+- [x] `health.ts`: faucet and sink totals, velocity and inflation as pure functions over a window of transfers. *(2026-11-14: inflation here is growth of the money supply; a price index joins it when there are prices, in 4.6.)*
+- [x] 100% coverage. A property test proves that any sequence of valid transfers keeps the sum at zero. *(2026-11-14: 10 000 requests, valid and invalid, with replays and reversals; the sum is checked after every one, and no account but a faucet ever goes below zero.)*
 - Depends on: 0.1 · Unblocks: 0.5, 4.1, 4.6, 8.5.
 
 ### Task 0.4: `packages/protocol`
