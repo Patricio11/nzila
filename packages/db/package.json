@@ -11,6 +11,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@nzila/economy": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "postgres": "^4.1.1"
   }
 }

@@ -7,17 +7,21 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "docker compose -f infra/docker-compose.yml up -d && turbo run dev",
+    "dev": "pnpm services && turbo run dev",
     "dev:client": "pnpm --filter @nzila/client dev",
     "dev:down": "docker compose -f infra/docker-compose.yml down",
+    "services": "docker compose -f infra/docker-compose.yml up -d --wait",
+    "db:migrate": "node packages/db/src/cli.ts migrate",
+    "db:seed": "node packages/db/src/cli.ts seed",
+    "db:journal": "node packages/db/src/cli.ts journal",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "eslint .",
     "test": "vitest run --project node --coverage",
     "test:engines": "vitest run --project engines",
-    "test:integration": "vitest run --dir tests/integration --passWithNoTests",
+    "test:integration": "vitest run --project integration",
     "budget": "node tools/budget/check-shell.mjs",
-    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm build && pnpm budget"
+    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm build && pnpm budget"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

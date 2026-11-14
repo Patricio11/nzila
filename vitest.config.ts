@@ -1,8 +1,9 @@
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
-// Two projects.
+// Three projects.
 //   node:    every unit test, with coverage. `pnpm test`.
+//   integration: tests that need the database. `pnpm test:integration`.
 //   engines: the simulation and protocol tests again, in real browser engines, to
 //            prove it computes the same numbers there as in Node (Task 0.2).
 //            `pnpm test:engines`. Chromium is what Android runs, WebKit is
@@ -28,7 +29,13 @@ export default defineConfig({
         test: {
           name: "node",
           include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "tools/**/*.test.ts"],
+          exclude: ["**/*.integration.test.ts", "**/node_modules/**"],
         },
+      },
+      {
+        // Files named *.integration.test.ts, against real PostgreSQL. `pnpm services` starts it;
+        // each run makes and drops its own database.
+        test: { name: "integration", include: ["tests/integration/**/*.test.ts", "packages/*/src/**/*.integration.test.ts", "apps/*/src/**/*.integration.test.ts"] },
       },
       {
         test: {

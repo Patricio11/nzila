@@ -1,2 +1,6 @@
-// Drizzle schema, migrations and queries. Filled by Task 0.5.
-export {};
+// Schema, migrations, seed and connection. Server-side only: never imported by the client.
+
+export * from "./schema.ts";
+export * from "./client.ts";
+export * from "./migrate.ts";
+export * from "./seed.ts";

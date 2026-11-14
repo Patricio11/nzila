@@ -1,0 +1,4 @@
+{
+  "provinces": [{ "id": "ao-lua", "nameKey": "world.ao-lua.name", "open": true }],
+  "districts": [{ "id": "ao-lua/l1", "provinceId": "ao-lua", "nameKey": "world.ao-lua.l1.name", "open": true }]
+}

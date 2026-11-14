@@ -154,10 +154,10 @@ flowchart LR
 - Depends on: 0.1, 0.2 · Unblocks: 3.1, 3.3.
 
 ### Task 0.5: `packages/db` core schema
-- [ ] `players`, `player_sessions`, `devices`, `avatars`, `consents`, `staff`, `staff_roles`, `audit_log`, `feature_flags`, `provinces`, `districts`, `packs`.
-- [ ] `ledger_accounts`, `ledger_transfers` (append-only trigger refuses UPDATE and DELETE), `balances` (derived cache).
-- [ ] Every world-scoped table carries `province_id` and `district_id` (seam 1).
-- [ ] Migration journal and guards per the convention; `seed.ts` with the system accounts, one province (`ao-lua`), one district (`l1`).
+- [x] `players`, `player_sessions`, `devices`, `avatars`, `consents`, `staff`, `staff_roles`, `audit_log`, `feature_flags`, `provinces`, `districts`, `packs`. *(2026-11-14: `players` holds no personal data yet; the encrypted columns arrive with the tasks that need them (0.10, 2.2). `player_sessions` is ours for now and is reconciled with Better Auth's own tables in 2.1.)*
+- [x] `ledger_accounts`, `ledger_transfers` (append-only trigger refuses UPDATE and DELETE), `balances` (derived cache). *(2026-11-14: TRUNCATE is refused too, and `audit_log` is append-only the same way. A trigger on `ledger_transfers` moves the two balances in the same transaction, and `balances` refuses every write that does not come from that trigger, so the cache cannot drift and no Makuta moves outside the ledger at the level of the database. A check refuses any balance below zero except a faucet's: forty transfers at the same instant against 1000 Mk record exactly ten.)*
+- [x] Every world-scoped table carries `province_id` and `district_id` (seam 1).
+- [x] Migration journal and guards per the convention; `seed.ts` with the system accounts, one province (`ao-lua`), one district (`l1`). *(2026-11-14: migrations are hand-written, guarded SQL in `packages/db/migrations` with `journal.json` (id and SHA-256); `pnpm db:journal` adds a new file to it. The migrator refuses an applied migration that was edited. drizzle-kit is not used to generate them: its output is not guarded. A test compares the Drizzle tables with the database column for column. The district's id is `ao-lua/l1`, as in `UX_UI_SPEC.md` §12. Which places exist is in `seed/world.json`, not in code.)*
 - Depends on: 0.1, 0.3 · Unblocks: 2.1, 2.4, 4.1.
 
 ### Task 0.6: `packages/world` and `tools/pack`
