@@ -1,5 +1,7 @@
-/* Placeholder shell. The Hora Dourada tokens arrive in packages/ui with Task 0.7. */
-html, body { margin: 0; height: 100%; background: #0F1B2A; color: #FBF8F1; font-family: system-ui, sans-serif; }
-#app { min-height: 100%; display: grid; place-content: center; gap: 12px; padding: 16px; text-align: center; }
-h1 { margin: 0; font-size: 28px; }
-p { margin: 0; font-size: 16px; }
+/* The shell: what is on screen before anything else loads. Colours and type
+   come from the tokens in packages/ui. */
+html, body { margin: 0; height: 100%; background: var(--n-noite); color: var(--n-luz); font: var(--type-body); }
+#app { min-height: 100%; }
+.frontdoor { min-height: 100dvh; box-sizing: border-box; display: grid; place-content: center; justify-items: center; gap: var(--s-3); padding: var(--s-4); text-align: center; }
+.frontdoor p { margin: 0; }
+.frontdoor .soft { color: var(--n-luz-suave); font: var(--type-small); }

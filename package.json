@@ -23,7 +23,8 @@
     "test:engines": "vitest run --project engines",
     "test:integration": "vitest run --project integration",
     "budget": "node tools/budget/check-shell.mjs",
-    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm build && pnpm budget"
+    "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm build && pnpm budget",
+    "shots": "node tools/shots/shoot.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

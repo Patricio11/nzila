@@ -11,8 +11,8 @@
 import { z } from "zod";
 
 const id = z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lower case letters, digits and hyphens");
-export const provinceIdSchema = z.string().regex(/^[a-z]{2}-[a-z]{3}$/, 'like "ao-lua"');
-export const districtIdSchema = z.string().regex(/^[a-z]{2}-[a-z]{3}\/[a-z0-9]+$/, 'like "ao-lua/l1"');
+export const provinceIdSchema = z.string().regex(/^[a-z]{2}-[a-z]{3}$/, "a country and a province code, such as xx-yyy");
+export const districtIdSchema = z.string().regex(/^[a-z]{2}-[a-z]{3}\/[a-z0-9]+$/, "a province code, a slash and a district code, such as xx-yyy/d1");
 /** A key into the pt-AO catalog or the tunables. Never a sentence, never an amount. */
 const key = z.string().regex(/^[a-z0-9]+([._-][a-z0-9]+)*$/i, "a dotted key");
 const file = z.string().min(1);

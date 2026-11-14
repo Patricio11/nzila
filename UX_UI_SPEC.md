@@ -66,11 +66,11 @@ The game must be beautiful at Poupança. If it is only beautiful at Alta, the ar
 ## 1. DESIGN SYSTEM (the HUD and the sheets)
 
 ### 1.1 Typography
-- **Display (names of places, numbers on receipts, the BI, headings):** one variable display grotesque with character, self-hosted, subset to Portuguese (`á à â ã ç é ê í ó ô õ ú`), under 40 KB. First choice: **Bricolage Grotesque** (confirm the licence and the subset size in Task 0.7; if it fails either, pick another open display face with the same warmth and record the change here). **Also check it beside the market (`MARKET_NOTES.md`):** the leading game there uses a heavy grotesque on cream with yellow highlights. Our type and our posts must not be mistakable for theirs at thumbnail size; if the face reads too close, choose one with more character (a humanist or a slab) before anything is published.
+- **Display (names of places, numbers on receipts, the BI, headings):** one variable display face with character, self-hosted, subset to Portuguese (`á à â ã ç é ê í ó ô õ ú`), under 40 KB. **Fraunces**, a soft serif, chosen by the founder on 2026-11-14 from five candidates (D-0.38): it makes the BI and the receipt read as printed paper. Licence confirmed (SIL OFL 1.1), subset 35 KB. The first choice written here before was Bricolage Grotesque, a sans-serif, set aside because the leading game in the market is also set in one. **Also check it beside the market (`MARKET_NOTES.md`):** the leading game there uses a heavy grotesque on cream with yellow highlights. Our type and our posts must not be mistakable for theirs at thumbnail size; if the face reads too close, choose one with more character (a humanist or a slab) before anything is published.
 - **Everything else:** the system font stack. Zero bytes, sharp on every phone, familiar.
 
 ```css
---font-display: "Bricolage Grotesque", system-ui, sans-serif;
+--font-display: "Fraunces", Georgia, "Times New Roman", serif;
 --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
 font-variant-numeric: tabular-nums;   /* every number that changes */
 ```

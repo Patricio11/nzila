@@ -1,0 +1,106 @@
+/* The house components. Every colour here is a token from tokens.css. */
+
+.n-glyph { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: middle; }
+.n-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.n-display { font-family: var(--font-display); font-weight: 700; }
+
+/* The wordmark */
+.n-wordmark { height: auto; max-width: 100%; color: var(--n-tinta); }
+.n-wordmark-ink { fill: none; stroke: currentColor; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
+.n-wordmark-road { fill: none; stroke: var(--n-papel); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 11 12; }
+.n-wordmark-sun { fill: var(--n-dourado); }
+.n-on-dark .n-wordmark { color: var(--n-luz); }
+.n-on-dark .n-wordmark-road { stroke: var(--n-noite); }
+
+/* Buttons */
+.n-button, .n-action, .n-toggle { font: var(--type-label); border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform var(--t-press), opacity var(--t-press); }
+.n-button { min-height: var(--target); padding: 0 var(--s-5); border-radius: var(--r-button); }
+.n-button-solid { background: var(--n-luz); color: var(--n-tinta); }
+.n-button-quiet { background: transparent; color: var(--n-luz); box-shadow: inset 0 0 0 1px var(--n-linha); }
+.n-action { min-height: var(--target-action); min-width: var(--target-action); padding: 0 var(--s-5); border-radius: var(--r-button); background: var(--n-dourado); color: var(--n-tinta); }
+.n-button:active, .n-action:active { transform: scale(0.97); }
+.n-button:disabled, .n-action:disabled { opacity: 0.45; cursor: default; }
+.n-button[aria-busy="true"] { opacity: 0.7; }
+.n-button:focus-visible, .n-action:focus-visible, .n-toggle:focus-visible { outline: 2px solid var(--n-escudo); outline-offset: 2px; }
+
+/* Chips sit on the world, so they carry their own scrim */
+.n-chip { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 32px; padding: 0 var(--s-3); border-radius: var(--r-chip); background: var(--n-scrim); color: var(--n-luz); font: var(--type-label); }
+.n-wallet-in { color: var(--n-ganho); background: var(--n-noite); }
+.n-wallet-out { color: var(--n-calor-2); background: var(--n-noite); }
+
+.n-needs { display: inline-flex; flex-direction: column; gap: var(--s-1); padding: var(--s-2); border-radius: var(--r-button); background: var(--n-scrim); color: var(--n-luz); }
+.n-need { display: flex; align-items: center; gap: var(--s-2); }
+.n-need-track { width: 72px; height: 4px; border-radius: var(--r-chip); background: var(--n-linha); overflow: hidden; }
+.n-need-fill { display: block; height: 100%; background: var(--n-luz); }
+.n-need-low { color: var(--n-calor-2); }
+.n-need-low .n-need-fill { background: var(--n-calor-2); }
+
+.n-banner { display: flex; justify-content: center; padding: var(--s-2) var(--s-4); background: var(--n-noite); color: var(--n-luz); font: var(--type-small); text-align: center; }
+.n-banner-problem { box-shadow: inset 0 -2px 0 var(--n-gasto); }
+
+.n-heat { display: inline-flex; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border-radius: var(--r-chip); background: var(--n-noite); color: var(--n-luz); font: var(--type-small); }
+.n-heat .n-glyph { color: var(--n-calor-1); }
+.n-heat-2 .n-glyph { color: var(--n-calor-2); }
+.n-heat-3 .n-glyph { color: var(--n-calor-3); }
+
+.n-price { display: inline-flex; align-items: center; gap: var(--s-1); font: var(--type-label); }
+
+/* Paper is not rounded, has a hard edge, and receipts sit one degree off straight */
+.n-paper { background: var(--n-papel); color: var(--n-tinta); border: 1px solid var(--n-papel-2); border-radius: var(--r-paper); font: var(--type-body); }
+.n-receipt { padding: var(--s-4); max-width: 320px; transform: rotate(-1deg); display: flex; flex-direction: column; gap: var(--s-3); }
+.n-receipt-title { margin: 0; font: var(--type-title); }
+.n-receipt-lines { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: var(--s-1) var(--s-4); font: var(--type-small); }
+.n-receipt-lines dt { color: var(--n-tinta-suave); }
+.n-receipt-lines dd { margin: 0; text-align: right; }
+.n-receipt-total { margin: 0; display: flex; justify-content: space-between; align-items: baseline; padding-top: var(--s-3); border-top: 1px dashed var(--n-tinta-suave); }
+.n-receipt-total strong { font: var(--type-number-l); }
+.n-receipt-foot { margin: 0; color: var(--n-tinta-suave); font: var(--type-small); }
+
+.n-bi { position: relative; display: grid; grid-template-columns: 72px 1fr; gap: var(--s-3); padding: var(--s-4) var(--s-4) var(--s-4) calc(var(--s-4) + 10px); max-width: 340px; overflow: hidden; }
+/* The house pattern, on the edge of the BI: a band of triangles in black, red, gold and white */
+.n-bi-band { position: absolute; inset: 0 auto 0 0; width: 10px;
+  background:
+    linear-gradient(135deg, var(--n-tinta) 25%, transparent 25%) 0 0 / 10px 20px,
+    linear-gradient(225deg, var(--n-gasto) 25%, transparent 25%) 0 0 / 10px 20px,
+    linear-gradient(315deg, var(--n-dourado) 25%, transparent 25%) 0 0 / 10px 20px,
+    linear-gradient(45deg, var(--n-tinta) 25%, var(--n-luz) 25%) 0 0 / 10px 20px; }
+.n-bi-photo { width: 72px; height: 88px; background: var(--n-papel-2); border: 1px solid var(--n-tinta-suave); display: grid; place-items: center; color: var(--n-tinta-suave); }
+.n-bi-body { min-width: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.n-bi-name { margin: 0; font: var(--type-title); overflow-wrap: anywhere; }
+.n-bi-fields { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px var(--s-3); font: var(--type-small); }
+.n-bi-fields dt { color: var(--n-tinta-suave); }
+.n-bi-fields dd { margin: 0; }
+.n-bi-shield { margin: 0; display: inline-flex; align-items: center; gap: var(--s-1); font: var(--type-small); color: var(--n-azul); }
+
+/* The route band: blue and white, like the van */
+.n-route { width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-3) var(--s-4); background: var(--n-luz); color: var(--n-azul); border-bottom: 6px solid var(--n-azul); font: var(--type-small); }
+.n-route-line { font: var(--type-title); }
+.n-route-stops { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--s-2); }
+.n-route-stops li { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: var(--s-1); color: var(--n-tinta-suave); }
+.n-stop-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--n-azul); }
+.n-stop-past .n-stop-dot, .n-stop-next .n-stop-dot { background: var(--n-azul); }
+.n-stop-next { color: var(--n-tinta); font-weight: 600; }
+.n-stop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.n-balloon { display: inline-block; max-width: 220px; min-width: 36px; min-height: 28px; padding: var(--s-1) var(--s-3); border-radius: var(--r-button) var(--r-button) var(--r-button) var(--r-paper); background: var(--n-luz); color: var(--n-tinta); font: var(--type-small); }
+.n-balloon-far { opacity: 0.8; }
+.n-dots { display: inline-block; width: 22px; height: 6px; background: radial-gradient(circle, var(--n-tinta-suave) 2.5px, transparent 3px) 0 0 / 8px 6px repeat-x; }
+
+.n-empty { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); padding: var(--s-5); color: var(--n-luz-suave); text-align: center; font: var(--type-body); }
+.n-empty strong { color: var(--n-luz); font: var(--type-title); }
+.n-empty p { margin: 0; }
+
+.n-skeleton { display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
+.n-skeleton span { height: 14px; border-radius: var(--r-paper); background: var(--n-linha); }
+.n-skeleton span:last-child { width: 60%; }
+
+.n-toggle { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); width: 100%; min-height: var(--target); padding: 0; background: transparent; color: var(--n-luz); text-align: left; }
+.n-toggle-track { flex: none; width: 44px; height: 26px; border-radius: var(--r-chip); background: var(--n-linha); position: relative; }
+.n-toggle-track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--n-luz); transition: transform var(--t-press); }
+.n-toggle[aria-checked="true"] .n-toggle-track { background: var(--n-mar); }
+.n-toggle[aria-checked="true"] .n-toggle-track::after { transform: translateX(18px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .n-button, .n-action, .n-toggle, .n-toggle-track::after { transition: none; }
+  .n-receipt { transform: none; }
+}

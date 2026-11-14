@@ -5,12 +5,20 @@
   "type": "module",
   "description": "Design tokens, HUD components, house glyphs, house-rules tests.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./ui.css": "./src/ui.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@nzila/i18n": "workspace:*",
+    "@preact/signals": "^2.11.4",
+    "preact": "^11.2.0"
   }
 }

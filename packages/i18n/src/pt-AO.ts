@@ -38,6 +38,23 @@ export const ptAO = {
   "time.hours": "{n, plural, one {# hora} other {# horas}}",
   "route.nextVan": "{n, plural, =0 {A chegar} one {Chega em # minuto} other {Chega em # minutos}}",
 
+  // The HUD.
+  "hud.wallet": "Carteira",
+  "hud.poupanca": "Modo Poupança",
+  "needs.fome": "Fome",
+  "needs.energia": "Energia",
+  "heat.line": "Zona quente agora. Fica atento.",
+  "chat.typing": "A escrever",
+
+  // Paper: the receipt and the BI.
+  "receipt.line": "{qty} × {label}",
+  "receipt.total": "Total",
+  "receipt.foot": "{at} · {place} · ref. {reference}",
+  "bi.number": "Número",
+  "bi.bairro": "Bairro",
+  "bi.arrived": "Chegada",
+  "bi.novato": "Novato: protegido",
+
   // Quick phrases: said by the player with one tap.
   "chat.quick.goodMorning": "Bom dia!",
   "chat.quick.allGood": "Tudo fixe?",

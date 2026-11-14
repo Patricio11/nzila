@@ -167,10 +167,10 @@ flowchart LR
 - Depends on: 0.1 · Unblocks: 1.2, 1.5, 11.1.
 
 ### Task 0.7: Design tokens, font, glyphs, house rules
-- [ ] `packages/ui/tokens.css`: the Hora Dourada tokens from `UX_UI_SPEC.md` §1; one display font, subset to Portuguese, self-hosted; body text in the system font stack (zero bytes).
-- [ ] House glyph set started (24 px grid, drawn by us): the HUD and the nine Telemóvel apps.
-- [ ] `house-rules.test.ts`: fails on a player-facing literal outside the catalog, on a colour outside `tokens.css`, on a Makuta literal outside fixtures and tunables, on a district or province name in engine code, on a third-party icon or UI package.
-- [ ] `/styleguide` route in the client rendering every HUD component in every state.
+- [x] `packages/ui/tokens.css`: the Hora Dourada tokens from `UX_UI_SPEC.md` §1; one display font, subset to Portuguese, self-hosted; body text in the system font stack (zero bytes). *(2026-11-14: the founder chose **Fraunces** from five (D-0.38): one file, 35 KB. A test checks every pair of text and surface for WCAG AA, and text on the scrim over the brightest and the darkest frame. The wordmark is drawn, not typed.)*
+- [x] House glyph set started (24 px grid, drawn by us): the HUD and the nine Telemóvel apps. *(2026-11-14: 22 first drawings in `packages/ui/src/glyphs.ts`, one line weight. They wait for the founder's eye on `/styleguide` (D-0.23).)*
+- [x] `house-rules.test.ts`: fails on a player-facing literal outside the catalog, on a colour outside `tokens.css`, on a Makuta literal outside fixtures and tunables, on a district or province name in engine code, on a third-party icon or UI package. *(2026-11-14: each check is itself tested against a sample it must catch. On its first run it caught a district id written in an error message in `packages/world`, now removed.)*
+- [x] `/styleguide` route in the client rendering every HUD component in every state. *(2026-11-14: the components that are made of tokens and words alone, in every state: the context action, wallet and clock chips, needs, heat line, banner, route band, speech balloon, receipt, BI, price tag, button, switch, empty and loading. Built with Preact, loaded only when the page is asked for. The components that need the world or touch (joystick, compass, Telemóvel sheet, emote wheel, chat bar, data meter, stamp, minigame frame) are built and added to this page in 1.4 and 1.7. Checked in a real browser at desktop and phone width.)*
 - Depends on: 0.1 · Unblocks: 1.4, 1.7.
 
 ### Task 0.8: i18n seam
@@ -773,7 +773,7 @@ flowchart LR
 - [ ] Other players see it: the avatar's walk weaves, the emotes are louder. It is funny from outside, which is the point.
 - [ ] Consequences that hold, none that ruin: a drunk cannot start a biscato or a shift; at the wheel the steering wanders and the police can stop and fine the driver (a new offence in 7.2, with the carta suspended for repeat offences); a carteirista finds a drunk an easier mark, inside the same caps as always (Rule 6). The next game morning brings a slow start: Energia recovers less from that night's sleep. No passing out, no vomiting, no illness shown.
 - [ ] Never rewarded: no bonus, no achievement, no Respeito for drinking or for being drunk. Drinking with kambas at a table is social; the game does not count the drinks.
-- [ ] **Players in the 15 to 17 band are not served and do not see the option (proposed; it follows the rule already taken for stakes and namoro).** Counsel is told that alcohol appears, for the age rating.
+- [ ] **Players in the 15 to 17 band are not served and do not see the option (confirmed by the founder, 2026-11-14).** Counsel is told that alcohol appears, for the age rating.
 - Depends on: 2.6, 4.3, 10.4 · Unblocks: nothing.
 
 ---

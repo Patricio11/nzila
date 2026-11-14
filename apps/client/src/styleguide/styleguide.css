@@ -1,0 +1,36 @@
+/* The styleguide page. Tokens only. */
+.sg { max-width: 1080px; margin: 0 auto; padding: var(--s-5) var(--s-4) var(--s-6); display: flex; flex-direction: column; gap: var(--s-6); }
+.sg h1 { margin: 0; font: var(--type-place); }
+.sg h2 { margin: 0; font: var(--type-title); }
+.sg-section > h3, .sg-swatches > h3 { margin: 0; font: var(--type-label); color: var(--n-luz-suave); flex-basis: 100%; }
+.sg small { font: var(--type-small); color: var(--n-luz-suave); }
+.sg-note { margin: 0; max-width: 62ch; color: var(--n-luz-suave); }
+.sg-head, .sg-section { display: flex; flex-direction: column; gap: var(--s-3); }
+.sg-marks { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.sg-plate { display: grid; place-items: center; padding: var(--s-4) var(--s-5); border-radius: var(--r-paper); background: var(--n-noite-2); }
+.sg-plate-paper { background: var(--n-papel); }
+
+.sg-type { display: flex; flex-direction: column; gap: var(--s-3); }
+.sg-type-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2) var(--s-4); }
+.sg-t-place { font: var(--type-place); }
+.sg-t-number { font: var(--type-number-l); font-variant-numeric: tabular-nums; }
+.sg-t-title { font: var(--type-title); }
+.sg-t-body { font: var(--type-body); }
+.sg-t-label { font: var(--type-label); }
+.sg-t-small { font: var(--type-small); }
+
+.sg-swatches, .sg-glyphs { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.sg-swatch, .sg-glyph { display: flex; flex-direction: column; align-items: center; gap: var(--s-1); width: 84px; }
+.sg-swatch i { width: 100%; height: 48px; border-radius: var(--r-paper); box-shadow: inset 0 0 0 1px var(--n-linha); }
+.sg-app { padding: var(--s-3) 0; border-radius: var(--r-button); background: var(--n-noite-2); }
+
+.sg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s-3); }
+.sg-wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.sg-case { margin: 0; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.sg-case figcaption { font: var(--type-small); color: var(--n-luz-suave); }
+.sg-stage { min-height: 96px; padding: var(--s-4); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-2); border-radius: var(--r-paper); background: var(--n-noite-2); overflow: hidden; }
+.sg-stage > * { max-width: 100%; }
+/* The brightest frame the world gives: golden hour over the bay. And the darkest: night. */
+.sg-on-world { background: linear-gradient(180deg, var(--n-calor-2), var(--n-calor-1) 60%, var(--n-papel)); }
+.sg-on-night { background: linear-gradient(180deg, var(--n-tinta), var(--n-noite)); }
+.sg-ghost { opacity: 0.8; color: var(--n-tinta) !important; }

@@ -25,7 +25,7 @@ Every word a player reads is Portuguese of Angola (Rule 10) and is written again
 | linha | a candongueiro's route | not "rota" |
 | paragem | a stop | |
 | kupapata | the three-wheeled cargo motorbike; it carries loads, and passengers as a taxi | founder, 2026-11-14 |
-| moto-táxi | an ordinary motorbike that takes one passenger for a fare | founder, 2026-11-14: people are also taxied by ordinary motorbike and by the blue and white van. **[founder: is "moto-táxi" what people call the ordinary one?]** |
+| moto-táxi | an ordinary motorbike that takes one passenger for a fare | founder, 2026-11-14: this is the word people use. |
 | táxi | a car hired door to door; in speech, any of the rides above | |
 | motorizada | a motorbike you own | |
 | telemóvel | the phone, and the game's menu | never "celular" |

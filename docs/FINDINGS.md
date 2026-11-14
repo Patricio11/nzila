@@ -31,6 +31,8 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 
 | F-23 | 0.7 | **The spec's examples still show the old scale** ("Apanhar · 150 Mk" and others). A note at the top of the typography rules says to read 200; the examples themselves are corrected when each screen is built. | With each screen, from 1.4 |
 | F-24 | 0.6 | **Blender moved to version 5** since the roadmap was written, and the export scripts of Task 1.5 must be written against its current scripting interface, read from its documentation, not from memory. | 1.5 |
+| F-28 | 0.7 | **Nothing compares how a screen looks with how it looked before.** The four faults of F-27 were found only because the page was opened and looked at. `pnpm shots` (2026-11-14) now saves every page at phone and desktop size and fails on sideways scrolling or an error in the page; what is still missing is keeping a reference picture and failing when a screen changes unexpectedly. | 0.9 |
+| F-29 | 0.7 | **The glyphs and components are first drawings** and have not been seen by the founder (D-0.23). | Founder, on `/styleguide` |
 
 ## Fixed
 
@@ -45,6 +47,9 @@ What building the game turns up along the way: bugs, gaps, and ideas that would 
 | F-7 | 0.8 | The message reader kept a trailing space on option names, so no plural was ever found. Caught by the first test run. | Fixed; every message in the catalog is parsed and filled in by a test. | 2026-11-14 |
 | F-8 | 0.10 | The chat filter could be dodged by sticking a digit or a symbol on the end of a word ("…1", "…!!!"). | Text is read twice, once with such ends removed. Tested. | 2026-11-14 |
 | F-10 | 0.5 | Another program on the development machine already listens on port 6379, the port the game's Redis used, so anything connecting to `localhost:6379` could reach the wrong Redis. | The game's Redis is published on port 6380 (`infra/docker-compose.yml`, `.env.example`). CI keeps 6379 inside its own runner. | 2026-11-14 |
+| F-25 | 0.7 | Engine code named a place: the pack schema's error messages gave the first district's id as their example (Rule 9). Caught by the new house-rules test on its first run. | The messages describe the shape of an id without naming one. | 2026-11-14 |
+| F-26 | 0.7 | The size budget did not count the font, which is the largest single file a first visit downloads. | Fonts count toward the shell budget at their full weight. The shell is 52 KB of its 300 KB. | 2026-11-14 |
+| F-27 | 0.7 | Seen in the browser screenshots, not by any test: the front door sat at the top of the screen instead of the middle; titles on paper inherited a pale colour from the page around them; long stop names broke in the middle of a word; the loading placeholder had no width. | All four fixed and looked at again. | 2026-11-14 |
 
 ## Ideas
 
