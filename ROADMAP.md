@@ -149,8 +149,8 @@ flowchart LR
 - Depends on: 0.1 · Unblocks: 0.5, 4.1, 4.6, 8.5.
 
 ### Task 0.4: `packages/protocol`
-- [ ] Versioned binary schemas: `Input`, `Snapshot` (delta-compressed, area-of-interest filtered), `Event`, `Chat`, `Join`, `Handoff`. Encode and decode with round-trip tests and a size test per message (an on-foot snapshot for 30 visible avatars under 600 bytes).
-- [ ] Version negotiation: an old client is told to refresh, never crashes.
+- [x] Versioned binary schemas: `Input`, `Snapshot` (delta-compressed, area-of-interest filtered), `Event`, `Chat`, `Join`, `Handoff`. Encode and decode with round-trip tests and a size test per message (an on-foot snapshot for 30 visible avatars under 600 bytes). *(2026-11-14: 30 avatars sent whole are under 600 bytes; all 30 walking, as a delta, under 300; standing still, 10. An `Input` of four frames is 20 bytes. Decoders take any bytes and fail only with a `ProtocolError`. `Input` carries the stick only: each verb of `ActionIntent` (board, buy, enter and the rest) gets its own message in the task that builds the verb, which the type byte allows without a version change. Chat too far away to read is sent without its text.)*
+- [x] Version negotiation: an old client is told to refresh, never crashes. *(2026-11-14: the layouts of `Join` and `JoinRefused` are frozen and pinned by golden bytes; a client skips a message type it does not know and ignores fields added to the end of one it does.)*
 - Depends on: 0.1, 0.2 · Unblocks: 3.1, 3.3.
 
 ### Task 0.5: `packages/db` core schema

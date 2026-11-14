@@ -55,14 +55,14 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 # CURRENT STATE (read this before doing anything)
 
 ## AT A GLANCE (2026-11-14, session 1)
-**The skeleton, the shared simulation and the rules of money are built.** The repository lives at `c:\dev\nzila` (kept out of OneDrive on purpose; never move it back). Tasks 0.1, 0.2 and 0.3 are done and `pnpm test:all` is green. `packages/sim` holds integer maths, seeded random, the walk grid, collision, walking, six vehicles, the world clock, route vans and the stepped world, with typed stubs for needs, heat, offences and minigame scoring. `packages/economy` holds the accounts, the transfer rules with reversal and idempotency, the health sums, and the tunables validator with its starter file. The next step is Phase 0, Task 0.4 (`packages/protocol`).
+**The skeleton, the shared simulation, the rules of money and the network messages are built.** The repository lives at `c:\dev\nzila` (kept out of OneDrive on purpose; never move it back). Tasks 0.1 to 0.4 are done and `pnpm test:all` is green. `packages/sim` holds integer maths, seeded random, the walk grid, collision, walking, six vehicles, the world clock, route vans and the stepped world, with typed stubs for needs, heat, offences and minigame scoring. `packages/economy` holds the accounts, the transfer rules with reversal and idempotency, the health sums, and the tunables validator with its starter file. `packages/protocol` holds the binary messages between client and zone (join with version check, input, delta snapshots, events, chat, handoff). The next step is Phase 0, Task 0.5 (`packages/db` core schema).
 
 **How to run it:** `pnpm install` once, then `pnpm exec playwright install chromium webkit firefox` once (the browsers the engine tests run in). `pnpm dev:client` serves the client alone at http://localhost:5173 (today it shows only the name and one line). `pnpm dev` starts PostgreSQL, Redis and MinIO in Docker and every app; `pnpm dev:down` stops the services. `pnpm test:all` is the gate: typecheck, lint, tests with coverage, the simulation's tests in three browser engines, build, shell budget. TypeScript is held at 6.x because the linter does not yet support 7; move up when it does.
 
 **Before changing `packages/sim`:** the golden numbers in `determinism.test.ts` are what every client predicts with. A change that moves one is a protocol change, never a refactor.
 
 **Phase list:**
-- **Phase 0** (foundations: monorepo, shared simulation, economy rules, protocol, pack format, tokens, budgets): in progress; 0.1 to 0.3 done, 0.4 next.
+- **Phase 0** (foundations: monorepo, shared simulation, economy rules, protocol, pack format, tokens, budgets): in progress; 0.1 to 0.4 done, 0.5 next.
 - **Phase 1** (Primeiro Passeio: walk the Marginal on a real phone, local simulation): not started.
 - **Phase 2** (identity: guest play, linked accounts, the BI, persistence): not started.
 - **Phase 3** (multiplayer core: zones, channels, netcode, chat, safety v1, bot swarm): not started.

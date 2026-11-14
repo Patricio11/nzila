@@ -206,6 +206,10 @@ importers:
         version: 6.0.3
 
   packages/protocol:
+    dependencies:
+      '@nzila/sim':
+        specifier: workspace:*
+        version: link:../sim
     devDependencies:
       typescript:
         specifier: ^6.0.3

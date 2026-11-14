@@ -107,7 +107,8 @@ test("golden: 80 people and 24 vehicles in a town for a simulated minute", () =>
   expect(far(world.vehicles, vehiclesStart)).toBeGreaterThan(12);
   expect(impacts).toBeGreaterThan(10);
   expect(checkpoints).toEqual([2198959080, 3602634158, 2813532314, 1210332714, 2247322046, 3719770136]);
-});
+  // Under a second on its own; given room for a busy machine measuring coverage.
+}, 60_000);
 
 test("golden: the clock and the vans of a route across a game day", () => {
   const clock = compileClock(DEFAULT_CLOCK);

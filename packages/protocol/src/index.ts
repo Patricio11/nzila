@@ -1,2 +1,6 @@
-// Binary message schemas shared by client and zone. Filled by Task 0.4.
-export const PROTOCOL_VERSION = 0;
+// Binary messages shared by client and zone. Versioned; see version.ts.
+
+export * from "./wire.ts";
+export * from "./version.ts";
+export * from "./messages.ts";
+export * from "./snapshot.ts";
