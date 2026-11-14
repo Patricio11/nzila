@@ -119,7 +119,7 @@ flowchart LR
 
 ---
 
-## PHASE 0: FOUNDATIONS
+## PHASE 0: FOUNDATIONS ✅ (complete 2026-11-14, `docs/completed/PHASE_0_COMPLETE.md`)
 *Goal: a correct skeleton. The shared simulation, the economy rules, the protocol, the pack format, the tokens and the budgets exist and are tested before anything is drawn. Nothing player-facing ships except a styleguide route.*
 
 **Dependency gate:** none. The founder has read D-0.1 to D-0.22 in `TO_START_EVERY_SESSION.md`.
@@ -192,8 +192,8 @@ flowchart LR
 - Depends on: 0.5 · Unblocks: 2.6, 3.6, 13.3.
 
 ### Task 0.11: Wiring, verification, doc convention
-- [ ] `pnpm test:all` green; `pnpm build` clean; the size check passes on an empty shell.
-- [ ] `docs/completed/PHASE_0_COMPLETE.md`; tick; Current State; `docs/PHASE_1_PLAN.md`; commit `Phase 0 complete + Phase 1 opens`.
+- [x] `pnpm test:all` green; `pnpm build` clean; the size check passes on an empty shell. *(2026-11-14: 346 unit tests, 588 passes in three browser engines, 27 integration tests, 10 browser tests on the phone and iPhone profiles; the shell is 51 KB of 300 KB.)*
+- [x] `docs/completed/PHASE_0_COMPLETE.md`; tick; Current State; `docs/PHASE_1_PLAN.md`; commit `Phase 0 complete + Phase 1 opens`.
 - Depends on: 0.1 to 0.10 · Unblocks: Phase 1.
 
 ---
