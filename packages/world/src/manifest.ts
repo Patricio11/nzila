@@ -130,6 +130,8 @@ export const manifestSchema = z.strictObject({
   water: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), level: z.number() })),
   /** Street name plates: where the plate is (its middle), the way its front faces in degrees clockwise from +Z, and the name as a key of the pack's strings. */
   signs: z.array(z.strictObject({ id, pos: z.tuple([z.number(), z.number(), z.number()]), facing: z.number(), textKey: key })).optional(),
+  /** The district as a map for the Telemóvel: one character a cell. Fetched when the Mapa is opened, so it is not in the totals. */
+  map: file.optional(),
   strings: file,
   sizes: z.strictObject({ firstView: count, total: tierBytes }),
 });

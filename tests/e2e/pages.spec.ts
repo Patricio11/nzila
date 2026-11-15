@@ -133,6 +133,57 @@ test.describe("the candongueiros", () => {
   });
 });
 
+test.describe("the Telemóvel", () => {
+  test("opens over the world with its nine apps; the Mapa draws the district and marks a place for the compass; Definições change the hand and the picture and are remembered", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). The Telemóvel was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/andar?pack=l1&em=250,68&hour=12&transito=30");
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    const phone = page.getByRole("dialog", { name: "Telemóvel" });
+    await expect(phone.locator(".n-phone-icon")).toHaveCount(9);
+
+    // An app that is not here yet says so, and says what to do meanwhile.
+    await phone.getByRole("button", { name: "Garagem" }).click();
+    await expect(phone).toContainText("Em breve");
+    await expect(phone).toContainText("anda de candongueiro");
+    await phone.getByRole("button", { name: "Voltar" }).click();
+
+    // The Mapa: the district's name, its picture, and a place chosen by touching it.
+    await phone.getByRole("button", { name: "Mapa" }).click();
+    await expect(phone).toContainText("Marginal e Baixa");
+    const map = phone.locator(".tm-map-canvas");
+    await expect.poll(() => map.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBeGreaterThan(400);
+    // The Marginal paragem is at (300, 109.7) of a district 448 m by 256 m.
+    const box = (await map.boundingBox())!;
+    await map.click({ position: { x: (300 / 448) * box.width, y: (109.7 / 256) * box.height } });
+    await expect(phone.locator(".tm-place")).toContainText("Marginal");
+    await phone.getByRole("button", { name: "Marcar" }).click();
+    await expect(phone.getByRole("button", { name: "Desmarcar" })).toBeVisible();
+    await expect(page.locator(".n-compass-target")).toHaveCount(1);
+    await phone.getByRole("button", { name: "Voltar" }).click();
+
+    // Definições: the hand changes the page at once, Modo Poupança the picture; both are still chosen after a reload.
+    await phone.getByRole("button", { name: "Definições" }).click();
+    await phone.getByRole("radio", { name: "Esquerda" }).click();
+    await expect(page.locator("main.andar-left")).toHaveCount(1);
+    await phone.getByRole("switch", { name: "Modo Poupança" }).click();
+    await expect(phone.getByRole("radio", { name: "Poupança" })).toHaveAttribute("aria-checked", "true");
+    await expect(phone).toContainText("nesta sessão");
+    await phone.getByRole("button", { name: "Fechar" }).click();
+    await expect(page.getByRole("dialog", { name: "Telemóvel" })).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
+    await page.reload();
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await expect(page.locator("main.andar-left")).toHaveCount(1);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
 test.describe("a ride", () => {
   test("a van standing at the paragem is boarded, ridden to the next paragem and left there, on the pavement", async ({ page, request }, info) => {
     if (!(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/dev-vehicles/veiculos.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {

@@ -22,12 +22,14 @@ import { ptAOTranslator as tr } from "@nzila/i18n";
 import { CELL_DRIVE, CELL_LOW, CELL_WALK, bodyFits, groundHeight, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
 import { Arrival, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, SpeechBalloon, WalletChip, type CompassMark } from "@nzila/ui";
 import { PointLight, Vector3 } from "three";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DEV_PACK } from "../render/bench-scene.ts";
 import { DistrictScene } from "../render/district-scene.ts";
 import { EMOTES, EMOTE_SECONDS, loadPerson, type Emote, type Person } from "../render/person.ts";
 import { type VanSeen } from "../render/traffic.ts";
 import { type TierName } from "../render/tiers.ts";
+import { Telemovel, type Marked } from "../telemovel/telemovel.tsx";
+import { LocalWorld } from "../world/provider.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";
 import "./andar.css";
 
@@ -69,7 +71,16 @@ interface Hud {
 export function Andar() {
   const params = new URLSearchParams(location.search);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const leftHanded = params.get("mao") === "esquerda";
+  // The world as this device knows it (S-1). What the address asks for wins over what was chosen before.
+  const world = useMemo(() => new LocalWorld({ ...(params.get("tier") ? { tier: params.get("tier") as TierName } : {}), ...(params.get("mao") ? { leftHanded: params.get("mao") === "esquerda" } : {}) }), []);
+  const [settings, setSettings] = useState(world.settings);
+  useEffect(() => world.watch(() => setSettings(world.settings)), []);
+  const leftHanded = settings.leftHanded;
+  // `&telemovel` opens it at once, `&telemovel=mapa` on that app: for stills.
+  const [phone, setPhone] = useState(params.has("telemovel"));
+  const [marked, setMarked] = useState<Marked | null>(null);
+  const markedNow = useRef<Marked | null>(null);
+  markedNow.current = marked;
   const [hud, setHud] = useState<Hud>({ ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
   const [missing, setMissing] = useState(false);
   const [running, setRunning] = useState(false);
@@ -83,7 +94,13 @@ export function Andar() {
     if (!canvas.current) return;
     const element = canvas.current;
     const fixedHour = Number(params.get("hour")) || 0;
-    const renderer = new WorldRenderer(element, (params.get("tier") ?? "normal") as TierName);
+    const tierNow = (): TierName => (world.settings.poupanca ? "poupanca" : world.settings.tier);
+    let tier = tierNow();
+    const renderer = new WorldRenderer(element, tier);
+    // A change of quality in Definições is a change of the picture at once.
+    const unwatch = world.watch(() => {
+      if (tierNow() !== tier) renderer.setTier((tier = tierNow()));
+    });
     const auto = params.has("auto");
     let closed = false;
     let district: DistrictScene | null = null;
@@ -135,6 +152,7 @@ export function Andar() {
         if (closed) return opened.close();
         renderer.scene.add(loaded.root);
         district = opened;
+        world.enter(opened, params.get("pack") ? `/packs/${params.get("pack")}/` : DEV_PACK);
         if (params.has("desde")) opened.runFrom(Number(params.get("desde")) * 1000);
         else if (params.has("transito")) opened.trafficAt = Number(params.get("transito")) * 1000;
         person = loaded;
@@ -373,6 +391,8 @@ export function Andar() {
         }
         const flat = Math.cos(camera.pitch) * allowed;
         district.stand([x, z]);
+        // North is the world's -Z; a heading is degrees clockwise from it.
+        world.place(x, z, ((Math.atan2(Math.sin(facing), -Math.cos(facing)) * 180) / Math.PI + 360) % 360);
         const van = ride ? district.traffic?.bodyOf(ride.route, ride.index) : null;
         const place = district.traffic?.seats.find((s) => s.who === "jogador");
         if (ride && van && place) {
@@ -403,6 +423,9 @@ export function Andar() {
             metres: Math.hypot(p.pos[0] - x, p.pos[2] - z),
             kind: "paragem" as const,
           }));
+          // The place marked on the Mapa, in gold.
+          const mark = markedNow.current;
+          if (mark) marks.push({ bearing: ((Math.atan2(mark.x - x, -(mark.z - z)) * 180) / Math.PI + 360) % 360, metres: Math.hypot(mark.x - x, mark.z - z), kind: "target" });
           const rect = element.getBoundingClientRect();
           const length = Math.max(1, Math.hypot(stick.x, stick.y) / 1.5);
           const word = (key: string): string => district!.word(key);
@@ -426,7 +449,7 @@ export function Andar() {
     const down = (event: PointerEvent): void => {
       const rect = element.getBoundingClientRect();
       const across = (event.clientX - rect.left) / rect.width;
-      const inZone = event.pointerType !== "mouse" && (across < 0.5) !== leftHanded && event.clientY - rect.top > rect.height * 0.45;
+      const inZone = event.pointerType !== "mouse" && (across < 0.5) !== world.settings.leftHanded && event.clientY - rect.top > rect.height * 0.45;
       const kind = inZone && !stick.active ? "stick" : "look";
       touches.set(event.pointerId, { kind, x: event.clientX, y: event.clientY });
       element.setPointerCapture(event.pointerId);
@@ -455,6 +478,11 @@ export function Andar() {
       keys.add(key);
       // On a keyboard: E is the gold button, 1 to 4 the gestures.
       if (key === "e" && !event.repeat) asks.current.act = true;
+      // Tab is the Telemóvel.
+      if (key === "tab") {
+        event.preventDefault();
+        if (!event.repeat) setPhone((isOpen) => !isOpen);
+      }
       if (key === " " && !event.repeat) {
         asks.current.jump = true;
         event.preventDefault();
@@ -481,6 +509,7 @@ export function Andar() {
       window.removeEventListener("keydown", keyDown);
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("resize", onResize);
+      unwatch();
       cabin.dispose();
       person?.dispose();
       district?.close();
@@ -514,7 +543,7 @@ export function Andar() {
           ) : null}
           <Joystick {...hud.stick} />
           <div class="andar-buttons">
-            <HudButton glyph="telemovel" label={tr.t("hud.phone")} />
+            <HudButton glyph="telemovel" label={tr.t("hud.phone")} on={phone} onPress={() => setPhone(!phone)} />
             <span class="andar-pair">
               <span class="andar-wheel-anchor">
                 <EmoteWheel open={wheel} emotes={EMOTE_LIST} onPick={(id) => ((asks.current.emote = id), setWheel(false))} />
@@ -525,6 +554,7 @@ export function Andar() {
             </span>
             {hud.action ? <ContextAction label={tr.t(`action.${hud.action}`)} disabled={hud.action === "stopAsked"} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>
+          <Telemovel world={world} open={phone} first={params.get("telemovel") || null} marked={marked} onMark={setMarked} onClose={() => setPhone(false)} />
           <div class="andar-chat">
             <ChatBar disabled />
           </div>

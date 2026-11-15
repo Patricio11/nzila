@@ -108,6 +108,11 @@ const PAGES = [
   ["placas-rua", "/cena?pack=l1&hour=16.5&tier=normal&transito=30&at=264,153.5,1.7&look=268.9,149.1,2.5"],
   ["placas-largo", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=190,157,1.7&look=191,162.2,2.6"],
   ["placas-passadeira", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=253,108,1.6&look=259.1,109.5,2.2"],
+  // The Telemóvel: its home grid, the Mapa, Definições, an app that is not here yet (&telemovel=<app> opens it).
+  ["telemovel", "/andar?pack=l1&em=250,68&cam=200&hour=16.8&transito=30&telemovel"],
+  ["telemovel-mapa", "/andar?pack=l1&em=250,68&cam=200&hour=16.8&transito=30&telemovel=mapa"],
+  ["telemovel-definicoes", "/andar?pack=l1&em=250,68&cam=200&hour=16.8&transito=30&telemovel=definicoes"],
+  ["telemovel-banco", "/andar?pack=l1&em=250,68&cam=200&hour=20&transito=30&telemovel=banco"],
   // The jump, held at three moments of it.
   ["salto-inicio", "/andar?hour=16.8&cam=70&quem=1&salto=0.2"],
   ["salto-alto", "/andar?hour=16.8&cam=70&quem=1&salto=0.5"],

@@ -90,6 +90,7 @@ export async function checkPack(packDir: string, context: CheckContext): Promise
     ...manifest.routes.map((route) => route.spline),
     ...manifest.interiors.map((interior) => interior.file),
     manifest.strings,
+    ...(manifest.map ? [manifest.map] : []),
     ...[manifest.npc.crowd, manifest.npc.vendors, manifest.npc.police, manifest.heat.lighting].filter((f) => f !== null),
   ];
   for (const name of named) {

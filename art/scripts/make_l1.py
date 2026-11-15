@@ -809,6 +809,15 @@ os.makedirs(os.path.join(out_dir, "npc"), exist_ok=True)
 with open(os.path.join(out_dir, "npc", "crowd.json"), "w", encoding="utf-8") as handle:
     json.dump({"actors": actors, "vehicles": drivers}, handle, separators=(",", ":"))
 
+# The district as a map for the Telemóvel: one character for every two metres, north up.
+MAP_CELL_M = 2.0
+every = int(MAP_CELL_M / CELL)
+map_rows = []
+for iz in range(every // 2, DOWN * CELLS, every):
+    map_rows.append("".join(flags[(ix // CELLS, iz // CELLS)][iz % CELLS][ix % CELLS] for ix in range(every // 2, ACROSS * CELLS, every)))
+with open(os.path.join(out_dir, "mapa.json"), "w", encoding="utf-8") as handle:
+    json.dump({"cellM": MAP_CELL_M, "rows": map_rows}, handle, separators=(",", ":"))
+
 spawn_x = 250.0
 partial = {
     "id": "ao-lua/l1",
@@ -833,6 +842,7 @@ partial = {
     "heat": {"lighting": None, "policePosts": places["police"], "override": None},
     "adSlots": [],
     "signs": signs,
+    "map": "mapa.json",
     "seats": [{"id": f"seat-{n + 1}", "pos": [round(sx, 2), round(sy, 2), round(sz, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for n, (sx, sy, sz, yaw) in enumerate(b.seats)],
     "water": [{"id": "baia", "rect": [-400, -500, WIDE + 400, 70], "level": -0.45}],
     "strings": "strings.pt-AO.json",

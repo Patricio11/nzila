@@ -266,3 +266,26 @@
   .n-button, .n-action, .n-route-van, .n-need-fill, .n-toggle-track, .n-toggle-track::after { transition: none !important; }
   .n-road-moving .n-road-sun { opacity: 0; }
 }
+
+/* The Telemóvel: a sheet over three quarters of the screen, the world showing above it (UX_UI_SPEC.md §4). */
+.n-phone { position: absolute; left: 0; right: 0; bottom: 0; height: 76%; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; pointer-events: auto;
+  background: var(--n-noite); color: var(--n-luz); border-radius: var(--r-sheet) var(--r-sheet) 0 0; box-shadow: 0 -10px 30px var(--n-sombra), inset 0 1.5px 0 var(--n-linha);
+  padding: var(--s-3) var(--s-4) max(var(--s-4), env(safe-area-inset-bottom)); animation: n-phone-up var(--t-sheet) var(--ease-mola); }
+@keyframes n-phone-up { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .n-phone { animation: none; } }
+.n-phone-bar { display: flex; align-items: center; gap: var(--s-3); padding-bottom: var(--s-3); }
+.n-phone-title { flex: 1; margin: 0; text-align: center; font: var(--type-title); }
+.n-phone-key { width: var(--target); height: var(--target); display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 50%; cursor: pointer; color: var(--n-luz); background: var(--n-noite-2); box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.n-phone-key-none { visibility: hidden; }
+.n-phone-app { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: var(--s-2) 0 var(--s-4); }
+.n-phone-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-4) var(--s-3); align-content: start; margin: 0; padding: var(--s-3) 0; list-style: none; overflow-y: auto; }
+.n-phone-icon { width: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--s-2); padding: 0; border: 0; background: none; cursor: pointer; color: var(--n-luz); font: var(--type-label); }
+.n-phone-tile { width: 68px; height: 68px; display: grid; place-items: center; border-radius: var(--r-paper); background: var(--n-noite-2); box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 4px 0 var(--n-noite-fundo); transition: transform var(--t-press) ease-out, box-shadow var(--t-press) ease-out; }
+.n-phone-icon:active .n-phone-tile { transform: translateY(4px); box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 0 0 var(--n-noite-fundo); }
+.n-phone-key:focus-visible, .n-phone-icon:focus-visible, .n-choice-option:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 3px; }
+/* One of a few, side by side. */
+.n-choice { display: flex; flex-direction: column; gap: var(--s-2); }
+.n-choice-label { font: var(--type-label); color: var(--n-luz); }
+.n-choice-options { display: flex; gap: var(--s-2); }
+.n-choice-option { flex: 1; min-height: var(--target); padding: 0 var(--s-2); border: 0; border-radius: var(--r-button); cursor: pointer; font: var(--type-label); color: var(--n-luz); background: var(--n-noite-2); box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.n-choice-on { color: var(--n-tinta); background: linear-gradient(180deg, var(--n-dourado-claro) 0%, var(--n-dourado) 70%); box-shadow: 0 3px 0 var(--n-dourado-fundo); }

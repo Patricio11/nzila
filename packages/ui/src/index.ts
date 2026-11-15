@@ -4,3 +4,4 @@
 export * from "./glyphs.ts";
 export * from "./components.tsx";
 export * from "./hud.tsx";
+export * from "./phone.tsx";

@@ -246,7 +246,9 @@ flowchart LR
 - Depends on: 0.2, 1.5 · Unblocks: 1.9, 6.1.
 
 ### Task 1.7: The Telemóvel shell (on `LocalWorld`, S-1)
+- [ ] *(2026-11-15: built. `PhoneSheet` and `Choice` in `packages/ui`; `apps/client/src/telemovel/`; the Telemóvel button and Tab open it over the world. Mapa draws the district from a map the pack carries (`map` in the manifest), with paragens, places, the lines, the vans and you, and marks a place for the compass. Definições: quality, Modo Poupança, data used, sound, hand, remembered on the device. The other seven say "Em breve" and what to do meanwhile. Not ticked until the founder has seen it: F-98.)*
 - [ ] The phone sheet with its home grid; Mapa (the district, points of interest, routes, you) and Definições (quality tier, Modo Poupança, sound, handedness, data used) working; the other apps present with honest "Em breve" states.
+- [x] *(2026-11-15: `WorldProvider` and `LocalWorld`; the Telemóvel asks it for everything it shows.)*
 - [ ] `src/world/provider.ts`: the interface the client reads the world through, with `LocalWorld` behind it. Phase 3 puts the network behind the same interface.
 - Depends on: 0.7, 0.8, 1.4 · Unblocks: 2.3, 3.3.
 

@@ -145,8 +145,11 @@ export async function buildPack(sourceDir: string, outDir: string, options: Buil
     routeCost +
     chunks.filter((c) => distanceToChunk(c.aabb, arrival.pos[0], arrival.pos[2]) <= STREAM.normal.farM).reduce((sum, c) => sum + c.bytes.normal, 0);
 
+  const map = source.map ? await emit(source.map) : null;
+
   const manifest = manifestSchema.parse({
     ...source,
+    ...(map ? { map: map.name } : {}),
     chunks,
     routes,
     interiors,
