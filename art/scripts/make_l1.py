@@ -194,8 +194,10 @@ def poi(key, x, z, name, line, y=G):
     places["pois"].append({"id": key, "pos": [round(x, 2), y, round(z, 2)], "nameKey": f"l1.poi.{key}.name", "lineKey": f"l1.poi.{key}.line", "positive": True, "stamp": False})
 
 
-def paragem(key, x, z, name, van_z):
+def paragem(key, x, z, name, van_z, at):
     words[f"l1.paragem.{key}"] = name
+    # The place as one is said to be at it: each takes its own preposition (founder, 2026-11-15).
+    words[f"l1.paragem.{key}.em"] = at
     kit.paragem(b, x, z, 0.0, G)
     mark(x - 2.1, z - 1.0, x + 2.1, z - 0.6, "#")
     # No van is parked here: the ones on the linhas come and stand at it (render/traffic.ts).
@@ -485,7 +487,7 @@ for i in range(11):
     kit.bench(b, tx + 2.5, tz + 0.8, rng.uniform(0, math.pi), G)
     block(tx + 2.5, tz + 0.8, 0.5)
 poi("xadrez", lx0 + 21.0, z0 + 14.0, "As mesas de xadrez do Largo", "Os kotas jogam aqui desde manhã. Quem perde paga o café.")
-paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4)
+paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutamba")
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down
 poi("cobrador", lx0 + 44.0, z0 + 4.5, "A paragem da Mutamba", "Diz-se que o cobrador daqui se ouve na Ilha.")
 # The iron palace, and beside it the old cinema.
@@ -515,8 +517,8 @@ for i in range(9):
     kb.torre(b, tx, BACK + 9.0, rng.uniform(14, 20), 14.0, rng.randint(14, 24), rng, 0.0)
 
 # Two more paragens, on the avenue.
-for key, px, name in [("marginal", 300.0, "Marginal"), ("porto", 404.0, "Porto")]:
-    paragem(key, px, shore(px) + AVENUE + 2.6, name, shore(px) + AVENUE - 1.4)
+for key, px, name, at in [("marginal", 300.0, "Marginal", "na Marginal"), ("porto", 404.0, "Porto", "no Porto")]:
+    paragem(key, px, shore(px) + AVENUE + 2.6, name, shore(px) + AVENUE - 1.4, at)
 
 # Lamps and trees along the straight streets.
 for street in (STREET_A, STREET_B):
@@ -545,14 +547,38 @@ def loop(points):
     return [[round(px, 2), 0.0, round(pz, 2)] for px, pz in points]
 
 
-# Traffic keeps to the right: east along the town side of the avenue, by the kerb the paragens are on,
-# and back west along the near side of the first street.
-avenue_out = [(px, shore(px) + 47.4) for px in range(112, 440, 16)]
-avenue_back = [(px, STREET_A[0] + 2.0) for px in range(432, 104, -16)]
-routes = {
-    "linha-marginal": loop(avenue_out + [(424.0, 120.0)] + avenue_back + [(104.0, 130.0)]),
-    "linha-mutamba": loop([(184.0, 156.0), (256.0, 156.0), (264.0, 180.0), (256.0, 204.0), (184.0, 204.0), (184.0, 180.0)]),
-}
+# Traffic keeps to the right, and a van stops at the kerb its paragem is on.
+# The linha da Marginal: east along the town side of the avenue (Marginal, Porto), down the last street,
+# west along the second straight street, up to the first and east along it past the Mutamba, then back
+# to the avenue and west along its bay side to the fortress, where it turns.
+TOWN, BAY = 47.4, 37.0
+marginal_line, marginal_stops = [], {}
+
+
+def line_to(points, px, pz, stop=None):
+    if stop:
+        marginal_stops[stop] = len(points)
+    points.append((float(px), float(pz)))
+
+
+for px in list(range(112, 300, 14)) + [301] + list(range(315, 400, 14)) + [405, 422]:
+    line_to(marginal_line, px, shore(px) + TOWN, {301: "marginal", 405: "porto"}.get(px))
+for px, pz in [(422, 136), (422, STREET_B[0] + 2.0)]:
+    line_to(marginal_line, px, pz)
+for px in range(406, 190, -16):
+    line_to(marginal_line, px, STREET_B[0] + 2.0)
+for px, pz in [(186, STREET_B[0] + 2.0), (186, 180), (186, STREET_A[1] - 2.0), (200, STREET_A[1] - 2.0)]:
+    line_to(marginal_line, px, pz)
+line_to(marginal_line, 237, STREET_A[1] - 2.0, "mutamba")
+for px, pz in [(252, STREET_A[1] - 2.0), (266, STREET_A[1] - 2.0), (266, 138), (266, shore(266) + BAY)]:
+    line_to(marginal_line, px, pz)
+for px in range(252, 112, -14):
+    line_to(marginal_line, px, shore(px) + BAY)
+for px, pz in [(104, shore(104) + BAY), (103, shore(103) + 42.0), (106, shore(106) + TOWN)]:
+    line_to(marginal_line, px, pz)
+# The linha da Mutamba: round the two straight streets, by the same rule.
+mutamba_line = [(237.0, STREET_A[1] - 2.0), (254.0, STREET_A[1] - 2.0), (262.0, STREET_A[1] + 4.0), (262.0, STREET_B[0] - 4.0), (254.0, STREET_B[0] + 2.0), (194.0, STREET_B[0] + 2.0), (186.0, STREET_B[0] - 4.0), (186.0, STREET_A[1] + 4.0), (194.0, STREET_A[1] - 2.0)]
+routes = {"linha-marginal": loop(marginal_line), "linha-mutamba": loop(mutamba_line)}
 os.makedirs(os.path.join(out_dir, "routes"), exist_ok=True)
 for name, points in routes.items():
     with open(os.path.join(out_dir, "routes", f"{name}.json"), "w", encoding="utf-8") as handle:
@@ -723,7 +749,7 @@ partial = {
     "gateways": [],
     "pois": places["pois"],
     "routes": [
-        {"id": "linha-marginal", "kind": "candongueiro", "spline": "routes/linha-marginal.json", "stops": ["marginal", "porto", "mutamba"], "stopPoints": [12, 18, 30], "headwaySeconds": 240, "fareKey": "fares.candongueiroLocal"},
+        {"id": "linha-marginal", "kind": "candongueiro", "spline": "routes/linha-marginal.json", "stops": ["marginal", "porto", "mutamba"], "stopPoints": [marginal_stops["marginal"], marginal_stops["porto"], marginal_stops["mutamba"]], "headwaySeconds": 240, "fareKey": "fares.candongueiroLocal"},
         {"id": "linha-mutamba", "kind": "candongueiro", "spline": "routes/linha-mutamba.json", "stops": ["mutamba"], "stopPoints": [0], "headwaySeconds": 300, "fareKey": "fares.candongueiroLocal"},
     ],
     "paragens": places["paragens"],

@@ -3,7 +3,7 @@
 // and the zone see the same van at the same paragem without a byte sent.
 // Here they are only drawn: one model, one draw for each van on the road.
 
-import { DEFAULT_CLOCK, compileClock, compileRoute, routeVehiclesAt, type Route } from "@nzila/sim";
+import { DEFAULT_CLOCK, compileClock, compileRoute, routeVehiclesAt, type Obstacle, type Route } from "@nzila/sim";
 import { type Manifest } from "@nzila/world/client";
 import { Group, Mesh, type BufferGeometry, type Material, type Object3D } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
@@ -16,6 +16,9 @@ const VEHICLES = "/packs/dev-vehicles/";
 const CRUISE_MM_PER_S = 8300;
 const RAMP_MS = 3500;
 const DWELL_MS = 12_000;
+/** The van's size on the ground (art/scripts/vehicles.py). */
+const HALF_WIDTH_MM = 850;
+const HALF_LENGTH_MM = 2350;
 
 const clock = compileClock(DEFAULT_CLOCK);
 
@@ -27,11 +30,17 @@ export interface VanSeen {
   /** Radians about the vertical, 0 facing +Z. */
   readonly yaw: number;
   readonly dwelling: boolean;
+  /** The stop it stands at or drives to (an index into the route's stops), and how far it has come from the one before, 0 to 1. */
+  readonly stop: number;
+  readonly progress: number;
+  /** The names of the route's paragens, as keys of the district's words, in order. */
+  readonly stops: readonly string[];
 }
 
 interface Line {
   readonly id: string;
   readonly route: Route;
+  readonly stops: readonly string[];
   readonly vans: { readonly body: Object3D; yaw: number; shown: boolean }[];
 }
 
@@ -82,7 +91,8 @@ export class Traffic {
           traffic.root.add(body);
           vans.push({ body, yaw: 0, shown: false });
         }
-        traffic.lines.push({ id: listed.id, route, vans });
+        const stops = listed.stops.map((id) => manifest.paragens.find((p) => p.id === id)?.nameKey ?? id);
+        traffic.lines.push({ id: listed.id, route, stops, vans });
       }
       return traffic;
     } catch {
@@ -105,11 +115,18 @@ export class Traffic {
         van.body.visible = true;
         van.body.position.set(at.x / 1000, at.y / 1000, at.z / 1000);
         van.body.rotation.y = van.yaw;
-        seen.push({ route: line.id, index: at.index, x: at.x / 1000, z: at.z / 1000, yaw: van.yaw, dwelling: at.dwelling });
+        const legs = line.route.legs;
+        const travel = legs[(at.stop + legs.length - 1) % legs.length]!.travelMs;
+        seen.push({ route: line.id, index: at.index, x: at.x / 1000, z: at.z / 1000, yaw: van.yaw, dwelling: at.dwelling, stop: at.stop, progress: at.dwelling ? 1 : 1 - at.msToStop / Math.max(1, travel), stops: line.stops });
       }
       for (const van of line.vans) if (!van.body.visible) van.shown = false;
     }
     this.seen = seen;
+  }
+
+  /** The vans as things a body cannot walk through, for the step of whoever is on foot. */
+  obstacles(): Obstacle[] {
+    return this.seen.map((van) => ({ kind: "box", x: Math.round(van.x * 1000), z: Math.round(van.z * 1000), halfWidthMm: HALF_WIDTH_MM, halfLengthMm: HALF_LENGTH_MM, yaw: ((Math.round((van.yaw * 18_000) / Math.PI) % 36_000) + 36_000) % 36_000 }));
   }
 
   close(): void {

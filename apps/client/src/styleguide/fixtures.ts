@@ -17,7 +17,7 @@ export const receipt = {
 
 export const player = { name: "Kiesse Domingos", number: "000 482 117", bairro: "Marginal e Baixa", arrived: "14.11.2026" };
 
-export const route = { line: "Mutamba · Marginal", stops: ["Mutamba", "Marginal", "Fortaleza", "Baixa"] };
+export const route = { line: "Mutamba · Marginal", stops: ["Mutamba", "Marginal", "Fortaleza", "Baixa"], stopsAt: ["na Mutamba", "na Marginal", "na Fortaleza", "na Baixa"] };
 
 export const wallet = { amount: 25_000, fare: 200 };
 

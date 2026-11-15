@@ -89,3 +89,4 @@ A test reads this table and fails the build when a word in the first column appe
 - Object pronouns after the verb in plain statements: "Guardámos onde estavas."
 - First person plural past with the accent: "guardámos", "chegámos".
 - Spelling before the 1990 agreement, which Angola has not ratified: "actualizar", "acção", "direcção", "óptimo" (confirmed by the founder, 2026-11-14).
+- **A place takes its own preposition, and the game never puts "em" before a name by rule** (founder, 2026-11-15: "Estamos em Marginal is wrong, you must say Estamos na Marginal"). na Marginal, na Mutamba, na Baixa, na Ilha, na Viana; no Kilamba, no Talatona, no Zango, no Porto, no Rangel, no Sambizanga; em Cazenga, em Luanda, em Benguela. Every place name in a pack therefore comes with a second word, its "at" form (`<key>.em`), written by someone who says it, and a sentence about being somewhere uses that form whole.

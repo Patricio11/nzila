@@ -163,7 +163,7 @@ export function Styleguide() {
 
       <Section title="The route band" note="Shown while riding. The linha on the van's plate, the road with its stops, and the van driving along it.">
         <div class="sg-grid sg-wide">
-          <Case name="waiting at the first stop" on="world"><RouteBand line={sample.route.line} stops={sample.route.stops} next={0} waiting /></Case>
+          <Case name="waiting at the first stop" on="world"><RouteBand line={sample.route.line} stops={sample.route.stops} stopsAt={sample.route.stopsAt} next={0} waiting /></Case>
           <Case name={`on the road (press Drive: ${Math.round(ride * 100)}%)`} on="world"><RouteBand line={sample.route.line} stops={sample.route.stops} next={Math.min(3, Math.floor(ride * 3) + 1)} progress={(ride * 3) % 1} /></Case>
           <Case name="arriving at the last stop" on="night"><RouteBand line={sample.route.line} stops={sample.route.stops} next={3} progress={0.8} /></Case>
           <Case name="drive the van"><Button onPress={() => setRide((r) => (r >= 0.95 ? 0 : r + 0.12))}>{t("action.board")}</Button></Case>

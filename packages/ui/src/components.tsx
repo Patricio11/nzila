@@ -236,8 +236,10 @@ export function IdCard({ name, number, bairro, arrived, shielded, photo }: { nam
  * stops, and the van driving along it. `next` is the stop ahead and
  * `progress` (0 to 1) how far the van is from the stop behind toward it;
  * `waiting` means it is standing at `next` with the door open.
+ * `stopsAt` gives each stop as one is said to be at it, with the preposition the
+ * place takes ("na Marginal", "no Kilamba", "em Cazenga"): Portuguese has no one word for "at".
  */
-export function RouteBand({ line, stops, next, progress = 0, waiting }: { line: string; stops: readonly string[]; next: number; progress?: number; waiting?: boolean }) {
+export function RouteBand({ line, stops, stopsAt, next, progress = 0, waiting }: { line: string; stops: readonly string[]; stopsAt?: readonly string[]; next: number; progress?: number; waiting?: boolean }) {
   const last = Math.max(1, stops.length - 1);
   const at = waiting ? next : Math.max(0, next - 1 + Math.max(0, Math.min(1, progress)));
   return (
@@ -245,8 +247,8 @@ export function RouteBand({ line, stops, next, progress = 0, waiting }: { line: 
       <div class="n-route-top">
         <strong class="n-route-plate">{line}</strong>
         <span class="n-route-next">
-          <small>{tr.t(waiting ? "route.atStop" : "route.next")}</small>
-          <b>{stops[next]}</b>
+          <small>{tr.t(waiting ? "route.atStop" : "route.next")}</small>{" "}
+          <b>{waiting ? (stopsAt?.[next] ?? stops[next]) : stops[next]}</b>
         </span>
       </div>
       <div class="n-route-road">

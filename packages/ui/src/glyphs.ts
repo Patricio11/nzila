@@ -9,8 +9,9 @@ export const GLYPHS = {
   // The HUD
   carteira: "M4 8h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z M4 8V7a2 2 0 0 1 2-2h10 M16 14h.01",
   telemovel: "M8 3h8a1.5 1.5 0 0 1 1.5 1.5v15A1.5 1.5 0 0 1 16 21H8a1.5 1.5 0 0 1-1.5-1.5v-15A1.5 1.5 0 0 1 8 3z M11 18h2",
-  correr: "M5 7l5 5-5 5 M12 7l5 5-5 5",
-  saltar: "M4 16C6 5 16 5 19 13 M19 13l-4.2-.6 M19 13l1-4.1 M9 20h6",
+  // A person running and a person jumping, drawn plainly: a button must say what it does (founder, 2026-11-15).
+  correr: "M13.6 4.6a1.7 1.7 0 1 0 3.4 0 1.7 1.7 0 0 0-3.4 0z M14 8.4l-3.2 5.4 M14 8.4l3.4 2.6 2.8-1 M13.6 8.6l-4.2.4-2 2.8 M10.8 13.8l4 2.2.4 4.6 M10.8 13.8l-2.4 3.4-4.4.4",
+  saltar: "M10.3 4.2a1.7 1.7 0 1 0 3.4 0 1.7 1.7 0 0 0-3.4 0z M12 7.6v5.6 M12 8.8L7.6 4.8 M12 8.8l4.4-4 M12 13.2l-3.8 1.4 1.2 3.6 M12 13.2l3.8 1.4-1.2 3.6 M6.5 21.6h11",
   emote: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M8.5 14.5a4.5 4.5 0 0 0 7 0 M9 9.5v.5 M15 9.5v.5",
   conversa: "M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
   paragem: "M7 21V4h9l3 3-3 3H7",

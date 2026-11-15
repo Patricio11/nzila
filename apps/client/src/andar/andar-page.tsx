@@ -19,12 +19,13 @@
 //   /andar?hour=17.3&tier=normal
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
-import { CELL_DRIVE, CELL_LOW, CELL_WALK, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
-import { Arrival, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, WalletChip, type CompassMark } from "@nzila/ui";
+import { CELL_DRIVE, CELL_LOW, CELL_WALK, bodyFits, groundHeight, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
+import { Arrival, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, WalletChip, type CompassMark } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { DEV_PACK } from "../render/bench-scene.ts";
 import { DistrictScene } from "../render/district-scene.ts";
 import { EMOTES, EMOTE_SECONDS, loadPerson, type Emote, type Person } from "../render/person.ts";
+import { type VanSeen } from "../render/traffic.ts";
 import { type TierName } from "../render/tiers.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";
 import "./andar.css";
@@ -36,17 +37,21 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null };
   }
 }
 
 const PEOPLE = "/packs/dev-people/";
 /** Cells a camera may sit over: anything a person or a vehicle can be on, what is low, and open water. */
 const OPEN = CELL_WALK | CELL_DRIVE | CELL_WATER | CELL_LOW;
+/** How near a standing van must be to be boarded, from its middle, in metres. */
+const BOARD_REACH_M = 4.6;
 /** How near a seat must be for the action to offer it, in metres. */
 const SEAT_REACH_M = 1.9;
 const EMOTE_LIST = EMOTES.map((id) => ({ id, label: tr.t(`emote.${id}`) }));
 const worldClock = compileClock(DEFAULT_CLOCK);
+
+type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked";
 
 interface Hud {
   ready: boolean;
@@ -54,7 +59,9 @@ interface Hud {
   second: number;
   heading: number;
   marks: CompassMark[];
-  action: "sit" | "stand" | null;
+  action: Action | null;
+  /** The van being ridden: its line, its paragens, the one ahead. */
+  ride: { line: string; stops: string[]; stopsAt: string[]; next: number; progress: number; waiting: boolean } | null;
   stick: { x: number; y: number; dx: number; dy: number; active: boolean };
 }
 
@@ -62,7 +69,7 @@ export function Andar() {
   const params = new URLSearchParams(location.search);
   const canvas = useRef<HTMLCanvasElement>(null);
   const leftHanded = params.get("mao") === "esquerda";
-  const [hud, setHud] = useState<Hud>({ ready: false, place: "", second: 0, heading: 0, marks: [], action: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
+  const [hud, setHud] = useState<Hud>({ ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
   const [missing, setMissing] = useState(false);
   const [running, setRunning] = useState(false);
   const [wheel, setWheel] = useState(false);
@@ -92,6 +99,9 @@ export function Andar() {
     let emote: { kind: Emote; began: number } | null = null;
     let seat: { x: number; y: number; z: number; facing: number } | null = null;
     let sit = 0;
+    // Riding a van: which one, and whether the cobrador has been asked for the next paragem.
+    let ride: { route: string; index: number; last: VanSeen; asked: boolean; left: boolean } | null = null;
+    let boardsItself = params.has("apanhar");
     let lastHud = 0;
     // The jump, as the picture needs it: how far through, and how high, before and after the last step.
     const air = { before: 0, after: 0, liftBefore: 0, liftAfter: 0, land: 0, count: 0, last: 0 };
@@ -187,6 +197,44 @@ export function Andar() {
           }
           return best;
         };
+        // A van standing near enough to board, and the one being ridden.
+        const vans = district.traffic?.seen ?? [];
+        const waiting = ride ? null : (vans.filter((van) => van.dwelling && Math.hypot(van.x - state.x / 1000, van.z - state.z / 1000) < BOARD_REACH_M)[0] ?? null);
+        if (ride) {
+          const riding = ride;
+          const now = vans.find((van) => van.route === riding.route && van.index === riding.index);
+          // Off at the paragem that was asked for, or put down where the van was when it left the road for the day.
+          if (now && !now.dwelling) riding.left = true;
+          // Asking counts once the van has left the paragem it was boarded at.
+          if (!now || (now.dwelling && ((riding.asked && riding.left) || asks.current.act))) {
+            const from = now ?? riding.last;
+            const r = DEFAULT_CHARACTER.radiusMm;
+            // The kerb is on the van's right; failing that its left, then wherever it stands.
+            const spots = [-1.75, -2.4, 1.75, 2.4].map((side) => [from.x + Math.cos(from.yaw) * side, from.z - Math.sin(from.yaw) * side] as const);
+            const spot = spots.find(([sx, sz]) => {
+              const h = groundHeight(ground, Math.round(sx * 1000), Math.round(sz * 1000), CELL_WALK, DEFAULT_CHARACTER.stepUpMm);
+              return bodyFits(ground, Math.round(sx * 1000), Math.round(sz * 1000), r, CELL_WALK, h, DEFAULT_CHARACTER.stepUpMm, DEFAULT_CHARACTER.maxDropMm);
+            }) ?? [from.x, from.z];
+            Object.assign(state, { x: Math.round(spot[0] * 1000), z: Math.round(spot[1] * 1000) });
+            state.y = groundHeight(ground, state.x, state.z, CELL_WALK, DEFAULT_CHARACTER.stepUpMm);
+            Object.assign(before, state);
+            facing = from.yaw - Math.PI / 2;
+            ride = null;
+          } else {
+            if (asks.current.act) riding.asked = true;
+            riding.last = now;
+            Object.assign(state, { x: Math.round(now.x * 1000), z: Math.round(now.z * 1000) });
+            Object.assign(before, state);
+          }
+          asks.current.act = false;
+          asks.current.jump = false;
+        } else if (waiting && (asks.current.act || boardsItself) && !seat) {
+          asks.current.act = false;
+          // For a film: gets on by itself and asks for the next paragem.
+          ride = { route: waiting.route, index: waiting.index, last: waiting, asked: boardsItself, left: false };
+          boardsItself = false;
+          emote = null;
+        }
         // The gold button, a gesture asked for, and getting up by walking away.
         if (asks.current.act) {
           asks.current.act = false;
@@ -222,9 +270,9 @@ export function Andar() {
           Object.assign(before, state);
           air.before = air.after >= 1 ? 0 : air.after;
           air.liftBefore = air.liftAfter;
-          if (!seat) {
+          if (!seat && !ride) {
             const leaving = asks.current.jump && !state.air;
-            stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, [], DEFAULT_CHARACTER);
+            stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, district.traffic?.obstacles() ?? [], DEFAULT_CHARACTER);
             if (leaving) air.count += 1;
           }
           asks.current.jump = false;
@@ -256,13 +304,16 @@ export function Andar() {
           y += (seat.y - 0.46 - y) * k;
         }
         person.root.position.set(x, y + lift, z);
+        // Inside the van nobody is drawn yet: the body is put away for the ride.
+        person.root.visible = !ride;
         person.root.rotation.y = facing;
         person.pose({ speed, phase, time: seconds }, { sit, jump, land: flying ? 0 : air.land, ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
 
         // The camera: behind and above the head, pulled in before it would pass into a building.
         const upright = renderer.camera.aspect < 1;
-        const reach = camera.distance * (upright ? 1.25 : 1);
-        const eyeY = y + person.height * (0.86 - 0.22 * sit);
+        // On foot the camera is at the shoulder; riding, it stands off far enough to see the van and its street.
+        const reach = (ride ? 8.5 : camera.distance) * (upright ? 1.25 : 1);
+        const eyeY = y + (ride ? 1.9 : person.height * (0.86 - 0.22 * sit));
         let allowed = reach;
         for (let i = 1; i <= 10; i++) {
           const along = (reach * i) / 10;
@@ -278,8 +329,8 @@ export function Andar() {
         renderer.setFocus(x, 0, z);
         district.update();
 
-        const action = seat ? "stand" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count };
+        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
+        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null };
         if (now - lastHud > 120) {
           lastHud = now;
           // The compass turns with the camera: what is ahead is at the top. North is the world's -Z.
@@ -291,7 +342,9 @@ export function Andar() {
           }));
           const rect = element.getBoundingClientRect();
           const length = Math.max(1, Math.hypot(stick.x, stick.y) / 1.5);
-          setHud({ ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
+          const word = (key: string): string => district!.word(key);
+          const band = ride ? { line: `${word(ride.last.stops[0]!)} · ${word(ride.last.stops[ride.last.stops.length - 1]!)}`, stops: ride.last.stops.map(word), stopsAt: ride.last.stops.map((key) => (word(`${key}.em`) === `${key}.em` ? word(key) : word(`${key}.em`))), next: ride.last.stop, progress: ride.last.progress, waiting: ride.last.dwelling } : null;
+          setHud({ ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
       }
       renderer.render(elapsed);
@@ -378,7 +431,12 @@ export function Andar() {
               <ClockChip secondOfDay={hud.second} />
             </span>
           </div>
-          {arrived ? <Arrival place={hud.place} /> : null}
+          {arrived && !hud.ride ? <Arrival place={hud.place} /> : null}
+          {hud.ride ? (
+            <div class="andar-route">
+              <RouteBand line={hud.ride.line} stops={hud.ride.stops} stopsAt={hud.ride.stopsAt} next={hud.ride.next} progress={hud.ride.progress} waiting={hud.ride.waiting} />
+            </div>
+          ) : null}
           <Joystick {...hud.stick} />
           <div class="andar-buttons">
             <HudButton glyph="telemovel" label={tr.t("hud.phone")} />
@@ -390,7 +448,7 @@ export function Andar() {
               <HudButton glyph="correr" label={tr.t("hud.run")} on={running} onPress={() => setRunning(!running)} />
               <HudButton glyph="saltar" label={tr.t("hud.jump")} onPress={() => (asks.current.jump = true)} />
             </span>
-            {hud.action ? <ContextAction label={tr.t(hud.action === "sit" ? "action.sit" : "action.stand")} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
+            {hud.action ? <ContextAction label={tr.t(`action.${hud.action}`)} disabled={hud.action === "stopAsked"} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>
           <div class="andar-chat">
             <ChatBar disabled />

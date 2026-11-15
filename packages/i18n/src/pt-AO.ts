@@ -22,6 +22,9 @@ export const ptAO = {
   "action.board": "Apanhar",
   "action.sit": "Sentar",
   "action.stand": "Levantar",
+  "action.getOff": "Descer aqui",
+  "action.askStop": "Paragem",
+  "action.stopAsked": "Vai parar",
   "action.buy": "Comprar",
   "action.withPrice": "{label} · {price}",
 
@@ -61,7 +64,8 @@ export const ptAO = {
   "data.month": "{size} este mês",
   "data.label": "Dados usados",
   "route.next": "Próxima",
-  "route.atStop": "Estamos em",
+  // Followed by the place with its own preposition, which the place brings: "na Marginal", "no Kilamba", "em Cazenga".
+  "route.atStop": "Estamos",
 
   // Paper: the receipt and the BI.
   "receipt.line": "{qty} × {label}",

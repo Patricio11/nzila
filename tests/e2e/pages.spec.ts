@@ -1,7 +1,7 @@
 declare global {
   interface Window {
     __cenaMoment?: (second: number) => void;
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null };
   }
 }
 
@@ -119,11 +119,35 @@ test.describe("the candongueiros", () => {
     const standing = await page.evaluate(() => window.__cena!.vans!);
     expect(standing.filter((van) => van.dwelling).map((van) => van.route).sort()).toEqual(["linha-marginal", "linha-mutamba"]);
     const atStop = standing.find((van) => van.route === "linha-marginal" && van.dwelling)!;
-    await page.evaluate(() => window.__cenaMoment!(40));
+    await page.evaluate(() => window.__cenaMoment!(22));
     await page.waitForFunction(() => window.__cena!.vans!.some((van) => van.route === "linha-marginal" && !van.dwelling), undefined, { timeout: 10_000 });
     const later = await page.evaluate(() => window.__cena!.vans!);
     // Traffic keeps to the right: on the avenue's town side the van has gone east.
     expect(later.some((van) => van.route === "linha-marginal" && !van.dwelling && van.x > atStop.x + 20)).toBe(true);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
+test.describe("a ride", () => {
+  test("a van standing at the paragem is boarded, ridden to the next paragem and left there, on the pavement", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/dev-vehicles/veiculos.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa, the vehicles or the people are not built (they need Blender). The ride was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(120_000);
+    const seen = watch(page);
+    // The timetable runs from its beginning, where a van stands at the Marginal paragem; the page boards by itself.
+    await page.goto("/andar?pack=l1&em=302.5,107.4&tier=poupanca&hour=12&desde=0&apanhar");
+    await page.waitForFunction(() => window.__andar?.riding === "linha-marginal", undefined, { timeout: 45_000 });
+    // Standing at the Marginal paragem the band says where, as it is said (founder, 2026-11-15).
+    await expect(page.locator(".n-route")).toContainText("Estamos na Marginal");
+    await page.waitForFunction(() => window.__andar!.riding === null && window.__andar!.action === "board", undefined, { timeout: 60_000 });
+    const after = await page.evaluate(() => window.__andar!);
+    // Porto is a hundred metres east; she is beside the van, not in the road it stands on.
+    expect(after.x).toBeGreaterThan(395);
+    expect(after.action).toBe("board");
+    await expect(page.locator(".n-route")).toHaveCount(0);
     expect(seen.errors).toEqual([]);
   });
 });

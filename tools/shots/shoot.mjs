@@ -65,7 +65,7 @@ const PAGES = [
   ["transito-paragem", "/cena?pack=l1&hour=16.5&tier=normal&transito=3&at=313,110.5,1.6&look=304,104.5,1.0"],
   ["transito-paragem-tras", "/cena?pack=l1&hour=12&tier=normal&transito=3&at=294,109.5,1.7&look=304,104.5,1.0"],
   ["transito-arranca", "/cena?pack=l1&hour=16.5&tier=normal&transito=22&at=300,97,3.2&look=325,105,1.0"],
-  ["transito-mutamba", "/cena?pack=l1&hour=17.3&tier=normal&transito=3&at=175,161,1.7&look=184,156,1.0"],
+  ["transito-mutamba", "/cena?pack=l1&hour=17.3&tier=normal&transito=3&at=227,161.5,1.7&look=237,156.5,1.0"],
   ["transito-do-alto", "/cena?pack=l1&hour=15&tier=alta&transito=60&at=224,40,70&look=224,120,0"],
   ["transito-noite", "/cena?pack=l1&hour=20.5&tier=normal&transito=3&at=313,110.5,1.6&look=304,104.5,1.0"],
   // The people of the street in Marginal e Baixa, at fixed moments of their timetables.
@@ -84,6 +84,7 @@ const PAGES = [
   ["gente-zunga-corrida", "/cena?pack=l1&hour=15&tier=normal&transito=42.5&at=186,110,1.7&look=200,114,1.1"],
   ["gente-posto", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=392,58,1.7&look=384,70,2.4"],
   ["gente-poupanca", "/cena?pack=l1&hour=17.2&tier=poupanca&transito=30&at=250,66.5,1.7&look=215,66,1.2"],
+  ["viagem-espera", "/andar?pack=l1&em=302.5,107.4&cam=215&quem=2&hour=16.8&transito=3"],
   // The jump, held at three moments of it.
   ["salto-inicio", "/andar?hour=16.8&cam=70&quem=1&salto=0.2"],
   ["salto-alto", "/andar?hour=16.8&cam=70&quem=1&salto=0.5"],
@@ -141,6 +142,8 @@ const FILMS = [
   ["danca-pano", "/andar?cam=20&quem=0&hour=16.8&gesto=dancar"],
   ["danca-ela", "/andar?cam=110&quem=6&hour=16.8&gesto=dancar"],
   ["gente-andar", "/andar?pack=l1&em=352,54.5&cam=285&quem=1&hour=16.8&desde=76"],
+  // Boarding at the Marginal paragem and riding to the next: the page boards by itself (&apanhar).
+  ["viagem", "/andar?pack=l1&em=302.5,107.4&cam=200&quem=2&hour=16.8&desde=0&apanhar"],
   ["transito-andar", "/andar?pack=l1&em=297,107.2&cam=250&quem=4&hour=16.8"],
   // Jumping: on the spot, at a run, and over the planted strip of the Marginal's avenue.
   ["salto-parado", "/andar?salto&cam=70&quem=1&hour=16.8"],
@@ -232,7 +235,7 @@ try {
       // Stills out of the film, to look at the stride without playing it.
       // A jump is over in half a second: its stills are taken close together.
       const quick = pageName.startsWith("salto");
-      for (let i = 0; i < (quick ? 30 : 12); i++) {
+      for (let i = 0; i < (quick ? 30 : pageName.startsWith("viagem") ? 36 : 12); i++) {
         await page.waitForTimeout(quick ? 130 : i === 0 ? 1200 : 1000);
         await page.screenshot({ path: join(out, `${pageName}_${i}.png`) });
       }
