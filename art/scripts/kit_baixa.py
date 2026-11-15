@@ -190,33 +190,103 @@ def edificio_rosa(b, x0, z0, x1, z1, rng, ground=0.14):
 
 
 def palacio_de_ferro(b, x, z, rng, ground=0.14):
-    """The iron palace: bright yellow, two storeys, a gallery all the way round behind bold cut-out panels."""
+    """
+    The iron palace (art pass 2): bright yellow, two storeys, a gallery all the way round on slender
+    columns. Between the columns the iron is worked: an arch of lace under each beam with brackets at its
+    ends, a balustrade of crossed bars with a rosette at each crossing, a crest of points along the roof,
+    and a wide stair up to the door.
+    """
     b.at(x, z)
     width, depth, storey = 20.0, 14.0, 4.0
     b.level = BOTH
     b.box((x, ground + storey, z), (width - 4.4, storey * 2, depth - 4.4), "ferroYellow", top="roofZinc")
+
+    def bay(level_y, ax, az, bx, bz, facing):
+        """The ironwork of one bay of the gallery, between two columns at (ax, az) and (bx, bz)."""
+        ux, uz = bx - ax, bz - az
+
+        def at(u, v, out=0.0):
+            return (ax + ux * u + facing[0] * out, level_y + v, az + uz * u + facing[2] * out)
+
+        def bar(u0, v0, u1, v1, thick=0.045, colour="ferroDark"):
+            # A flat bar seen from both sides of the gallery.
+            du, dv = u1 - u0, v1 - v0
+            long = math.hypot(du * math.hypot(ux, uz), dv) or 1.0
+            nu, nv = -dv / long * thick / math.hypot(ux, uz), du * math.hypot(ux, uz) / long * thick
+            # One face, toward the street: the lace is looked at from outside, and the phone has a budget.
+            b.face([at(u0 - nu, v0 - nv), at(u1 - nu, v1 - nv), at(u1 + nu, v1 + nv), at(u0 + nu, v0 + nv)], colour, toward=facing)
+
+        # The balustrade: a rail, a foot rail, crossed bars, and a rosette where they cross.
+        bar(0.0, 1.02, 1.0, 1.02, 0.05)
+        bar(0.0, 0.14, 1.0, 0.14, 0.04)
+        for k in range(2):
+            u0, u1 = k / 2, (k + 1) / 2
+            bar(u0, 0.14, u1, 1.02, 0.03)
+            bar(u0, 1.02, u1, 0.14, 0.03)
+            um = (u0 + u1) / 2
+            b.face([at(um - 0.045, 0.58, 0.01), at(um, 0.46, 0.01), at(um + 0.045, 0.58, 0.01), at(um, 0.70, 0.01)], "ferroYellow", toward=facing)
+        # Under the beam: a flat arch of lace, its spandrels filled with rays, and a drop at its crown.
+        arch = [(u, storey - 0.22 - 0.62 * (1 - math.sin(math.pi * u))) for u in [k / 4 for k in range(5)]]
+        for (u0, v0), (u1, v1) in zip(arch, arch[1:]):
+            bar(u0, v0, u1, v1, 0.04)
+        bar(0.0, storey - 0.2, 1.0, storey - 0.2, 0.05)
+        for k in range(1, 4):
+            u, v = arch[k]
+            bar(u, v, u, storey - 0.2, 0.022)
+        bar(0.5, storey - 0.86, 0.5, storey - 1.12, 0.03)
+        b.face([at(0.5 - 0.05, storey - 1.16, 0.01), at(0.5, storey - 1.3, 0.01), at(0.5 + 0.05, storey - 1.16, 0.01), at(0.5, storey - 1.06, 0.01)], "ferroDark", toward=facing)
+
     for level in (0, 1):
         y = ground + level * storey
+        b.level = BOTH
         b.box((x, y + 0.1, z), (width, 0.2, depth), "ferroDark", skip_bottom=False)
-        # The posts of the gallery, and between them the panels of iron lace.
-        for i in range(9):
-            for sz in (-1, 1):
-                px = x - width / 2 + 0.2 + i * (width - 0.4) / 8
-                b.box((px, y + storey / 2, z + sz * (depth / 2 - 0.2)), (0.22, storey, 0.22), "ferroYellow")
-                if i < 8:
-                    b.level = FULL
-                    b.rect((px + (width - 0.4) / 16, y + storey - 0.55, z + sz * (depth / 2 - 0.2)), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (width - 0.4) / 8 - 0.3, 0.8, "ferroDark", two_sided=True)
-                    b.rect((px + (width - 0.4) / 16, y + 0.55, z + sz * (depth / 2 - 0.2)), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (width - 0.4) / 8 - 0.3, 0.75, "ferroYellow", two_sided=True)
-                    b.level = BOTH
-        for i in range(1, 6):
-            for sx in (-1, 1):
-                pz = z - depth / 2 + 0.2 + i * (depth - 0.4) / 6
-                b.box((x + sx * (width / 2 - 0.2), y + storey / 2, pz), (0.22, storey, 0.22), "ferroYellow")
+        # The columns: slender, with a foot and a head, and the ironwork between each pair.
+        front = [(x - width / 2 + 0.2 + i * (width - 0.4) / 8) for i in range(9)]
+        side = [(z - depth / 2 + 0.2 + i * (depth - 0.4) / 6) for i in range(7)]
+        columns = [(px, z + sz * (depth / 2 - 0.2)) for sz in (-1, 1) for px in front] + [(x + sx * (width / 2 - 0.2), pz) for sx in (-1, 1) for pz in side[1:-1]]
+        for px, pz in columns:
+            b.box((px, y + storey / 2, pz), (0.16, storey, 0.16), "ferroYellow")
+            b.level = FULL
+            b.box((px, y + storey - 0.36, pz), (0.32, 0.16, 0.32), "ferroDark")
+            b.level = BOTH
+        b.level = FULL
+        for sz in (-1, 1):
+            pz = z + sz * (depth / 2 - 0.2)
+            for i in range(8):
+                # The middle bay of the ground floor, toward the street, is the way in: no balustrade there.
+                if level == 0 and sz < 0 and i in (3, 4):
+                    continue
+                bay(y + 0.2, front[i], pz, front[i + 1], pz, (0.0, 0.0, float(sz)))
+        for sx in (-1, 1):
+            px = x + sx * (width / 2 - 0.2)
+            for i in range(6):
+                bay(y + 0.2, px, side[i], px, side[i + 1], (float(sx), 0.0, 0.0))
+        b.level = BOTH
         for i in range(5):
             wx = x - 6 + i * 3
-            b.rect((wx, y + 2.0, z - (depth - 4.4) / 2 - 0.04), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.3, 2.6, "window")
-            b.rect((wx, y + 2.0, z + (depth - 4.4) / 2 + 0.04), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.3, 2.6, "windowLit" if i % 2 else "window")
-    b.box((x, ground + 2 * storey + 0.15, z), (width + 0.6, 0.3, depth + 0.6), "ferroDark", skip_bottom=False)
+            # Tall windows with a round head, shuttered in green as iron houses are.
+            for wz, facing, lit in ((z - (depth - 4.4) / 2 - 0.04, (0.0, 0.0, -1.0), False), (z + (depth - 4.4) / 2 + 0.04, (0.0, 0.0, 1.0), i % 2 == 1)):
+                head = [(wx + math.cos(math.pi * k / 6) * 0.65, y + 3.0 + math.sin(math.pi * k / 6) * 0.5, wz) for k in range(7)]
+                b.face([(wx - 0.65, y + 0.7, wz), (wx + 0.65, y + 0.7, wz)] + head, "windowLit" if lit else "window", toward=facing)
+                b.level = FULL
+                for shutter in (-1, 1):
+                    b.face([(wx + shutter * 0.68, y + 0.7, wz + facing[2] * 0.02), (wx + shutter * 1.1, y + 0.7, wz + facing[2] * 0.02), (wx + shutter * 1.1, y + 3.0, wz + facing[2] * 0.02), (wx + shutter * 0.68, y + 3.0, wz + facing[2] * 0.02)], "awningTeal", toward=facing)
+                b.level = BOTH
+    # The roof's edge, and along it a crest of iron points.
+    roof = ground + 2 * storey
+    b.box((x, roof + 0.15, z), (width + 0.6, 0.3, depth + 0.6), "ferroDark", skip_bottom=False)
+    b.level = FULL
+    for sz in (-1, 1):
+        pz = z + sz * (depth / 2 + 0.3)
+        for k in range(28):
+            px = x - width / 2 - 0.3 + (width + 0.6) * (k + 0.5) / 28
+            tall = 0.5 if k % 4 == 2 else 0.28
+            b.face([(px - 0.22, roof + 0.3, pz), (px + 0.22, roof + 0.3, pz), (px, roof + 0.3 + tall, pz)], "ferroDark", toward=(0.0, 0.0, float(sz)), two_sided=True)
+    # The stair to the door, as wide as two bays.
+    for step in range(3):
+        b.box((x, ground + 0.035 + step * 0.07, z - depth / 2 - 0.9 + step * 0.3), (5.0, 0.07, 1.8 - step * 0.6), "fortStone")
+    b.rect((x, ground + 1.75, z - (depth - 4.4) / 2 - 0.06), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.9, 3.1, "wood")
+    b.level = BOTH
     return (x - (width - 4.4) / 2, z - (depth - 4.4) / 2, x + (width - 4.4) / 2, z + (depth - 4.4) / 2)
 
 

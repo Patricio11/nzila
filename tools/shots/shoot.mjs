@@ -127,6 +127,11 @@ const PAGES = [
   ["viaduto-rampa", "/cena?pack=l1&hour=16.5&tier=normal&transito=75&at=424,96,2.2&look=438,128,3.0"],
   ["viaduto-do-alto", "/cena?pack=l1&hour=15&tier=alta&transito=75&at=392,150,30&look=438,180,2"],
   ["viaduto-noite", "/cena?pack=l1&hour=20.2&tier=normal&transito=40&at=412,176,1.8&look=438,180,4.5"],
+  // The Palácio de Ferro, after its second pass.
+  ["ferro", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=270,160.5,1.7&look=284,179,4.2"],
+  ["ferro-frente", "/cena?pack=l1&hour=16.6&tier=normal&transito=30&at=284,161.5,1.7&look=284,172,4.4"],
+  ["ferro-perto", "/cena?pack=l1&hour=12&tier=normal&transito=30&at=279,169.2,1.7&look=283.5,172.4,3.0"],
+  ["ferro-noite", "/cena?pack=l1&hour=20.2&tier=normal&transito=30&at=270,160.5,1.7&look=284,179,4.2"],
   // The mural.
   ["mural", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=207,164.5,1.7&look=207,173,2.0"],
   ["mural-lado", "/cena?pack=l1&hour=16.8&tier=normal&transito=30&at=190,166,1.7&look=205,172.6,2.0"],
