@@ -48,6 +48,10 @@ test.describe("going in", () => {
     await expect(page.locator(".frontdoor-cost")).toContainText(/A primeira entrada gasta \d+,\d\sMB de dados/);
     await expect(page.getByRole("link", { name: /Entrar em Modo Poupança \(\d+,\d\sMB\)/ })).toBeVisible();
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    // Someone new chooses how they look first; then they go in.
+    await page.waitForURL(/\/provador/);
+    await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Está bom" }).click();
     await page.waitForURL(/\/andar\?pack=l1/);
     // On the way in: megabytes of megabytes, never a bare spinner.
     await expect(page.locator(".arriving-count")).toContainText(/ de \d+,\d\sMB/);
@@ -56,6 +60,7 @@ test.describe("going in", () => {
     await expect(page.locator(".n-arrival, .n-wallet").first()).toBeVisible();
 
     // The light door: Modo Poupança is chosen for this device before the game opens.
+    // And someone who has a look already goes straight in.
     await page.goto("/");
     await page.getByRole("link", { name: /Entrar em Modo Poupança/ }).click();
     await page.waitForURL(/\/andar\?pack=l1/);
@@ -97,6 +102,9 @@ test.describe("first play", () => {
     const started = Date.now();
     await page.goto("/");
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    // First play is the whole of it: the door, choosing a look, and arriving.
+    await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 60_000 });
+    await page.getByRole("button", { name: "Está bom" }).click();
     await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 120_000 });
     const seconds = (Date.now() - started) / 1000;
     const megabytes = seen.bytes() / 1_000_000;

@@ -9,14 +9,83 @@ html, body { margin: 0; height: 100%; background: var(--n-noite); color: var(--n
 .frontdoor a { color: inherit; text-decoration: none; }
 .frontdoor .frontdoor-cost { max-width: 30ch; color: var(--n-luz-suave); font: var(--type-small); }
 .frontdoor .frontdoor-quiet { color: var(--n-luz-suave); font: var(--type-label); text-decoration: underline; text-underline-offset: 4px; min-height: var(--target); display: inline-flex; align-items: center; }
-/* Arriving: megabytes and progress, a van on its road, and something of Luanda to read. */
-.arriving { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; gap: var(--s-4); padding: var(--s-4); text-align: center; background: var(--n-noite); color: var(--n-luz); }
-.arriving p { margin: 0; }
-.arriving-road { position: relative; width: min(280px, 76vw); height: 46px; }
-.arriving-road::after { content: ""; position: absolute; left: 0; right: 0; top: 33px; height: 3px; border-radius: var(--r-chip); background: repeating-linear-gradient(90deg, var(--n-luz-suave) 0 12px, transparent 12px 26px); opacity: 0.55; }
-.arriving-van { position: absolute; top: 6px; margin-left: -22px; transition: left 500ms ease-out; }
+/* Arriving: the postcard above, megabytes of megabytes, and something of Luanda to read. */
+.arriving { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: var(--s-3); padding: 0 0 max(var(--s-5), env(safe-area-inset-bottom)); text-align: center; background: var(--n-noite); color: var(--n-luz); overflow: hidden; }
+.arriving p { margin: 0; padding: 0 var(--s-4); }
+.arriving .postal { flex: 1 1 58%; }
+.arriving-where { position: absolute; left: 0; right: 0; top: max(var(--s-5), env(safe-area-inset-top)); font: var(--type-place); z-index: 1; }
 .arriving-count { font: var(--type-number-l); }
-.arriving-fact { max-width: 28ch; color: var(--n-luz-suave); font: var(--type-body); min-height: 3.2em; }
+.arriving-fact { max-width: 30ch; color: var(--n-luz-suave); font: var(--type-body); min-height: 3.2em; animation: n-pop 420ms var(--ease-mola) both; }
+.arriving-hint { color: var(--n-luz-suave); font: var(--type-small); }
+
+/* The postcard (frontdoor/postal.tsx): a living picture of the Marginal. Tokens only; the stylesheet moves it. */
+.postal { position: relative; width: 100%; min-height: 200px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; background: var(--n-noite-2); }
+/* The picture keeps its own shape and sits at the foot; above it there is only more of the same sky. */
+.postal-stage { position: relative; flex: 0 0 auto; width: 100%; aspect-ratio: 360 / 240; }
+.postal-picture { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.postal-stars { position: relative; flex: 1 1 auto; min-height: 0; }
+.postal-stars i { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: var(--n-luz); opacity: 0.25; animation: postal-twinkle 2.8s ease-in-out infinite; }
+.postal-sky { fill: url(#postal-sky); }
+.postal-sky-high { stop-color: var(--n-noite-2); }
+.postal-sky-mid { stop-color: var(--n-terra); }
+.postal-sky-low { stop-color: var(--n-dourado-claro); }
+.postal-sun { fill: var(--n-luz); animation: postal-set 26s ease-in-out infinite alternate; }
+.postal-sun-glow { fill: var(--n-brilho-dourado); transform-box: fill-box; transform-origin: center; animation: postal-set 26s ease-in-out infinite alternate, n-glow 3.4s ease-in-out infinite; }
+.postal-city path { fill: var(--n-noite-2); }
+.postal-city .postal-mast { fill: none; stroke: var(--n-noite-2); stroke-width: 1.4; }
+.postal-city .postal-flag-red { fill: var(--n-gasto); transform-box: fill-box; transform-origin: left center; animation: postal-fly 1.6s ease-in-out infinite; }
+.postal-city .postal-flag-black { fill: var(--n-noite-fundo); transform-box: fill-box; transform-origin: left center; animation: postal-fly 1.6s ease-in-out infinite; }
+.postal-bay { fill: var(--n-mar); }
+.postal-glint { fill: none; stroke: var(--n-luz); stroke-width: 1.6; stroke-linecap: round; opacity: 0; animation: postal-glint 2.6s ease-in-out infinite; }
+.postal-walk { fill: var(--n-papel-2); }
+.postal-tar { fill: var(--n-noite-fundo); }
+.postal-lane { fill: none; stroke: var(--n-luz-suave); stroke-width: 3; stroke-dasharray: 18 20; animation: postal-road 700ms linear infinite; }
+.postal-row { animation: postal-by 9s linear infinite; }
+.postal-trunk { fill: none; stroke: var(--n-noite-2); stroke-width: 4; stroke-linecap: round; }
+.postal-frond { fill: none; stroke: var(--n-noite-2); stroke-width: 4.6; stroke-linecap: round; }
+.postal-palm { animation: postal-sway 3.2s ease-in-out infinite; }
+.postal-lamp { fill: none; stroke: var(--n-noite-2); stroke-width: 2.2; stroke-linecap: round; }
+.postal-bird { fill: none; stroke: var(--n-noite); stroke-width: 1.6; stroke-linecap: round; }
+.postal-birds { animation: postal-cross 17s linear infinite; }
+.postal-zungueira { animation: postal-walk 15s linear infinite; }
+.postal-step { animation: postal-step 520ms ease-in-out infinite; }
+.postal-pano { fill: var(--n-mar); }
+.postal-blusa { fill: var(--n-luz); }
+.postal-head { fill: var(--n-terra); }
+.postal-bacia { fill: var(--n-azul); }
+.postal-goods { fill: var(--n-dourado); }
+.postal-arm { fill: none; stroke: var(--n-terra); stroke-width: 2.4; stroke-linecap: round; }
+/* The van is a button: a touch and it hoots. */
+.postal-van { position: absolute; bottom: 7%; width: 78px; margin-left: -39px; padding: 0; border: 0; background: none; cursor: pointer; transition: left 600ms ease-out; -webkit-tap-highlight-color: transparent; animation: postal-bounce 460ms ease-in-out infinite; }
+.postal-van:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 4px; border-radius: var(--r-chip); }
+.postal-hoot-a .n-van, .postal-hoot-b .n-van { animation: postal-jump 420ms var(--ease-mola); }
+.postal-hoot-b .n-van { animation-name: postal-jump-again; }
+.postal-dust { position: absolute; left: -16px; bottom: 2px; width: 16px; height: 8px; border-radius: 50%; background: var(--n-luz-suave); opacity: 0; animation: postal-dust 460ms ease-out infinite; }
+.postal-said { position: absolute; left: 50%; bottom: 112%; transform: translateX(-50%); white-space: nowrap; padding: var(--s-1) var(--s-3); border-radius: var(--r-chip); background: var(--n-luz); color: var(--n-tinta); font: var(--type-label); box-shadow: 0 4px 0 var(--n-luz-fundo); animation: postal-say 1400ms var(--ease-mola) both; pointer-events: none; }
+@keyframes postal-twinkle { 50% { opacity: 0.95; transform: scale(1.5); } }
+@keyframes postal-set { from { transform: translateY(-8px); } to { transform: translateY(30px); } }
+@keyframes postal-fly { 50% { transform: skewY(-9deg) scaleX(0.9); } }
+@keyframes postal-glint { 40%, 60% { opacity: 0.7; } }
+@keyframes postal-road { to { stroke-dashoffset: -38; } }
+@keyframes postal-by { to { transform: translateX(-360px); } }
+@keyframes postal-sway { 50% { transform: rotate(2.6deg); } }
+@keyframes postal-cross { from { transform: translateX(0); } to { transform: translateX(470px); } }
+@keyframes postal-walk { from { transform: translateX(400px); } to { transform: translateX(-40px); } }
+@keyframes postal-step { 50% { transform: translateY(-1.6px); } }
+@keyframes postal-bounce { 50% { transform: translateY(-3px) rotate(-1.2deg); } }
+@keyframes postal-jump { 30% { transform: translateY(-16px) rotate(-7deg) scale(1.08); } 60% { transform: translateY(0) scale(1.06, 0.92); } }
+@keyframes postal-jump-again { 30% { transform: translateY(-16px) rotate(7deg) scale(1.08); } 60% { transform: translateY(0) scale(1.06, 0.92); } }
+@keyframes postal-dust { 0% { opacity: 0.5; transform: scale(0.4); } 100% { opacity: 0; transform: translate(-16px, -6px) scale(1.4); } }
+@keyframes postal-say { 0% { opacity: 0; transform: translate(-50%, 8px) scale(0.6); } 14%, 76% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -10px) scale(0.9); } }
+@media (prefers-reduced-motion: reduce) {
+  .postal-stars i, .postal-sun, .postal-sun-glow, .postal-city .postal-flag-red, .postal-city .postal-flag-black, .postal-glint, .postal-lane, .postal-row, .postal-palm, .postal-birds, .postal-zungueira, .postal-step, .postal-van, .postal-dust, .arriving-fact { animation: none; }
+  .postal-zungueira { transform: translateX(110px); }
+  .postal-glint { opacity: 0.6; }
+}
+/* The front door wears the postcard too, under its words. */
+.frontdoor-card { width: min(100%, 520px); height: 200px; border-radius: var(--r-sheet); overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 10px 30px var(--n-sombra); margin: var(--s-3) 0; }
+.frontdoor-card .postal { height: 100%; }
+
 /* The offer to install, over the world, after the first ride. */
 .install { position: absolute; left: var(--s-3); right: var(--s-3); top: 30%; z-index: 3; margin: 0 auto; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: var(--s-3); padding: var(--s-4); border-radius: var(--r-sheet); background: var(--n-noite); color: var(--n-luz); box-shadow: 0 10px 30px var(--n-sombra), inset 0 0 0 1.5px var(--n-linha); pointer-events: auto; text-align: center; font: var(--type-body); }
 .install p { margin: 0; }

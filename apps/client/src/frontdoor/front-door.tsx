@@ -7,6 +7,7 @@ import { ptAOTranslator as tr } from "@nzila/i18n";
 import { Button, Wordmark } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { LocalWorld } from "../world/provider.ts";
+import { Postal } from "./postal.tsx";
 
 /** What tools/pack writes for this page: the first district, and what its first view costs at each tier. */
 export interface Front {
@@ -27,13 +28,18 @@ export function FrontDoor() {
   const enter = (poupanca: boolean): void => {
     if (!front) return;
     new LocalWorld().change({ poupanca });
-    location.assign(`/andar?pack=${front.pack}`);
+    // Someone new chooses how they look before they arrive; someone who has, goes straight in.
+    const world = `/andar?pack=${front.pack}`;
+    location.assign(localStorage.getItem("nzila.look") ? world : `/provador?voltar=${encodeURIComponent(world)}`);
   };
 
   return (
     <div class="frontdoor n-on-dark">
       <Wordmark width={220} />
       <p>{tr.t("frontdoor.tagline")}</p>
+      <div class="frontdoor-card">
+        <Postal />
+      </div>
       {front ? (
         <div class="frontdoor-enter">
           <Button onPress={() => enter(false)}>{tr.t("frontdoor.enter")}</Button>
