@@ -199,6 +199,7 @@ flowchart LR
 ---
 
 ## PHASE 1: PRIMEIRO PASSEIO (the first walk, local simulation)
+*Built 2026-11-15 (tasks 1.1 to 1.8); Phase 2 opened under D-1.6. **Not complete:** the two founder's checks of Task 1.9 and the lines below that say "Open" are carried, and listed in `docs/completed/PHASE_1_COMPLETE.md`.*
 *Goal: on a real cheap phone, open a link and within a minute walk the Marginal of Luanda at golden hour, ride a candongueiro, see the bay, open the Telemóvel. No server. This phase answers the only question that matters first: does it look and feel better than what exists, on the phone people actually own?*
 
 **Dependency gate:** Phase 0 complete. The first district is **L1 · Marginal e Baixa** (see `WORLD_ATLAS.md` §2).
@@ -260,7 +261,7 @@ flowchart LR
 ### Task 1.9: Wiring, verification, doc convention
 - [ ] Measured on the reference phone and recorded: first play under 6 MB and under 60 seconds on a slow network; 30 fps on the bench path; input response; memory. The same walk on one real iPhone in Safari. *(2026-11-15: measured here only on a slowed desktop browser, as a permanent test: first play 2,79 MB in 20,5 s on the slow profile (budget 6 MB, 60 s). The reference phone and the iPhone are the founder's to do)*
 - [ ] **The founder's look test:** five Luandans who have never seen it are handed the phone. They must name where they are without being told. Their words go in the completion doc.
-- [ ] `PHASE_1_COMPLETE.md`, tick, Current State, `PHASE_2_PLAN.md`, commit.
+- [x] `PHASE_1_COMPLETE.md`, tick, Current State, `PHASE_2_PLAN.md`, commit. *(2026-11-15: written as "built, not yet proven on a phone"; the phase is not ticked complete.)*
 - Depends on: 1.1 to 1.8 · Unblocks: Phase 2.
 
 **Out of scope:** accounts, other players, money, anything persistent.
@@ -270,7 +271,7 @@ flowchart LR
 ## PHASE 2: IDENTITY (guest play, accounts, the BI)
 *Goal: a player exists, looks like themselves, and is still there tomorrow.*
 
-**Dependency gate:** Phase 1 complete.
+**Dependency gate:** Phase 1 complete. *(Opened 2026-11-15 under D-1.6 with Phase 1 built and its founder's checks open; see `docs/PHASE_2_PLAN.md`.)*
 
 ### Task 2.1: Guest accounts
 - [ ] First open creates a guest player bound to the device (Better Auth anonymous session; confirm the plugin against current docs). No personal data asked.
@@ -282,7 +283,7 @@ flowchart LR
 - Depends on: 2.1 · Unblocks: 2.5, 14.1.
 
 ### Task 2.3: Avatar creator and the BI
-- [ ] **The player chooses how they look and can change it (founder, 2026-11-14):** the hair (tranças, afro, dreads, corte baixo, puxinho, lenço and more) and each piece of clothing separately: a dress, a skirt or a pano, jeans or trousers or shorts, a top, shoes. The bodies of `art/scripts/person.py` are already made of these parts; the creator shows the person turning as each is changed.
+- [ ] **The player chooses how they look and can change it (founder, 2026-11-14):** the hair (tranças, afro, dreads, corte baixo, puxinho, lenço and more) and each piece of clothing separately: a dress, a skirt or a pano, jeans or trousers or shorts, a top, shoes. The bodies of `art/scripts/person.py` are already made of these parts; the creator shows the person turning as each is changed. *(2026-11-15: the chooser exists from Phase 1, `/provador`, kept on the device. Left for this task: the server keeps and validates it, D-2.1.)*
 - [ ] **A lotaria da vida, ours (D-0.44, founder 2026-11-14):** after the avatar, a card is drawn and turned over: the parents' trades, the family's province, the bairro, the starting Makuta (never under 1.500) and the first home. Written with wit, made to be screenshotted. The draw is made by the server, recorded once, and paid through the ledger from a named faucet.
 - [ ] Creator: body, skin, face, hair, clothes from a starter wardrobe; rotate with a thumb; under 20 seconds to something you like.
 - [ ] The BI (Bilhete de Identidade of the game): in-game name (unique, filtered), photo of the avatar, number, date of arrival, bairro. It is the player's profile card everywhere.
