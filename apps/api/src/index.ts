@@ -1,6 +1,7 @@
+import { connect, parsePepper } from "@nzila/db";
 import { buildApp } from "./app.ts";
 
 const port = Number(process.env.API_PORT ?? 4000);
-const app = buildApp();
+const app = buildApp({ sql: connect(), pepper: parsePepper(process.env.HASH_PEPPER) });
 await app.listen({ port, host: "0.0.0.0" });
 console.log(`api: listening on ${port}`);

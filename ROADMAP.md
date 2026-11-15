@@ -274,7 +274,7 @@ flowchart LR
 **Dependency gate:** Phase 1 complete. *(Opened 2026-11-15 under D-1.6 with Phase 1 built and its founder's checks open; see `docs/PHASE_2_PLAN.md`.)*
 
 ### Task 2.1: Guest accounts
-- [ ] First open creates a guest player bound to the device (Better Auth anonymous session; confirm the plugin against current docs). No personal data asked.
+- [ ] First open creates a guest player bound to the device (Better Auth anonymous session; confirm the plugin against current docs). No personal data asked. *(2026-11-15: the server half exists: `POST /v1/guests` makes a guest, a device known by its hash and a session known by its hash; `GET /v1/me`; `DELETE /v1/session`. Our own sessions on `player_sessions`, not Better Auth, for now (D-2.4). Not ticked: the client does not call it yet.)*
 - Depends on: 0.5, 1.8 · Unblocks: 2.2, 2.4.
 
 ### Task 2.2: Linking an account
@@ -290,9 +290,9 @@ flowchart LR
 - Depends on: 1.3, 1.7 · Unblocks: 3.5, 10.1.
 
 ### Task 2.4: API skeleton, sessions, guards
-- [ ] Fastify with Zod on every route; `requirePlayer()`, `requireStaff(role)`; idempotency keys stored per player; rate limits per device and per player in Redis.
-- [ ] `docs/SECURITY.md`: the authority model and trust boundaries.
-- [ ] A test walks every route and fails the build on one without a guard.
+- [ ] Fastify with Zod on every route; `requirePlayer()`, `requireStaff(role)`; idempotency keys stored per player; rate limits per device and per player in Redis. *(2026-11-15: `declare()` puts a guard, a Zod shape and a rate limit on every route. Not ticked: limits are in memory, not Redis (F-111); idempotency keys wait for the first route that needs one; staff passes nobody yet.)*
+- [x] `docs/SECURITY.md`: the authority model and trust boundaries. *(2026-11-15)*
+- [x] A test walks every route and fails the build on one without a guard. *(2026-11-15: `apps/api/src/app.test.ts`; an unguarded route also stops the app from being built.)*
 - Depends on: 0.5, 2.1 · Unblocks: every later API task.
 
 ### Task 2.5: Persistence of the player

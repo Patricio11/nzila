@@ -46,6 +46,8 @@ Order of work: 2.4 and 2.1 together (the API and a guest), 2.6 (the age gate sit
 
 **D-2.3 The provider stays the seam (delegated).** Pages go on asking `WorldProvider`; a `ServerWorld` sits beside `LocalWorld` and takes over what the server now owns (identity, look, settings), one thing at a time. *Recommendation: yes.*
 
+**D-2.4 Guest sessions are our own, for now (delegated, 2026-11-15; the founder may overrule).** The roadmap names Better Auth's anonymous sessions and says to confirm the plugin first (Q1). A guest needs one table that already exists and forty lines: a random token, its hash, an expiry. Writing it ourselves keeps the player's id fixed from the first second and adds no dependency to trust before it has been read. Better Auth is looked at again at Task 2.2, where linking by phone, Google and email is real work it may save. *Recommendation: yes.*
+
 ## What "done" means for this phase
 
 From the roadmap, Task 2.7: a guest upgraded on one device appears whole on another; deletion removes personal data and keeps anonymous ledger rows; every route is guarded, and a test fails the build on one that is not.
