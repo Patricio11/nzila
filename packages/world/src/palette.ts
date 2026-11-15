@@ -46,6 +46,13 @@ export const WORLD = {
   // The blue and white
   vanWhite: hex("#F6F3EA"),
   vanBlue: hex("#2E97E6"), // the blue of the candongueiro, from the founder's photograph
+  // The police, as they are dressed (founder's photographs, 2026-11-15): dark blue from cap to boot
+  policeNavy: hex("#1E2A4C"),
+  policeNavyDark: hex("#141C33"),
+  // The national flag, where it flies in life: on public buildings
+  flagRed: hex("#CC092F"),
+  flagBlack: hex("#16130F"),
+  flagYellow: hex("#F9D616"),
   // Vehicles (art/scripts/vehicles.py)
   vanGlass: hex("#27384C"),
   vanLine: hex("#1F6DA8"), // a door's edge on the blue

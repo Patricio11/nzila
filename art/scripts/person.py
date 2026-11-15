@@ -376,6 +376,47 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         loft(wrap, [cloth] * 3)
         cap(wrap[-1], cloth, T((0.0, yc, zc)))
         b.gem(T((0.0, yc + 0.135, zc + 0.03)), (0.045 * s, 0.035 * s, 0.04 * s), 5, cloth, rng, rough=0.1)
+    elif style == "bone":
+        # A peaked cap: the crown, and the peak out over the eyes.
+        cloth = spec.get("cap", "awningTeal")
+        shell = [(0.030, 0.090, 0.103), (0.075, 0.092, 0.104), (0.118, 0.080, 0.092), (0.140, 0.050, 0.058)]
+        crown = [ring(0.0, yc + dy, zc - 0.004, rx, rz, 10) for (dy, rx, rz) in shell]
+        loft(crown, [cloth] * 3)
+        cap(crown[-1], cloth, T((0.0, yc, zc)))
+        peak = [T((px, yc + 0.034 + lift, zc + pz)) for px, pz, lift in [(-0.075, 0.07, 0.006), (0.075, 0.07, 0.006), (0.058, 0.165, 0.0), (-0.058, 0.165, 0.0)]]
+        b.face(peak, "clothBlack", toward=(0.0, 1.0, 0.0), two_sided=True)
+
+    if spec.get("belt"):
+        # A belt over the uniform, with its buckle.
+        b.part = "torso"
+        band = [ring(0.0, y, 0.0, waist * 1.09, waist_z * 1.12, 12) for y in (0.985, 1.03)]
+        loft(band, [spec["belt"]])
+        b.face([T((-0.02, 0.992, waist_z * 1.14)), T((0.02, 0.992, waist_z * 1.14)), T((0.02, 1.024, waist_z * 1.14)), T((-0.02, 1.024, waist_z * 1.14))], "rim", toward=_turn((0.0, 0.0, 1.0), yaw))
+
+    # ------------------------------------------------------------ what is carried
+    if spec.get("bacia"):
+        # The zungueira's bacia, on a rolled cloth on the head, heaped with what she sells.
+        b.part = "head"
+        base = yc + (0.165 if style == "lenco" else 0.145)
+        b.tube([T((0.0, base, zc)), T((0.0, base + 0.035, zc))], [0.07 * s, 0.075 * s], 8, "cloth", cap=False)
+        basin = [ring(0.0, base + dy, zc, r, r, 10) for dy, r in [(0.03, 0.15), (0.075, 0.215), (0.13, 0.25)]]
+        loft(basin, [spec["bacia"]] * 2, two_sided=True)
+        cap(basin[0], spec["bacia"], T((0.0, base + 0.3, zc)))
+        for k in range(6):
+            angle = 2 * math.pi * k / 6 + 0.4
+            reach = 0.12 if k else 0.0
+            b.gem(T((reach * math.cos(angle), base + 0.14, zc + reach * math.sin(angle))), (0.075 * s, 0.06 * s, 0.075 * s), 5, spec.get("goods", ["awningGold", "acaciaFlower", "awningGold", "acaciaLeaf", "awningGold", "roofTile"])[k], rng, rough=0.1)
+    if spec.get("cana"):
+        # A fishing rod in the right hand. The arm hangs as the body is made, so the rod is made pointing
+        # down and forward: with the forearm brought up to hold it, it points out over the water.
+        b.part = "hand.R"
+        hx_, hy_ = -(shoulder * 0.93 + 0.13), 0.80
+        along = (0.0, -0.67, 0.74)
+        butt = (hx_, hy_ - along[1] * 0.22, 0.03 - along[2] * 0.22)
+        grip = (hx_, hy_, 0.03)
+        middle = (hx_, hy_ + along[1] * 1.1, 0.03 + along[2] * 1.1)
+        tip = (hx_, hy_ + along[1] * 2.3, 0.03 + along[2] * 2.3)
+        b.tube([T(butt), T(grip), T(middle), T(tip)], [0.014 * s, 0.013 * s, 0.009 * s, 0.004 * s], 4, "wood")
     b.part = None
     return height
 

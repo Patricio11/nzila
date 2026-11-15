@@ -317,7 +317,7 @@ The founder or a local source confirms each of these; the answer and its date ar
 - **Faith with respect.** Churches and sanctuaries are architecture and community; they are never a setting for crime, comedy or commerce in the game. Real, historic churches stay architecture only. The Sunday culto (D-0.33, Task 10.12) happens in an invented congregation's church with an invented name and no denomination: a choir, a full room, neighbours talking outside afterwards. We write no sermon and no doctrine. The brief is reviewed by the founder and two churchgoers before it is built.
 - **Marriage with respect.** The pedido and the alambamento are real customs that differ by family and by people. They are not in the game for now (founder, 2026-11-14): any two players who agree may marry. If they are ever added, it is only in a form the founder has written (D-0.34), never as a purchase.
 - **History with gravity.** The slavery museum, war memorials and battle sites are places to read and be quiet. No minigames, no heat, no businesses.
-- **The police are invented.** Name, livery and insignia are the game's own.
+- **The police are invented in name and insignia.** They dress as the police do, in dark blue (founder, 2026-11-15, D-0.49); the force's name, its emblem and every badge are the game's own.
 - **Ethnicity and language are flavour offered with care, never a mechanic.** No stat, price or risk ever depends on an avatar's look, name or speech.
 - **Wildlife is seen, not hunted.**
 

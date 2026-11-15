@@ -333,6 +333,8 @@ for k in range(9):
     a = math.radians(160 + k * 25)
     b.box((VIEW[0] + math.cos(a) * 8.0, view_y + 0.6, VIEW[1] + math.sin(a) * 8.0), (0.3, 1.0, 0.3), "fortStone")
 kit.bench(b, VIEW[0] + 1.5, VIEW[1] + 3.0, math.pi, view_y + 0.1)
+# The flag over the fortress, seen from the whole bay.
+kb.bandeira(b, VIEW[0] - 5.5, VIEW[1] - 2.0, view_y + 0.1, mast=11.0, wide=3.6)
 kit.bench(b, VIEW[0] - 3.0, VIEW[1] + 2.0, math.pi, view_y + 0.1)
 poi("miradouro", VIEW[0], VIEW[1], "Miradouro da Fortaleza", "Daqui vê-se a baía inteira. Sobe ao fim da tarde.", round(view_y + 0.1, 2))
 
@@ -376,6 +378,7 @@ kb.campo(b, 322.0, shore(322) + 21.5, 26.0, 14.0, "futebol", G + 0.03)
 rect = kb.posto(b, 384.0, shore(384) + 26.0, G + 0.03)
 mark(rect[0], rect[1], rect[2], rect[3], "#")
 places["police"].append([384.0, G, round(shore(384) + 26.0, 2)])
+block(389.5, shore(389.5) + 23.0, kb.bandeira(b, 389.5, shore(389.5) + 23.0, G + 0.03, mast=7.5, wide=2.1))
 poi("por-do-sol", 250.0, shore(250) + 5.0, "O pôr do sol na Marginal", "Senta-te no muro e espera. É todos os dias e nunca é igual.")
 poi("palmeiras", 170.0, shore(170) + 15.5, "A avenida das palmeiras", "Uma fila de palmeiras a perder de vista, de uma ponta à outra da baía.")
 
@@ -437,6 +440,10 @@ for index, (x0, x1) in enumerate(BLOCKS):
         keep = kb.edificio_rosa(b, x0 + 4.0, fz + 1.0, x1 - 4.0, back - 2.0, rng, G)
         mark(keep[0], keep[1], keep[2], keep[3], "#")
         mark(x0 + 4.0, fz + 1.0, x0 + 13.0, fz + 9.0, "#")
+        # The national flag before it, as before any public building, and where the zungueira is run off.
+        for mast_x in (x0 + 20.0, x1 - 20.0):
+            block(mast_x, fz - 0.9, kb.bandeira(b, mast_x, fz - 0.9, G))
+        rosa = (x0, fz, x1)
         poi("livreiro", x0 + 30.0, fz + 3.0, "O livreiro da arcada", "Livros usados à sombra das arcadas. Ele sabe sempre o que procuras.")
         continue
     if back - fz > 40:
@@ -479,6 +486,7 @@ for i in range(11):
     block(tx + 2.5, tz + 0.8, 0.5)
 poi("xadrez", lx0 + 21.0, z0 + 14.0, "As mesas de xadrez do Largo", "Os kotas jogam aqui desde manhã. Quem perde paga o café.")
 paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4)
+largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down
 poi("cobrador", lx0 + 44.0, z0 + 4.5, "A paragem da Mutamba", "Diz-se que o cobrador daqui se ouve na Ilha.")
 # The iron palace, and beside it the old cinema.
 fx0, fx1 = BLOCKS[2]
@@ -552,6 +560,156 @@ for name, points in routes.items():
 with open(os.path.join(out_dir, "strings.pt-AO.json"), "w", encoding="utf-8") as handle:
     json.dump(words, handle, ensure_ascii=False)
 
+# ---------------------------------------------------------------- the people of the street
+# Each has a timetable that repeats: where they are at each moment, and what they are doing there.
+# The game reads the clock and the timetable and nothing else, so every phone sees the same street.
+# A key is [seconds, x, z, what they do from then on, the way they face when they stand (degrees)].
+crowd_rng = random.Random(23)
+actors = []
+
+
+def timetable(stages):
+    """
+    From stages to keys. A stage is ("go", x, z, metres a second), ("stay", seconds, pose, facing)
+    or ("at", x, z) for where it all begins. The last stage must bring the person back to the start.
+    """
+    keys, clock_s, px, pz, facing = [], 0.0, None, None, 0.0
+    for stage in stages:
+        if stage[0] == "at":
+            px, pz = stage[1], stage[2]
+        elif stage[0] == "go":
+            _, nx, nz, pace = stage
+            far = math.hypot(nx - px, nz - pz)
+            if far < 0.05:
+                continue
+            facing = math.degrees(math.atan2(nx - px, nz - pz)) % 360
+            keys.append([round(clock_s, 1), round(px, 2), round(pz, 2), "", round(facing, 1)])
+            clock_s += far / pace
+            px, pz = nx, nz
+        else:
+            _, seconds, pose, face = stage
+            facing = facing if face is None else face
+            keys.append([round(clock_s, 1), round(px, 2), round(pz, 2), pose, round(facing, 1)])
+            clock_s += seconds
+    keys.append([round(clock_s, 1), keys[0][1], keys[0][2], "", keys[0][4]])
+    return keys
+
+
+def stroll(role, x0, x1, lane, pace, rests=(), who=None):
+    """Along the promenade's walk and back, resting here and there (x, seconds, pose)."""
+    step = 10.0 if x1 > x0 else -10.0
+    xs = [x0 + step * k for k in range(int(abs(x1 - x0) // 10) + 1)] + [x1]
+    out = [("at", x0, shore(x0) + lane)]
+    for way in (xs[1:], list(reversed(xs))[1:]):
+        for px in way:
+            out.append(("go", px, shore(px) + lane, pace))
+            for rx, seconds, pose in rests:
+                if abs(px - rx) < 5.0:
+                    out.append(("stay", seconds, pose, 180.0))
+        out.append(("stay", crowd_rng.uniform(4, 9), "", 180.0))
+    keys = timetable(out)
+    actors.append({"role": role, **({"who": who} if who is not None else {}), "offset": round(crowd_rng.uniform(0, keys[-1][0]), 1), "keys": keys})
+
+
+# Zungueiras, who stop where people are; walkers at their own paces; one who runs.
+stroll("zungueira", 132.0, 300.0, 6.2, 1.0, rests=[(170.0, 12.0, "chamar"), (226.0, 16.0, ""), (280.0, 10.0, "chamar")])
+stroll("zungueira", 410.0, 246.0, 5.6, 0.95, rests=[(380.0, 14.0, ""), (330.0, 10.0, "chamar"), (262.0, 12.0, "")])
+for who, (x0, x1, lane, pace) in enumerate([(120.0, 260.0, 3.4, 1.3), (300.0, 150.0, 4.6, 1.2), (210.0, 400.0, 3.0, 1.4), (420.0, 280.0, 7.2, 1.15), (160.0, 330.0, 7.4, 1.25), (360.0, 200.0, 2.6, 1.35)]):
+    stroll("any", x0, x1, lane, pace, who=who)
+stroll("any", 112.0, 430.0, 4.0, 3.1, who=6)
+# People on the benches, on every third one.
+for n, (sx, sy, sz, yaw) in enumerate(b.seats):
+    if n % 3 == 1:
+        actors.append({"role": "any", "who": (n * 5 + 3) % 8, "offset": 0.0, "y": round(sy - 0.46, 2), "keys": [[0.0, round(sx + math.sin(yaw) * 0.08, 2), round(sz + math.cos(yaw) * 0.08, 2), "sit", round(math.degrees(yaw) % 360, 1)], [600.0, round(sx + math.sin(yaw) * 0.08, 2), round(sz + math.cos(yaw) * 0.08, 2), "sit", round(math.degrees(yaw) % 360, 1)]]})
+# Across the Largo da Mutamba, and a zungueira who sells to the queue at its paragem.
+for who, (pace, lane) in enumerate([(1.3, 6.0), (1.2, 8.0), (1.4, 7.0)]):
+    ends = (largo[0] + 4.0, largo[2] - 4.0) if who % 2 == 0 else (largo[2] - 5.0, largo[0] + 6.0)
+    keys = timetable([("at", ends[0], largo[1] + lane), ("go", ends[1], largo[1] + lane, pace), ("stay", 8.0, "", None), ("go", ends[0], largo[1] + lane, pace), ("stay", 6.0, "", None)])
+    actors.append({"role": "any", "who": who + 3, "offset": round(crowd_rng.uniform(0, keys[-1][0]), 1), "keys": keys})
+sell_x, sell_z = largo[0] + 52.5, largo[1] + 4.0
+actors.append({"role": "zungueira", "who": 1, "offset": 0.0, "keys": timetable([("at", sell_x, sell_z), ("stay", 20.0, "", 0.0), ("stay", 2.4, "chamar", 0.0), ("go", sell_x - 6.0, sell_z + 0.6, 0.9), ("stay", 18.0, "", 0.0), ("go", sell_x, sell_z, 0.9)])})
+
+# Nobody may fish on the Marginal (D-0.47). One man does, off the edge east of the courts; the officer
+# comes from the post and runs him off; he comes back when the officer has gone. For ever.
+fish_x = 362.0
+fish = (fish_x, shore(fish_x) + 1.25)
+post = (381.0, shore(381.0) + 22.6)
+near = (fish_x + 5.0, shore(fish_x + 5.0) + 3.2)
+far_x = 312.0
+fled = (far_x, shore(far_x) + 3.0)
+gave_up = (fish_x - 22.0, shore(fish_x - 22.0) + 3.4)
+walk_s = math.hypot(near[0] - post[0], near[1] - post[1]) / 1.5
+called = 76.0 + walk_s  # the moment the officer is beside him and calls out
+fisher = timetable([
+    ("at", fish[0], fish[1]),
+    # He is off at the first word, before the officer has finished saying it.
+    ("stay", called + 0.7, "fish", 180.0),
+    ("go", fish[0] - 12.0, shore(fish[0] - 12.0) + 3.0, 4.3),
+    ("go", fish[0] - 30.0, shore(fish[0] - 30.0) + 3.0, 4.3),
+    ("go", fled[0], fled[1], 4.3),
+    ("stay", 26.0, "", 90.0),
+    ("go", fish[0] - 30.0, shore(fish[0] - 30.0) + 3.0, 1.2),
+    ("go", fish[0] - 12.0, shore(fish[0] - 12.0) + 3.0, 1.2),
+    ("go", fish[0], fish[1], 1.2),
+    ("stay", 4.0, "fish", 180.0),
+])
+officer = timetable([
+    ("at", post[0], post[1]),
+    ("stay", 76.0, "", 180.0),
+    ("go", near[0], near[1], 1.5),
+    ("stay", 2.0, "chamar", 270.0),
+    # After him, from behind and slower: he never catches the man.
+    ("go", fish[0] - 8.0, shore(fish[0] - 8.0) + 3.2, 3.3),
+    ("go", gave_up[0], gave_up[1], 3.3),
+    ("stay", 7.0, "", 270.0),
+    ("go", near[0], near[1], 1.3),
+    ("go", post[0], post[1], 1.3),
+])
+# The two keep the same time: the officer waits out whatever is left of the man's round.
+round_s = max(fisher[-1][0], officer[-1][0])
+for keys, stand in ((fisher, "fish"), (officer, "")):
+    if keys[-1][0] < round_s:
+        keys[-1][3] = stand
+        keys.append([round(round_s, 1), keys[0][1], keys[0][2], "", keys[0][4]])
+actors.append({"role": "pescador", "offset": 0.0, "keys": fisher})
+actors.append({"role": "policia", "offset": 0.0, "keys": officer})
+
+# Zunga is not allowed everywhere (D-0.49): before the pink building an officer runs the zungueira off,
+# and she comes back when he has gone back to his corner.
+rx0, rfz, rx1 = rosa
+lane_z = rfz - 2.3
+came = 59.0 + ((rx1 - 16.0) - (rx0 + 27.5)) / 1.45  # the moment the officer is beside her and calls out
+seller = timetable([
+    ("at", rx0 + 22.0, lane_z),
+    ("stay", 40.0, "", 0.0),
+    ("stay", 2.4, "chamar", 0.0),
+    # She is away at his first word, the bacia steady on her head.
+    ("stay", came + 0.6 - 42.4, "", 0.0),
+    ("go", rx0 + 6.0, lane_z - 0.4, 2.6),
+    ("go", rx0 - 14.0, lane_z - 0.6, 2.6),
+    ("stay", 34.0, "", 90.0),
+    ("go", rx0 + 6.0, lane_z - 0.4, 1.0),
+    ("go", rx0 + 22.0, lane_z, 1.0),
+])
+watch = timetable([
+    ("at", rx1 - 16.0, lane_z - 0.3),
+    ("stay", 59.0, "", 0.0),
+    ("go", rx0 + 27.5, lane_z - 0.3, 1.45),
+    ("stay", 2.0, "chamar", 270.0),
+    ("go", rx0 + 8.0, lane_z - 0.4, 2.2),
+    ("stay", 8.0, "", 270.0),
+    ("go", rx1 - 16.0, lane_z - 0.3, 1.3),
+])
+round_s = max(seller[-1][0], watch[-1][0])
+for keys in (seller, watch):
+    if keys[-1][0] < round_s:
+        keys.append([round(round_s, 1), keys[0][1], keys[0][2], "", keys[0][4]])
+actors.append({"role": "zungueira", "who": 0, "offset": 40.0, "keys": seller})
+actors.append({"role": "policia", "offset": 40.0, "keys": watch})
+os.makedirs(os.path.join(out_dir, "npc"), exist_ok=True)
+with open(os.path.join(out_dir, "npc", "crowd.json"), "w", encoding="utf-8") as handle:
+    json.dump({"actors": actors}, handle, separators=(",", ":"))
+
 spawn_x = 250.0
 partial = {
     "id": "ao-lua/l1",
@@ -572,7 +730,7 @@ partial = {
     "lots": [],
     "residences": places["residences"],
     "interiors": [],
-    "npc": {"crowd": None, "vendors": None, "police": None},
+    "npc": {"crowd": "npc/crowd.json", "vendors": None, "police": None},
     "heat": {"lighting": None, "policePosts": places["police"], "override": None},
     "adSlots": [],
     "seats": [{"id": f"seat-{n + 1}", "pos": [round(sx, 2), round(sy, 2), round(sz, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for n, (sx, sy, sz, yaw) in enumerate(b.seats)],

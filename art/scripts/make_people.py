@@ -35,6 +35,16 @@ SPECS = [
     {"name": "Paulo", "sex": "m", "skin": 0, "height": 1.75, "hair": "afro", "afro": 0.86, "top": "long", "top_colour": "vanBlue", "bottom": "trousers", "bottom_colour": "clothBlack", "shoe": "shoe"},
 ]
 
+# The people of the street, who are not anybody's to play: each has a `role` the crowd asks for.
+STREET = [
+    {"role": "zungueira", "name": "zungueira", "sex": "f", "skin": 3, "height": 1.64, "build": 1.06, "hair": "lenco", "lenco": "awningGold", "top": "blusa", "top_colour": "paintWhite", "bottom": "pano", "bottom_colour": "person2", "bands": "awningGold", "shoe": "chinelo", "bacia": "zincBlue"},
+    {"role": "zungueira", "name": "zungueira-2", "sex": "f", "skin": 1, "height": 1.58, "hair": "lenco", "lenco": "awningRed", "top": "tshirt", "top_colour": "person4", "bottom": "pano", "bottom_colour": "awningTeal", "bands": "cloth", "shoe": "chinelo", "bacia": "awningRed", "goods": ["paintWhite", "paintWhite", "sand", "paintWhite", "sand", "paintWhite"]},
+    {"role": "policia", "name": "polícia", "sex": "m", "skin": 2, "height": 1.80, "build": 1.08, "hair": "bone", "cap": "policeNavy", "top": "long", "top_colour": "policeNavy", "bottom": "trousers", "bottom_colour": "policeNavy", "shoe": "clothBlack", "belt": "clothBlack"},
+    {"role": "pescador", "name": "pescador", "sex": "m", "skin": 4, "height": 1.74, "build": 0.96, "hair": "bone", "cap": "khaki", "top": "alcas", "top_colour": "paintWhite", "bottom": "shorts", "bottom_colour": "khaki", "shoe": "chinelo", "cana": True},
+]
+PLAYABLE = len(SPECS)
+SPECS = SPECS + STREET
+
 bpy.ops.wm.read_factory_settings(use_empty=True)
 image = bpy.data.images.load(os.path.abspath(args[2]))
 material = bpy.data.materials.new("palette")
@@ -52,9 +62,9 @@ rng = random.Random(11)
 SPACING = 1.0
 standing = []
 for i, spec in enumerate(SPECS):
-    px = (i - (len(SPECS) - 1) / 2) * SPACING
+    px = (i - (PLAYABLE - 1) / 2) * SPACING
     tall = person.pessoa(b, px, 0.0, 0.0, spec, rng)
-    standing.append({"name": spec["name"], "x": round(px, 3), "z": 0.0, "height": tall, "model": f"pessoa-{i}.glb", "female": spec.get("sex", "f") == "f", "skirt": spec.get("bottom") in ("skirt", "pano") or spec.get("top") in ("dress", "vestido")})
+    standing.append({**({"role": spec["role"]} if "role" in spec else {}), "name": spec["name"], "x": round(px, 3), "z": 0.0, "height": tall, "model": f"pessoa-{i}.glb", "female": spec.get("sex", "f") == "f", "skirt": spec.get("bottom") in ("skirt", "pano") or spec.get("top") in ("dress", "vestido")})
 b.write()
 
 triangles = sum(len(polygon.vertices) - 2 for obj in bpy.data.objects if obj.type == "MESH" for polygon in obj.data.polygons)

@@ -7,6 +7,7 @@
 # Architecture only (Rule 8): no names, no emblems, no flags of institutions.
 
 import math
+import random
 
 import kit
 from kit import BOTH, FULL, LIGHT, _add, _mul
@@ -317,11 +318,65 @@ def posto(b, x, z, ground=0.14):
     b.at(x, z)
     b.level = BOTH
     b.box((x, ground + 1.5, z), (5.0, 3.0, 3.6), "paintWhite", top="roofZinc")
-    b.box((x, ground + 0.5, z), (5.06, 1.0, 3.66), "awningTeal")
+    b.box((x, ground + 0.5, z), (5.06, 1.0, 3.66), "policeNavy")
     b.rect((x - 0.9, ground + 1.1, z - 1.84), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.0, 2.1, "wood")
     b.rect((x + 1.2, ground + 1.8, z - 1.84), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.4, 1.0, "windowLit")
-    b.box((x, ground + 3.3, z - 1.9), (2.4, 0.5, 0.08), "awningTeal")
+    b.box((x, ground + 3.3, z - 1.9), (2.4, 0.5, 0.08), "policeNavy")
     return (x - 2.5, z - 1.8, x + 2.5, z + 1.8)
+
+
+def bandeira(b, x, z, ground=0.14, mast=9.0, wide=2.7):
+    """
+    The national flag on its mast, where it flies in life: before a public building. Red over
+    black, and in the middle in yellow the arc of a cogwheel, the machete across it and the star.
+    It hangs out toward -X with a fold or two in it, so that someone looking at it from the north (the
+    bay's side in Luanda) sees its right face, the mast at their left; from behind it is reversed, as cloth is.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    b.tube([(x, ground, z), (x, ground + mast, z)], [0.07, 0.045], 6, "rim")
+    b.gem((x, ground + mast + 0.08, z), (0.09, 0.09, 0.09), 5, "flagYellow", random.Random(1), rough=0.0)
+    high = wide * 2 / 3
+    top = ground + mast - 0.15
+    folds = [0.0, 0.10, -0.06, 0.08, 0.0]
+
+    def at(u, v, off=0.0):
+        """A point on the cloth: u along it from the mast (0 to 1), v down it (0 to 1)."""
+        k = min(len(folds) - 2, int(u * (len(folds) - 1)))
+        part = u * (len(folds) - 1) - k
+        return (x - 0.05 - u * wide, top - v * high - 0.05 * u * u, z + folds[k] + (folds[k + 1] - folds[k]) * part + off)
+
+    for k in range(len(folds) - 1):
+        u0, u1 = k / (len(folds) - 1), (k + 1) / (len(folds) - 1)
+        b.face([at(u0, 0.0), at(u1, 0.0), at(u1, 0.5), at(u0, 0.5)], "flagRed", toward=(0.0, 0.0, 1.0), two_sided=True)
+        b.face([at(u0, 0.5), at(u1, 0.5), at(u1, 1.0), at(u0, 1.0)], "flagBlack", toward=(0.0, 0.0, 1.0), two_sided=True)
+    b.level = FULL
+    for side in (0.012, -0.012):
+        facing = (0.0, 0.0, 1.0 if side > 0 else -1.0)
+        def spot(cu, cv, angle, r):
+            """A point at an angle (degrees, anticlockwise from the right) and a distance from a centre, on the cloth."""
+            return at(cu + math.cos(math.radians(angle)) * r * 2 / 3, cv - math.sin(math.radians(angle)) * r, side)
+
+        # The cogwheel: an arc from the top, round the right, to the lower left, with its teeth outside.
+        WHEEL = (0.50, 0.47)
+        steps = 18
+        for k in range(steps):
+            a0, a1 = 93 - 232 * k / steps, 93 - 232 * (k + 1) / steps
+            b.face([spot(*WHEEL, a0, 0.185), spot(*WHEEL, a1, 0.185), spot(*WHEEL, a1, 0.228), spot(*WHEEL, a0, 0.228)], "flagYellow", toward=facing)
+            if k % 2 == 0:
+                b.face([spot(*WHEEL, a0 - 1.5, 0.226), spot(*WHEEL, a1 + 1.5, 0.226), spot(*WHEEL, a1 + 2.5, 0.268), spot(*WHEEL, a0 - 2.5, 0.268)], "flagYellow", toward=facing)
+        # The machete: its curved point up at the left, the blade down across the wheel, the handle beyond it.
+        upper = [(0.404, 0.452), (0.425, 0.500), (0.470, 0.560), (0.535, 0.630), (0.612, 0.706)]
+        lower = [(0.404, 0.452), (0.408, 0.535), (0.452, 0.598), (0.520, 0.662), (0.600, 0.728)]
+        for k in range(len(upper) - 1):
+            b.face([at(*upper[k], side), at(*upper[k + 1], side), at(*lower[k + 1], side), at(*lower[k], side)], "flagYellow", toward=facing)
+        b.face([at(0.612, 0.706, side), at(0.668, 0.770, side), at(0.676, 0.800, side), at(0.656, 0.806, side), at(0.600, 0.728, side)], "flagYellow", toward=facing)
+        # The star, inside the wheel's curve, up and to the left.
+        STAR = (0.483, 0.372)
+        for k in range(0, 10, 2):
+            b.face([spot(*STAR, 90 + k * 36, 0.085), spot(*STAR, 90 + (k + 1) * 36, 0.034), at(*STAR, side), spot(*STAR, 90 + (k - 1) * 36, 0.034)], "flagYellow", toward=facing)
+    b.level = BOTH
+    return 0.3
 
 
 def banca(b, x, z, rng, ground=0.14):

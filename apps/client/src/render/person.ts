@@ -42,6 +42,8 @@ export interface Doing {
   readonly jump?: number;
   /** 1 as the feet come down, falling to 0 as the knees take the landing. */
   readonly land?: number;
+  /** Something held: a fishing rod out over the water, or a hand up to the bacia on the head. */
+  readonly hold?: "cana" | "bacia";
 }
 
 interface Joint {
@@ -267,6 +269,25 @@ export class Person {
       }
     }
 
+    if (doing.hold === "cana") {
+      // Both hands to the rod, the right one leading, the forearms up; the body turned a little to it.
+      this.toward("upperArmR", 1, -0.6 + 0.02 * Math.sin(t * 0.9), 0, -0.1);
+      this.toward("lowerArmR", 1, -0.66 + 0.03 * Math.sin(t * 0.9 + 0.5));
+      this.toward("handR", 1, 0);
+      this.toward("upperArmL", 1, -0.5, 0, -0.2);
+      this.toward("lowerArmL", 1, -0.9, -0.5);
+      this.toward("chest", 1, 0.04, -0.12);
+      this.toward("head", 1, 0.06, 0.1);
+    } else if (doing.hold === "bacia") {
+      // One hand up to steady the bacia; the head and the neck held still under it.
+      this.toward("upperArmL", 1, -0.25, 0, 2.35);
+      this.toward("lowerArmL", 1, -0.2, 0, 0.85);
+      this.toward("handL", 1, 0, 0, 0.3);
+      this.toward("neck", 0.85, 0);
+      this.toward("head", 0.85, 0);
+      this.toward("chest", 0.6, 0);
+    }
+
     // In the air. From standing or a walk, both knees come up and both arms are thrown up; from a run it
     // is a stride held in the air, one leg reaching and the other trailing, the arms against the legs.
     const jump = doing.jump ?? 0;
@@ -313,6 +334,11 @@ export class Person {
       if (x !== 0) turn.multiply(step.setFromAxisAngle(X, x));
       joint.bone.quaternion.copy(joint.rest).multiply(joint.worldInverse).multiply(turn).multiply(joint.world);
     }
+  }
+
+  /** Whether the body casts a shadow where the tier draws real ones. */
+  set shadow(on: boolean) {
+    this.mesh.castShadow = on;
   }
 
   dispose(): void {

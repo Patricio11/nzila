@@ -7,6 +7,7 @@ import { type Manifest } from "@nzila/world/client";
 import { type Mesh } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
+import { Crowd } from "./crowd.ts";
 import { Traffic } from "./traffic.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
@@ -27,12 +28,24 @@ export class DistrictScene {
 
   /** The vans on the district's linhas, when it has any and their model is built. */
   readonly traffic: Traffic | null;
-  /** For a still: the moment the traffic is shown at, in milliseconds, instead of now. */
+  /** For a still: the moment the traffic and the people are shown at, in milliseconds, instead of now. */
   trafficAt: number | null = null;
   private lastUpdate = 0;
+  /** For a film: added to the clock, so that the street's timetables run from a chosen moment. */
+  private shift = 0;
 
-  private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null) {
+  /** Lets time run, beginning at this moment of the timetables (milliseconds). */
+  runFrom(ms: number): void {
+    this.trafficAt = null;
+    this.shift = ms - Date.now();
+  }
+
+  /** The people of the street, when the district has a timetable for them and they are built. */
+  readonly crowd: Crowd | null;
+
+  private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null, crowd: Crowd | null) {
     this.traffic = traffic;
+    this.crowd = crowd;
     this.words = words;
     this.renderer = renderer;
     this.chunks = chunks;
@@ -53,7 +66,8 @@ export class DistrictScene {
   static async open(renderer: WorldRenderer, base: string): Promise<DistrictScene> {
     const chunks = await ChunkStream.open(renderer, base);
     const words = JSON.parse(new TextDecoder().decode(await meteredFetch(base + chunks.manifest.strings))) as Record<string, string>;
-    return new DistrictScene(renderer, chunks, words, await Traffic.open(renderer, base, chunks.manifest));
+    const [traffic, crowd] = await Promise.all([Traffic.open(renderer, base, chunks.manifest), Crowd.open(renderer, base, chunks.manifest)]);
+    return new DistrictScene(renderer, chunks, words, traffic, crowd);
   }
 
   /** A word of the district, or the key itself when the pack does not have it. */
@@ -114,7 +128,9 @@ export class DistrictScene {
   update(): void {
     this.chunks.update(this.x, this.z);
     const now = performance.now();
-    this.traffic?.update(this.trafficAt ?? Date.now(), this.lastUpdate === 0 ? 0 : now - this.lastUpdate);
+    const elapsed = this.lastUpdate === 0 ? 0 : now - this.lastUpdate;
+    this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed);
+    this.crowd?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, this.chunks.ground());
     this.lastUpdate = now;
   }
 
@@ -139,6 +155,7 @@ export class DistrictScene {
   close(): void {
     this.chunks.close();
     this.traffic?.close();
+    this.crowd?.close();
     for (const water of this.waters) {
       this.renderer.scene.remove(water);
       water.geometry.dispose();

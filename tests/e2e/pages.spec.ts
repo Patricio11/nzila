@@ -1,5 +1,6 @@
 declare global {
   interface Window {
+    __cenaMoment?: (second: number) => void;
     __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number };
   }
 }
@@ -118,11 +119,40 @@ test.describe("the candongueiros", () => {
     const standing = await page.evaluate(() => window.__cena!.vans!);
     expect(standing.filter((van) => van.dwelling).map((van) => van.route).sort()).toEqual(["linha-marginal", "linha-mutamba"]);
     const atStop = standing.find((van) => van.route === "linha-marginal" && van.dwelling)!;
-    await page.goto("/cena?pack=l1&tier=poupanca&hour=12&transito=40&at=313,110.5,1.6&look=304,104.5,1");
-    await page.waitForFunction(() => (window.__cena?.vans?.length ?? 0) > 0, undefined, { timeout: 45_000 });
+    await page.evaluate(() => window.__cenaMoment!(40));
+    await page.waitForFunction(() => window.__cena!.vans!.some((van) => van.route === "linha-marginal" && !van.dwelling), undefined, { timeout: 10_000 });
     const later = await page.evaluate(() => window.__cena!.vans!);
     // Traffic keeps to the right: on the avenue's town side the van has gone east.
     expect(later.some((van) => van.route === "linha-marginal" && !van.dwelling && van.x > atStop.x + 20)).toBe(true);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
+test.describe("the people of the street", () => {
+  test("keep their timetables: one man fishes off the Marginal until the officer comes, then he runs; and the picture stays inside its budget", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). The street's people were not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/cena?pack=l1&tier=normal&hour=12&transito=30&at=367.5,53.5,1.6&look=362,48.8,1.1");
+    await page.waitForFunction(() => (window.__cena?.people?.length ?? 0) > 0 && window.__cena!.stream !== undefined && window.__cena!.stream.shown === window.__cena!.stream.wanted && window.__cena!.stream.loading === 0, undefined, { timeout: 45_000 });
+    const quiet = await page.evaluate(() => window.__cena!);
+    expect(quiet.people!.find((p) => p.role === "pescador")).toMatchObject({ pose: "fish", speed: 0 });
+    // Six bodies at most at Normal, and the whole picture inside the reference budget.
+    expect(quiet.people!.length).toBeLessThanOrEqual(6);
+    expect(quiet.triangles).toBeLessThan(120_000);
+    await page.evaluate(() => window.__cenaMoment!(96));
+    await page.waitForFunction(() => window.__cena!.people!.some((p) => p.role === "pescador" && p.speed > 0), undefined, { timeout: 10_000 });
+    const chase = await page.evaluate(() => window.__cena!);
+    const fisher = chase.people!.find((p) => p.role === "pescador")!;
+    const officer = chase.people!.find((p) => p.role === "policia")!;
+    // He runs west along the walk first, and the officer is behind him and slower (founder, 2026-11-15).
+    expect(fisher.speed).toBeGreaterThan(3.5);
+    expect(fisher.x).toBeLessThan(362);
+    expect(officer.speed).toBeLessThan(fisher.speed);
+    expect(officer.x).toBeGreaterThan(fisher.x);
     expect(seen.errors).toEqual([]);
   });
 });
