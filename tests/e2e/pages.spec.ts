@@ -35,6 +35,51 @@ test.describe("the front door", () => {
   });
 });
 
+test.describe("going in", () => {
+  test("the door states what the first visit costs, the button goes in, megabytes are counted on the way, and the light door is remembered", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/front.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). Going in was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/");
+    await expect(page.locator(".frontdoor-cost")).toContainText(/A primeira entrada gasta \d+,\d\sMB de dados/);
+    await expect(page.getByRole("link", { name: /Entrar em Modo Poupança \(\d+,\d\sMB\)/ })).toBeVisible();
+    await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    await page.waitForURL(/\/andar\?pack=l1/);
+    // On the way in: megabytes of megabytes, never a bare spinner.
+    await expect(page.locator(".arriving-count")).toContainText(/ de \d+,\d\sMB/);
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await expect(page.locator(".arriving")).toHaveCount(0);
+    await expect(page.locator(".n-arrival, .n-wallet").first()).toBeVisible();
+
+    // The light door: Modo Poupança is chosen for this device before the game opens.
+    await page.goto("/");
+    await page.getByRole("link", { name: /Entrar em Modo Poupança/ }).click();
+    await page.waitForURL(/\/andar\?pack=l1/);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("nzila.settings") ?? "{}").poupanca)).toBe(true);
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("once visited, the door opens with the network gone, and the game can be put on the phone's screen", async ({ page, context }) => {
+    await page.goto("/");
+    await expect(page.getByRole("img", { name: "Nzila" })).toBeVisible();
+    // Installable: a manifest with the game's name and its icons.
+    const manifest = await (await page.request.get("/manifest.webmanifest")).json();
+    expect(manifest).toMatchObject({ name: "Nzila", display: "standalone", start_url: "/" });
+    for (const icon of manifest.icons as { src: string }[]) expect((await page.request.get(icon.src)).ok()).toBe(true);
+    // The worker takes the page; a second visit fills what it keeps; then the network goes.
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+    await page.reload({ waitUntil: "networkidle" });
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.getByRole("img", { name: "Nzila" })).toBeVisible();
+    await expect(page.getByText("O teu caminho começa aqui.")).toBeVisible();
+    await context.setOffline(false);
+  });
+});
+
 test.describe("the styleguide", () => {
   test("every component draws, nothing scrolls sideways, nothing errors, and it looks as it did", async ({ page }, info) => {
     const seen = watch(page);

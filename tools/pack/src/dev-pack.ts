@@ -6,7 +6,7 @@
 // are built against until the first real district exists, and it goes through
 // the same road as a real one: Blender, export, build, check.
 
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
@@ -216,6 +216,21 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         const manifest = await buildDistrict("make_l1.py", join(root, "dist", "l1"), join(root, "apps", "client", "public", "packs", "l1"), registry, brands);
         const mb = (bytes: number): string => (bytes / 1_000_000).toFixed(2);
         const heaviest = Math.max(...manifest.chunks.map((chunk) => chunk.stats.near.tris));
+        // The front door states what the first visit costs before a byte of it is fetched (Rule 2): the first
+        // view of the district at each tier, with the people and the vehicles a player meets there.
+        const extra = async (dir: string): Promise<number> => {
+          const folder = join(root, "apps", "client", "public", "packs", dir);
+          const names = await readdir(folder).catch(() => [] as string[]);
+          let sum = 0;
+          for (const name of names) sum += (await stat(join(folder, name))).size;
+          return sum;
+        };
+        const company = (await extra("dev-people")) * 0.6 + (await extra("dev-vehicles"));
+        const share = manifest.sizes.total.poupanca / manifest.sizes.total.normal;
+        await writeFile(
+          join(root, "apps", "client", "public", "packs", "front.json"),
+          `${JSON.stringify({ pack: "l1", nameKey: manifest.nameKey, firstView: { normal: Math.round(manifest.sizes.firstView + company), poupanca: Math.round(manifest.sizes.firstView * share + company) } })}\n`,
+        );
         console.log(`pack l1: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal (budget 8), the heaviest chunk ${heaviest} triangles, ${manifest.pois.length} points of interest. Served at /packs/l1/.`);
       } catch (error) {
         if (!(error instanceof PackError)) throw error;

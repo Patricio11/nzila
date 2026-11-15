@@ -16,11 +16,12 @@
 //   /andar?cam=120         where the camera starts, in degrees round the person
 //   /andar?transito=3      holds the traffic and the people at that second of their timetables (for stills)
 //   /andar?desde=85        lets them run from that second (for films)
+//   /andar?chegar          keeps the arriving screen up (for stills)
 //   /andar?hour=17.3&tier=normal
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { CELL_DRIVE, CELL_LOW, CELL_WALK, bodyFits, groundHeight, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
-import { Arrival, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, SpeechBalloon, WalletChip, type CompassMark } from "@nzila/ui";
+import { Arrival, Button, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, SpeechBalloon, WalletChip, type CompassMark } from "@nzila/ui";
 import { PointLight, Vector3 } from "three";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DEV_PACK } from "../render/bench-scene.ts";
@@ -29,8 +30,10 @@ import { EMOTES, EMOTE_SECONDS, loadPerson, type Emote, type Person } from "../r
 import { type VanSeen } from "../render/traffic.ts";
 import { type TierName } from "../render/tiers.ts";
 import { Telemovel, type Marked } from "../telemovel/telemovel.tsx";
+import { Arriving } from "../frontdoor/arriving.tsx";
 import { LocalWorld } from "../world/provider.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";
+import "../shell.css";
 import "./andar.css";
 
 interface Standing {
@@ -53,6 +56,11 @@ const BOARD_REACH_M = 4.6;
 const SEAT_REACH_M = 1.9;
 const EMOTE_LIST = EMOTES.map((id) => ({ id, label: tr.t(`emote.${id}`) }));
 const worldClock = compileClock(DEFAULT_CLOCK);
+
+/** The browser's own offer to install, which only some browsers make. */
+interface InstallOffer extends Event {
+  prompt?(): Promise<unknown>;
+}
 
 type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked";
 
@@ -79,6 +87,21 @@ export function Andar() {
   // `&telemovel` opens it at once, `&telemovel=mapa` on that app: for stills.
   const [phone, setPhone] = useState(params.has("telemovel"));
   const [marked, setMarked] = useState<Marked | null>(null);
+  // The browser's offer to install, kept until the first ride is over: never at the first second (Task 1.8).
+  const offer = useRef<InstallOffer | null>(null);
+  const [install, setInstall] = useState(false);
+  useEffect(() => {
+    const keep = (event: Event): void => {
+      event.preventDefault();
+      offer.current = event;
+    };
+    window.addEventListener("beforeinstallprompt", keep);
+    return () => window.removeEventListener("beforeinstallprompt", keep);
+  }, []);
+  const rode = useRef<() => void>(() => undefined);
+  rode.current = () => {
+    if (offer.current && !sessionStorage.getItem("nzila.install")) setInstall(true);
+  };
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
   const [hud, setHud] = useState<Hud>({ ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
@@ -249,6 +272,7 @@ export function Andar() {
             // Out on the pavement the camera is behind the shoulder again, looking where the van was going.
             camera.yaw = from.yaw + Math.PI;
             cabin.removeFromParent();
+            if (riding.left) rode.current();
             ride = null;
           } else {
             if (asks.current.act && !riding.asked) {
@@ -520,6 +544,18 @@ export function Andar() {
   return (
     <main class={`andar${leftHanded ? " andar-left" : ""}`}>
       <canvas ref={canvas} class="andar-canvas" />
+      {(!hud.ready && !missing) || params.has("chegar") ? <Arriving poupanca={settings.poupanca} /> : null}
+      {install ? (
+        <div class="install" role="dialog" aria-label={tr.t("install.offer")}>
+          <p>{tr.t("install.offer")}</p>
+          <span class="install-keys">
+            <Button onPress={() => (setInstall(false), sessionStorage.setItem("nzila.install", "1"), void offer.current?.prompt?.())}>{tr.t("install.yes")}</Button>
+            <Button kind="quiet" onPress={() => (setInstall(false), sessionStorage.setItem("nzila.install", "1"))}>
+              {tr.t("install.later")}
+            </Button>
+          </span>
+        </div>
+      ) : null}
       {missing ? <p class="andar-note">The district and the people have not been built on this machine: run `pnpm pack:dev` (it needs Blender).</p> : null}
       {hud.ready ? (
         <div class="andar-hud n-on-dark">

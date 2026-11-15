@@ -65,6 +65,9 @@ function carried(url: string): number | null {
   const entries = performance.getEntriesByName(new URL(url, location.href).href, "resource") as PerformanceResourceTiming[];
   const entry = entries[entries.length - 1];
   if (!entry) return null;
+  // Answered through the service worker: the browser does not say what the network carried. The worker says
+  // when it answered from what it keeps (see meteredFetch); otherwise the size the server declared is used.
+  if (entry.workerStart > 0) return null;
   // Zero with a body means it came from a cache: it cost nothing.
   return entry.transferSize;
 }
@@ -74,7 +77,8 @@ export async function meteredFetch(url: string): Promise<ArrayBuffer> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${url}: ${response.status}`);
   const body = await response.arrayBuffer();
-  const cost = carried(url);
+  // The worker marks what it answered from the phone's own store: that cost nothing.
+  const cost = response.headers.get("x-nzila-kept") ? 0 : carried(url);
   // Without the browser's record, the length the server declared; without that, the size of what arrived.
   dataMeter.add(cost ?? (Number(response.headers.get("content-length")) || body.byteLength));
   return body;

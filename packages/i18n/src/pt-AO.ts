@@ -15,6 +15,17 @@ export const ptAO = {
   "frontdoor.building": "Ainda estamos a construir. Volta em breve.",
   "frontdoor.download": "{done} de {total}",
   "frontdoor.poupanca": "Entrar em Modo Poupança ({size})",
+  "frontdoor.cost": "A primeira entrada gasta {size} de dados. Depois fica guardado no telemóvel.",
+  "frontdoor.loading": "A chegar à Marginal…",
+  // Something of Luanda to read while it loads. Drafts for the founder.
+  "frontdoor.fact.0": "Na Marginal, o melhor banco é o que apanha o pôr do sol.",
+  "frontdoor.fact.1": "O candongueiro só arranca quando o cobrador diz.",
+  "frontdoor.fact.2": "Quem tem fome procura a zungueira, não o relógio.",
+  "frontdoor.fact.3": "Na Mutamba cruzam-se todas as linhas e todas as conversas.",
+  // The offer to keep the game on the phone's screen, made after the first ride and never before.
+  "install.offer": "Queres o Nzila no ecrã do telemóvel?",
+  "install.yes": "Instalar",
+  "install.later": "Agora não",
 
   // The context action: one or two words that say what the button will do.
   "action.enter": "Entrar",

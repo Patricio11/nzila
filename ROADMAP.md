@@ -253,6 +253,7 @@ flowchart LR
 - Depends on: 0.7, 0.8, 1.4 · Unblocks: 2.3, 3.3.
 
 ### Task 1.8: The front door and the PWA
+- [ ] *(2026-11-15: built. The door states the first visit's megabytes (from `packs/front.json`, written with the district) and has a second, light door into Modo Poupança; the walk shows megabytes of megabytes, a van on its road and a line about Luanda until the player has arrived; `manifest.webmanifest`, icons drawn from the house mark (`tools/icons/make.mjs`), a service worker that keeps what was fetched (`public/sw.js`), and the offer to install after the first ride. Not ticked until seen on a phone: F-99.)*
 - [ ] Landing in Portuguese: one line, one button ("Entrar em Luanda"; never a phrase that contains another game's name), the size of the first download stated. The loading screen shows megabytes and progress, with something of Luanda to look at.
 - [ ] Web manifest, icons, install prompt at the right moment (after the first ride, not at the first second), the service worker.
 - Depends on: 1.2 · Unblocks: 1.9, 2.1.

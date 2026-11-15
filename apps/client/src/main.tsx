@@ -1,5 +1,3 @@
-import { t } from "@nzila/i18n";
-import { Wordmark } from "@nzila/ui";
 import "@nzila/ui/tokens.css";
 import "@nzila/ui/ui.css";
 import { render } from "preact";
@@ -30,12 +28,13 @@ if (path === "/bench") {
   const { Styleguide } = await import("./styleguide/styleguide.tsx");
   render(<Styleguide />, app);
 } else {
-  render(
-    <div class="frontdoor n-on-dark">
-      <Wordmark width={220} />
-      <p>{t("frontdoor.tagline")}</p>
-      <p class="soft">{t("frontdoor.building")}</p>
-    </div>,
-    app,
-  );
+  // The front door. One line, one button, and what going in costs, said before a byte of it is fetched.
+  const { FrontDoor } = await import("./frontdoor/front-door.tsx");
+  render(<FrontDoor />, app);
+}
+
+// Kept on the phone: once fetched, the game and the districts visited open without the network (Task 1.8).
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  // The page above was chosen after a wait, so the window may have loaded already: ask now.
+  void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
 }
