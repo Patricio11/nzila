@@ -1,5 +1,6 @@
 declare global {
   interface Window {
+    __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string }; dressed: number };
     __cenaMoment?: (second: number) => void;
     __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null };
   }
@@ -201,6 +202,38 @@ test.describe("the candongueiros", () => {
     expect(first.every((car, n) => Math.hypot(car.x - cars[n]!.x, car.z - cars[n]!.z) > 20)).toBe(true);
     // Traffic keeps to the right: on the avenue's town side the van has gone east.
     expect(later.some((van) => van.route === "linha-marginal" && !van.dwelling && van.x > atStop.x + 20)).toBe(true);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
+test.describe("the look chooser", () => {
+  test("a body, its skin, hair and its colour, and each piece of clothing are chosen, worn at once, kept, and worn in the world", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/guarda-roupa/guarda-roupa.json")).ok() || !(await request.get("/packs/l1/manifest.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The wardrobe or Marginal e Baixa is not built (they need Blender). The look chooser was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/provador?tier=poupanca");
+    await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
+    const worn = (): Promise<{ look: { sex: string; hair: string; hairColour: string; top: string; bottom: string }; dressed: number }> => page.evaluate(() => window.__provador!);
+    // She has a pano; he cannot: changing the body changes what no longer fits to the nearest thing that does.
+    await page.getByRole("radio", { name: "Ele" }).click();
+    await page.getByRole("radio", { name: "Galo" }).click();
+    await page.getByRole("radiogroup", { name: "Cor do cabelo" }).getByRole("radio", { name: "Cor 4" }).click();
+    await page.getByRole("radio", { name: "Calções" }).click();
+    await page.waitForFunction(() => window.__provador!.look.hair === "galo" && window.__provador!.look.hairColour === "hairRed" && window.__provador!.look.bottom === "shorts", undefined, { timeout: 30_000 });
+    expect(await worn()).toMatchObject({ look: { sex: "m", hair: "galo", hairColour: "hairRed", bottom: "shorts" } });
+    expect((await worn()).dressed).toBeGreaterThan(1);
+    // Hers are not offered to him.
+    await expect(page.getByRole("radio", { name: "Pano" })).toHaveCount(0);
+    await expect(page.getByRole("radio", { name: "Cachos" })).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
+
+    await page.getByRole("button", { name: "Está bom" }).click();
+    await page.waitForURL(/\/andar\?pack=l1/);
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("nzila.look") ?? "{}"))).toMatchObject({ sex: "m", hair: "galo", hairColour: "hairRed" });
     expect(seen.errors).toEqual([]);
   });
 });

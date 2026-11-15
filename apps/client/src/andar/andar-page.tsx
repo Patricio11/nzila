@@ -29,6 +29,7 @@ import { DistrictScene } from "../render/district-scene.ts";
 import { EMOTES, EMOTE_SECONDS, loadPerson, type Emote, type Person } from "../render/person.ts";
 import { type VanSeen } from "../render/traffic.ts";
 import { type TierName } from "../render/tiers.ts";
+import { dress, savedLook } from "../render/wardrobe.ts";
 import { Telemovel, type Marked } from "../telemovel/telemovel.tsx";
 import { Arriving } from "../frontdoor/arriving.tsx";
 import { LocalWorld } from "../world/provider.ts";
@@ -163,7 +164,9 @@ export function Andar() {
       try {
         const [opened, list] = await Promise.all([DistrictScene.open(renderer, params.get("pack") ? `/packs/${params.get("pack")}/` : DEV_PACK), fetch(`${PEOPLE}pessoas.json`).then((r) => r.json() as Promise<Standing>)]);
         const who = list.people[Number(params.get("quem")) || 0] ?? list.people[0]!;
-        const loaded = await loadPerson(renderer, PEOPLE + who.model, who.height, who.skirt, who.female === true);
+        // The look chosen in the provador, when there is one and the address does not ask for somebody else.
+        const look = params.has("quem") ? null : savedLook();
+        const loaded = (look ? await dress(renderer, look).catch(() => null) : null) ?? (await loadPerson(renderer, PEOPLE + who.model, who.height, who.skirt, who.female === true));
         if (closed) return opened.close();
         const asked = params.get("em")?.split(",").map(Number);
         const arrival = opened.manifest.spawns[0]!.pos;

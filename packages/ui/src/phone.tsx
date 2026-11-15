@@ -72,3 +72,17 @@ export function Choice<T extends string>({ label, options, value, onChange }: { 
     </div>
   );
 }
+
+/** A row of colours to choose one from: skin, hair, a piece of clothing. Each has a name for those who cannot see it. */
+export function Swatches<T extends string>({ label, options, value, onChange }: { label: string; options: readonly { id: T; label: string; colour: string }[]; value: T; onChange?: (id: T) => void }) {
+  return (
+    <div class="n-choice" role="radiogroup" aria-label={label}>
+      <span class="n-choice-label">{label}</span>
+      <span class="n-swatches">
+        {options.map((option) => (
+          <button type="button" role="radio" aria-checked={option.id === value ? "true" : "false"} aria-label={option.label} class={`n-swatch${option.id === value ? " n-swatch-on" : ""}`} style={{ backgroundColor: option.colour }} onClick={() => onChange?.(option.id)} />
+        ))}
+      </span>
+    </div>
+  );
+}

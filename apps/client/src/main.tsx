@@ -19,6 +19,10 @@ if (path === "/bench") {
   // One person walking the development district.
   const { Andar } = await import("./andar/andar-page.tsx");
   render(<Andar />, app);
+} else if (path === "/provador") {
+  // Where a player chooses how they look.
+  const { Provador } = await import("./provador/provador-page.tsx");
+  render(<Provador />, app);
 } else if (path === "/corpo") {
   // The people, to look at before they are given a skeleton.
   const { Corpo } = await import("./corpo/corpo-page.tsx");

@@ -21,8 +21,11 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     s = height / 1.70
     female = spec.get("sex", "f") == "f"
     build = spec.get("build", 1.0)  # how broad: 0.9 slight, 1.15 heavy
-    skin = f"skin{spec.get('skin', 0)}"
-    lip = f"lip{spec.get('skin', 0)}"
+    # A wardrobe piece names its own paints (markers the game repaints); a whole person takes a skin by number.
+    skin = spec.get("skin_colour") or f"skin{spec.get('skin', 0)}"
+    lip = spec.get("lip_colour") or f"lip{spec.get('skin', 0)}"
+    lip_dark = spec.get("lip_dark") or f"lipDark{spec.get('skin', 0)}"
+    b.piece = "body"
     hair_colour = spec.get("hair_colour", "hairBlack")
     top, top_colour = spec.get("top", "tshirt"), spec.get("top_colour", "person0")
     bottom, bottom_colour = spec.get("bottom", "trousers"), spec.get("bottom_colour", "jeans")
@@ -318,7 +321,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     wide = 0.025 if spec.get("smile") else 0.022
     upper = [(-wide, rise), (-0.010, 0.0052), (-0.003, 0.0062), (0.0, 0.0046), (0.003, 0.0062), (0.010, 0.0052), (wide, rise), (0.008, -0.0006), (-0.008, -0.0006)]
     lower = [(-wide, rise), (-0.008, -0.0006), (0.008, -0.0006), (wide, rise), (0.012, -0.0082), (0.0, -0.0102), (-0.012, -0.0082)]
-    shape(0.0, -0.060, upper, f"lipDark{spec.get('skin', 0)}", out=0.0032)
+    shape(0.0, -0.060, upper, lip_dark, out=0.0032)
     shape(0.0, -0.060, lower, lip, out=0.0036)
     if spec.get("beard"):
         chin = [(-0.040, 0.012), (-0.024, 0.002), (0.024, 0.002), (0.040, 0.012), (0.036, -0.022), (0.014, -0.034), (-0.014, -0.034), (-0.036, -0.022)]
@@ -327,6 +330,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
 
     # ------------------------------------------------------------------- hair
     style = spec.get("hair", "baixo")
+    b.piece = "hair"
 
     def scalp(angle, dy, grow=1.03):
         """A point on the head at this bearing (0 is the person's left, 90 the front) and height."""
@@ -376,6 +380,32 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         loft(wrap, [cloth] * 3)
         cap(wrap[-1], cloth, T((0.0, yc, zc)))
         b.gem(T((0.0, yc + 0.135, zc + 0.03)), (0.045 * s, 0.035 * s, 0.04 * s), 5, cloth, rng, rough=0.1)
+    elif style == "galo":
+        # The crest: the sides cut down to the skin, and along the top from the brow to the nape a ridge
+        # of curls standing up, often dyed (founder's photograph, 2026-11-15).
+        for dy, dz, size in [(0.092, 0.082, 0.9), (0.135, 0.052, 1.05), (0.158, 0.012, 1.12), (0.158, -0.032, 1.1), (0.138, -0.072, 1.0), (0.1, -0.102, 0.9), (0.052, -0.116, 0.78), (0.004, -0.112, 0.62)]:
+            b.gem(T((rng.uniform(-0.006, 0.006), yc + dy, zc + dz)), (0.052 * size * s, 0.05 * size * s, 0.05 * size * s), 6, hair_colour, rng, rough=0.16)
+    elif style == "cachos":
+        # A full head of loose curls, out to the shoulders' width and down to the jaw.
+        for dy, reach, count, size in [(0.15, 0.03, 1, 1.25), (0.115, 0.085, 7, 1.1), (0.05, 0.125, 9, 1.2), (-0.03, 0.135, 9, 1.15), (-0.105, 0.125, 8, 1.0)]:
+            for k in range(count):
+                # Round the back and the sides; the lower rows leave the face open.
+                angle = (2 * math.pi * k / count) if dy > 0.08 else math.radians(150 + 240 * (k + 0.5) / count)
+                b.gem(T((math.cos(angle) * reach, yc + dy + rng.uniform(-0.012, 0.012), zc - 0.018 + math.sin(angle) * reach * 1.05)), (0.058 * size * s, 0.056 * size * s, 0.058 * size * s), 5, hair_colour, rng, rough=0.2)
+    elif style == "bob":
+        # Thin braids cut level at the jaw all round, and a fringe of them over the brow.
+        thick = 0.0085
+        for i in range(26):
+            angle = math.radians(148) + math.radians(244) * i / 25
+            start = scalp(angle, 0.06 + 0.03 * rng.random(), 1.02)
+            middle = scalp(angle, -0.05, 1.13)
+            end = (middle[0] * 1.06, 1.492 + rng.uniform(-0.008, 0.008), middle[2] * 1.04 - 0.004)
+            b.tube([T(start), T(middle), T(end)], [thick * s, thick * s, thick * 0.8 * s], 3, hair_colour, cap=False)
+        for i in range(10):
+            angle = math.radians(42 + 96 * i / 9)
+            start = scalp(angle, 0.1, 1.0)
+            end = scalp(angle, 0.024 + rng.uniform(-0.004, 0.004), 1.09)
+            b.tube([T(start), T(scalp(angle, 0.07, 1.08)), T(end)], [thick * s, thick * s, thick * 0.8 * s], 3, hair_colour, cap=False)
     elif style == "bone":
         # A peaked cap: the crown, and the peak out over the eyes.
         cloth = spec.get("cap", "awningTeal")
@@ -394,6 +424,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         b.face([T((-0.02, 0.992, waist_z * 1.14)), T((0.02, 0.992, waist_z * 1.14)), T((0.02, 1.024, waist_z * 1.14)), T((-0.02, 1.024, waist_z * 1.14))], "rim", toward=_turn((0.0, 0.0, 1.0), yaw))
 
     # ------------------------------------------------------------ what is carried
+    b.piece = "body"
     if spec.get("bebe"):
         # A baby on the back, tied on with a pano: the cloth round the chest and under the child, the
         # small head against the mother's shoulders, a foot out at each side.
@@ -433,6 +464,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         tip = (hx_, hy_ + along[1] * 2.3, 0.03 + along[2] * 2.3)
         b.tube([T(butt), T(grip), T(middle), T(tip)], [0.014 * s, 0.013 * s, 0.009 * s, 0.004 * s], 4, "wood")
     b.part = None
+    b.piece = None
     return height
 
 

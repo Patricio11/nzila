@@ -125,6 +125,21 @@ export const WORLD = {
   // People (art/scripts/person.py)
   hairBlack: hex("#17120F"),
   hairGrey: hex("#8D8A84"),
+  // Hair as people dye it (founder, 2026-11-15: "red, beige"), and the browns of braids
+  hairBrown: hex("#4A2E1E"),
+  hairCopper: hex("#9A4A28"),
+  hairRed: hex("#B3271F"),
+  hairBlond: hex("#D8B46A"),
+  // The wardrobe's markers (art/scripts/make_wardrobe.py): a piece of clothing or of a body is painted with
+  // these, and the game repaints each with what the player chose. Nobody ever sees one of them.
+  slotSkin: hex("#FF00F0"),
+  slotLip: hex("#FF00E0"),
+  slotLipDark: hex("#FF00D0"),
+  slotHair: hex("#FF00C0"),
+  slotTop: hex("#FF00B0"),
+  slotBottom: hex("#FF00A0"),
+  slotBands: hex("#FF0090"),
+  slotShoe: hex("#FF0080"),
   eyeWhite: hex("#E4DDD0"),
   eyeDark: hex("#1B1310"),
   eyeBrown: hex("#3B2214"),

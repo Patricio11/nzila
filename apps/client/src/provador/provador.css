@@ -1,0 +1,14 @@
+/* The look chooser: the person above, the choices below, under one thumb. Tokens only. */
+.provador { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--n-noite); color: var(--n-luz); }
+.provador-canvas { flex: 0 0 46%; width: 100%; min-height: 0; display: block; }
+.provador-panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: var(--s-4);
+  padding: var(--s-4) max(var(--s-4), env(safe-area-inset-right)) max(var(--s-5), env(safe-area-inset-bottom)) max(var(--s-4), env(safe-area-inset-left));
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0; box-shadow: 0 -10px 30px var(--n-sombra), inset 0 1.5px 0 var(--n-linha); margin-top: calc(var(--s-4) * -1); background: var(--n-noite); }
+.provador-title { margin: 0; font: var(--type-title); }
+.provador-note { margin: 0; color: var(--n-luz-suave); font: var(--type-small); }
+.provador-done { display: flex; justify-content: center; padding-top: var(--s-2); }
+@media (orientation: landscape) and (min-width: 700px) {
+  .provador { flex-direction: row; }
+  .provador-canvas { flex: 1; height: 100%; }
+  .provador-panel { flex: 0 0 420px; margin-top: 0; border-radius: 0; }
+}

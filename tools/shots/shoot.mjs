@@ -102,6 +102,17 @@ const PAGES = [
   ["gente-vendedeiras-lado", "/cena?pack=l1&hour=16.5&tier=normal&transito=31&at=113.5,159,1.3&look=120,160.1,0.6"],
   ["gente-poupanca", "/cena?pack=l1&hour=17.2&tier=poupanca&transito=30&at=250,66.5,1.7&look=215,66,1.2"],
   ["viagem-espera", "/andar?pack=l1&em=302.5,107.4&cam=215&quem=2&hour=16.8&transito=3"],
+  // The look chooser, on a few looks.
+  ["provador-galo", "/provador?hour=15.5&ang=35&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A3%2C%22hair%22%3A%22galo%22%2C%22hairColour%22%3A%22hairBlond%22%2C%22top%22%3A%22tshirt%22%2C%22topColour%22%3A%22paintWhite%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22jeansDark%22%2C%22shoe%22%3A%22shoeWhite%22%7D"],
+  ["provador-galo-vermelho", "/provador?hour=15.5&ang=150&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A1%2C%22hair%22%3A%22galo%22%2C%22hairColour%22%3A%22hairRed%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22shorts%22%2C%22bottomColour%22%3A%22khaki%22%2C%22shoe%22%3A%22shoe%22%7D"],
+  ["provador-afro-ele", "/provador?hour=15.5&ang=20&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A4%2C%22hair%22%3A%22afro%22%2C%22hairColour%22%3A%22hairBlack%22%2C%22top%22%3A%22long%22%2C%22topColour%22%3A%22vanBlue%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22clothBlack%22%2C%22shoe%22%3A%22shoe%22%7D"],
+  ["provador-cachos", "/provador?hour=15.5&ang=25&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A1%2C%22hair%22%3A%22cachos%22%2C%22hairColour%22%3A%22hairBrown%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22paintWhite%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22jeans%22%2C%22shoe%22%3A%22shoeWhite%22%7D"],
+  ["provador-bob", "/provador?hour=15.5&ang=20&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A3%2C%22hair%22%3A%22bob%22%2C%22hairColour%22%3A%22hairCopper%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22skirt%22%2C%22bottomColour%22%3A%22clothBlack%22%2C%22shoe%22%3A%22shoe%22%7D"],
+  ["provador-vestido", "/provador?hour=15.5&ang=30&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A2%2C%22hair%22%3A%22puxinho%22%2C%22hairColour%22%3A%22hairBlack%22%2C%22top%22%3A%22vestido%22%2C%22topColour%22%3A%22awningRed%22%2C%22bottom%22%3A%22none%22%2C%22shoe%22%3A%22shoeTan%22%7D"],
+  ["provador-pano", "/provador?hour=15.5&ang=200&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A4%2C%22hair%22%3A%22lenco%22%2C%22hairColour%22%3A%22awningGold%22%2C%22top%22%3A%22blusa%22%2C%22topColour%22%3A%22paintWhite%22%2C%22bottom%22%3A%22pano%22%2C%22bottomColour%22%3A%22zincBlue%22%2C%22bands%22%3A%22awningGold%22%2C%22shoe%22%3A%22shoeTan%22%7D"],
+  ["provador-careca", "/provador?hour=15.5&ang=20&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A2%2C%22hair%22%3A%22careca%22%2C%22top%22%3A%22tshirt%22%2C%22topColour%22%3A%22awningGold%22%2C%22bottom%22%3A%22shorts%22%2C%22bottomColour%22%3A%22jeans%22%2C%22shoe%22%3A%22shoeWhite%22%7D"],
+  ["provador-galo-perfil", "/provador?hour=15.5&ang=90&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A3%2C%22hair%22%3A%22galo%22%2C%22hairColour%22%3A%22hairBlond%22%2C%22top%22%3A%22tshirt%22%2C%22topColour%22%3A%22paintWhite%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22jeansDark%22%2C%22shoe%22%3A%22shoeWhite%22%7D"],
+  ["provador-bob-tras", "/provador?hour=15.5&ang=180&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A3%2C%22hair%22%3A%22bob%22%2C%22hairColour%22%3A%22hairCopper%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22skirt%22%2C%22bottomColour%22%3A%22clothBlack%22%2C%22shoe%22%3A%22shoe%22%7D"],
   // The mural.
   ["mural", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=207,164.5,1.7&look=207,173,2.0"],
   ["mural-lado", "/cena?pack=l1&hour=16.8&tier=normal&transito=30&at=190,166,1.7&look=205,172.6,2.0"],
@@ -239,6 +250,7 @@ try {
         await page.waitForFunction("window.__cena?.stream ? window.__cena.stream.shown > 0 && window.__cena.stream.shown === window.__cena.stream.wanted && window.__cena.stream.loading === 0 : false", undefined, { timeout: 30000 }).catch(() => errors.push("the world never finished arriving"));
       }
       if (path.startsWith("/corpo")) await page.waitForFunction("window.__corpo !== undefined", undefined, { timeout: 30000 }).catch(() => errors.push("the people never arrived"));
+      if (path.startsWith("/provador")) await page.waitForFunction("window.__provador?.ready === true", undefined, { timeout: 30000 }).catch(() => errors.push("nobody was dressed"));
       if (path.startsWith("/andar")) {
         await page.waitForFunction("window.__andar?.ready === true", undefined, { timeout: 30000 }).catch(() => errors.push("the person never arrived"));
         await page.waitForTimeout(pageName.startsWith("ela-") ? 1900 : 3000);

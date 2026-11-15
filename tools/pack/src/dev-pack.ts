@@ -160,6 +160,26 @@ export async function buildPeople(workDir: string, outDir: string): Promise<{ pe
   return { ...list, bytes: model.length };
 }
 
+/** Builds the wardrobe: every body and every head of hair a player may choose, each its own model. */
+export async function buildWardrobe(workDir: string, outDir: string): Promise<{ pieces: number; bytes: number }> {
+  await rm(workDir, { recursive: true, force: true });
+  const palette = await writePalette(join(root, "art"));
+  await blender(join(scripts, "make_wardrobe.py"), [workDir, palette.json, palette.png]);
+  await rm(outDir, { recursive: true, force: true });
+  await mkdir(outDir, { recursive: true });
+  let bytes = 0;
+  let pieces = 0;
+  for (const name of await readdir(workDir)) {
+    const file = await readFile(join(workDir, name));
+    await writeFile(join(outDir, name), file);
+    if (name.endsWith(".glb")) {
+      bytes += file.length;
+      pieces += 1;
+    }
+  }
+  return { pieces, bytes };
+}
+
 /** Builds the vehicles the game drives along its routes, each alone as one model. */
 export async function buildVehicles(workDir: string, outDir: string): Promise<{ vehicles: { name: string; triangles: number }[]; bytes: number }> {
   await rm(workDir, { recursive: true, force: true });
@@ -197,6 +217,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         const people = await buildPeople(join(root, "dist", "dev-people"), join(root, "apps", "client", "public", "packs", "dev-people"));
         const vehicles = await buildVehicles(join(root, "dist", "dev-vehicles"), join(root, "apps", "client", "public", "packs", "dev-vehicles"));
         console.log(`pack dev: ${vehicles.vehicles.map((v) => `${v.name} ${v.triangles} triangles`).join(", ")}, ${(vehicles.bytes / 1024).toFixed(0)} KB together.`);
+        const wardrobe = await buildWardrobe(join(root, "dist", "dev-wardrobe"), join(root, "apps", "client", "public", "packs", "guarda-roupa"));
+        console.log(`pack dev: a wardrobe of ${wardrobe.pieces} pieces, ${(wardrobe.bytes / 1024).toFixed(0)} KB on disk; a player fetches one body and one head of hair.`);
         console.log(`pack dev: ${people.people.length} people, about ${people.each} triangles each, ${(people.bytes / 1024).toFixed(0)} KB together. Shown at /corpo.`);
         console.log(`pack dev: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal, at most ${draws} draw call(s) a chunk. Served at /packs/dev/.`);
       } catch (error) {

@@ -70,6 +70,9 @@ class Builder:
         # For a body: the part being built ("arm.L"), and what turns a part and a point into bone weights.
         self.part = None
         self.weigher = None
+        # For the wardrobe: what kind of piece is being built ("body", "hair"), and the one kind to keep, if any.
+        self.piece = None
+        self.only = None
         self.objects = []
         # Where a person can sit: (x, seat height, z, the way they face, as a turn about the vertical).
         self.seats = []
@@ -80,6 +83,8 @@ class Builder:
 
     def face(self, points, colour, away_from=None, toward=None, two_sided=False):
         """One flat face. It is turned to face away from a point, or toward a direction, when one is given."""
+        if self.only is not None and self.piece != self.only:
+            return
         points = list(points)
         normal = _cross(_sub(points[1], points[0]), _sub(points[2], points[0]))
         if away_from is not None:

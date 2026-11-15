@@ -231,9 +231,16 @@ export function Telemovel({ world, open, first, marked, onMark, onClose }: { wor
       ) : app === "definicoes" ? (
         <Definicoes world={world} />
       ) : app ? (
-        <EmptyState glyph={app} title={tr.t("state.soon")}>
-          {tr.t(`app.${app}.soon`)}
-        </EmptyState>
+        <>
+          <EmptyState glyph={app} title={tr.t("state.soon")}>
+            {tr.t(`app.${app}.soon`)}
+          </EmptyState>
+          {app === "bi" ? (
+            <p class="tm-centre">
+              <Button onPress={() => location.assign(`/provador?voltar=${encodeURIComponent(location.pathname + location.search)}`)}>{tr.t("look.change")}</Button>
+            </p>
+          ) : null}
+        </>
       ) : null}
     </PhoneSheet>
   );
