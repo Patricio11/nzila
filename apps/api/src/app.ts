@@ -3,12 +3,14 @@
 // checks what it is given.
 
 import { randomInt } from "node:crypto";
+import { recordConsent } from "@nzila/db";
 import { BASE_ORIGINS, type OriginTable } from "@nzila/economy";
 import { checkLook } from "@nzila/protocol";
 import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
 import { memoryLimiter, type Limiter } from "./limiter.ts";
+import { choicesOf, deleteAccount, exportOf } from "./mydata.ts";
 import { askName, FREE_NAME_CHANGES, loadNameFilter, rename } from "./names.ts";
 import { dealOrigin, originOfPlayer } from "./origins.ts";
 import { Refusal, declare, routesOf, type Gate } from "./routes.ts";
@@ -151,6 +153,49 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: nothing,
     perMinute: 12,
     handler: async (_body, caller) => ({ origin: await dealOrigin(deps.sql, origins, roll, caller.player.id) }),
+  });
+
+  // What the player agrees to, of the things that can be said no to. Both are off until they say yes (Rule 16).
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/me/consents",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async (_body, caller) => choicesOf(deps.sql, caller.player.id),
+  });
+  declare(app, gate, {
+    method: "PUT",
+    url: "/v1/me/consents",
+    guard: "player",
+    // Playing itself is not on this list: it is agreed to by coming in and ended by deleting the account.
+    body: z.strictObject({ purpose: z.enum(["analytics", "notifications"]), granted: z.boolean() }),
+    perMinute: 30,
+    handler: async (body, caller) => {
+      await recordConsent(deps.sql, caller.player.id, body.purpose, body.granted);
+      return choicesOf(deps.sql, caller.player.id);
+    },
+  });
+
+  // "Os meus dados": everything kept of the player, as they may read it; and the end of the account.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/me/data",
+    guard: "player",
+    body: nothing,
+    perMinute: 6,
+    handler: async (_body, caller) => exportOf(deps.sql, origins, caller.player.id),
+  });
+  declare(app, gate, {
+    method: "DELETE",
+    url: "/v1/me",
+    guard: "player",
+    body: z.strictObject({ biNumber: z.string().max(32) }),
+    perMinute: 6,
+    handler: async (body, caller) => {
+      await deleteAccount(deps.sql, caller.player.id, body.biNumber);
+      return { ok: true };
+    },
   });
 
   // Leaving on this device: the session ends; the player and their progress stay.

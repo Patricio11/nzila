@@ -61,6 +61,7 @@ const PAGES = [
   // The BI app, with an account given in the address.
   ["bi", "/andar?hour=16.8&cam=200&telemovel=bi&conta=%7B%22ageBand%22%3A%2218_plus%22%2C%22name%22%3A%22Caluanda%201042%22%2C%22nameFree%22%3Atrue%2C%22biNumber%22%3A%2200001042-LA%22%2C%22arrivedAt%22%3A%222026-11-15T16%3A00%3A00.000Z%22%2C%22origin%22%3A%7B%22family%22%3A%22mecanico-zungueira%22%2C%22pai%22%3A%22mecanico%22%2C%22mae%22%3A%22zungueira%22%2C%22tier%22%3A%22aperto%22%2C%22province%22%3A%22malanje%22%2C%22bairro%22%3A%22cazenga%22%2C%22makuta%22%3A2500%2C%22version%22%3A1%7D%7D"],
   ["bi-vazio", "/andar?hour=16.8&cam=200&telemovel=bi"],
+  ["bi-dados", "/andar?hour=16.8&cam=200&telemovel=bi&conta=%7B%22ageBand%22%3A%2218_plus%22%2C%22name%22%3A%22Caluanda%201042%22%2C%22nameFree%22%3Atrue%2C%22biNumber%22%3A%2200001042-LA%22%2C%22arrivedAt%22%3A%222026-11-15T16%3A00%3A00.000Z%22%2C%22origin%22%3A%7B%22family%22%3A%22mecanico-zungueira%22%2C%22pai%22%3A%22mecanico%22%2C%22mae%22%3A%22zungueira%22%2C%22tier%22%3A%22aperto%22%2C%22province%22%3A%22malanje%22%2C%22bairro%22%3A%22cazenga%22%2C%22makuta%22%3A2500%2C%22version%22%3A1%7D%7D&dados"],
   ["hud", "/andar?hour=16.8&cam=200"],
   ...["acenar", "rir", "aplaudir", "chamar", "dancar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
   ["ela-joelhos-lado", "/andar?hour=15&cam=90&quem=6&gesto=dancar&t=6.0&pausa"],

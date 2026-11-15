@@ -11,6 +11,7 @@ One row per table (Task 0.10). **The periods are proposals written by the develo
 | `devices` | A keyed hash of each device a player used; never the device id | Pseudonymous | 12 months after the device was last seen | Deleted by a scheduled job, and with the account |
 | `player_sessions` | A hash of each session token | Pseudonymous | 30 days after it expires or is revoked | Deleted by a scheduled job, and with the account |
 | `avatars` | How the player's avatar looks | No, but tied to a player | While the account lives | Deleted with the account |
+| `player_origins` | The card a player was dealt at first play: the family, the province, the bairro, the Makuta they start with | No, but tied to a player | While the account lives | Deleted with the account. What was paid of it stays in the ledger, anonymous |
 | `consents` | Each yes and no a player gave, with the version of the words shown | Yes: it is the proof of consent | 5 years after the account is deleted | Deleted by a scheduled job. Kept past the account because it is what shows that the player agreed |
 | `staff`, `staff_roles` | Staff accounts and their permissions | Yes (staff) | While employed, then 2 years | Disabled at once on leaving; deleted by hand after the period |
 | `audit_log` | Who did what to whom, and why | Staff ids; player ids as subjects | 5 years | Append-only: it cannot be edited or emptied. Rows past the period are removed by a migration reviewed for the purpose, never by a job with standing permission to delete |

@@ -9,7 +9,7 @@ import { dataMeter, meteredFetch } from "../net/data-meter.ts";
 import { type DistrictScene } from "../render/district-scene.ts";
 import { type TierName } from "../render/tiers.ts";
 import { savedPhoto } from "../render/wardrobe.ts";
-import { account, askName, refreshAccount, rename, type Account, type NameAnswer } from "./account.ts";
+import { account, askName, choices, choose, deleteAccount, exportData, refreshAccount, rename, type Account, type Choices, type NameAnswer } from "./account.ts";
 
 /** Who the player is, as the BI shows it. */
 export interface Me {
@@ -72,6 +72,13 @@ export interface WorldProvider {
   askName(name: string): Promise<NameAnswer | null>;
   /** Takes a name: "ok", or the one word of why not. */
   rename(name: string): ReturnType<typeof rename>;
+  /** What the player has said yes to (analytics, notifications); null when nobody can say. */
+  choices(): Promise<Choices | null>;
+  choose(purpose: keyof Choices, granted: boolean): Promise<Choices | null>;
+  /** Everything kept of the player, to take away; null when it cannot be fetched. */
+  exportData(): Promise<Record<string, unknown> | null>;
+  /** Ends the account. True when it is gone. */
+  deleteAccount(): Promise<boolean>;
 }
 
 const KEY = "nzila.settings";
@@ -186,5 +193,21 @@ export class LocalWorld implements WorldProvider {
 
   rename(name: string): ReturnType<typeof rename> {
     return rename(name);
+  }
+
+  choices(): Promise<Choices | null> {
+    return choices();
+  }
+
+  choose(purpose: keyof Choices, granted: boolean): Promise<Choices | null> {
+    return choose(purpose, granted);
+  }
+
+  exportData(): Promise<Record<string, unknown> | null> {
+    return exportData();
+  }
+
+  deleteAccount(): Promise<boolean> {
+    return deleteAccount();
   }
 }

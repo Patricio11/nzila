@@ -29,3 +29,13 @@
 .tm-name-input:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 2px; }
 .tm-name-said { margin: 0; min-height: 2.7em; font: var(--type-small); color: var(--n-luz-suave); }
 .tm-name-good { color: var(--n-dourado-claro); }
+
+/* Os meus dados. */
+.tm-data { display: flex; flex-direction: column; gap: var(--s-3); width: min(100%, 340px); margin: 0 auto; }
+.tm-data .tm-bi-keys { align-self: center; margin-top: var(--s-2); }
+.tm-data-title { margin: 0; font: var(--type-title); color: var(--n-luz); }
+.tm-data-said { margin: 0; min-height: 1.4em; font: var(--type-small); color: var(--n-dourado-claro); }
+.tm-data-end { min-height: var(--target); padding: 0; border: 0; background: none; cursor: pointer; color: var(--n-luz-suave); font: var(--type-label); text-decoration: underline; text-underline-offset: 4px; }
+.tm-data-end:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 3px; }
+.tm-data-delete { text-align: center; padding-top: var(--s-4); }
+.tm-data-delete .tm-note { font: var(--type-body); }

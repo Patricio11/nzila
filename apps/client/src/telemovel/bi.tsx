@@ -9,6 +9,7 @@ import { NAME_MAX, checkName } from "@nzila/protocol";
 import { Button, EmptyState, Glyph, IdCard } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { type WorldProvider } from "../world/provider.ts";
+import { MeusDados } from "./meus-dados.tsx";
 
 const word = (key: string, fallback: string): string => (key in ptAO ? tr.t(key as MessageKey) : fallback);
 
@@ -80,6 +81,7 @@ function NameEditor({ world, onDone }: { world: WorldProvider; onDone: () => voi
 export function Bi({ world }: { world: WorldProvider }) {
   const [, redraw] = useState(0);
   const [naming, setNaming] = useState(false);
+  const [data, setData] = useState(new URLSearchParams(location.search).has("dados"));
   useEffect(() => {
     // The card shows what this phone knows at once, and what the server says as soon as it answers.
     void world.refreshMe().then(() => redraw((n) => n + 1));
@@ -102,6 +104,7 @@ export function Bi({ world }: { world: WorldProvider }) {
       </>
     );
   }
+  if (data) return <MeusDados world={world} onBack={() => setData(false)} />;
   return (
     <div class="tm-bi">
       <IdCard
@@ -123,6 +126,9 @@ export function Bi({ world }: { world: WorldProvider }) {
               {tr.t("bi.family")}
             </Button>
           ) : null}
+          <Button kind="quiet" onPress={() => setData(true)}>
+            {tr.t("mydata.title")}
+          </Button>
         </div>
       )}
     </div>

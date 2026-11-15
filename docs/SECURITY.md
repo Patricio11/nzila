@@ -17,7 +17,7 @@
 
 **1. Client to API (Phase 2).**
 - Every route is declared through `declare()` (`apps/api/src/routes.ts`) with a **guard** (`public`, `player`, `staff`), a **shape** checked with Zod before the handler runs (unknown fields are refused, bodies are capped at 16 KB), and a **rate limit**. A route registered any other way stops the app from being built, and a test walks every route. The list of public routes is written out in that test: adding one is a deliberate act.
-- Errors are a status and a one-word code (`invalid`, `unauthenticated`, `slow_down`, `forbidden`, `not_found`, `failed`, and for a name `name_taken`, `name_refused`, `name_spent`). No message, no stack, no detail of what was wrong: the client has the words, and an attacker learns nothing.
+- Errors are a status and a one-word code (`invalid`, `unauthenticated`, `slow_down`, `forbidden`, `not_found`, `failed`, for a name `name_taken`, `name_refused`, `name_spent`, and `not_confirmed` for a deletion without its proof). No message, no stack, no detail of what was wrong: the client has the words, and an attacker learns nothing.
 - `staff` passes nobody until the Estúdio exists (Phase 12).
 
 **2. Sessions (Task 2.1).**
@@ -32,6 +32,8 @@
 - **The look:** the client proposes it; the API records it only when every part is in the catalogue both read (`packages/protocol/src/look.ts`), and refuses it whole otherwise. A look read back is checked again, so a wardrobe that has changed cannot hand out what no longer exists.
 - **The name:** its shape is a rule both sides share (`packages/protocol/src/name.ts`); the server alone says whether it is reserved, whether the filter objects, and whether it is taken. Uniqueness is an index on the plain form of the name, so two requests at the same instant cannot both win. A name reaches a page only as text, never as markup.
 - **The card of origin:** dealt by the server with its own dice (`crypto.randomInt`), once a player, inside a transaction that holds the player's row; a trigger refuses to rewrite a card. The Makuta on it is a record, not money, until the ledger pays it (Task 4.1). The client keeps a copy to show with no network; nothing reads that copy as truth.
+
+**2d. What a player may ask of their own data (Task 2.6).** Their consents (analytics and notifications, off until a yes; playing itself is agreed to by coming in and ended by deleting), everything kept of them as a file, and deletion. Deletion needs the player's own BI number in the request, so that a request sent by mistake or by another page deletes nobody; it runs in one transaction, ends every session, and is written to the audit log, as an export is. The row stays, emptied, so the ledger stays whole and becomes anonymous.
 
 **3. Personal data (Task 0.10).** Fields that identify a person are encrypted with AES-256-GCM under a rotating keyring, bound to their column; phone numbers and device ids are matched by keyed hash. A guest has none.
 

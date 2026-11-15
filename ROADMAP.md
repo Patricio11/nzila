@@ -301,7 +301,7 @@ flowchart LR
 
 ### Task 2.6: Age gate, consent, privacy
 - [x] The year of birth is asked at first play; only an age band is stored (under 15: no account; 15 to 17; 18 or over). *(2026-11-15: asked on the way in, on the game's own keys; the year never leaves the phone, D-2.5. Nothing reads the band yet: staked tables and namoro arrive in later phases and must.)* The band closes staked tables (D-0.32) and namoro (D-0.34) to the younger band: those things are absent for them, not disabled.
-- [ ] Age confirmation at first play (15+, D-0.10); consent for analytics and notifications asked plainly, off by default; the BI app shows "Os meus dados": export (JSON) and delete account.
+- [x] Age confirmation at first play (15+, D-0.10); consent for analytics and notifications asked plainly, off by default; the BI app shows "Os meus dados": export (JSON) and delete account. *(2026-11-15: "Os meus dados" in the BI app: the two choices as switches, off until a yes, each yes and no kept as history; everything kept of the player as a file; "Apagar a conta", asked twice, which empties the player's row of what said who they were and keeps the row for the ledger (`docs/legal/RETENTION.md`). Nothing measures or notifies yet: when 4B and the notifications arrive they read these choices, and are where the question is put in front of the player. Linked sign-ins on this screen arrive with 2.2.)*
 - Depends on: 0.10, 2.1 · Unblocks: 13.3.
 
 ### Task 2.7: Wiring, verification, doc convention

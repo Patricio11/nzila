@@ -638,9 +638,12 @@ export function Andar() {
             {hud.action ? <ContextAction label={tr.t(`action.${hud.action}`)} disabled={hud.action === "stopAsked"} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>
           <Telemovel world={world} open={phone} first={params.get("telemovel") || null} marked={marked} onMark={setMarked} onClose={() => setPhone(false)} />
-          <div class="andar-chat">
-            <ChatBar disabled />
-          </div>
+          {/* The Telemóvel covers the foot of the screen: the chat bar steps aside while it is open, or it would lie over the sheet's last key. */}
+          {phone ? null : (
+            <div class="andar-chat">
+              <ChatBar disabled />
+            </div>
+          )}
         </div>
       ) : null}
     </main>

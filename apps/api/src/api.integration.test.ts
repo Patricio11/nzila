@@ -263,3 +263,72 @@ describe("a name", () => {
     expect((await app.inject({ method: "PUT", url: "/v1/me/name", payload: { name: "Zé Manel" } })).statusCode).toBe(401);
   });
 });
+
+describe("os meus dados", () => {
+  const her = { sex: "f", skin: 2, hair: "trancas", hairColour: "hairBlack", top: "blusa", topColour: "awningGold", bottom: "pano", bottomColour: "awningTeal", bands: "awningGold", shoe: "shoeTan" };
+  const settled = async (n: number) => {
+    const guest = await newGuest(n);
+    await app.inject({ method: "PUT", url: "/v1/me/look", headers: as(guest.token), payload: { look: her } });
+    await app.inject({ method: "POST", url: "/v1/me/origin", headers: as(guest.token) });
+    return guest;
+  };
+
+  test("analytics and notifications are off until the player says yes, and each yes and no is kept as history", async () => {
+    const guest = await newGuest(50);
+    const choices = () => app.inject({ method: "GET", url: "/v1/me/consents", headers: as(guest.token) });
+    const choose = (purpose: string, granted: unknown) => app.inject({ method: "PUT", url: "/v1/me/consents", headers: as(guest.token), payload: { purpose, granted } });
+    expect((await choices()).json()).toEqual({ analytics: false, notifications: false });
+    expect((await choose("analytics", true)).json()).toEqual({ analytics: true, notifications: false });
+    expect((await choose("analytics", false)).json()).toEqual({ analytics: false, notifications: false });
+    expect((await choose("notifications", true)).json()).toEqual({ analytics: false, notifications: true });
+    // Playing cannot be said no to here, and a yes must be a yes.
+    expect((await choose("play", false)).statusCode).toBe(400);
+    expect((await choose("analytics", "yes")).statusCode).toBe(400);
+    expect((await sql`SELECT purpose, granted FROM consents WHERE player_id = ${guest.playerId} ORDER BY id`).map((row) => `${row.purpose}:${row.granted}`)).toEqual(["play:true", "analytics:true", "analytics:false", "notifications:true"]);
+  });
+
+  test("the player is given everything kept of them, in words, with no hash in it, and the asking is recorded", async () => {
+    const guest = await settled(51);
+    const res = await app.inject({ method: "GET", url: "/v1/me/data", headers: as(guest.token) });
+    expect(res.statusCode).toBe(200);
+    const data = res.json() as Record<string, unknown>;
+    expect(data).toMatchObject({
+      player: { id: guest.playerId, kind: "guest", name: guest.name, biNumber: guest.biNumber, ageBand: "18_plus" },
+      look: { hair: "trancas" },
+      origin: { makuta: expect.any(Number), family: expect.any(String) },
+      consents: [{ purpose: "play", granted: true }],
+      devices: [{ platform: "android" }],
+      sessions: [{ ended: null }],
+    });
+    expect(res.body).not.toMatch(/[0-9a-f]{64}/);
+    expect(res.body).not.toContain(guest.token);
+    expect(await sql`SELECT actor_kind, kind FROM audit_log WHERE subject_id = ${guest.playerId}`).toEqual([{ actor_kind: "player", kind: "player.export" }]);
+  });
+
+  test("deleting the account removes what says who they were and keeps the row, so that the books still add up", async () => {
+    const guest = await settled(52);
+    const other = await settled(53);
+    // Not without their own BI number: a request sent by mistake deletes nobody.
+    for (const biNumber of ["", other.biNumber, "00000000-LA"]) {
+      const refused = await app.inject({ method: "DELETE", url: "/v1/me", headers: as(guest.token), payload: { biNumber } });
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json()).toEqual({ error: "not_confirmed" });
+    }
+    expect((await app.inject({ method: "DELETE", url: "/v1/me", headers: as(guest.token) })).statusCode).toBe(400);
+
+    expect((await app.inject({ method: "DELETE", url: "/v1/me", headers: as(guest.token), payload: { biNumber: guest.biNumber } })).statusCode).toBe(200);
+    const [row] = await sql`SELECT status, name, name_key, bi_number, age_band, phone_hash, deleted_at IS NOT NULL AS dated FROM players WHERE id = ${guest.playerId}`;
+    expect(row).toEqual({ status: "deleted", name: null, name_key: null, bi_number: null, age_band: null, phone_hash: null, dated: true });
+    for (const table of ["devices", "player_sessions", "avatars", "player_origins"]) expect(await sql`SELECT 1 FROM ${sql(table)} WHERE player_id = ${guest.playerId}`, table).toEqual([]);
+    // The proof that they agreed is kept for its period; that they left is recorded.
+    expect(await sql`SELECT purpose FROM consents WHERE player_id = ${guest.playerId}`).toEqual([{ purpose: "play" }]);
+    expect((await sql`SELECT kind FROM audit_log WHERE subject_id = ${guest.playerId}`).map((entry) => entry.kind)).toContain("player.delete");
+    // Their token is dead, their name is free for someone else, and nobody else was touched.
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(guest.token) })).statusCode).toBe(401);
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(other.token) })).json()).toMatchObject({ name: other.name, look: { hair: "trancas" }, origin: { family: expect.any(String) } });
+  });
+
+  test("none of it is for anybody without a session", async () => {
+    for (const [method, url] of [["GET", "/v1/me/consents"], ["PUT", "/v1/me/consents"], ["GET", "/v1/me/data"], ["DELETE", "/v1/me"]] as const) expect((await app.inject({ method, url })).statusCode, url).toBe(401);
+  });
+});

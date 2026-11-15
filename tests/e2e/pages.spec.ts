@@ -194,7 +194,33 @@ test.describe("the BI", () => {
     const token = await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token?: string }).token);
     expect(await (await page.request.get("/api/v1/me", { headers: { authorization: `Bearer ${token}` } })).json()).toMatchObject({ name, nameFree: false, ageBand: "15_17" });
     await expectNoSidewaysScroll(page);
-    expect(seen.errors).toEqual([]);
+
+    // Os meus dados: both choices are off until they say yes; all of it can be taken away as a file.
+    await page.getByRole("button", { name: "Os meus dados" }).click();
+    const analytics = page.getByRole("switch", { name: "Ajudar a melhorar o jogo" });
+    await expect(analytics).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByRole("switch", { name: "Receber avisos" })).toHaveAttribute("aria-checked", "false");
+    await analytics.click();
+    await expect(analytics).toHaveAttribute("aria-checked", "true");
+    const headers = { authorization: `Bearer ${token}` };
+    expect(await (await page.request.get("/api/v1/me/consents", { headers })).json()).toEqual({ analytics: true, notifications: false });
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Levar os meus dados" }).click();
+    const file = await (await download).path();
+    const taken = JSON.parse((await import("node:fs")).readFileSync(file, "utf8")) as { player: { name: string }; look: unknown; origin: unknown; onThisPhone: unknown };
+    expect(taken).toMatchObject({ player: { name, ageBand: "15_17" }, look: { sex: "f" }, origin: { makuta: expect.any(Number) }, onThisPhone: { look: { sex: "f" } } });
+
+    // Deleting asks twice. "Ficar" changes nothing; "Sim" ends it: the phone forgets them and the server lets nobody in with their token.
+    await page.getByRole("button", { name: "Apagar a conta" }).click();
+    await expect(page.getByRole("alertdialog", { name: "Apagar tudo?" })).toBeVisible();
+    await page.getByRole("button", { name: "Ficar" }).click();
+    await page.getByRole("button", { name: "Apagar a conta" }).click();
+    await page.getByRole("button", { name: "Sim, apagar tudo" }).click();
+    await page.waitForURL((url) => url.pathname === "/");
+    await expect(page.getByRole("button", { name: "Entrar em Luanda" })).toBeVisible();
+    expect(await page.evaluate(() => [localStorage.getItem("nzila.conta"), localStorage.getItem("nzila.look"), localStorage.getItem("nzila.foto")])).toEqual([null, null, null]);
+    expect((await page.request.get("/api/v1/me", { headers })).status()).toBe(401);
+    expect(seen.errors.filter((error) => !error.includes("401"))).toEqual([]);
   });
 });
 
