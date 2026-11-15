@@ -2,7 +2,7 @@ declare global {
   interface Window {
     __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number };
   }
 }
 
@@ -215,6 +215,37 @@ test.describe("the candongueiros", () => {
   });
 });
 
+test.describe("a lost graphics context", () => {
+  test("the browser takes the context away and gives it back: the world is drawn again, with nothing wrong", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/l1/manifest.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa is not built (it needs Blender). Recovery was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/cena?pack=l1&tier=normal&hour=12&transito=30&at=250,66,1.7&look=215,66,1.2");
+    await page.waitForFunction(() => (window.__cena?.draws ?? 0) >= 4 && window.__cena!.stream !== undefined && window.__cena!.stream.shown === window.__cena!.stream.wanted && window.__cena!.stream.loading === 0, undefined, { timeout: 45_000 });
+    const before = await page.evaluate(() => window.__cena!.triangles);
+    const could = await page.evaluate(async () => {
+      const canvas = document.querySelector("canvas")!;
+      const lose = (canvas.getContext("webgl2") ?? canvas.getContext("webgl"))?.getExtension("WEBGL_lose_context");
+      if (!lose) return false;
+      lose.loseContext();
+      await new Promise((done) => setTimeout(done, 400));
+      lose.restoreContext();
+      return true;
+    });
+    if (!could) {
+      info.annotations.push({ type: "skipped", description: "This browser cannot be made to lose its context." });
+      return;
+    }
+    await page.waitForFunction(() => window.__cena!.restored === 1, undefined, { timeout: 15_000 });
+    // The same view again, give or take the people who walked on.
+    await page.waitForFunction((was) => window.__cena!.triangles > was * 0.8, before, { timeout: 15_000 });
+    expect(seen.errors.filter((line) => !/context lost|CONTEXT_LOST/i.test(line))).toEqual([]);
+  });
+});
+
 test.describe("the look chooser", () => {
   test("a body, its skin, hair and its colour, and each piece of clothing are chosen, worn at once, kept, and worn in the world", async ({ page, request }, info) => {
     if (!(await request.get("/packs/guarda-roupa/guarda-roupa.json")).ok() || !(await request.get("/packs/l1/manifest.json")).ok()) {
@@ -370,6 +401,8 @@ test.describe("a person", () => {
     const start = await page.evaluate(() => window.__andar!.x);
     // The scripted turn begins by walking east at a metre and a half a second.
     await page.waitForFunction((from) => window.__andar!.x > from + 2, start, { timeout: 20_000 });
+    // Every foot that came down asked for its sound.
+    expect(await page.evaluate(() => window.__andar!.sounds)).toBeGreaterThan(2);
     const moving = await page.evaluate(() => window.__andar!);
     info.annotations.push({ type: "walk", description: `from x ${start.toFixed(1)} to ${moving.x.toFixed(1)} m, at ${moving.speed.toFixed(2)} m/s` });
     expect(moving.speed).toBeGreaterThan(0.8);

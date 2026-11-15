@@ -153,6 +153,11 @@ export class WorldRenderer {
     // Edges are smoothed by the graphics card (4x multisampling). On a phone's kind of graphics
     // chip this is nearly free, and without it every roofline is a staircase (finding F-39).
     this.gl = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", alpha: false, stencil: false });
+    canvas.addEventListener("webglcontextrestored", () => {
+      this.restored += 1;
+      // The shadow's picture went with the context: it is drawn again on the next frame.
+      this.gl.shadowMap.needsUpdate = true;
+    });
     this.gl.shadowMap.type = PCFSoftShadowMap;
     this.scene.fog = this.fog;
     this.scene.add(this.ambient, this.sun, this.sun.target);
@@ -361,7 +366,13 @@ export class WorldRenderer {
   }
 
   /** Draws a frame. `frameMs` is how long the last one took, which is what the picture's size is steered by. */
+  /** How many times the browser has taken the graphics context away and given it back. */
+  restored = 0;
+
   render(frameMs: number): void {
+    // A cheap phone takes the graphics context away when memory is short. Nothing is drawn while it is gone;
+    // when it comes back the renderer builds everything again from what it still holds.
+    if (this.gl.getContext().isContextLost()) return;
     this.seconds += Math.min(frameMs, 100) / 1000;
     for (const water of this.waters) water.uniforms.uTime!.value = this.seconds;
     this.sizeFor(this.governor.frame(frameMs));

@@ -30,6 +30,7 @@ import { EMOTES, EMOTE_SECONDS, loadPerson, type Emote, type Person } from "../r
 import { type VanSeen } from "../render/traffic.ts";
 import { type TierName } from "../render/tiers.ts";
 import { dress, savedLook } from "../render/wardrobe.ts";
+import { Sound } from "../sound/sound.ts";
 import { Telemovel, type Marked } from "../telemovel/telemovel.tsx";
 import { Arriving } from "../frontdoor/arriving.tsx";
 import { LocalWorld } from "../world/provider.ts";
@@ -44,7 +45,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number };
   }
 }
 
@@ -122,7 +123,13 @@ export function Andar() {
     let tier = tierNow();
     const renderer = new WorldRenderer(element, tier);
     // A change of quality in Definições is a change of the picture at once.
+    // Sound: on unless Definições or Modo Poupança says otherwise; it wakes at the first touch or key.
+    const sound = new Sound();
+    const audible = (): boolean => world.settings.sound && !world.settings.poupanca;
+    sound.set(audible());
+    let leftStops = new Set<string>();
     const unwatch = world.watch(() => {
+      sound.set(audible());
       if (tierNow() !== tier) renderer.setTier((tier = tierNow()));
     });
     const auto = params.has("auto");
@@ -133,7 +140,7 @@ export function Andar() {
     const before = { x: 0, y: 0, z: 0 };
     const stick = { x: 0, y: 0, originX: 0, originY: 0, active: false };
     const keys = new Set<string>();
-    const camera = { yaw: ((Number(params.get("cam")) || 0) * Math.PI) / 180, pitch: 0.2, distance: 4.4 };
+    const camera = { yaw: ((Number(params.get("cam")) || 0) * Math.PI) / 180, pitch: 0.2, distance: 4.4, held: 4.4 };
     let facing = 0;
     let phase = 0;
     let speed = 0;
@@ -248,6 +255,13 @@ export function Andar() {
         };
         // A van standing near enough to board, and the one being ridden.
         const vans = district.traffic?.seen ?? [];
+        // A van hoots as it pulls away from a paragem, louder the nearer it is.
+        const standing = new Set(vans.filter((van) => van.dwelling).map((van) => `${van.route}/${van.index}`));
+        for (const van of vans) {
+          const far = Math.hypot(van.x - state.x / 1000, van.z - state.z / 1000);
+          if (!van.dwelling && leftStops.has(`${van.route}/${van.index}`) && far < 60) sound.hoot(1 - far / 60);
+        }
+        leftStops = standing;
         const waiting = ride ? null : (vans.filter((van) => van.dwelling && Math.hypot(van.x - state.x / 1000, van.z - state.z / 1000) < BOARD_REACH_M)[0] ?? null);
         if (ride) {
           const riding = ride;
@@ -357,12 +371,18 @@ export function Andar() {
           if (!seat && !ride) {
             const leaving = asks.current.jump && !state.air;
             stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, district.traffic?.obstacles() ?? [], DEFAULT_CHARACTER);
-            if (leaving) air.count += 1;
+            if (leaving) {
+              air.count += 1;
+              sound.jump();
+            }
           }
           asks.current.jump = false;
           air.after = state.air ? (DEFAULT_CHARACTER.jumpSteps - state.air) / DEFAULT_CHARACTER.jumpSteps : air.before > 0 ? 1 : 0;
           air.liftAfter = jumpLiftMm(state) / 1000;
-          if (air.after === 1) air.land = 1;
+          if (air.after === 1) {
+            air.land = 1;
+            sound.land();
+          }
         }
         air.land = Math.max(0, air.land - elapsed / 260);
         const blend = carried / SIM_STEP_MS;
@@ -377,7 +397,12 @@ export function Andar() {
         speed += (travelled - speed) * Math.min(1, elapsed / 110);
         const strideM = (speed > 2.2 ? 2.5 : 1.42) * (person.height / 1.7) * (person.skirt ? 0.8 : 1);
         // The legs do not stride in the air.
-        if (!flying) phase += ((speed * elapsed) / 1000 / strideM) * Math.PI * 2;
+        if (!flying) {
+          const stepsBefore = Math.floor(phase / Math.PI);
+          phase += ((speed * elapsed) / 1000 / strideM) * Math.PI * 2;
+          // A foot comes down twice in every turn of the stride.
+          if (Math.floor(phase / Math.PI) !== stepsBefore && speed > 0.4 && !ride && !seat) sound.step(speed > 2.2);
+        }
         const target = seat ? seat.facing : moving ? Math.atan2(ask.dx, ask.dz) : facing;
         facing += Math.atan2(Math.sin(target - facing), Math.cos(target - facing)) * Math.min(1, elapsed / 90);
         if (sit > 0.001 && seat) {
@@ -409,13 +434,17 @@ export function Andar() {
         const reach = (ride ? 8.5 : camera.distance) * (upright ? 1.25 : 1);
         const eyeY = y + (ride ? 1.9 : person.height * (0.86 - 0.22 * sit));
         let allowed = reach;
-        for (let i = 1; i <= 10; i++) {
-          const along = (reach * i) / 10;
+        for (let i = 1; i <= 14; i++) {
+          const along = (reach * i) / 14;
           if (!open(ground, x + Math.sin(camera.yaw) * along, z + Math.cos(camera.yaw) * along)) {
             allowed = Math.max(0.9, along - 0.5);
             break;
           }
         }
+        // In at once before a wall, a post or a trunk would come between; out again gently, so that passing
+        // a row of lamps does not make the picture jump.
+        camera.held = allowed < camera.held ? allowed : camera.held + (allowed - camera.held) * Math.min(1, elapsed / 420);
+        allowed = camera.held;
         const flat = Math.cos(camera.pitch) * allowed;
         district.stand([x, z]);
         // North is the world's -Z; a heading is degrees clockwise from it.
@@ -440,8 +469,16 @@ export function Andar() {
         district.update();
 
         const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null };
+        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played };
         if (now - lastHud > 120) {
+          // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
+          // outward from where the player stands.
+          const cell = (dx: number, dz: number): number => ground.flagsAt(Math.floor(((x + dx) * 1000) / ground.cellMm), Math.floor(((z + dz) * 1000) / ground.cellMm));
+          let water = 0;
+          let traffic = ride ? 1 : 0;
+          for (let d = 0; d <= 48 && water === 0; d += 4) if (cell(0, -d) & CELL_WATER) water = 1 - d / 52;
+          for (let d = 0; d <= 24 && traffic === 0; d += 3) if ((cell(0, d) | cell(0, -d) | cell(d, 0) | cell(-d, 0)) & CELL_DRIVE) traffic = 1 - d / 28;
+          sound.ambience(water, traffic);
           lastHud = now;
           // The compass turns with the camera: what is ahead is at the top. North is the world's -Z.
           const heading = (((Math.atan2(-Math.sin(camera.yaw), Math.cos(camera.yaw)) * 180) / Math.PI) + 360) % 360;
@@ -477,6 +514,7 @@ export function Andar() {
     // The lower third on the thumb's side is the stick, wherever the thumb lands; everywhere else turns the camera.
     const touches = new Map<number, { kind: "stick" | "look"; x: number; y: number }>();
     const down = (event: PointerEvent): void => {
+      sound.wake();
       const rect = element.getBoundingClientRect();
       const across = (event.clientX - rect.left) / rect.width;
       const inZone = event.pointerType !== "mouse" && (across < 0.5) !== world.settings.leftHanded && event.clientY - rect.top > rect.height * 0.45;
@@ -504,6 +542,7 @@ export function Andar() {
       if (touch?.kind === "stick") Object.assign(stick, { x: 0, y: 0, active: false });
     };
     const keyDown = (event: KeyboardEvent): void => {
+      sound.wake();
       const key = event.key.toLowerCase();
       keys.add(key);
       // On a keyboard: E is the gold button, 1 to 4 the gestures.
@@ -540,6 +579,7 @@ export function Andar() {
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("resize", onResize);
       unwatch();
+      sound.close();
       cabin.dispose();
       person?.dispose();
       district?.close();
