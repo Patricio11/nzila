@@ -7,10 +7,10 @@
 //   /provador                 opens on the look kept on this device, or the first one
 //   /provador?hour=16.6       the light it is seen in
 //   /provador?look=<json>     a look given in the address (for stills)
-//   /provador?ang=30          where the camera starts
+//   /provador?ang=30          where the camera starts; &perto looks at the face
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
-import { Button, Choice, Swatches } from "@nzila/ui";
+import { Button, Choice, Swatches, Toggle } from "@nzila/ui";
 import { WORLD } from "@nzila/world/client";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { type Person } from "../render/person.ts";
@@ -91,11 +91,12 @@ export function Provador() {
       const tall = person?.height ?? 1.7;
       const upright = renderer.camera.aspect < 1;
       // Near enough to see a face and the hair, far enough for the shoes.
-      const distance = upright ? 3.0 : renderer.camera.aspect < 1.4 ? 2.25 : 2.5;
+      const near = params.has("perto");
+      const distance = near ? 0.72 : upright ? 3.0 : renderer.camera.aspect < 1.4 ? 2.25 : 2.5;
       const angle = view.current.angle;
       person?.pose({ speed: 0, phase: 0, time: now / 1000 });
-      renderer.camera.position.set(Math.sin(angle) * distance, 1.25, Math.cos(angle) * distance);
-      renderer.camera.lookAt(0, tall * 0.53, 0);
+      renderer.camera.position.set(Math.sin(angle) * distance, near ? tall * 0.96 : 1.25, Math.cos(angle) * distance);
+      renderer.camera.lookAt(0, near ? tall * 0.94 : tall * 0.53, 0);
       renderer.setFocus(0, 0, 0);
       renderer.render(elapsed);
       frame = requestAnimationFrame(tick);
@@ -128,6 +129,8 @@ export function Provador() {
   const mine = has?.[look.sex];
   const named = (group: string, ids: readonly string[]): { id: string; label: string }[] => ids.map((id) => ({ id, label: tr.t(`look.${group}.${id}` as "look.hair.afro") }));
   const swatches = (names: readonly string[]): { id: string; label: string; colour: string }[] => names.map((id, n) => ({ id, label: tr.t("look.colour", { n: n + 1 }), colour: css(id) }));
+  const covered = look.hair === "lenco" || look.hair === "bone";
+  const sizes = (of: "tall" | "broad"): { id: string; label: string }[] => [-1, 0, 1].map((n) => ({ id: String(n), label: tr.t(`look.${of}.${look.sex}.${n + 1}` as "look.tall.f.0") }));
   const done = (): void => {
     saveLook(look);
     location.assign(params.get("voltar") ?? "/andar?pack=l1");
@@ -144,7 +147,15 @@ export function Provador() {
             <Choice label={tr.t("look.sex")} options={named("sex", ["f", "m"])} value={look.sex} onChange={(sex) => change({ sex: sex as Look["sex"] })} />
             <Swatches label={tr.t("look.skin")} options={[0, 1, 2, 3, 4].map((n) => ({ id: String(n), label: tr.t("look.colour", { n: n + 1 }), colour: skinTone(n) }))} value={String(look.skin)} onChange={(skin) => change({ skin: Number(skin) })} />
             <Choice label={tr.t("look.hair")} options={named("hair", Object.keys(mine.hair))} value={look.hair} onChange={(hair) => change({ hair })} />
-            {look.hair === "careca" ? null : <Swatches label={tr.t(look.hair === "lenco" ? "look.lencoColour" : "look.hairColour")} options={swatches(look.hair === "lenco" ? COLOURS.cloth : COLOURS.hair)} value={look.hairColour} onChange={(hairColour) => change({ hairColour })} />}
+            {look.hair === "careca" ? null : <Swatches label={tr.t(covered ? "look.lencoColour" : "look.hairColour")} options={swatches(covered ? COLOURS.cloth : COLOURS.hair)} value={look.hairColour} onChange={(hairColour) => change({ hairColour })} />}
+            <div class="provador-extras" role="group" aria-label={tr.t("look.extras")}>
+              <span class="n-choice-label">{tr.t("look.extras")}</span>
+              {Object.keys(mine.extras ?? {}).map((extra) => (
+                <Toggle label={tr.t(`look.extra.${extra}` as "look.extra.oculos")} on={(look.extras ?? []).includes(extra)} onChange={(on) => change({ extras: on ? [...(look.extras ?? []), extra] : (look.extras ?? []).filter((worn) => worn !== extra) })} />
+              ))}
+            </div>
+            <Choice label={tr.t("look.tall")} options={sizes("tall")} value={String(look.tall ?? 0)} onChange={(tall) => change({ tall: Number(tall) })} />
+            <Choice label={tr.t("look.broad")} options={sizes("broad")} value={String(look.broad ?? 0)} onChange={(broad) => change({ broad: Number(broad) })} />
             <Choice label={tr.t("look.top")} options={named("top", Object.keys(mine.bodies))} value={look.top} onChange={(top) => change({ top })} />
             <Swatches label={tr.t("look.topColour")} options={swatches(COLOURS.cloth)} value={look.topColour} onChange={(topColour) => change({ topColour })} />
             {look.bottom === "none" ? null : (

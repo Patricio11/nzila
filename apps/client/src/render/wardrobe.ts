@@ -28,6 +28,11 @@ export interface Look {
   /** The second colour of a pano. */
   readonly bands: string;
   readonly shoe: string;
+  /** What is worn on the face and the ears: "brincos", "oculos", "barba", "bigode". */
+  readonly extras?: readonly string[];
+  /** -1 shorter, 0, 1 taller; and -1 slighter, 0, 1 broader. */
+  readonly tall?: number;
+  readonly broad?: number;
 }
 
 interface Piece {
@@ -37,7 +42,7 @@ interface Piece {
 }
 
 /** What the wardrobe holds, by sex. A hair style with no model is the scalp alone. */
-export type Wardrobe = Readonly<Record<"f" | "m", { readonly height: number; readonly bodies: Readonly<Record<string, Readonly<Record<string, Piece>>>>; readonly hair: Readonly<Record<string, Piece | null>> }>>;
+export type Wardrobe = Readonly<Record<"f" | "m", { readonly height: number; readonly bodies: Readonly<Record<string, Readonly<Record<string, Piece>>>>; readonly hair: Readonly<Record<string, Piece | null>>; readonly extras?: Readonly<Record<string, Piece>> }>>;
 
 /** The colours offered for each thing. Few and chosen: a wardrobe, not a paint shop. */
 export const COLOURS = {
@@ -47,6 +52,9 @@ export const COLOURS = {
   bands: ["awningGold", "paintWhite", "clothBlack", "cloth", "awningRed"],
   shoe: ["shoe", "shoeWhite", "shoeTan", "clothBlack"],
 } as const;
+
+/** The cloth a lenço or a cap may be. */
+export const COVERS = ["lenco", "bone"] as const;
 
 export const FIRST_LOOK: Look = { sex: "f", skin: 2, hair: "trancas", hairColour: "hairBlack", top: "blusa", topColour: "awningGold", bottom: "pano", bottomColour: "awningTeal", bands: "awningGold", shoe: "shoeTan" };
 
@@ -85,7 +93,9 @@ export function fitted(look: Look, has: Wardrobe): Look {
   const bottoms = mine.bodies[top]!;
   const bottom = bottoms[look.bottom] ? look.bottom : Object.keys(bottoms)[0]!;
   const hair = look.hair in mine.hair ? look.hair : Object.keys(mine.hair)[0]!;
-  return { ...look, top, bottom, hair, skin: Math.min(4, Math.max(0, Math.round(look.skin))) };
+  const extras = (look.extras ?? []).filter((extra) => extra in (mine.extras ?? {}));
+  const step = (n: number | undefined): number => Math.min(1, Math.max(-1, Math.round(n ?? 0)));
+  return { ...look, top, bottom, hair, extras, tall: step(look.tall), broad: step(look.broad), skin: Math.min(4, Math.max(0, Math.round(look.skin))) };
 }
 
 const square = (name: string): number => {
@@ -130,7 +140,7 @@ export async function dress(renderer: WorldRenderer, asked: Look): Promise<Perso
   const mine = has[look.sex];
   const outfit = mine.bodies[look.top]![look.bottom]!;
   const hairPiece = mine.hair[look.hair] ?? null;
-  const [body, hair] = await Promise.all([piece(renderer, outfit.model), hairPiece ? piece(renderer, hairPiece.model) : Promise.resolve(null)]);
+  const [body, hair, ...extras] = await Promise.all([piece(renderer, outfit.model), hairPiece ? piece(renderer, hairPiece.model) : Promise.resolve(null), ...(look.extras ?? []).map((extra) => piece(renderer, mine.extras![extra]!.model))]);
 
   const paints = {
     slotSkin: `skin${look.skin}`,
@@ -144,8 +154,11 @@ export async function dress(renderer: WorldRenderer, asked: Look): Promise<Perso
   };
   // The scalp: skin on a shaved head, cut to the dark under a crest whatever the crest is dyed, hair otherwise.
   repaint(body.mesh, { ...paints, slotHair: look.hair === "careca" ? `skin${look.skin}` : look.hair === "galo" ? "hairBlack" : look.hairColour });
-  if (hair) {
-    repaint(hair.mesh, { ...paints, slotHair: look.hairColour });
+  // A beard is the hair's own colour unless the hair is dyed or covered: then it is the dark it grew.
+  const natural = ["hairBlack", "hairBrown", "hairGrey"].includes(look.hairColour) && look.hair !== "lenco" && look.hair !== "bone" ? look.hairColour : "hairBlack";
+  for (const [worn, colour] of [...(hair ? [[hair, look.hairColour] as const] : []), ...extras.map((extra) => [extra, natural] as const)]) {
+    const hair = worn;
+    repaint(hair.mesh, { ...paints, slotHair: colour });
     // The hair came with a skeleton of its own, the same bones: it is moved onto the body's, bone by name.
     const bones = body.mesh.skeleton.bones;
     const index = hair.mesh.geometry.getAttribute("skinIndex") as BufferAttribute;
@@ -156,7 +169,11 @@ export async function dress(renderer: WorldRenderer, asked: Look): Promise<Perso
     body.mesh.parent?.add(hair.mesh);
     hair.mesh.bind(body.mesh.skeleton, body.mesh.bindMatrix);
   }
-  const person = new Person(body.scene, body.mesh, mine.height, outfit.skirt === true);
+  // Taller or shorter, slighter or broader: the whole person, in steps of a hand's width.
+  const tall = 1 + (look.tall ?? 0) * 0.055;
+  const broad = 1 + (look.broad ?? 0) * 0.09;
+  const person = new Person(body.scene, body.mesh, mine.height * tall, outfit.skirt === true);
+  person.root.scale.set(tall * broad, tall, tall * broad);
   person.female = look.sex === "f";
   return person;
 }

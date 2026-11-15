@@ -30,10 +30,10 @@ os.makedirs(out_dir, exist_ok=True)
 # What each of them may wear and how they may wear their hair. A style with no model ("baixo", "careca")
 # is only the scalp, which is part of the body.
 SEXES = {
-    "f": {"height": 1.64, "tops": ["tshirt", "blusa", "alcas"], "bottoms": ["trousers", "shorts", "skirt", "pano"], "whole": ["vestido"], "hair": ["baixo", "careca", "afro", "cachos", "trancas", "bob", "puxinho", "dreads", "lenco"]},
-    "m": {"height": 1.76, "tops": ["tshirt", "long", "alcas"], "bottoms": ["trousers", "shorts"], "whole": [], "hair": ["baixo", "careca", "afro", "galo", "dreads", "trancas"]},
+    "f": {"height": 1.64, "tops": ["tshirt", "blusa", "alcas"], "bottoms": ["trousers", "shorts", "skirt", "pano"], "whole": ["vestido"], "hair": ["baixo", "careca", "afro", "cachos", "trancas", "bob", "puxinho", "dreads", "lenco", "bone"], "extras": ["brincos", "oculos"]},
+    "m": {"height": 1.76, "tops": ["tshirt", "long", "alcas"], "bottoms": ["trousers", "shorts"], "whole": [], "hair": ["baixo", "careca", "afro", "galo", "dreads", "trancas", "bone"], "extras": ["barba", "bigode", "oculos", "brincos"]},
 }
-MARKERS = {"skin_colour": "slotSkin", "lip_colour": "slotLip", "lip_dark": "slotLipDark", "hair_colour": "slotHair", "lenco": "slotHair", "top_colour": "slotTop", "bottom_colour": "slotBottom", "bands": "slotBands", "shoe": "slotShoe"}
+MARKERS = {"skin_colour": "slotSkin", "lip_colour": "slotLip", "lip_dark": "slotLipDark", "hair_colour": "slotHair", "lenco": "slotHair", "cap": "slotHair", "brow_colour": "hairBlack", "top_colour": "slotTop", "bottom_colour": "slotBottom", "bands": "slotBands", "shoe": "slotShoe"}
 NO_MODEL = ("baixo", "careca")
 
 
@@ -105,7 +105,15 @@ for sex, has in SEXES.items():
         triangles = 0 if style in NO_MODEL else build({**base, "hair": style, "top": "tshirt", "bottom": "trousers"}, os.path.join(out_dir, name), "hair")
         hair[style] = {"model": name, "triangles": triangles} if triangles else None
         count += 1 if triangles else 0
-    listed[sex] = {"height": has["height"], "bodies": bodies, "hair": hair}
+    # What is worn on the face and the ears: a beard takes the hair's natural dark, hoops are gold, glasses black.
+    extras = {}
+    for extra in has["extras"]:
+        name = f"extra-{sex}-{extra}.glb"
+        wearing = {"beard": True, "bigode": True, "beard_colour": "slotHair", "brincos": "awningGold", "oculos": "clothBlack"}
+        triangles = build({**base, **wearing, "hair": "baixo", "top": "tshirt", "bottom": "trousers"}, os.path.join(out_dir, name), extra)
+        extras[extra] = {"model": name, "triangles": triangles}
+        count += 1
+    listed[sex] = {"height": has["height"], "bodies": bodies, "hair": hair, "extras": extras}
 
 with open(os.path.join(out_dir, "guarda-roupa.json"), "w", encoding="utf-8") as handle:
     json.dump(listed, handle, ensure_ascii=False)

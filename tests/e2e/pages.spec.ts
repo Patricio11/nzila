@@ -1,6 +1,6 @@
 declare global {
   interface Window {
-    __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string }; dressed: number };
+    __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
     __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null };
   }
@@ -233,6 +233,12 @@ test.describe("the look chooser", () => {
     await page.waitForFunction(() => window.__provador!.look.hair === "galo" && window.__provador!.look.hairColour === "hairRed" && window.__provador!.look.bottom === "shorts", undefined, { timeout: 30_000 });
     expect(await worn()).toMatchObject({ look: { sex: "m", hair: "galo", hairColour: "hairRed", bottom: "shorts" } });
     expect((await worn()).dressed).toBeGreaterThan(1);
+    // What is worn on the face, and how tall he is.
+    await page.getByRole("switch", { name: "Óculos escuros" }).click();
+    await page.getByRole("switch", { name: "Barba" }).click();
+    await page.getByRole("radio", { name: "Alto" }).click();
+    await page.waitForFunction(() => window.__provador!.look.extras?.length === 2 && window.__provador!.look.tall === 1, undefined, { timeout: 30_000 });
+    await expect(page.getByRole("switch", { name: "Brincos" })).toHaveAttribute("aria-checked", "false");
     // Hers are not offered to him.
     await expect(page.getByRole("radio", { name: "Pano" })).toHaveCount(0);
     await expect(page.getByRole("radio", { name: "Cachos" })).toHaveCount(0);

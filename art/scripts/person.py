@@ -302,7 +302,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         shape(ex, 0.0182, [(side * -0.0145, -0.0022), (side * -0.006, 0.0016), (side * 0.005, 0.002), (side * 0.0145, -0.0006), (side * 0.005, 0.0002), (side * -0.006, -0.0002)], "eyeDark", out=0.0046)
         # The brow: an arch, thicker toward the nose.
         brow = [(-0.016, -0.004), (-0.010, 0.0035), (0.002, 0.0055), (0.017, 0.001), (0.017, -0.0015), (0.002, 0.0015), (-0.010, -0.0005)]
-        shape(ex, 0.031 if not female else 0.033, [(side * ox, oy) for ox, oy in brow], hair_colour, out=0.0034)
+        shape(ex, 0.031 if not female else 0.033, [(side * ox, oy) for ox, oy in brow], spec.get("brow_colour", hair_colour), out=0.0034)
         # The ear: small, flat to the head, behind the cheek.
         box((side * 0.080, yc - 0.004, zc - 0.012), (0.008, 0.032, 0.018), skin)
     # The nose: a ridge that widens to the nostrils.
@@ -323,10 +323,32 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     lower = [(-wide, rise), (-0.008, -0.0006), (0.008, -0.0006), (wide, rise), (0.012, -0.0082), (0.0, -0.0102), (-0.012, -0.0082)]
     shape(0.0, -0.060, upper, lip_dark, out=0.0032)
     shape(0.0, -0.060, lower, lip, out=0.0036)
+    # What is worn on the face and the ears. Each is a piece of its own, so that the wardrobe can offer it apart.
+    face_hair = spec.get("beard_colour", hair_colour)
     if spec.get("beard"):
+        b.piece = "barba"
         chin = [(-0.040, 0.012), (-0.024, 0.002), (0.024, 0.002), (0.040, 0.012), (0.036, -0.022), (0.014, -0.034), (-0.014, -0.034), (-0.036, -0.022)]
-        shape(0.0, -0.078, chin, hair_colour, out=0.0028)
-        shape(0.0, -0.047, [(-0.024, 0.0035), (0.024, 0.0035), (0.027, -0.004), (-0.027, -0.004)], hair_colour, out=0.0034)
+        shape(0.0, -0.078, chin, face_hair, out=0.0028)
+    if spec.get("beard") or spec.get("bigode"):
+        b.piece = "bigode"
+        shape(0.0, -0.047, [(-0.024, 0.0035), (0.024, 0.0035), (0.027, -0.004), (-0.027, -0.004)], face_hair, out=0.0034)
+    if spec.get("brincos"):
+        # A hoop in each ear.
+        b.piece = "brincos"
+        for side in (-1, 1):
+            hoop = [T((side * 0.0865, yc - 0.03 + math.sin(2 * math.pi * k / 7) * 0.017, zc - 0.012 + math.cos(2 * math.pi * k / 7) * 0.017)) for k in range(8)]
+            b.tube(hoop, [0.0032 * s] * 8, 4, spec["brincos"], cap=False)
+    if spec.get("oculos"):
+        # Dark glasses: two lenses in their frames, the bridge, and the arms back to the ears.
+        b.piece = "oculos"
+        frame, lens = spec["oculos"], "vanGlass"
+        for side in (-1, 1):
+            ex = side * 0.032
+            shape(ex, 0.0125, [(-0.021, -0.014), (0.021, -0.014), (0.022, 0.012), (-0.022, 0.012)], frame, out=0.0125)
+            shape(ex, 0.0125, [(-0.0175, -0.0105), (0.0175, -0.0105), (0.0185, 0.0085), (-0.0185, 0.0085)], lens, out=0.0138)
+            b.tube([T((side * 0.054, yc + 0.02, front(0.02, 0.054) + 0.012)), T((side * 0.082, yc + 0.014, zc - 0.006))], [0.003 * s, 0.003 * s], 4, frame)
+        shape(0.0, 0.018, [(-0.011, -0.003), (0.011, -0.003), (0.011, 0.003), (-0.011, 0.003)], frame, out=0.0125)
+    b.piece = "body"
 
     # ------------------------------------------------------------------- hair
     style = spec.get("hair", "baixo")
