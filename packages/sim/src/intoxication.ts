@@ -57,7 +57,7 @@ function drift(level: number, tick: number, seed: number): number {
 
 /**
  * The stick as the body obeys it. Sober and merry, exactly as given. Beyond
- * that the direction wanders, and a drunk cannot run.
+ * that the direction wanders, and a drunk can neither run nor jump.
  */
 export function swayMove(input: MoveInput, level: number, tick: number, seed: number): MoveInput {
   const angle = drift(level, tick, seed);
@@ -70,6 +70,7 @@ export function swayMove(input: MoveInput, level: number, tick: number, seed: nu
     dx: clamp(mulTrig(dx, cos) + mulTrig(dz, sin), -127, 127),
     dz: clamp(mulTrig(dz, cos) - mulTrig(dx, sin), -127, 127),
     run: input.run && drunkBand(level) < 3,
+    ...(input.jump && drunkBand(level) < 3 ? { jump: true } : {}),
   };
 }
 

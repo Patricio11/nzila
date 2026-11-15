@@ -52,6 +52,12 @@ const PAGES = [
   ["hud-sentar", "/andar?hour=16.8&cam=40&quem=4&sentar"],
   ["hud-sentar-calcas", "/andar?hour=12&cam=320&quem=1&sentar"],
   ["hud-esquerda", "/andar?hour=16.8&cam=200&mao=esquerda&quem=2"],
+  // The jump, held at three moments of it.
+  ["salto-inicio", "/andar?hour=16.8&cam=70&quem=1&salto=0.2"],
+  ["salto-alto", "/andar?hour=16.8&cam=70&quem=1&salto=0.5"],
+  ["salto-alto-ela", "/andar?hour=16.8&cam=110&quem=6&salto=0.5"],
+  ["salto-alto-pano", "/andar?hour=16.8&cam=30&quem=0&salto=0.5"],
+  ["salto-fim", "/andar?hour=16.8&cam=70&quem=3&salto=0.85"],
   // Marginal e Baixa. The bay is to the north; the shore is at about z=62 in the middle and z=24 at the ends.
   ["l1-do-alto", "/cena?pack=l1&hour=15&tier=alta&at=224,-70,95&look=224,110,0"],
   ["l1-do-alto-oeste", "/cena?pack=l1&hour=16.5&tier=alta&at=20,10,60&look=200,120,0"],
@@ -102,6 +108,10 @@ const FILMS = [
   ["danca-lado", "/andar?cam=95&quem=5&hour=16.8&gesto=dancar"],
   ["danca-pano", "/andar?cam=20&quem=0&hour=16.8&gesto=dancar"],
   ["danca-ela", "/andar?cam=110&quem=6&hour=16.8&gesto=dancar"],
+  // Jumping: on the spot, at a run, and over the planted strip of the Marginal's avenue.
+  ["salto-parado", "/andar?salto&cam=70&quem=1&hour=16.8"],
+  ["salto-corrida", "/andar?auto&salto&cam=20&quem=3&hour=16.8"],
+  ["salto-separador", "/andar?pack=l1&em=170,97.5&auto=180&salto&cam=265&quem=6&hour=16.8"],
   ["andar-lado", "/andar?auto&cam=0&quem=0&hour=16.8"],
   ["andar-tras", "/andar?auto&cam=270&quem=5&hour=16.8"],
 ];
@@ -186,8 +196,10 @@ try {
     if (path.startsWith("/andar")) {
       await page.waitForFunction("window.__andar?.ready === true", undefined, { timeout: 30000 }).catch(() => report.push(`${pageName}: the person never arrived`));
       // Stills out of the film, to look at the stride without playing it.
-      for (let i = 0; i < 12; i++) {
-        await page.waitForTimeout(i === 0 ? 1200 : 1000);
+      // A jump is over in half a second: its stills are taken close together.
+      const quick = pageName.startsWith("salto");
+      for (let i = 0; i < (quick ? 30 : 12); i++) {
+        await page.waitForTimeout(quick ? 130 : i === 0 ? 1200 : 1000);
         await page.screenshot({ path: join(out, `${pageName}_${i}.png`) });
       }
     }

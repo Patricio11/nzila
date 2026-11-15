@@ -6,7 +6,7 @@
 // cellX0 (i32), cellZ0 (i32), width (u16), depth (u16), baseYMm (i32), then
 // one byte of flags per cell, then one int16 height in centimetres per cell.
 
-import { CELL_DRIVE, CELL_WALK, CELL_WATER, createWalkGrid, gridGround, type Ground, type WalkGrid } from "@nzila/sim";
+import { CELL_DRIVE, CELL_LOW, CELL_WALK, CELL_WATER, createWalkGrid, gridGround, type Ground, type WalkGrid } from "@nzila/sim";
 
 const MAGIC = [0x4e, 0x5a, 0x57, 0x47];
 const VERSION = 1;
@@ -48,6 +48,7 @@ export function decodeWalkGrid(bytes: Uint8Array): WalkGrid {
  * along Z, one character per cell along X:
  *   "#" nothing may stand here    "." pavement (walk)
  *   "=" road (walk and drive)     "~" water
+ *   "^" low: nobody stands here, a jump clears it
  * `heightsCm`, when given, has the same rows of numbers: centimetres above baseYMm.
  */
 export interface WalkGridSource {
@@ -64,6 +65,7 @@ const LEGEND: Readonly<Record<string, number>> = {
   ".": CELL_WALK,
   "=": CELL_WALK | CELL_DRIVE,
   "~": CELL_WATER,
+  "^": CELL_LOW,
 };
 
 export function walkGridFromSource(source: WalkGridSource): WalkGrid {
@@ -77,7 +79,7 @@ export function walkGridFromSource(source: WalkGridSource): WalkGrid {
     if (source.heightsCm && heights?.length !== width) throw new Error(`walk grid heights row ${z} does not match the grid`);
     for (let x = 0; x < width; x++) {
       const flags = LEGEND[row[x]!];
-      if (flags === undefined) throw new Error(`walk grid row ${z}: "${row[x]}" is not one of # . = ~`);
+      if (flags === undefined) throw new Error(`walk grid row ${z}: "${row[x]}" is not one of # . = ~ ^`);
       grid.flags[z * width + x] = flags;
       grid.heightsCm[z * width + x] = heights?.[x] ?? 0;
     }

@@ -217,7 +217,7 @@ flowchart LR
 
 ### Task 1.3: The avatar
 - [ ] One shared skeleton; modular body, head, hair, top, bottom, shoes, one accessory slot; skin tones and Angolan hairstyles done with care (tranças, afro, dreads, corte baixo, lenço).
-- [ ] Animations: idle, walk, run, sit, enter and leave a vehicle, carry, five emotes (acenar, rir, dançar kuduro, aplaudir, chamar).
+- [ ] Animations: idle, walk, run, **jump (D-0.45)**, sit, enter and leave a vehicle, carry, five emotes (acenar, rir, dançar kuduro, aplaudir, chamar).
 - [ ] Character controller from `packages/sim`; a third-person camera that never clips into buildings, with a portrait framing and a landscape framing. The camera sits behind one module with three implementations in order of preference: free, street-level follow locked behind the player, and fixed three-quarter turning in four steps (D-0.29). Which one ships is decided by the measurement in step 2 of the build order.
 - [ ] **The body, the skeleton and the animations are made by us (D-0.40, founder 2026-11-14: "if possible we do ourselves what we can", "we don't want to look like a toy").** They are written as Blender scripts beside the world kit (`art/scripts/`), so they belong to the project outright and no licence stands between the game and a public repository. Human proportions, a face, hands; never a ball for a head. The candidates looked at and refused are recorded in `docs/PHASE_1_PLAN.md` (Q4). If hand-made movement does not pass the look test, the fallback is motion data under a plainly free licence applied to our own skeleton, by the founder's decision, never a kit's body. Dançar kuduro is keyed by hand from the founder's reference video.
 - [ ] **Cheap by construction (D-0.30):** an avatar is baked to one mesh, one material and one draw call when its outfit changes. Only the nearest avatars are skinned (8 at Poupança, 16 at Normal, 30 at Alta); everyone farther away and every NPC is drawn instanced from animation baked to a texture, a whole crowd in a handful of draw calls. Draw-call split at Poupança, enforced by the bench: world 60, skinned avatars 8, instanced crowd and traffic 12, water and sky 4, effects and spare 36.
@@ -225,7 +225,7 @@ flowchart LR
 - Depends on: 0.2, 1.1 · Unblocks: 1.4, 2.3.
 
 ### Task 1.4: Touch controls and the HUD shell
-- [ ] Floating joystick (left or right handed), camera drag, one context action button that names what it does ("Entrar", "Falar", "Apanhar"), run toggle.
+- [ ] Floating joystick (left or right handed), camera drag, one context action button that names what it does ("Entrar", "Falar", "Apanhar"), run toggle, **jump button ("Saltar", D-0.45; Space on a keyboard)**.
 - [ ] HUD shell per `UX_UI_SPEC.md` §3: wallet chip, compass, clock, Telemóvel button, chat bar (inactive until 3.5); safe areas respected; both orientations.
 - [ ] Keyboard and mouse on a desktop browser for development and for diaspora players.
 - Depends on: 0.7, 0.8, 1.3 · Unblocks: 1.7.

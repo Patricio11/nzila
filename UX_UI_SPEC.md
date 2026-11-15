@@ -235,7 +235,7 @@ A kamba NPC meets the player at the stop and walks them through one real loop, e
 │                              │
 │                              │
 │                        ▢     │  Telemóvel
-│                    ☺  ⇧      │  emote · run
+│                 ☺  ⇧  ⤴      │  emote · run · jump (Saltar, D-0.45)
 │   (joystick zone)     ┌────┐ │
 │                       │Falar│ │  context action, gold
 │  [ Escreve aqui…    ] └────┘ │  chat bar

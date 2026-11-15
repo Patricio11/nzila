@@ -64,6 +64,12 @@ describe("on foot", () => {
     expect(swayMove({ ...AHEAD, run: false }, 700, 3, 5).run).toBe(false);
   });
 
+  test("nor jump", () => {
+    expect(swayMove({ ...AHEAD, jump: true }, 700, 3, 5).jump).toBe(true);
+    expect(swayMove({ ...AHEAD, jump: true }, 800, 3, 5).jump).toBeUndefined();
+    expect(swayMove(AHEAD, 700, 3, 5).jump).toBeUndefined();
+  });
+
   test("standing still is standing still however much was drunk", () => {
     expect(swayMove({ dx: 0, dz: 0, run: false }, 1000, 77, 5)).toEqual({ dx: 0, dz: 0, run: false });
   });

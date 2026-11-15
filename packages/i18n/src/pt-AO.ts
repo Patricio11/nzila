@@ -44,6 +44,7 @@ export const ptAO = {
   "hud.poupanca": "Modo Poupança",
   "hud.phone": "Telemóvel",
   "hud.run": "Correr",
+  "hud.jump": "Saltar",
   "hud.emotes": "Gestos",
   "hud.compass": "Bússola",
   "emote.acenar": "Acenar",

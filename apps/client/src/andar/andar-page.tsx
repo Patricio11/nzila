@@ -5,18 +5,19 @@
 // button and the chat bar. What a player reads is in the catalog; the one
 // line of help at the foot is for the team and is plain English.
 //
-//   /andar                 left thumb to walk (push far to run), drag to look, W A S D and Shift on a keyboard
+//   /andar                 left thumb to walk (push far to run), drag to look, W A S D, Shift and Space (jump) on a keyboard
 //   /andar?pack=l1         walks Marginal e Baixa instead of the rehearsal town
 //   /andar?em=250,70       starts there (x,z in metres) instead of where arrivals do
 //   /andar?quem=3          which of the people to be
 //   /andar?mao=esquerda    left-handed: the stick on the right, the buttons on the left
-//   /andar?auto            walks, runs, stops and waves by itself, for films
+//   /andar?auto            walks, runs, stops and waves by itself, for films; /andar?auto=180 walks one way without end (degrees, 0 north)
+//   /andar?salto           jumps again and again; /andar?salto=0.5 holds the body that far through a jump (for stills)
 //   /andar?gesto=acenar    makes that gesture over and over; /andar?sentar sits on the nearest bench (for stills)
 //   /andar?cam=120         where the camera starts, in degrees round the person
 //   /andar?hour=17.3&tier=normal
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
-import { CELL_DRIVE, CELL_WALK, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
+import { CELL_DRIVE, CELL_LOW, CELL_WALK, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
 import { Arrival, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, WalletChip, type CompassMark } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { DEV_PACK } from "../render/bench-scene.ts";
@@ -33,13 +34,13 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number };
   }
 }
 
 const PEOPLE = "/packs/dev-people/";
-/** Cells a camera may sit over: anything a person or a vehicle can be on, and open water. */
-const OPEN = CELL_WALK | CELL_DRIVE | CELL_WATER;
+/** Cells a camera may sit over: anything a person or a vehicle can be on, what is low, and open water. */
+const OPEN = CELL_WALK | CELL_DRIVE | CELL_WATER | CELL_LOW;
 /** How near a seat must be for the action to offer it, in metres. */
 const SEAT_REACH_M = 1.9;
 const EMOTE_LIST = EMOTES.map((id) => ({ id, label: tr.t(`emote.${id}`) }));
@@ -65,7 +66,7 @@ export function Andar() {
   const [wheel, setWheel] = useState(false);
   const [arrived, setArrived] = useState(false);
   // What the buttons ask of the frame loop.
-  const asks = useRef({ run: false, emote: null as Emote | null, act: false });
+  const asks = useRef({ run: false, emote: null as Emote | null, act: false, jump: false });
   asks.current.run = running;
 
   useEffect(() => {
@@ -90,12 +91,17 @@ export function Andar() {
     let seat: { x: number; y: number; z: number; facing: number } | null = null;
     let sit = 0;
     let lastHud = 0;
+    // The jump, as the picture needs it: how far through, and how high, before and after the last step.
+    const air = { before: 0, after: 0, liftBefore: 0, liftAfter: 0, land: 0, count: 0, last: 0 };
     // Asked for in the address, to hold a pose for a picture.
     // `&t=5.2` begins a held gesture that far in, to catch one figure of a dance in a still.
     const skip = Number(params.get("t")) || 0;
     // `&pausa` holds the gesture at exactly that moment.
     const frozen = params.has("pausa");
     const held = { sit: params.has("sentar"), emote: EMOTES.find((kind) => kind === params.get("gesto")) ?? null };
+    const jumpsAlways = params.get("salto") === "";
+    const jumpHeld = Number(params.get("salto")) || 0;
+    const bearing = params.get("auto") ? (Number(params.get("auto")) * Math.PI) / 180 : null;
 
     void (async () => {
       try {
@@ -130,6 +136,7 @@ export function Andar() {
       if (keys.has("s") || keys.has("arrowdown")) sy += 1;
       if (keys.has("a") || keys.has("arrowleft")) sx -= 1;
       if (keys.has("d") || keys.has("arrowright")) sx += 1;
+      if (bearing !== null) return { dx: Math.round(Math.sin(bearing) * 127), dz: Math.round(-Math.cos(bearing) * 127), run };
       if (auto) {
         // A fixed turn: walk, run, stand and wave, walk back.
         const beat = seconds % 16;
@@ -182,6 +189,16 @@ export function Andar() {
           seat = seat ? null : nearest();
         }
         if (seat && moving) seat = null;
+        if (jumpsAlways && seconds - air.last > 1.7) {
+          air.last = seconds;
+          asks.current.jump = true;
+        }
+        // A jump gets a seated person up and ends a gesture; it is not made from the bench.
+        if (asks.current.jump && seat) {
+          seat = null;
+          asks.current.jump = false;
+        }
+        if (asks.current.jump) emote = null;
         if (held.sit && !seat && seconds > 0.2) {
           seat = nearest(Infinity);
           held.sit = false;
@@ -199,17 +216,32 @@ export function Andar() {
         while (carried >= SIM_STEP_MS) {
           carried -= SIM_STEP_MS;
           Object.assign(before, state);
-          if (!seat) stepCharacter(state, ask, ground, [], DEFAULT_CHARACTER);
+          air.before = air.after >= 1 ? 0 : air.after;
+          air.liftBefore = air.liftAfter;
+          if (!seat) {
+            const leaving = asks.current.jump && !state.air;
+            stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, [], DEFAULT_CHARACTER);
+            if (leaving) air.count += 1;
+          }
+          asks.current.jump = false;
+          air.after = state.air ? (DEFAULT_CHARACTER.jumpSteps - state.air) / DEFAULT_CHARACTER.jumpSteps : air.before > 0 ? 1 : 0;
+          air.liftAfter = jumpLiftMm(state) / 1000;
+          if (air.after === 1) air.land = 1;
         }
+        air.land = Math.max(0, air.land - elapsed / 260);
         const blend = carried / SIM_STEP_MS;
         let x = (before.x + (state.x - before.x) * blend) / 1000;
         let y = (before.y + (state.y - before.y) * blend) / 1000;
+        const jump = jumpHeld || air.before + (air.after - air.before) * blend;
+        const lift = jumpHeld ? (4 * DEFAULT_CHARACTER.jumpHeightMm * jumpHeld * (1 - jumpHeld)) / 1000 : air.liftBefore + (air.liftAfter - air.liftBefore) * blend;
+        const flying = jump > 0 && jump < 1;
         let z = (before.z + (state.z - before.z) * blend) / 1000;
         // How fast the body is really going, which is not always what was asked: a wall stops the legs too.
         const travelled = Math.hypot(state.x - before.x, state.z - before.z) / 1000 / (SIM_STEP_MS / 1000);
         speed += (travelled - speed) * Math.min(1, elapsed / 110);
         const strideM = (speed > 2.2 ? 2.5 : 1.42) * (person.height / 1.7) * (person.skirt ? 0.8 : 1);
-        phase += ((speed * elapsed) / 1000 / strideM) * Math.PI * 2;
+        // The legs do not stride in the air.
+        if (!flying) phase += ((speed * elapsed) / 1000 / strideM) * Math.PI * 2;
         const target = seat ? seat.facing : moving ? Math.atan2(ask.dx, ask.dz) : facing;
         facing += Math.atan2(Math.sin(target - facing), Math.cos(target - facing)) * Math.min(1, elapsed / 90);
         if (sit > 0.001 && seat) {
@@ -219,9 +251,9 @@ export function Andar() {
           z += (seat.z + Math.cos(seat.facing) * 0.08 - z) * k;
           y += (seat.y - 0.46 - y) * k;
         }
-        person.root.position.set(x, y, z);
+        person.root.position.set(x, y + lift, z);
         person.root.rotation.y = facing;
-        person.pose({ speed, phase, time: seconds }, { sit, ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
+        person.pose({ speed, phase, time: seconds }, { sit, jump, land: flying ? 0 : air.land, ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
 
         // The camera: behind and above the head, pulled in before it would pass into a building.
         const upright = renderer.camera.aspect < 1;
@@ -243,7 +275,7 @@ export function Andar() {
         district.update();
 
         const action = seat ? "stand" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action };
+        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count };
         if (now - lastHud > 120) {
           lastHud = now;
           // The compass turns with the camera: what is ahead is at the top. North is the world's -Z.
@@ -297,6 +329,10 @@ export function Andar() {
       keys.add(key);
       // On a keyboard: E is the gold button, 1 to 4 the gestures.
       if (key === "e" && !event.repeat) asks.current.act = true;
+      if (key === " " && !event.repeat) {
+        asks.current.jump = true;
+        event.preventDefault();
+      }
       const n = Number(key);
       if (n >= 1 && n <= EMOTES.length) asks.current.emote = EMOTES[n - 1]!;
     };
@@ -348,6 +384,7 @@ export function Andar() {
                 <HudButton glyph="emote" label={tr.t("hud.emotes")} on={wheel} onPress={() => setWheel(!wheel)} />
               </span>
               <HudButton glyph="correr" label={tr.t("hud.run")} on={running} onPress={() => setRunning(!running)} />
+              <HudButton glyph="saltar" label={tr.t("hud.jump")} onPress={() => (asks.current.jump = true)} />
             </span>
             {hud.action ? <ContextAction label={tr.t(hud.action === "sit" ? "action.sit" : "action.stand")} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>

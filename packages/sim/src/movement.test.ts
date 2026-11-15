@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { type Obstacle } from "./collision.ts";
-import { CELL_DRIVE, CELL_WALK, createWalkGrid, fillCells, gridGround, setCell } from "./grid.ts";
-import { DEFAULT_CHARACTER, NO_MOVE, stepCharacter, type CharacterState, type MoveInput } from "./movement.ts";
+import { CELL_DRIVE, CELL_LOW, CELL_WALK, createWalkGrid, fillCells, gridGround, setCell } from "./grid.ts";
+import { DEFAULT_CHARACTER, NO_MOVE, jumpLiftMm, stepCharacter, type CharacterState, type MoveInput } from "./movement.ts";
 
 // A 20 m by 20 m square of pavement, cells of half a metre.
 function square() {
@@ -186,4 +186,100 @@ test("golden: a fixed walk ends in a fixed place", () => {
   ];
   for (const [input, steps] of legs) walk(state, input, steps, ground, obstacles);
   expect(state).toEqual({ x: 19093, y: 150, z: 8509, yaw: 13500 });
+});
+
+describe("jumping", () => {
+  // A planted strip 1.5 m wide across the square at x = 10 m to 11.5 m: low, nobody stands on it.
+  function strip(flags = CELL_LOW) {
+    const grid = square();
+    fillCells(grid, 20, 0, 22, 39, flags, 0);
+    return gridGround(grid);
+  }
+  const east: MoveInput = { dx: 127, dz: 0, run: false };
+
+  test("on the spot: up and down in the same place, and the feet are off the ground between", () => {
+    const state = at(5000, 5000);
+    const ground = gridGround(square());
+    stepCharacter(state, { ...NO_MOVE, jump: true }, ground, []);
+    let highest = 0;
+    for (let i = 0; i < DEFAULT_CHARACTER.jumpSteps; i++) {
+      highest = Math.max(highest, jumpLiftMm(state));
+      stepCharacter(state, NO_MOVE, ground, []);
+    }
+    expect(highest).toBe(DEFAULT_CHARACTER.jumpHeightMm);
+    expect(jumpLiftMm(state)).toBe(0);
+    expect(state).toEqual({ x: 5000, y: 0, z: 5000, yaw: 0 });
+  });
+
+  test("walking does not cross something low", () => {
+    const state = walk(at(8000, 5000), east, 200, strip());
+    expect(state.x).toBeLessThanOrEqual(10000 - DEFAULT_CHARACTER.radiusMm);
+  });
+
+  test("a jump from a walk clears it and lands on the far side", () => {
+    const ground = strip();
+    const state = walk(at(8000, 5000), east, 200, ground);
+    stepCharacter(state, { ...east, jump: true }, ground, []);
+    // Letting go of the stick in the air changes nothing: the jump is held to where it was going.
+    walk(state, NO_MOVE, DEFAULT_CHARACTER.jumpSteps, ground);
+    expect(state.x).toBeGreaterThanOrEqual(11500 + DEFAULT_CHARACTER.radiusMm);
+    expect(state.air).toBeUndefined();
+    expect(state.airX).toBeUndefined();
+  });
+
+  test("a jump never comes down on the low thing, however it is steered", () => {
+    const ground = strip();
+    for (let from = 7000; from <= 9700; from += 150) {
+      for (const turn of [NO_MOVE, { dx: -127, dz: 0, run: true }, { dx: 0, dz: 127, run: false }]) {
+        const state = at(from, 5000);
+        stepCharacter(state, { ...east, jump: true }, ground, []);
+        walk(state, turn, DEFAULT_CHARACTER.jumpSteps + 2, ground);
+        const cell = Math.floor(state.x / 500);
+        expect(cell < 20 || cell > 22).toBe(true);
+      }
+    }
+  });
+
+  test("a wall is not jumped", () => {
+    const ground = strip(0);
+    const state = walk(at(8000, 5000), east, 200, ground);
+    stepCharacter(state, { ...east, jump: true }, ground, []);
+    walk(state, east, 40, ground);
+    expect(state.x).toBeLessThanOrEqual(10000 - DEFAULT_CHARACTER.radiusMm);
+  });
+
+  test("something low that is too wide is not jumped", () => {
+    const grid = square();
+    fillCells(grid, 20, 0, 27, 39, CELL_LOW, 0);
+    const ground = gridGround(grid);
+    const state = walk(at(8000, 5000), { ...east, run: true }, 200, ground);
+    stepCharacter(state, { ...east, run: true, jump: true }, ground, []);
+    walk(state, { ...east, run: true }, 40, ground);
+    expect(state.x).toBeLessThanOrEqual(10000 - DEFAULT_CHARACTER.radiusMm);
+  });
+
+  test("a jump gets onto a ledge a step cannot", () => {
+    const grid = square();
+    fillCells(grid, 20, 0, 39, 39, CELL_WALK, 600);
+    const ground = gridGround(grid);
+    const state = walk(at(8000, 5000), east, 200, ground);
+    expect(state.y).toBe(0);
+    stepCharacter(state, { ...east, jump: true }, ground, []);
+    walk(state, east, DEFAULT_CHARACTER.jumpSteps, ground);
+    expect(state.y).toBe(600);
+    expect(state.x).toBeGreaterThan(10000);
+  });
+
+  test("asking again in the air does nothing", () => {
+    const ground = gridGround(square());
+    const once = at(5000, 5000);
+    const twice = at(5000, 5000);
+    stepCharacter(once, { ...east, jump: true }, ground, []);
+    stepCharacter(twice, { ...east, jump: true }, ground, []);
+    for (let i = 0; i < 30; i++) {
+      stepCharacter(once, east, ground, []);
+      stepCharacter(twice, i < 5 ? { ...east, jump: true } : east, ground, []);
+    }
+    expect(twice).toEqual(once);
+  });
 });

@@ -109,7 +109,11 @@ export function cloneWorld(world: SimWorld): SimWorld {
 /** One number for the whole state. Two machines that agree on it agree on the world. */
 export function hashWorld(world: SimWorld): number {
   const values: number[] = [world.tick, world.rng.s];
-  for (const c of world.characters) values.push(c.id, c.state.x, c.state.y, c.state.z, c.state.yaw);
+  for (const c of world.characters) {
+    values.push(c.id, c.state.x, c.state.y, c.state.z, c.state.yaw);
+    // In the air there is more to a body than where it is. On the ground nothing is added, so the hash of a world nobody jumps in is what it always was.
+    if (c.state.air) values.push(c.state.air, c.state.airX ?? 0, c.state.airZ ?? 0);
+  }
   for (const v of world.vehicles) values.push(v.id, v.state.x, v.state.y, v.state.z, v.state.yaw, v.state.speed);
   return hashInts(0, values);
 }

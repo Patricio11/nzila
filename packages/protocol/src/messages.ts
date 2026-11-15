@@ -127,6 +127,8 @@ export interface InputFrame {
   readonly dz: number;
   readonly run: boolean;
   readonly brake: boolean;
+  /** On foot: jump. Left out is the same as false. */
+  readonly jump?: boolean;
 }
 
 /** Client to zone, ten times a second. */
@@ -142,7 +144,7 @@ export interface Input {
 export function encodeInput(m: Input): Uint8Array {
   if (m.frames.length < 1 || m.frames.length > INPUT_MAX_FRAMES) throw new RangeError("an Input carries 1 to 8 frames");
   const w = new Writer().u8(MSG.INPUT).uint(m.seq).uint(m.ackTick).u8(m.frames.length);
-  for (const f of m.frames) w.u8(f.dx + 128).u8(f.dz + 128).u8((f.run ? 1 : 0) + (f.brake ? 2 : 0));
+  for (const f of m.frames) w.u8(f.dx + 128).u8(f.dz + 128).u8((f.run ? 1 : 0) + (f.brake ? 2 : 0) + (f.jump ? 4 : 0));
   return w.finish();
 }
 
@@ -157,13 +159,13 @@ function readInput(r: Reader): Input {
     const dx = Math.max(-127, r.u8() - 128);
     const dz = Math.max(-127, r.u8() - 128);
     const flags = r.u8();
-    frames.push({ dx, dz, run: (flags & 1) !== 0, brake: (flags & 2) !== 0 });
+    frames.push({ dx, dz, run: (flags & 1) !== 0, brake: (flags & 2) !== 0, ...((flags & 4) !== 0 ? { jump: true } : {}) });
   }
   return { seq, ackTick, frames };
 }
 
 export function toMoveInput(frame: InputFrame): MoveInput {
-  return { dx: frame.dx, dz: frame.dz, run: frame.run };
+  return { dx: frame.dx, dz: frame.dz, run: frame.run, ...(frame.jump ? { jump: true } : {}) };
 }
 
 export function toDriveInput(frame: InputFrame): DriveInput {

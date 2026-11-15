@@ -1,6 +1,6 @@
 declare global {
   interface Window {
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number };
   }
 }
 
@@ -148,6 +148,11 @@ test.describe("the first walk's HUD", () => {
     await page.waitForFunction(() => window.__andar!.seated, undefined, { timeout: 15_000 });
     await page.getByRole("button", { name: "Levantar" }).click();
     await page.waitForFunction(() => !window.__andar!.seated && window.__andar!.action !== "stand", undefined, { timeout: 15_000 });
+
+    // A jump: the feet leave the ground and come back to it.
+    await page.getByRole("button", { name: "Saltar" }).click();
+    await page.waitForFunction(() => window.__andar!.lift > 0.2, undefined, { timeout: 5_000 });
+    await page.waitForFunction(() => window.__andar!.lift === 0 && window.__andar!.jumps === 1, undefined, { timeout: 5_000 });
 
     // A gesture from the wheel.
     await page.getByRole("button", { name: "Gestos" }).click();

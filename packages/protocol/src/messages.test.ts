@@ -96,6 +96,10 @@ describe("what a zone accepts from a client", () => {
     const forged = new Writer().u8(MSG.INPUT).uint(1).uint(0).u8(1).u8(0).u8(0).u8(0xff).finish();
     const decoded = decodeClientMessage(forged);
     expect(decoded).toMatchObject({ frames: [{ dx: -127, dz: -127, run: true, brake: true }] });
+    // A jump is one more bit, and a frame without one says nothing of it.
+    const jumped = decodeClientMessage(encodeInput({ seq: 1, ackTick: 0, frames: [{ dx: 0, dz: 5, run: false, brake: false, jump: true }, { dx: 0, dz: 5, run: false, brake: false }] }));
+    expect(jumped).toMatchObject({ frames: [{ jump: true }, { dx: 0, dz: 5 }] });
+    expect("jump" in (jumped as unknown as { frames: object[] }).frames[1]!).toBe(false);
   });
 
   test("no frames, or too many, is refused on both sides", () => {
@@ -195,5 +199,6 @@ describe("versions: an old client is told to refresh and never crashes", () => {
 test("an input frame means walking on foot and driving at the wheel", () => {
   const f = frame(-40, 127, true, true);
   expect(toMoveInput(f)).toEqual({ dx: -40, dz: 127, run: true });
+  expect(toMoveInput({ ...f, jump: true })).toEqual({ dx: -40, dz: 127, run: true, jump: true });
   expect(toDriveInput(f)).toEqual({ throttle: 127, steer: -40, brake: true });
 });

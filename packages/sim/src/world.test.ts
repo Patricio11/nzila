@@ -102,6 +102,16 @@ describe("copies and hashes", () => {
     drives: new Map<number, DriveInput>([[2, { throttle: 127, steer: 40, brake: false }]]),
   };
 
+  test("a body in the air is not the same world as one on the ground, nor one held to a jump the same as one that is not", () => {
+    const ground = busyWorld();
+    const up = cloneWorld(ground);
+    up.characters[0]!.state.air = 5;
+    const held = cloneWorld(up);
+    Object.assign(held.characters[0]!.state, { airX: 180, airZ: 0 });
+    expect(hashWorld(up)).not.toBe(hashWorld(ground));
+    expect(hashWorld(held)).not.toBe(hashWorld(up));
+  });
+
   test("a clone is equal and independent", () => {
     const world = busyWorld();
     const copy = cloneWorld(world);

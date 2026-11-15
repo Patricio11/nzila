@@ -38,6 +38,10 @@ export interface Doing {
   readonly emote?: { readonly kind: Emote; readonly seconds: number };
   /** 0 standing, 1 seated; between the two while sitting down or getting up. */
   readonly sit?: number;
+  /** How far through a jump: above 0 and below 1 in the air. */
+  readonly jump?: number;
+  /** 1 as the feet come down, falling to 0 as the knees take the landing. */
+  readonly land?: number;
 }
 
 interface Joint {
@@ -261,6 +265,42 @@ export class Person {
         this.toward("head", e * 0.7, 0.06, 0.05);
         this.toward("chest", e * 0.5, 0.05);
       }
+    }
+
+    // In the air. From standing or a walk, both knees come up and both arms are thrown up; from a run it
+    // is a stride held in the air, one leg reaching and the other trailing, the arms against the legs.
+    const jump = doing.jump ?? 0;
+    if (jump > 0 && jump < 1) {
+      const e = ease(jump / 0.14) * ease((1 - jump) / 0.14);
+      const top = Math.sin(Math.PI * jump);
+      const less = this.skirt ? 0.6 : 1;
+      const lead = Math.sin(gait.phase) >= 0 ? 1 : -1;
+      for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+        const front = side === lead;
+        const thigh = (1 - run) * -1.05 * top * less + run * (front ? -1.15 : 0.6) * less * (0.45 + 0.55 * top);
+        const shin = (1 - run) * 1.55 * top * less + run * (front ? 0.55 : 1.25) * top * less;
+        this.toward(`thigh${tag}`, e, thigh, 0, side * 0.05);
+        this.toward(`shin${tag}`, e, shin);
+        this.toward(`foot${tag}`, e, 0.35);
+        const arm = (1 - run) * -(0.5 + 1.7 * top) + run * (front ? 0.75 : -1.25);
+        this.toward(`upperArm${tag}`, e, arm, 0, -side * 0.24);
+        this.toward(`lowerArm${tag}`, e, -0.45 - 0.6 * run);
+      }
+      this.toward("hips", e, 0.06 + 0.1 * run);
+      this.toward("spine", e, 0.08 + 0.1 * run);
+      this.toward("chest", e, 0.04);
+      this.toward("head", e, -0.1);
+    }
+    // Coming down: the knees give and the back follows.
+    const land = ease(doing.land ?? 0);
+    if (land > 0) {
+      for (const tag of ["L", "R"] as const) {
+        this.toward(`thigh${tag}`, land, -0.5);
+        this.toward(`shin${tag}`, land, 0.95);
+        this.toward(`foot${tag}`, land, -0.45);
+      }
+      this.toward("spine", land * 0.7, 0.2);
+      hipsY -= land * 0.09 * scale;
     }
 
     const hips = this.joints.get("hips");

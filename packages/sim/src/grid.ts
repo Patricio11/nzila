@@ -9,6 +9,8 @@ import { floorDiv } from "./fixed.ts";
 export const CELL_WALK = 1;
 export const CELL_DRIVE = 2;
 export const CELL_WATER = 4;
+/** Nobody stands here, but it is low: a planted strip, a low wall, a ditch. A jump carries a body over it. */
+export const CELL_LOW = 8;
 
 /**
  * What movement asks of the ground. Cells are addressed in world cell

@@ -152,8 +152,9 @@ for iz in range(DOWN * CELLS):
         elif d < PAVE:
             set_cell(ix, iz, ".", round(G * 100))
         elif d < AVENUE:
-            # The planted strip down the middle stops at each inland street, which is where people cross.
-            set_cell(ix, iz, "#" if 40.4 < d < 41.6 and not any(lo - 1 <= x < hi + 1 for lo, hi in CROSS) else "=", 0)
+            # The planted strip down the middle stops at each inland street, which is where people cross;
+            # between them it is low, and a jump clears it (its trees still stop a body).
+            set_cell(ix, iz, "^" if 40.4 < d < 41.6 and not any(lo - 1 <= x < hi + 1 for lo, hi in CROSS) else "=", 0)
         elif any(lo <= x < hi for lo, hi in CROSS) or STREET_A[0] <= z < STREET_A[1] or STREET_B[0] <= z < STREET_B[1]:
             set_cell(ix, iz, "=", 0)
         else:
@@ -359,7 +360,7 @@ while x < WIDE - 2:
         block(bx, shore(bx) + WALK - 1.2, 0.5)
     # Small trees on the avenue's middle strip.
     if int(x) % 2 == 0 and not any(lo - 5 <= x + 2 < hi + 5 for lo, hi in CROSS):
-        kit.acacia(b, x + 2, shore(x + 2) + 41.0, rng, G, shade="kerb", shade_reach=0.5)
+        block(x + 2, shore(x + 2) + 41.0, kit.acacia(b, x + 2, shore(x + 2) + 41.0, rng, G, shade="kerb", shade_reach=0.5))
     x += rng.uniform(8.0, 10.0)
 
 # The lawn's uses, west to east: the stage, the kiosk row, the two courts, the police post.
