@@ -87,3 +87,7 @@ The game must be beautiful at Poupança. The budgets above are Poupança's.
 - **Reference pictures belong to one operating system.** Text is drawn differently on Windows, Linux and macOS. The pictures in `tests/e2e/reference/` were made on Windows; on another system the comparison is skipped, and says so, until its own are made (`pnpm test:e2e --update-snapshots`, then look at each before committing).
 - **The test scene is not the game.** The bench draws twenty boxes, a road and the bay: a few thousand triangles. A real district has many times that. Its numbers show the renderer's fixed costs and that the harness works; the budgets are proved on the first real district (Task 1.5).
 - **A frame rate is judged only with a real graphics card.** On a machine without one the browser draws with the processor, and the tests record the number without judging it. The counts of draw calls and triangles are judged everywhere, because they do not depend on the machine.
+
+## First play, measured (2026-11-15)
+
+From the front door to standing in Marginal e Baixa, on the slow profile (processor four times slower, 1,6 Mbit/s down, 150 ms of delay), with nothing kept from an earlier visit: **2,79 MB in 20,5 seconds**. The budget is 6 MB and 60 seconds (Rule 2). The door stated 2,9 MB before it began. This is a permanent test (`tests/e2e/pages.spec.ts`, "first play") and it is a slowed desktop browser, not a phone: the reference phones are still to be measured (Task 1.9).

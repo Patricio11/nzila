@@ -80,6 +80,33 @@ test.describe("going in", () => {
   });
 });
 
+test.describe("first play", () => {
+  // Measured as a first visit is: nothing kept yet, every byte from the network and seen by the count.
+  test.use({ serviceWorkers: "block" });
+
+  test("first play, from the door to standing in the Marginal, costs under 6 MB and takes under a minute on a slow phone (Rule 2)", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/front.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). First play was not measured here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(150_000);
+    const slowed = await slowPhone(page);
+    const seen = watch(page);
+    const started = Date.now();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 120_000 });
+    const seconds = (Date.now() - started) / 1000;
+    const megabytes = seen.bytes() / 1_000_000;
+    info.annotations.push({ type: "first play", description: `${megabytes.toFixed(2)} MB in ${seconds.toFixed(1)} s${slowed ? " on the slow profile" : " (this browser cannot be slowed: time not held to the budget)"}` });
+    console.log(`first play [${info.project.name}]: ${megabytes.toFixed(2)} MB in ${seconds.toFixed(1)} s${slowed ? " on the slow profile" : ""}`);
+    expect(megabytes).toBeLessThan(6);
+    if (slowed) expect(seconds).toBeLessThan(60);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
 test.describe("the styleguide", () => {
   test("every component draws, nothing scrolls sideways, nothing errors, and it looks as it did", async ({ page }, info) => {
     const seen = watch(page);
