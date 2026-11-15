@@ -85,6 +85,12 @@ const PAGES = [
   ["gente-posto", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=392,58,1.7&look=384,70,2.4"],
   ["gente-poupanca", "/cena?pack=l1&hour=17.2&tier=poupanca&transito=30&at=250,66.5,1.7&look=215,66,1.2"],
   ["viagem-espera", "/andar?pack=l1&em=302.5,107.4&cam=215&quem=2&hour=16.8&transito=3"],
+  // Street name plates and the crossing's sign.
+  ["placas-avenida", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=262,113.5,1.7&look=268.9,109.5,2.6"],
+  ["placas-avenida-perto", "/cena?pack=l1&hour=12&tier=normal&transito=30&at=266.5,106,2.0&look=268.9,109.9,2.6"],
+  ["placas-rua", "/cena?pack=l1&hour=16.5&tier=normal&transito=30&at=264,153.5,1.7&look=268.9,149.1,2.5"],
+  ["placas-largo", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=190,157,1.7&look=191,162.2,2.6"],
+  ["placas-passadeira", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=253,108,1.6&look=259.1,109.5,2.2"],
   // The jump, held at three moments of it.
   ["salto-inicio", "/andar?hour=16.8&cam=70&quem=1&salto=0.2"],
   ["salto-alto", "/andar?hour=16.8&cam=70&quem=1&salto=0.5"],

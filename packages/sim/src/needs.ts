@@ -17,14 +17,20 @@ export interface NeedsRates {
   /** Points lost per real hour of play. */
   readonly fomePerHour: number;
   readonly energiaPerHour: number;
+  /** More Energia lost per real hour spent with Fome empty (founder, 2026-11-15: "if they don't eat for too long they lose energy"). */
+  readonly energiaPerHungryHour?: number;
 }
 
 /** The needs after a number of simulation steps (20 a second) have passed. */
 export function decayNeeds(state: NeedsState, steps: number, rates: NeedsRates): NeedsState {
   const stepsPerHour = 72000;
+  // The steps of these that are spent with nothing left of Fome: going hungry costs Energia on top of time.
+  const fed = rates.fomePerHour > 0 ? Math.ceil((Math.max(0, state.fome) * stepsPerHour) / rates.fomePerHour) : steps;
+  const hungry = Math.max(0, steps - fed);
+  const lost = idiv(rates.energiaPerHour * steps, stepsPerHour) + idiv((rates.energiaPerHungryHour ?? 0) * hungry, stepsPerHour);
   return {
     fome: clamp(state.fome - idiv(rates.fomePerHour * steps, stepsPerHour), 0, NEED_FULL),
-    energia: clamp(state.energia - idiv(rates.energiaPerHour * steps, stepsPerHour), 0, NEED_FULL),
+    energia: clamp(state.energia - lost, 0, NEED_FULL),
   };
 }
 

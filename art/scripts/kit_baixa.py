@@ -325,6 +325,39 @@ def posto(b, x, z, ground=0.14):
     return (x - 2.5, z - 1.8, x + 2.5, z + 1.8)
 
 
+def placa(b, x, z, ground=0.14):
+    """
+    The post of a street's name plates, at a corner. The plates themselves are drawn by the game, which
+    has the names (render/signs.ts): this returns the height of their middle, for the manifest.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    b.tube([(x, ground, z), (x, ground + 2.95, z)], [0.04, 0.04], 5, "metal")
+    return ground + 2.7
+
+
+def passadeira(b, x, z, facing, ground=0.14):
+    """The sign of a crossing: a blue square on a post with the white triangle and the walker in it. `facing` in radians, 0 toward +Z."""
+    b.at(x, z)
+    b.level = BOTH
+    b.tube([(x, ground, z), (x, ground + 2.5, z)], [0.035, 0.035], 5, "metal")
+    b.level = FULL
+    fx, fz = math.sin(facing), math.cos(facing)
+    rx, rz = fz, -fx
+
+    def at(across, up, out=0.0):
+        return (x + rx * across + fx * (0.04 + out), ground + 2.2 + up, z + rz * across + fz * (0.04 + out))
+
+    b.face([at(-0.3, -0.3), at(0.3, -0.3), at(0.3, 0.3), at(-0.3, 0.3)], "signBlue", toward=(fx, 0.0, fz), two_sided=True)
+    b.face([at(-0.22, -0.2, 0.006), at(0.22, -0.2, 0.006), at(0.0, 0.22, 0.006)], "paintWhite", toward=(fx, 0.0, fz))
+    # The walker: a body, two legs striding.
+    b.face([at(-0.02, -0.02, 0.012), at(0.03, -0.02, 0.012), at(0.02, 0.1, 0.012), at(-0.01, 0.1, 0.012)], "clothBlack", toward=(fx, 0.0, fz))
+    b.face([at(-0.02, -0.02, 0.012), at(0.01, -0.02, 0.012), at(-0.07, -0.16, 0.012), at(-0.1, -0.16, 0.012)], "clothBlack", toward=(fx, 0.0, fz))
+    b.face([at(0.0, -0.02, 0.012), at(0.03, -0.02, 0.012), at(0.1, -0.16, 0.012), at(0.07, -0.16, 0.012)], "clothBlack", toward=(fx, 0.0, fz))
+    b.level = BOTH
+    return 0.2
+
+
 def bandeira(b, x, z, ground=0.14, mast=9.0, wide=2.7):
     """
     The national flag on its mast, where it flies in life: before a public building. Red over

@@ -53,6 +53,10 @@ export const WORLD = {
   flagRed: hex("#CC092F"),
   flagBlack: hex("#16130F"),
   flagYellow: hex("#F9D616"),
+  // An advertising board with nothing sold on it yet: the house's gold, and a dark band where a name goes
+  adBoard: hex("#F2B544"),
+  adBoardBand: hex("#1B2238"),
+  signBlue: hex("#1D4F9C"), // the blue of a road sign and of a street's name plate
   // Vehicles (art/scripts/vehicles.py)
   vanGlass: hex("#27384C"),
   vanLine: hex("#1F6DA8"), // a door's edge on the blue

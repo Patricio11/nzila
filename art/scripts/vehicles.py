@@ -166,6 +166,18 @@ def carrinha(b, x, z, yaw, ground=0.0, lower="vanBlue", upper="vanWhite"):
     plate(0.0, 0.5, 2.44, 0.42, 0.11, "vanWhite", 1)
     plate(0.0, 0.6, -2.42, 0.42, 0.11, "vanWhite", -1)
     plate(0.0, 1.08, -2.345, 0.5, 0.05, "metal", -1)
+    # Where advertising goes (D-0.51): a board along the roof, read from either side, and a panel on the
+    # back under the window. They show the house's own colours until a slot is sold (VEHICLE_ADS).
+    block(0.0, ROOF + 0.05, -0.35, 0.1, 0.1, 2.5, "metal")
+    for side in (1, -1):
+        out = _sub_points(at(side, 0.0, 0.0), at(0.0, 0.0, 0.0))
+        px = side * 0.055
+        b.face([at(px, ROOF + 0.1, -1.55), at(px, ROOF + 0.1, 0.85), at(px, ROOF + 0.52, 0.85), at(px, ROOF + 0.52, -1.55)], "adBoard", toward=out)
+        b.face([at(px * 1.1, ROOF + 0.14, -1.5), at(px * 1.1, ROOF + 0.14, 0.8), at(px * 1.1, ROOF + 0.22, 0.8), at(px * 1.1, ROOF + 0.22, -1.5)], "adBoardBand", toward=out)
+    block(0.0, ROOF + 0.31, -1.57, 0.12, 0.44, 0.04, "metal")
+    block(0.0, ROOF + 0.31, 0.87, 0.12, 0.44, 0.04, "metal")
+    plate(0.0, 0.84, -2.347, 0.95, 0.3, "adBoard", -1)
+    plate(0.0, 0.73, -2.349, 0.95, 0.06, "adBoardBand", -1)
     # The sliding door on the right: its two edges and the rail it runs on.
     right = _sub_points(at(-1.0, 0.0, 0.0), at(0.0, 0.0, 0.0))
     for lz in (-0.14, 0.9):
@@ -184,6 +196,11 @@ def carrinha(b, x, z, yaw, ground=0.0, lower="vanBlue", upper="vanWhite"):
 def _sub_points(a, c):
     return (a[0] - c[0], a[1] - c[1], a[2] - c[2])
 
+
+# Where a vehicle carries advertising: the slot's name, and its size in metres (wide, high).
+VEHICLE_ADS = {
+    "candongueiro": [{"id": "tejadilho-esquerda", "size": [2.4, 0.42]}, {"id": "tejadilho-direita", "size": [2.4, 0.42]}, {"id": "traseira", "size": [0.95, 0.3]}],
+}
 
 VEHICLES = {
     # name: (what draws it, half its width, half its length), in metres

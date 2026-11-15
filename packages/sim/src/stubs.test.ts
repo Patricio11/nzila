@@ -21,6 +21,17 @@ describe("needs", () => {
     expect(start).toEqual({ fome: 100, energia: NEED_FULL + 5000 });
   });
 
+  test("golden: going hungry costs Energia, from the moment Fome is empty and not before", () => {
+    const hungry = { ...rates, energiaPerHungryHour: 3000 };
+    // Fome lasts half an hour here; the second half hour is spent hungry.
+    expect(decayNeeds({ fome: 2000, energia: NEED_FULL }, 72_000, hungry)).toEqual({ fome: 0, energia: NEED_FULL - 2500 - 1500 });
+    // Fed the whole time: nothing more than time takes.
+    expect(decayNeeds({ fome: NEED_FULL, energia: NEED_FULL }, 72_000, hungry)).toEqual({ fome: 6000, energia: 7500 });
+    // Already empty: every step is a hungry one. And a world where Fome does not fall never goes hungry.
+    expect(decayNeeds({ fome: 0, energia: NEED_FULL }, 36_000, hungry)).toEqual({ fome: 0, energia: NEED_FULL - 1250 - 1500 });
+    expect(decayNeeds({ fome: 0, energia: NEED_FULL }, 72_000, { fomePerHour: 0, energiaPerHour: 2500, energiaPerHungryHour: 3000 })).toEqual({ fome: 0, energia: 7500 });
+  });
+
   test("golden: going fast and jumping cost Energia, walking does not, and Fome is untouched", () => {
     const effort = { energiaPerRunHour: 6000, energiaPerJump: 15 };
     const rested = { fome: 7000, energia: NEED_FULL };

@@ -531,6 +531,42 @@ for street in (STREET_A, STREET_B):
                 block(tx, street[0] - 1.4, kit.acacia(b, tx, street[0] - 1.4, rng, G, shade_reach=1.3))
         at += rng.uniform(16, 22)
 
+# ------------------------------------------------------------------ the signs
+# Streets carry their real names (D-0.51). The district is drawn to our own scale, so a name is given
+# to the street that stands for it; the founder checks every one before it ships.
+STREETS = {
+    "marginal": "Avenida 4 de Fevereiro",
+    "a": "Rua Major Kanhangulo",
+    "b": "Rua Rainha Ginga",
+    "largo": "Largo da Mutamba",
+}
+CROSS_NAMES = ["Rua Pedro Félix Machado", "Rua Amílcar Cabral", "Rua Cerveira Pereira", "Rua Friedrich Engels", "Rua Robert Shields"]
+signs = []
+
+
+def plates(px, pz, first, first_facing, second=None, second_facing=0.0):
+    """A post at a corner with one name plate or two, one over the other."""
+    middle = kb.placa(b, px, pz, G)
+    block(px, pz, 0.15)
+    for n, (key, facing) in enumerate([(first, first_facing)] + ([(second, second_facing)] if second else [])):
+        # A plate hangs off the post by its end, to the right of someone reading it: 1.5 m wide (render/signs.ts).
+        turn = math.radians(facing)
+        signs.append({"id": f"placa-{len(signs) + 1}", "pos": [round(px + math.cos(turn) * 0.8, 2), round(middle - n * 0.4, 2), round(pz - math.sin(turn) * 0.8, 2)], "facing": facing, "textKey": f"l1.rua.{key}"})
+
+
+for name, text in STREETS.items():
+    words[f"l1.rua.{name}"] = text
+for n, ((lo, hi), text) in enumerate(zip(CROSS, CROSS_NAMES)):
+    words[f"l1.rua.c{n}"] = text
+    corner = hi + 0.9
+    # Where it meets the avenue, the first street and the second: the wide street's name faces that street.
+    plates(corner, shore(corner) + AVENUE + 0.9, "marginal", 180.0, f"c{n}", 270.0)
+    plates(corner, STREET_A[0] - 0.9, "a", 0.0, f"c{n}", 270.0)
+    plates(corner, STREET_B[0] - 0.9, "b", 0.0, f"c{n}", 270.0)
+    # The sign of the crossing, for whoever drives east along the avenue's town side.
+    block(lo - 0.9, shore(lo) + AVENUE + 0.7, kb.passadeira(b, lo - 0.9, shore(lo) + AVENUE + 0.7, -math.pi / 2, G))
+plates(largo[0] + 3.0, largo[1] + 1.2, "largo", 180.0)
+
 stray = sorted({chunk for (chunk, level) in b.groups if not (0 <= chunk[0] < ACROSS and 0 <= chunk[1] < DOWN)})
 if stray:
     raise SystemExit(f"nzila: something was built outside the district, in chunk(s) {stray}")
@@ -759,6 +795,7 @@ partial = {
     "npc": {"crowd": "npc/crowd.json", "vendors": None, "police": None},
     "heat": {"lighting": None, "policePosts": places["police"], "override": None},
     "adSlots": [],
+    "signs": signs,
     "seats": [{"id": f"seat-{n + 1}", "pos": [round(sx, 2), round(sy, 2), round(sz, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for n, (sx, sy, sz, yaw) in enumerate(b.seats)],
     "water": [{"id": "baia", "rect": [-400, -500, WIDE + 400, 70], "level": -0.45}],
     "strings": "strings.pt-AO.json",

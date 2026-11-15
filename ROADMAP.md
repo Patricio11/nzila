@@ -384,6 +384,7 @@ flowchart LR
 - Depends on: 4.2 · Unblocks: 4.4, 8.2.
 
 ### Task 4.4: Needs, lightly
+- [ ] **Going hungry costs Energia (D-0.51): with Fome empty, Energia falls faster.** The rule and its tunable exist (2026-11-15); nothing calls it yet.
 - [ ] **Effort costs Energia (D-0.46): the zone counts the steps a player ran and the jumps made and applies `spendEffort`; with Energia low the run and the jump are refused and the HUD says why once.** The rule and its tunables exist (2026-11-15); nothing calls it yet.
 - [ ] Fome and Energia only. Eating and resting restore them; low values slow the player and tint the HUD; an empty bar sends the player to the hospital with a small bill, never death, never lost items.
 - Depends on: 0.2, 4.3 · Unblocks: 4.5, 8.3.

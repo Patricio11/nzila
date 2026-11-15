@@ -58,7 +58,7 @@ for name, (draw, half_width, half_length) in vehicles.VEHICLES.items():
         export_extras=False,
         export_normals=True,
     )
-    listed.append({"name": name, "model": f"{name}.glb", "halfWidth": half_width, "halfLength": half_length, "triangles": triangles})
+    listed.append({"name": name, "model": f"{name}.glb", "halfWidth": half_width, "halfLength": half_length, "triangles": triangles, "adSlots": vehicles.VEHICLE_ADS.get(name, [])})
 
 with open(os.path.join(out_dir, "veiculos.json"), "w", encoding="utf-8") as handle:
     json.dump({"vehicles": listed}, handle, ensure_ascii=False)

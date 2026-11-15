@@ -50,6 +50,8 @@ const SPEC = {
     /** More Energia lost per real hour of going fast (running, jogging, a fast walk), and what one jump costs (D-0.46). */
     energiaPerRunHour: range(0, 100_000),
     energiaPerJump: range(0, 1000),
+    /** More Energia lost per real hour spent with Fome empty. */
+    energiaPerHungryHour: range(0, 100_000),
   },
   crime: {
     /** A player is shielded until they have played this many hours and the account is this many days old (Rule 6). */

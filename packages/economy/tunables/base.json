@@ -19,7 +19,8 @@
     "fomePerHour": 4000,
     "energiaPerHour": 2500,
     "energiaPerRunHour": 6000,
-    "energiaPerJump": 15
+    "energiaPerJump": 15,
+    "energiaPerHungryHour": 3000
   },
   "crime": {
     "shieldPlayHours": 5,

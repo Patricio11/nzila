@@ -196,6 +196,7 @@ export async function checkPack(packDir: string, context: CheckContext): Promise
     manifest.nameKey,
     ...manifest.pois.flatMap((p) => [p.nameKey, p.lineKey]),
     ...manifest.paragens.map((p) => p.nameKey),
+    ...(manifest.signs ?? []).map((s) => s.textKey),
   ];
   for (const k of new Set(keys)) {
     const value = strings[k];

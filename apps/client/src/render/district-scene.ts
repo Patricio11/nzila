@@ -8,6 +8,7 @@ import { type Mesh } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
 import { Crowd } from "./crowd.ts";
+import { Signs } from "./signs.ts";
 import { Traffic } from "./traffic.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
@@ -40,12 +41,15 @@ export class DistrictScene {
     this.shift = ms - Date.now();
   }
 
+  /** The street name plates, when the district has any. */
+  readonly signs: Signs | null;
   /** The people of the street, when the district has a timetable for them and they are built. */
   readonly crowd: Crowd | null;
 
   private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null, crowd: Crowd | null) {
     this.traffic = traffic;
     this.crowd = crowd;
+    this.signs = Signs.open(renderer, chunks.manifest, (key) => words[key] ?? key);
     this.words = words;
     this.renderer = renderer;
     this.chunks = chunks;
@@ -156,6 +160,7 @@ export class DistrictScene {
     this.chunks.close();
     this.traffic?.close();
     this.crowd?.close();
+    this.signs?.close();
     for (const water of this.waters) {
       this.renderer.scene.remove(water);
       water.geometry.dispose();
