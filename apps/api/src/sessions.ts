@@ -25,6 +25,18 @@ export interface NewGuest {
   readonly arrivedAt: string;
 }
 
+/** Remembers the device a player is on, by its hash, and opens a session there. The token is given once and kept nowhere here. */
+export async function openSession(sql: Sql, pepper: Uint8Array, playerId: string, deviceId: string, platform: string | null): Promise<string> {
+  const token = randomBytes(32).toString("base64url");
+  const [device] = await sql<{ id: string }[]>`
+    INSERT INTO devices (player_id, device_hash, platform) VALUES (${playerId}, ${hashDeviceId(deviceId, pepper)}, ${platform})
+    ON CONFLICT (player_id, device_hash) DO UPDATE SET last_seen_at = now() RETURNING id`;
+  await sql`
+    INSERT INTO player_sessions (player_id, device_id, token_hash, expires_at)
+    VALUES (${playerId}, ${device!.id}, ${hashToken(token)}, now() + make_interval(days => ${SESSION_DAYS}))`;
+  return token;
+}
+
 /** The version of the terms of play a new guest agrees to by coming in. */
 export const PLAY_TERMS = 1;
 
@@ -34,7 +46,6 @@ export const PLAY_TERMS = 1;
  * from a year of birth it kept to itself; nobody under 15 gets this far.
  */
 export async function createGuest(sql: Sql, pepper: Uint8Array, deviceId: string, platform: string | null, ageBand: AgeBand): Promise<NewGuest> {
-  const token = randomBytes(32).toString("base64url");
   return sql.begin(async (tx) => {
     // The order of arrival is the number of the BI, and the first name: nobody else can hold either.
     const [next] = await tx<{ n: string }[]>`SELECT nextval('bi_numbers') AS n`;
@@ -42,11 +53,7 @@ export async function createGuest(sql: Sql, pepper: Uint8Array, deviceId: string
     const [player] = await tx<{ id: string; arrived_at: Date }[]>`
       INSERT INTO players (age_band, name, name_key, bi_number) VALUES (${ageBand}, ${first.name}, ${first.nameKey}, ${first.biNumber}) RETURNING id, arrived_at`;
     await tx`INSERT INTO consents (player_id, purpose, version, granted) VALUES (${player!.id}, 'play', ${PLAY_TERMS}, true)`;
-    const [device] = await tx<{ id: string }[]>`
-      INSERT INTO devices (player_id, device_hash, platform) VALUES (${player!.id}, ${hashDeviceId(deviceId, pepper)}, ${platform}) RETURNING id`;
-    await tx`
-      INSERT INTO player_sessions (player_id, device_id, token_hash, expires_at)
-      VALUES (${player!.id}, ${device!.id}, ${hashToken(token)}, now() + make_interval(days => ${SESSION_DAYS}))`;
+    const token = await openSession(tx as unknown as Sql, pepper, player!.id, deviceId, platform);
     return { playerId: player!.id, token, name: first.name, biNumber: first.biNumber, arrivedAt: player!.arrived_at.toISOString() };
   });
 }

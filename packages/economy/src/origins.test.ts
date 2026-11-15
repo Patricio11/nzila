@@ -40,15 +40,15 @@ describe("the starter table", () => {
     let seed = 12345;
     const dice = (): number => ((seed = (seed * 1103515245 + 12345) % 2147483648), seed / 2147483648);
     const drawn = new Map<string, number>();
+    // Counted, not asserted one by one: twenty thousand cards are many assertions for one test.
+    let wrong = 0;
     for (let n = 0; n < 20_000; n++) {
       const card = drawOrigin(BASE_ORIGINS, dice);
       const family = BASE_ORIGINS.families.find((one) => one.id === card.family)!;
-      expect(card.makuta).toBeGreaterThanOrEqual(family.min);
-      expect(card.makuta).toBeLessThanOrEqual(family.max);
-      expect(card.makuta % BASE_ORIGINS.step).toBe(0);
-      expect(family.bairros).toContain(card.bairro);
+      if (card.makuta < family.min || card.makuta > family.max || card.makuta % BASE_ORIGINS.step !== 0 || !family.bairros.includes(card.bairro)) wrong++;
       drawn.set(card.tier, (drawn.get(card.tier) ?? 0) + 1);
     }
+    expect(wrong).toBe(0);
     expect(drawn.get("aperto")! / 20_000).toBeCloseTo(0.64, 1);
     expect(drawn.get("ouro")! / 20_000).toBeLessThan(0.02);
   });

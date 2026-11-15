@@ -1,7 +1,7 @@
 // The API against a real PostgreSQL (`pnpm services` starts it). Each run
 // makes its own database and drops it afterwards.
 
-import { connect, databaseUrl, loadMigrations, loadWorldSeed, migrate, parsePepper, seed } from "@nzila/db";
+import { connect, databaseUrl, decryptField, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
 import { BASE_ORIGINS } from "@nzila/economy";
 import { type FastifyInstance } from "fastify";
 import postgres, { type Sql } from "postgres";
@@ -11,6 +11,10 @@ import { memoryLimiter } from "./limiter.ts";
 
 const name = `nzila_api_test_${process.pid}_${Date.now()}`;
 const pepper = parsePepper(Buffer.alloc(32, 9).toString("base64"));
+const keyring = parseKeyring(`1:${Buffer.alloc(32, 3).toString("base64")}`);
+// The codes "sent" to each number, newest last: what a phone would have received.
+const sent = new Map<string, string[]>();
+const sender = { send: async (phone: string, code: string) => void sent.set(phone, [...(sent.get(phone) ?? []), code]) };
 let admin: Sql;
 let sql: Sql;
 let app: FastifyInstance;
@@ -24,8 +28,9 @@ beforeAll(async () => {
   await migrate(sql, await loadMigrations());
   await seed(sql, await loadWorldSeed());
   // Limits wide open here: they have their own test, and these tests make many guests from one address.
-  app = buildApp({ sql, pepper, limiter: { allow: () => true } });
-});
+  app = buildApp({ sql, pepper, keyring, sender, limiter: { allow: () => true } });
+  // A database made, migrated and seeded, while the other suites make theirs: more than the ten seconds a hook is given.
+}, 60_000);
 
 afterAll(async () => {
   await app?.close();
@@ -109,7 +114,7 @@ describe("a guest", () => {
 });
 
 test("an address that makes guests by the dozen is told to slow down", async () => {
-  const limited = buildApp({ sql, pepper, limiter: memoryLimiter() });
+  const limited = buildApp({ sql, pepper, keyring, limiter: memoryLimiter() });
   const codes: number[] = [];
   for (let n = 100; n < 108; n++) codes.push((await limited.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(n), ageBand: "15_17" } })).statusCode);
   expect(codes).toEqual([201, 201, 201, 201, 201, 201, 429, 429]);
@@ -178,7 +183,7 @@ describe("a lotaria da vida", () => {
   test("no rerolls: a second guest on the same device is dealt the first one's card", async () => {
     // Dice that would deal the poorest family first and the richest ever after.
     let rolls = 0;
-    const loaded = buildApp({ sql, pepper, limiter: { allow: () => true }, roll: () => (rolls++ < 4 ? 0 : 0.9999) });
+    const loaded = buildApp({ sql, pepper, keyring, limiter: { allow: () => true }, roll: () => (rolls++ < 4 ? 0 : 0.9999) });
     const guestOn = async (n: number) => (await loaded.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(n), ageBand: "18_plus" } })).json() as { token: string };
     const dealt = async (token: string) => ((await loaded.inject({ method: "POST", url: "/v1/me/origin", headers: as(token) })).json() as { origin: { family: string; makuta: number } }).origin;
     const first = await dealt((await guestOn(32)).token);
@@ -330,5 +335,102 @@ describe("os meus dados", () => {
 
   test("none of it is for anybody without a session", async () => {
     for (const [method, url] of [["GET", "/v1/me/consents"], ["PUT", "/v1/me/consents"], ["GET", "/v1/me/data"], ["DELETE", "/v1/me"]] as const) expect((await app.inject({ method, url })).statusCode, url).toBe(401);
+  });
+});
+
+describe("saving the BI with a phone number", () => {
+  const her = { sex: "f", skin: 2, hair: "trancas", hairColour: "hairBlack", top: "blusa", topColour: "awningGold", bottom: "pano", bottomColour: "awningTeal", bands: "awningGold", shoe: "shoeTan" };
+  const askCode = (phone: string) => app.inject({ method: "POST", url: "/v1/codes", payload: { phone } });
+  const codeFor = async (phone: string): Promise<string> => {
+    expect((await askCode(phone)).statusCode).toBe(200);
+    // The sender is given the number in its one canonical form.
+    return sent.get(normalizePhone(phone)!)!.at(-1)!;
+  };
+  const link = (token: string, phone: string, code: string) => app.inject({ method: "POST", url: "/v1/me/phone", headers: as(token), payload: { phone, code } });
+  const signIn = (phone: string, code: string, n: number) => app.inject({ method: "POST", url: "/v1/signin/phone", payload: { phone, code, deviceId: device(n), platform: "ios" } });
+  const me = async (token: string) => app.inject({ method: "GET", url: "/v1/me", headers: as(token) });
+
+  test("a guest proves a number with a code and is linked: the same player, the number kept only encrypted and hashed", async () => {
+    const guest = await newGuest(60);
+    const code = await codeFor("923 456 060");
+    expect(code).toMatch(/^\d{6}$/);
+    const linked = await link(guest.token, "+244923456060", code);
+    expect(linked.statusCode).toBe(200);
+    expect((await me(guest.token)).json()).toMatchObject({ id: guest.playerId, kind: "linked", name: guest.name, biNumber: guest.biNumber });
+    const [row] = await sql`SELECT phone_enc, phone_hash FROM players WHERE id = ${guest.playerId}`;
+    expect(row!.phone_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(decryptField(row!.phone_enc as Uint8Array, "players.phone", keyring)).toBe("+244923456060");
+    const everything = JSON.stringify(await sql`SELECT * FROM players WHERE id = ${guest.playerId}`) + JSON.stringify(await sql`SELECT phone_hash, code_hash FROM login_codes`);
+    expect(everything).not.toContain("923456060");
+    expect(everything).not.toContain(code);
+    // The code was used: it opens nothing a second time.
+    expect((await link(guest.token, "923456060", code)).json()).toEqual({ error: "wrong_code" });
+  });
+
+  test("a wrong code is refused, five tries are all a code gets, and a number is sent few codes", async () => {
+    const guest = await newGuest(61);
+    const code = await codeFor("923456061");
+    const wrong = code === "000000" ? "111111" : "000000";
+    for (let n = 0; n < 5; n++) expect((await link(guest.token, "923456061", wrong)).json()).toEqual({ error: "wrong_code" });
+    // The right code, after five wrong ones, is refused too.
+    expect((await link(guest.token, "923456061", code)).json()).toEqual({ error: "wrong_code" });
+    expect((await me(guest.token)).json()).toMatchObject({ kind: "guest" });
+    // A fresh code works; a third is still sent; a fourth in the quarter of an hour is not.
+    expect((await link(guest.token, "923456061", await codeFor("923456061"))).statusCode).toBe(200);
+    expect((await askCode("923456061")).statusCode).toBe(200);
+    const refused = await askCode("923456061");
+    expect(refused.statusCode).toBe(429);
+    expect(refused.json()).toEqual({ error: "slow_down" });
+    // What is not a phone number is sent nothing.
+    expect((await askCode("not a number")).statusCode).toBe(400);
+    expect((await askCode("12345")).statusCode).toBe(400);
+  });
+
+  test("an expired code opens nothing", async () => {
+    const guest = await newGuest(62);
+    const code = await codeFor("923456062");
+    await sql`UPDATE login_codes SET expires_at = now() - interval '1 second' WHERE used_at IS NULL`;
+    expect((await link(guest.token, "923456062", code)).json()).toEqual({ error: "wrong_code" });
+  });
+
+  test("on a second phone the number brings the whole player back, and the older phone is put out", async () => {
+    const first = await newGuest(63);
+    await app.inject({ method: "PUT", url: "/v1/me/look", headers: as(first.token), payload: { look: her } });
+    await app.inject({ method: "PUT", url: "/v1/me/name", headers: as(first.token), payload: { name: "Nga Muturi" } });
+    const card = ((await app.inject({ method: "POST", url: "/v1/me/origin", headers: as(first.token) })).json() as { origin: unknown }).origin;
+    expect((await link(first.token, "923456063", await codeFor("923456063"))).statusCode).toBe(200);
+
+    const second = await signIn("923456063", await codeFor("923456063"), 64);
+    expect(second.statusCode).toBe(200);
+    const { playerId, token } = second.json() as { playerId: string; token: string };
+    expect(playerId).toBe(first.playerId);
+    expect((await me(token)).json()).toMatchObject({ id: first.playerId, kind: "linked", name: "Nga Muturi", biNumber: first.biNumber, look: { hair: "trancas" }, origin: card });
+    // One active session a player: the newer one wins.
+    expect((await me(first.token)).statusCode).toBe(401);
+    expect(await sql`SELECT count(*)::int AS n FROM devices WHERE player_id = ${first.playerId}`).toEqual([{ n: 2 }]);
+  });
+
+  test("a guest who proves a number that already has an account is told so, changes nothing, and may go into it with the same code", async () => {
+    const owner = await newGuest(65);
+    expect((await link(owner.token, "923456065", await codeFor("923456065"))).statusCode).toBe(200);
+    const guest = await newGuest(66);
+    const code = await codeFor("923456065");
+    const told = await link(guest.token, "923456065", code);
+    expect(told.statusCode).toBe(409);
+    expect(told.json()).toEqual({ error: "has_account" });
+    expect((await me(guest.token)).json()).toMatchObject({ id: guest.playerId, kind: "guest" });
+    // Told only after a right code: a wrong one learns nothing about the number.
+    expect((await link(guest.token, "923456065", code === "000000" ? "111111" : "000000")).json()).toEqual({ error: "wrong_code" });
+    const inside = await signIn("923456065", code, 66);
+    expect((inside.json() as { playerId: string }).playerId).toBe(owner.playerId);
+  });
+
+  test("a number nobody saved a BI with signs nobody in, and says the same thing to a wrong code as to no code at all", async () => {
+    const code = await codeFor("923456067");
+    const nobody = await signIn("923456067", code, 67);
+    expect(nobody.statusCode).toBe(404);
+    expect(nobody.json()).toEqual({ error: "no_account" });
+    expect((await signIn("923456068", "123456", 68)).json()).toEqual({ error: "wrong_code" });
+    expect((await app.inject({ method: "POST", url: "/v1/me/phone", payload: { phone: "923456067", code } })).statusCode).toBe(401);
   });
 });

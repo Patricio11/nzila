@@ -10,7 +10,9 @@ import { ptAOTranslator as tr } from "@nzila/i18n";
 import { type AgeBand } from "@nzila/protocol";
 import { Button, Wordmark } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
-import { account, comeIn, ensureGuest } from "../world/account.ts";
+import { Guardar } from "../telemovel/guardar.tsx";
+import "../telemovel/telemovel.css";
+import { account, comeIn, ensureGuest, wasPutOut } from "../world/account.ts";
 import { LocalWorld } from "../world/provider.ts";
 import { AgeGate, turnedAway } from "./age.tsx";
 import { Postal } from "./postal.tsx";
@@ -29,6 +31,9 @@ export function FrontDoor() {
   const params = new URLSearchParams(location.search);
   const [asking, setAsking] = useState<{ poupanca: boolean } | null>(() => (turnedAway() || params.has("ano") || params.has("cedo") ? { poupanca: false } : null));
   const [going, setGoing] = useState(false);
+  // Someone whose saved BI was opened on another phone is told, once, and shown the way back in.
+  const [putOut] = useState(wasPutOut);
+  const [returning, setReturning] = useState(putOut || params.has("entrar"));
   useEffect(() => {
     fetch("/packs/front.json")
       .then((response) => (response.ok ? (response.json() as Promise<Front>) : null))
@@ -58,8 +63,16 @@ export function FrontDoor() {
 
   return (
     <div class="frontdoor n-on-dark">
-      <Wordmark width={asking ? 150 : 220} />
-      {asking ? (
+      <Wordmark width={asking || returning ? 150 : 220} />
+      {returning ? (
+        <>
+          <div class="frontdoor-card">
+            <Postal />
+          </div>
+          {putOut ? <p class="frontdoor-cost">{tr.t("session.elsewhere")}</p> : null}
+          <Guardar mode="signin" onBack={() => setReturning(false)} onDone={() => void go(new LocalWorld().settings.poupanca)} />
+        </>
+      ) : asking ? (
         <AgeGate onIn={old} start={params.get("ano") ?? ""} shut={params.has("cedo")} busy={going} />
       ) : (
         <>
@@ -76,6 +89,11 @@ export function FrontDoor() {
               <a class="frontdoor-quiet" href={`/andar?pack=${front.pack}`} onClick={(event) => (event.preventDefault(), enter(true))}>
                 {tr.t("frontdoor.poupanca", { size: tr.dataSize(front.firstView.poupanca) })}
               </a>
+              {account() ? null : (
+                <a class="frontdoor-quiet" href="/?entrar" onClick={(event) => (event.preventDefault(), setReturning(true))}>
+                  {tr.t("frontdoor.have")}
+                </a>
+              )}
             </div>
           ) : front === null ? (
             <p class="soft">{tr.t("frontdoor.building")}</p>

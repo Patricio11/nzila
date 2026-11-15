@@ -102,6 +102,16 @@ export const playerOrigins = pgTable("player_origins", {
   drawnAt: at("drawn_at").notNull().defaultNow(),
 });
 
+export const loginCodes = pgTable("login_codes", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  phoneHash: text("phone_hash").notNull(),
+  codeHash: text("code_hash").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  createdAt: at("created_at").notNull().defaultNow(),
+  expiresAt: at("expires_at").notNull(),
+  usedAt: at("used_at"),
+});
+
 export const consents = pgTable("consents", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   playerId: uuid("player_id").notNull(),
@@ -196,6 +206,7 @@ export const tables = {
   playerSessions,
   avatars,
   playerOrigins,
+  loginCodes,
   consents,
   staff,
   staffRoles,

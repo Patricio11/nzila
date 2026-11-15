@@ -14,8 +14,9 @@ import { dataMeter } from "../net/data-meter.ts";
 
 const KEY = "nzila.conta";
 const API = "/api";
-/** How long the server is waited for before the game goes on without it. */
-const PATIENCE_MS = 4000;
+/** How long the server is waited for: at the door, before the game goes on without it; and for something the player asked for, on a slow network. */
+const DOOR_PATIENCE_MS = 4000;
+const PATIENCE_MS = 12_000;
 
 export interface Account {
   /** A random name this device gave itself. The server keeps only a hash of it. */
@@ -24,6 +25,8 @@ export interface Account {
   /** Present once the server has made the guest. */
   readonly playerId?: string;
   readonly token?: string;
+  /** "linked" once the BI is saved with a phone number: the account can then be opened on another phone. */
+  readonly kind?: "guest" | "linked";
   /** The card the server dealt, kept so that it can be shown with no network. */
   readonly origin?: Origin;
   /** What is on the BI: the name, whether it can still be changed for nothing, the number, the day of arrival. */
@@ -67,11 +70,27 @@ export function ageOf(birthYear: number): ReturnType<typeof ageBandOf> {
   return ageBandOf(birthYear, new Date().getFullYear());
 }
 
+function newDeviceId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(18));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_");
+}
+
 /** Someone old enough comes in: this device is given its name, and the band is kept. The year is not. */
 export function comeIn(ageBand: AgeBand): Account {
-  const bytes = crypto.getRandomValues(new Uint8Array(18));
-  const deviceId = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_");
-  return keep({ deviceId, ageBand });
+  return keep({ deviceId: newDeviceId(), ageBand });
+}
+
+const PUT_OUT = "nzila.saiu";
+
+/** Whether this phone was put out of a saved account because it was opened on another. Asking clears it. */
+export function wasPutOut(): boolean {
+  try {
+    const was = localStorage.getItem(PUT_OUT) !== null;
+    localStorage.removeItem(PUT_OUT);
+    return was;
+  } catch {
+    return false;
+  }
 }
 
 function platform(): "android" | "ios" | "desktop" {
@@ -80,13 +99,13 @@ function platform(): "android" | "ios" | "desktop" {
 }
 
 /** One question to the server. Null when it cannot be reached or says no; `status` and the one word of `error` tell which no. */
-async function ask<T>(method: string, path: string, body: unknown, token?: string): Promise<{ status: number; answer: T | null; error?: string }> {
+async function ask<T>(method: string, path: string, body: unknown, token?: string, patience = PATIENCE_MS): Promise<{ status: number; answer: T | null; error?: string }> {
   try {
     const response = await fetch(API + path, {
       method,
       headers: { ...(body === undefined ? {} : { "content-type": "application/json" }), ...(token ? { authorization: `Bearer ${token}` } : {}) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      signal: AbortSignal.timeout(PATIENCE_MS),
+      signal: AbortSignal.timeout(patience),
     });
     const text = await response.text();
     // Megabytes are money, and these are bytes too.
@@ -104,13 +123,24 @@ export async function ensureGuest(): Promise<Account | null> {
   const mine = account();
   // An account shown in the address is a picture of one: nothing is asked of the server in its name.
   if (!mine || mine.token || mine.deviceId === "shown") return mine;
-  const { answer } = await ask<{ playerId: string; token: string; name: string; biNumber: string; arrivedAt: string }>("POST", "/v1/guests", { deviceId: mine.deviceId, platform: platform(), ageBand: mine.ageBand });
+  const { answer } = await ask<{ playerId: string; token: string; name: string; biNumber: string; arrivedAt: string }>("POST", "/v1/guests", { deviceId: mine.deviceId, platform: platform(), ageBand: mine.ageBand }, undefined, DOOR_PATIENCE_MS);
   return answer?.token ? keep({ ...mine, playerId: answer.playerId, token: answer.token, name: answer.name, nameFree: true, biNumber: answer.biNumber, arrivedAt: answer.arrivedAt }) : mine;
 }
 
-/** A session the server no longer knows is let go of, so that the next visit asks for a new one. */
+/**
+ * A session the server no longer knows is let go of. A guest is asked for
+ * anew on the next visit. A saved account was opened on another phone (one
+ * active session, the newer wins): this phone forgets it, and the door says
+ * so and offers the way back in.
+ */
 function forget(mine: Account): void {
-  keep({ deviceId: mine.deviceId, ageBand: mine.ageBand, ...(mine.origin ? { origin: mine.origin } : {}) });
+  if (mine.kind !== "linked") return void keep({ deviceId: mine.deviceId, ageBand: mine.ageBand, ...(mine.origin ? { origin: mine.origin } : {}) });
+  try {
+    for (const key of [KEY, "nzila.look", "nzila.foto"]) localStorage.removeItem(key);
+    localStorage.setItem(PUT_OUT, "1");
+  } catch {
+    // Storage is off: nothing was kept to forget.
+  }
 }
 
 /** Proposes the look to the server. True when it was recorded. */
@@ -134,14 +164,38 @@ export async function dealtOrigin(): Promise<Origin | null> {
   return answer.origin;
 }
 
+/** Counts what the player changes from this phone, so that an answer asked before a change is not laid over it. */
+let changes = 0;
+
+interface Whoami {
+  kind: "guest" | "linked";
+  name: string | null;
+  nameFree: boolean;
+  biNumber: string | null;
+  ageBand: AgeBand | null;
+  arrivedAt: string;
+  look: Look | null;
+  origin: Origin | null;
+}
+
+/** The account with what the server says of it laid over what this phone knew. */
+function known(mine: Account, said: Whoami): Account {
+  return { ...mine, kind: said.kind, ...(said.name ? { name: said.name } : {}), nameFree: said.nameFree, ...(said.biNumber ? { biNumber: said.biNumber } : {}), arrivedAt: said.arrivedAt, ...(said.origin ? { origin: said.origin } : {}) };
+}
+
 /** Asks the server who the player is, and keeps what it says of the BI. The account as it is now known. */
 export async function refreshAccount(): Promise<Account | null> {
   const mine = await ensureGuest();
   if (!mine?.token) return mine;
-  const { status, answer } = await ask<{ name: string | null; nameFree: boolean; biNumber: string | null; arrivedAt: string; origin: Origin | null }>("GET", "/v1/me", undefined, mine.token);
-  if (status === 401) forget(mine);
-  if (!answer) return mine;
-  return keep({ ...mine, ...(answer.name ? { name: answer.name } : {}), nameFree: answer.nameFree, ...(answer.biNumber ? { biNumber: answer.biNumber } : {}), arrivedAt: answer.arrivedAt, ...(answer.origin ? { origin: answer.origin } : {}) });
+  const before = changes;
+  const { status, answer } = await ask<Whoami>("GET", "/v1/me", undefined, mine.token);
+  if (status === 401) {
+    forget(mine);
+    return account();
+  }
+  // The player changed something while the question was on its way (a name, on a slow network): the answer is of before, and is let go.
+  const now = account();
+  return answer && now && changes === before ? keep(known(now, answer)) : now;
 }
 
 /** Whether a name can be had. Null when there is no server to say. */
@@ -157,6 +211,7 @@ export async function rename(name: string): Promise<"ok" | "taken" | "refused" |
   if (!mine?.token) return "offline";
   const { answer, error } = await ask<{ name: string; nameFree: boolean }>("PUT", "/v1/me/name", { name }, mine.token);
   if (answer) {
+    changes++;
     keep({ ...mine, name: answer.name, nameFree: answer.nameFree });
     return "ok";
   }
@@ -206,4 +261,45 @@ export async function deleteAccount(): Promise<boolean> {
     // Storage is off: there was nothing kept to remove.
   }
   return true;
+}
+
+/** Asks for a code to be sent to a number. */
+export async function sendCode(phone: string): Promise<"ok" | "invalid" | "slow" | "offline"> {
+  const { status, answer } = await ask<{ ok: boolean }>("POST", "/v1/codes", { phone });
+  return answer ? "ok" : status === 400 ? "invalid" : status === 429 ? "slow" : "offline";
+}
+
+/** Ties this account to a number, with the code sent to it. "has": the number already has an account. */
+export async function linkPhone(phone: string, code: string): Promise<"ok" | "wrong" | "has" | "offline"> {
+  const mine = account();
+  if (!mine?.token) return "offline";
+  const { answer, error } = await ask<{ kind: "linked" }>("POST", "/v1/me/phone", { phone, code }, mine.token);
+  if (answer) {
+    changes++;
+    keep({ ...mine, kind: "linked" });
+    return "ok";
+  }
+  return error === "has_account" ? "has" : error === "wrong_code" || error === "invalid" ? "wrong" : "offline";
+}
+
+/**
+ * Comes into the account a number belongs to, on this phone. What the server
+ * keeps of the player (the look, the name, the card) replaces what this phone
+ * had: whoever was playing here as a guest is left behind.
+ */
+export async function signInPhone(phone: string, code: string): Promise<"ok" | "wrong" | "none" | "offline"> {
+  const deviceId = account()?.deviceId ?? newDeviceId();
+  const { answer, error } = await ask<{ playerId: string; token: string }>("POST", "/v1/signin/phone", { phone, code, deviceId, platform: platform() });
+  if (!answer) return error === "no_account" ? "none" : error === "wrong_code" || error === "invalid" ? "wrong" : "offline";
+  const me = (await ask<Whoami>("GET", "/v1/me", undefined, answer.token)).answer;
+  if (!me?.ageBand) return "offline";
+  keep(known({ deviceId, ageBand: me.ageBand, playerId: answer.playerId, token: answer.token }, me));
+  try {
+    localStorage.removeItem("nzila.foto");
+    if (me.look) localStorage.setItem("nzila.look", JSON.stringify(me.look));
+    else localStorage.removeItem("nzila.look");
+  } catch {
+    // Storage is off: the look is chosen again.
+  }
+  return "ok";
 }

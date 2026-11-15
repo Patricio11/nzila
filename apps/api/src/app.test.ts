@@ -12,7 +12,8 @@ import { declare, type Gate } from "./routes.ts";
 // A pool that is never used: no route under test here reaches the database.
 const sql = postgres("postgres://nobody@127.0.0.1:1/none", { max: 1 });
 const pepper = new Uint8Array(32).fill(7);
-const app = () => buildApp({ sql, pepper });
+const keyring = { current: 1, keys: new Map([[1, new Uint8Array(32).fill(8)]]) };
+const app = () => buildApp({ sql, pepper, keyring });
 
 describe("every route is guarded", () => {
   test("each route the app has was declared, with a guard, and the public ones are chosen on purpose", async () => {
@@ -22,7 +23,7 @@ describe("every route is guarded", () => {
     expect(routes.length).toBeGreaterThan(2);
     for (const route of routes) expect(["public", "player", "staff"], `${route.method} ${route.url}`).toContain(route.guard);
     // The list of what anyone may call without being a player. A new public route is added here on purpose or not at all.
-    expect(routes.filter((route) => route.guard === "public").map((route) => `${route.method} ${route.url}`).sort()).toEqual(["GET /health", "POST /v1/guests"]);
+    expect(routes.filter((route) => route.guard === "public").map((route) => `${route.method} ${route.url}`).sort()).toEqual(["GET /health", "POST /v1/codes", "POST /v1/guests", "POST /v1/signin/phone"]);
     // And nothing reached Fastify by another door: what it prints is what was declared.
     const printed = built.printRoutes({ commonPrefix: false });
     for (const route of routes) expect(printed).toContain(route.url.split("/").pop()!);
@@ -48,7 +49,7 @@ describe("every route is guarded", () => {
 describe("what a route is given is checked before it is used", () => {
   test("a body of the wrong shape, with extra fields, too large, or not JSON is refused", async () => {
     // More bad bodies than one address may send in a minute: the limit has its own test.
-    const built = buildApp({ sql, pepper, limiter: { allow: () => true } });
+    const built = buildApp({ sql, pepper, keyring, limiter: { allow: () => true } });
     const post = (payload: string) => built.inject({ method: "POST", url: "/v1/guests", headers: { "content-type": "application/json" }, payload });
     const good = { deviceId: "a".repeat(24), ageBand: "18_plus" };
     // Among them: no age band, the band of someone too young to have one, and a year of birth, which is never sent.
@@ -73,7 +74,7 @@ describe("what a route is given is checked before it is used", () => {
 describe("rate limits", () => {
   test("a caller is told to slow down past the limit, and may go on in the next minute", async () => {
     let now = 1_000_000;
-    const built = buildApp({ sql, pepper, limiter: memoryLimiter(() => now) });
+    const built = buildApp({ sql, pepper, keyring, limiter: memoryLimiter(() => now) });
     const health = () => built.inject({ method: "GET", url: "/health" });
     for (let i = 0; i < 600; i++) expect((await health()).statusCode).toBe(200);
     const refused = await health();

@@ -13,6 +13,8 @@ import { account, askName, choices, choose, deleteAccount, exportData, refreshAc
 
 /** Who the player is, as the BI shows it. */
 export interface Me {
+  /** "linked" once the BI is saved with a phone number. */
+  readonly kind: Account["kind"] | undefined;
   readonly name: Account["name"] | undefined;
   readonly nameFree: boolean | undefined;
   readonly biNumber: string | undefined;
@@ -179,7 +181,7 @@ export class LocalWorld implements WorldProvider {
 
   me(): Me | null {
     const mine = account();
-    return mine ? { name: mine.name, nameFree: mine.nameFree, biNumber: mine.biNumber, arrivedAt: mine.arrivedAt, origin: mine.origin, photo: savedPhoto() } : null;
+    return mine ? { kind: mine.kind, name: mine.name, nameFree: mine.nameFree, biNumber: mine.biNumber, arrivedAt: mine.arrivedAt, origin: mine.origin, photo: savedPhoto() } : null;
   }
 
   async refreshMe(): Promise<Me | null> {

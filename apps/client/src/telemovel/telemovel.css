@@ -39,3 +39,11 @@
 .tm-data-end:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 3px; }
 .tm-data-delete { text-align: center; padding-top: var(--s-4); }
 .tm-data-delete .tm-note { font: var(--type-body); }
+
+/* Saving the BI: a number, then the code sent to it. */
+.tm-save { width: min(100%, 340px); margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-2); }
+.tm-save-code { letter-spacing: 0.35em; text-align: center; font: var(--type-number-l); }
+.tm-save-said { margin: 0; min-height: 2.7em; font: var(--type-small); color: var(--n-dourado-claro); }
+.tm-bi-saved { margin: 0; text-align: center; font: var(--type-label); color: var(--n-dourado-claro); }
+.tm-bi-why { text-align: center; margin-top: calc(var(--s-2) * -1); }
+.frontdoor .tm-save { text-align: left; }

@@ -274,12 +274,12 @@ flowchart LR
 **Dependency gate:** Phase 1 complete. *(Opened 2026-11-15 under D-1.6 with Phase 1 built and its founder's checks open; see `docs/PHASE_2_PLAN.md`.)*
 
 ### Task 2.1: Guest accounts
-- [ ] First open creates a guest player bound to the device (Better Auth anonymous session; confirm the plugin against current docs). No personal data asked. *(2026-11-15: the server half exists: `POST /v1/guests` makes a guest, a device known by its hash and a session known by its hash; `GET /v1/me`; `DELETE /v1/session`. Our own sessions on `player_sessions`, not Better Auth, for now (D-2.4). The client calls it since the same day: the front door asks the year of birth, then asks the server for a guest and keeps the token (`apps/client/src/world/account.ts`); with no server the game opens on what the device knows and asks again next visit. Not ticked: Better Auth is not used, by decision D-2.4, which the founder confirmed; ticked when 2.2 settles what linking uses.)*
+- [x] First open creates a guest player bound to the device (~~Better Auth anonymous session~~: our own sessions, D-2.4, confirmed by the founder on 2026-11-15). No personal data asked. *(2026-11-15: the server half exists: `POST /v1/guests` makes a guest, a device known by its hash and a session known by its hash; `GET /v1/me`; `DELETE /v1/session`. Our own sessions on `player_sessions`, not Better Auth, for now (D-2.4). The client calls it since the same day: the front door asks the year of birth, then asks the server for a guest and keeps the token (`apps/client/src/world/account.ts`); with no server the game opens on what the device knows and asks again next visit. Not ticked: Better Auth is not used, by decision D-2.4, which the founder confirmed; ticked when 2.2 settles what linking uses.)*
 - Depends on: 0.5, 1.8 · Unblocks: 2.2, 2.4.
 
 ### Task 2.2: Linking an account
-- [ ] Upgrade a guest by phone number with a one-time code, by Google, or by email. The guest's progress carries over. Choose the code provider on delivery rates and price to Angolan numbers (WhatsApp first, SMS as fallback); S-5 until then.
-- [ ] Sign in on a second device; one active world session per player (the newer one wins, the older is told).
+- [ ] Upgrade a guest by phone number with a one-time code, by Google, or by email. The guest's progress carries over. Choose the code provider on delivery rates and price to Angolan numbers (WhatsApp first, SMS as fallback); S-5 until then. *(2026-11-15: **by phone number, built:** "Guardar o meu BI" in the BI app, a number and a six-digit code; the same player, now linked; the number kept only encrypted and as a keyed hash. The code is sent by a `CodeSender` that prints to the API's console (S-5). Not ticked: no real sender (the founder chooses the provider), and Google and email need accounts and keys that are his to open: D-2.9.)*
+- [x] Sign in on a second device; one active world session per player (the newer one wins, the older is told). *(2026-11-15: "Já tenho um BI guardado" at the door: the number and a code bring the player whole (name, BI, look, card); every older session ends, and the phone it was on forgets the account and is told at the door why. "World session" in the strict sense is Phase 3's: the rule is enforced on API sessions now, and the zone inherits it.)*
 - Depends on: 2.1 · Unblocks: 2.5, 14.1.
 
 ### Task 2.3: Avatar creator and the BI
@@ -296,7 +296,7 @@ flowchart LR
 - Depends on: 0.5, 2.1 · Unblocks: every later API task.
 
 ### Task 2.5: Persistence of the player
-- [ ] Appearance, settings, last district and position, tutorial progress; saved on change and on leave; restored on join.
+- [ ] Appearance, settings, last district and position, tutorial progress; saved on change and on leave; restored on join. *(2026-11-15: the look is saved on change and restored on a second phone, with the name, the BI and the card (tested in both browsers). Not ticked: settings are the phone's own and stay there on purpose until the founder says otherwise (quality and hand belong to a device); the last position needs someone to believe about where the player is, which is the zone (3.1); there is no tutorial yet.)*
 - Depends on: 2.2, 2.4 · Unblocks: 3.1.
 
 ### Task 2.6: Age gate, consent, privacy

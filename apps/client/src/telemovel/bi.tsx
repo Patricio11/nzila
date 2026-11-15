@@ -9,6 +9,7 @@ import { NAME_MAX, checkName } from "@nzila/protocol";
 import { Button, EmptyState, Glyph, IdCard } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { type WorldProvider } from "../world/provider.ts";
+import { Guardar } from "./guardar.tsx";
 import { MeusDados } from "./meus-dados.tsx";
 
 const word = (key: string, fallback: string): string => (key in ptAO ? tr.t(key as MessageKey) : fallback);
@@ -81,6 +82,7 @@ function NameEditor({ world, onDone }: { world: WorldProvider; onDone: () => voi
 export function Bi({ world }: { world: WorldProvider }) {
   const [, redraw] = useState(0);
   const [naming, setNaming] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [data, setData] = useState(new URLSearchParams(location.search).has("dados"));
   useEffect(() => {
     // The card shows what this phone knows at once, and what the server says as soon as it answers.
@@ -105,6 +107,8 @@ export function Bi({ world }: { world: WorldProvider }) {
     );
   }
   if (data) return <MeusDados world={world} onBack={() => setData(false)} />;
+  // Saved with a number, or come into another account: either way the card is read again; a new account means a new look to wear.
+  if (saving) return <Guardar mode="link" onBack={() => setSaving(false)} onDone={() => (world.me()?.biNumber === me?.biNumber ? (setSaving(false), void world.refreshMe().then(() => redraw((n) => n + 1))) : location.reload())} />;
   return (
     <div class="tm-bi">
       <IdCard
@@ -119,7 +123,19 @@ export function Bi({ world }: { world: WorldProvider }) {
         <NameEditor world={world} onDone={() => setNaming(false)} />
       ) : (
         <div class="tm-bi-keys">
-          {me.nameFree ? <Button onPress={() => setNaming(true)}>{tr.t("bi.name.change")}</Button> : null}
+          {me.kind === "linked" ? (
+            <p class="tm-bi-saved">{tr.t("bi.saved")}</p>
+          ) : (
+            <>
+              <Button onPress={() => setSaving(true)}>{tr.t("bi.save")}</Button>
+              <p class="tm-note tm-bi-why">{tr.t("bi.save.why")}</p>
+            </>
+          )}
+          {me.nameFree ? (
+            <Button kind="quiet" onPress={() => setNaming(true)}>
+              {tr.t("bi.name.change")}
+            </Button>
+          ) : null}
           {look}
           {me.origin ? (
             <Button kind="quiet" onPress={() => location.assign(`/origem?virada&voltar=${here}`)}>

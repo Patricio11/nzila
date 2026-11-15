@@ -187,6 +187,7 @@ test.describe("the BI", () => {
     // The one free change is spent: the button is gone, here and after the page is opened again.
     await expect(page.getByRole("button", { name: "Mudar o nome" })).toHaveCount(0);
     await page.goto("/andar?pack=l1&telemovel=bi");
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
     await expect(page.locator(".n-bi-name")).toHaveText(name);
     await expect(page.getByRole("button", { name: "Mudar o nome" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "A minha família" })).toBeVisible();
@@ -221,6 +222,76 @@ test.describe("the BI", () => {
     expect(await page.evaluate(() => [localStorage.getItem("nzila.conta"), localStorage.getItem("nzila.look"), localStorage.getItem("nzila.foto")])).toEqual([null, null, null]);
     expect((await page.request.get("/api/v1/me", { headers })).status()).toBe(401);
     expect(seen.errors.filter((error) => !error.includes("401"))).toEqual([]);
+  });
+});
+
+test.describe("saving the BI", () => {
+  test("a guest saves the BI with a phone number and a code; a second phone comes in with the number and finds the whole player; the first phone is put out and told", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/front.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). Saving the BI was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(150_000);
+    const seen = watch(page);
+    // One number a browser. The browser tests' API sends every number the same code, to nobody.
+    const phone = info.project.name === "phone" ? "923 000 101" : "923 000 102";
+    const code = "246810";
+    await page.goto("/");
+    await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    await bornIn(page, "1988");
+    await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Está bom" }).click();
+    const makuta = await turnCard(page);
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    await page.getByRole("button", { name: "BI", exact: true }).click();
+    const born = (await page.locator(".n-bi-name").textContent()) ?? "";
+    expect(born).toMatch(/^Caluanda \d+$/);
+
+    // The honest line, then the number, then the code.
+    await expect(page.getByText("Sem isto, o teu progresso fica só neste telemóvel.")).toBeVisible();
+    await page.getByRole("button", { name: "Guardar o meu BI" }).click();
+    await page.getByLabel("O teu número de telemóvel").fill("12");
+    await expect(page.getByRole("button", { name: "Enviar código" })).toBeDisabled();
+    await page.getByLabel("O teu número de telemóvel").fill(phone);
+    await page.getByRole("button", { name: "Enviar código" }).click();
+    await page.getByLabel("O código de 6 algarismos que recebeste").fill("111111");
+    await page.getByRole("button", { name: "Confirmar código" }).click();
+    await expect(page.locator(".tm-save-said")).toHaveText("O código não está certo. Vê outra vez.");
+    await page.getByLabel("O código de 6 algarismos que recebeste").fill(code);
+    await page.getByRole("button", { name: "Confirmar código" }).click();
+    await expect(page.getByText("BI guardado. Com o teu número, entras em qualquer telemóvel.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Guardar o meu BI" })).toHaveCount(0);
+    // The number is nowhere on the phone.
+    expect(JSON.stringify(await page.evaluate(() => ({ ...localStorage })))).not.toContain("923000");
+
+    // A second phone: nothing on it. The number and a code bring the player whole: no age asked, no look to choose, no card to turn.
+    const other = await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" });
+    const second = await other.newPage();
+    await second.goto("/");
+    await second.getByRole("link", { name: "Já tenho um BI guardado" }).click();
+    await second.getByLabel("O teu número de telemóvel").fill(phone);
+    await second.getByRole("button", { name: "Enviar código" }).click();
+    await second.getByLabel("O código de 6 algarismos que recebeste").fill(code);
+    await second.getByRole("button", { name: "Confirmar código" }).click();
+    await second.waitForURL(/\/andar\?pack=l1/);
+    await second.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await expect(second.locator(".n-wallet")).toContainText(makuta.replace(/\sMk$/, ""));
+    await second.getByRole("button", { name: "Telemóvel" }).click();
+    await second.getByRole("button", { name: "BI", exact: true }).click();
+    await expect(second.locator(".n-bi-name")).toHaveText(born);
+    expect(await second.evaluate(() => (JSON.parse(localStorage.getItem("nzila.look") ?? "{}") as { sex?: string }).sex)).toBe("f");
+    await other.close();
+
+    // One active session a player, the newer wins: the first phone finds out the next time it asks, forgets the account, and the door says why.
+    await page.goto("/andar?pack=l1&telemovel=bi");
+    await page.waitForFunction(() => localStorage.getItem("nzila.conta") === null, undefined, { timeout: 30_000 });
+    await page.goto("/");
+    await expect(page.getByText("O teu BI foi aberto noutro telemóvel. Para jogar neste, entra outra vez com o teu número.")).toBeVisible();
+    await expect(page.getByLabel("O teu número de telemóvel")).toBeVisible();
+    await expectNoSidewaysScroll(page);
+    expect(seen.errors.filter((error) => !/40[01]/.test(error))).toEqual([]);
   });
 });
 

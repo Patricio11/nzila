@@ -17,7 +17,7 @@
 
 **1. Client to API (Phase 2).**
 - Every route is declared through `declare()` (`apps/api/src/routes.ts`) with a **guard** (`public`, `player`, `staff`), a **shape** checked with Zod before the handler runs (unknown fields are refused, bodies are capped at 16 KB), and a **rate limit**. A route registered any other way stops the app from being built, and a test walks every route. The list of public routes is written out in that test: adding one is a deliberate act.
-- Errors are a status and a one-word code (`invalid`, `unauthenticated`, `slow_down`, `forbidden`, `not_found`, `failed`, for a name `name_taken`, `name_refused`, `name_spent`, and `not_confirmed` for a deletion without its proof). No message, no stack, no detail of what was wrong: the client has the words, and an attacker learns nothing.
+- Errors are a status and a one-word code (`invalid`, `unauthenticated`, `slow_down`, `forbidden`, `not_found`, `failed`, for a name `name_taken`, `name_refused`, `name_spent`, `not_confirmed` for a deletion without its proof, and for a code `wrong_code`, `has_account`, `no_account`). No message, no stack, no detail of what was wrong: the client has the words, and an attacker learns nothing.
 - `staff` passes nobody until the Estúdio exists (Phase 12).
 
 **2. Sessions (Task 2.1).**
@@ -35,6 +35,13 @@
 
 **2d. What a player may ask of their own data (Task 2.6).** Their consents (analytics and notifications, off until a yes; playing itself is agreed to by coming in and ended by deleting), everything kept of them as a file, and deletion. Deletion needs the player's own BI number in the request, so that a request sent by mistake or by another page deletes nobody; it runs in one transaction, ends every session, and is written to the audit log, as an export is. The row stays, emptied, so the ledger stays whole and becomes anonymous.
 
+**2e. Saving the BI with a phone number (Task 2.2).**
+- A one-time code: six digits from the server's dice, kept only as a keyed hash bound to the number, alive ten minutes, used once, dead after five tries. Every try is counted in a statement of its own, so a refusal later in the request cannot give the try back.
+- A number is sent at most three codes in a quarter of an hour, wherever they are asked from, on top of the limit by address: each code costs money and rings a stranger's phone.
+- Asking for a code answers the same for every number. Whether a number has an account is said only to someone who has given a right code for it.
+- The number itself is stored encrypted (AES-256-GCM, bound to its column) and as a keyed hash for finding the account; it is on no phone and in no answer of the API.
+- Signing in ends every other session of the player (one active session; the newer wins).
+
 **3. Personal data (Task 0.10).** Fields that identify a person are encrypted with AES-256-GCM under a rotating keyring, bound to their column; phone numbers and device ids are matched by keyed hash. A guest has none.
 
 ## Known gaps
@@ -43,6 +50,7 @@
 - No idempotency keys yet: they arrive with the first route that moves Makuta (Phase 4), and no such route exists.
 - **A card can be rerolled by someone determined:** the card belongs to the device's first guest, but a device is known only by the id it gives itself, and wiping the browser makes a new one (finding F-114).
 - The API is reached at `/api` on the game's own address (a proxy in development and in the browser tests), so there is no cross-origin policy to get wrong; production must keep it so (Phase 14).
+- **Sending codes is public and will cost money** once a real sender is behind it: the limits by address and by number are in the memory of one process and one table. Before a real provider is switched on: a global ceiling a day, an alarm on it, and the limits in Redis (F-111).
 - **Whether a name is taken can be asked** by any player, ninety times a minute: names are public, but the list of them can be walked slowly.
 - No transport security in development; production terminates TLS in front of the API (Phase 14).
 - The service worker caches only same-origin GETs and passes anything under `/api/` straight to the network; when API answers become cacheable this must be revisited.

@@ -3,6 +3,7 @@
 // checks what it is given.
 
 import { randomInt } from "node:crypto";
+import { type Keyring } from "@nzila/db";
 import { recordConsent } from "@nzila/db";
 import { BASE_ORIGINS, type OriginTable } from "@nzila/economy";
 import { checkLook } from "@nzila/protocol";
@@ -10,6 +11,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
 import { memoryLimiter, type Limiter } from "./limiter.ts";
+import { consoleSender, linkPhone, sendCode, signIn, type CodeSender } from "./linking.ts";
 import { choicesOf, deleteAccount, exportOf } from "./mydata.ts";
 import { askName, FREE_NAME_CHANGES, loadNameFilter, rename } from "./names.ts";
 import { dealOrigin, originOfPlayer } from "./origins.ts";
@@ -20,7 +22,12 @@ export interface Deps {
   readonly sql: Sql;
   /** The secret that keys the hash of a device id (HASH_PEPPER). */
   readonly pepper: Uint8Array;
+  /** The keys personal fields are encrypted with (FIELD_KEYS). */
+  readonly keyring: Keyring;
   readonly limiter?: Limiter;
+  /** Who sends one-time codes, and how a code is made: the console and the server's dice unless a test brings others. */
+  readonly sender?: CodeSender;
+  readonly newCode?: () => string;
   /** The table a card of origin is drawn from, and the dice: the game's own unless a test brings others. */
   readonly origins?: OriginTable;
   readonly roll?: () => number;
@@ -36,6 +43,12 @@ export function buildApp(deps: Deps): FastifyInstance {
   const origins = deps.origins ?? BASE_ORIGINS;
   const roll = deps.roll ?? (() => randomInt(DICE) / DICE);
   const names = loadNameFilter();
+  const sender = deps.sender ?? consoleSender;
+  const newCode = deps.newCode ?? (() => String(randomInt(1_000_000)).padStart(6, "0"));
+  const phoneShape = z.string().min(7).max(24);
+  const codeShape = z.string().regex(/^\d{6}$/);
+  const deviceShape = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
+  const platformShape = z.enum(["android", "ios", "desktop"]).optional();
   const gate: Gate = {
     allow: (key, perMinute) => limiter.allow(key, perMinute),
     async playerOf(request) {
@@ -74,7 +87,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     guard: "public",
     // The random id the client made for this device and keeps; only its keyed hash is stored.
     // The age band is worked out on the phone from the year of birth, which never leaves it (Task 2.6).
-    body: z.strictObject({ deviceId: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/), platform: z.enum(["android", "ios", "desktop"]).optional(), ageBand: z.enum(["15_17", "18_plus"]) }),
+    body: z.strictObject({ deviceId: deviceShape, platform: platformShape, ageBand: z.enum(["15_17", "18_plus"]) }),
     // Few: an address that makes guests by the dozen is not the phone of a family.
     perMinute: 6,
     handler: async (body, _caller, reply) => {
@@ -153,6 +166,40 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: nothing,
     perMinute: 12,
     handler: async (_body, caller) => ({ origin: await dealOrigin(deps.sql, origins, roll, caller.player.id) }),
+  });
+
+  // Saving the BI (Task 2.2). A code is sent to a number; with it a guest ties the account to the number,
+  // or someone comes back into theirs on another phone. Asking for a code tells nothing about the number.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/codes",
+    guard: "public",
+    body: z.strictObject({ phone: phoneShape }),
+    // Few, by address; and few by number, wherever they are asked from (linking.ts).
+    perMinute: 5,
+    handler: async (body) => {
+      await sendCode(deps.sql, deps.pepper, sender, newCode, body.phone);
+      return { ok: true };
+    },
+  });
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/me/phone",
+    guard: "player",
+    body: z.strictObject({ phone: phoneShape, code: codeShape }),
+    perMinute: 10,
+    handler: async (body, caller) => {
+      await linkPhone(deps.sql, deps.keyring, deps.pepper, caller.player.id, body.phone, body.code);
+      return { kind: "linked" };
+    },
+  });
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/signin/phone",
+    guard: "public",
+    body: z.strictObject({ phone: phoneShape, code: codeShape, deviceId: deviceShape, platform: platformShape }),
+    perMinute: 10,
+    handler: async (body) => signIn(deps.sql, deps.pepper, body.phone, body.code, body.deviceId, body.platform ?? null),
   });
 
   // What the player agrees to, of the things that can be said no to. Both are off until they say yes (Rule 16).
