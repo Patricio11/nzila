@@ -16,7 +16,7 @@ test("everything the table of origins can deal has its words", () => {
     needed.add(`origin.trade.${family.pai}`);
     needed.add(`origin.trade.${family.mae}`);
     needed.add(`origin.tier.${family.tier}`);
-    for (const bairro of family.bairros) needed.add(`origin.bairro.${bairro}.em`);
+    for (const bairro of family.bairros) needed.add(`origin.bairro.${bairro}`).add(`origin.bairro.${bairro}.em`);
   }
   for (const province of BASE_ORIGINS.provinces) needed.add(`origin.province.${province.id}.de`);
   expect([...needed].filter((key) => !(key in ptAO))).toEqual([]);

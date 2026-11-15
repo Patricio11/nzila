@@ -16,6 +16,7 @@
   "dependencies": {
     "@nzila/db": "workspace:*",
     "@nzila/economy": "workspace:*",
+    "@nzila/i18n": "workspace:*",
     "@nzila/protocol": "workspace:*",
     "fastify": "^5.12.8",
     "postgres": "^4.1.1",

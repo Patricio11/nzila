@@ -7,6 +7,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { hashDeviceId } from "@nzila/db";
 import { type Sql } from "postgres";
 import { type AgeBand } from "@nzila/protocol";
+import { arrivalIdentity } from "./names.ts";
 import { type Player } from "./routes.ts";
 
 /** A session lasts this long from when it was last used. */
@@ -18,6 +19,10 @@ export interface NewGuest {
   readonly playerId: string;
   /** Shown to nobody and stored nowhere but on the device. */
   readonly token: string;
+  /** The name they arrive with and the number of their BI. */
+  readonly name: string;
+  readonly biNumber: string;
+  readonly arrivedAt: string;
 }
 
 /** The version of the terms of play a new guest agrees to by coming in. */
@@ -31,14 +36,18 @@ export const PLAY_TERMS = 1;
 export async function createGuest(sql: Sql, pepper: Uint8Array, deviceId: string, platform: string | null, ageBand: AgeBand): Promise<NewGuest> {
   const token = randomBytes(32).toString("base64url");
   return sql.begin(async (tx) => {
-    const [player] = await tx<{ id: string }[]>`INSERT INTO players (age_band) VALUES (${ageBand}) RETURNING id`;
+    // The order of arrival is the number of the BI, and the first name: nobody else can hold either.
+    const [next] = await tx<{ n: string }[]>`SELECT nextval('bi_numbers') AS n`;
+    const first = arrivalIdentity(Number(next!.n));
+    const [player] = await tx<{ id: string; arrived_at: Date }[]>`
+      INSERT INTO players (age_band, name, name_key, bi_number) VALUES (${ageBand}, ${first.name}, ${first.nameKey}, ${first.biNumber}) RETURNING id, arrived_at`;
     await tx`INSERT INTO consents (player_id, purpose, version, granted) VALUES (${player!.id}, 'play', ${PLAY_TERMS}, true)`;
     const [device] = await tx<{ id: string }[]>`
       INSERT INTO devices (player_id, device_hash, platform) VALUES (${player!.id}, ${hashDeviceId(deviceId, pepper)}, ${platform}) RETURNING id`;
     await tx`
       INSERT INTO player_sessions (player_id, device_id, token_hash, expires_at)
       VALUES (${player!.id}, ${device!.id}, ${hashToken(token)}, now() + make_interval(days => ${SESSION_DAYS}))`;
-    return { playerId: player!.id, token };
+    return { playerId: player!.id, token, name: first.name, biNumber: first.biNumber, arrivedAt: player!.arrived_at.toISOString() };
   });
 }
 

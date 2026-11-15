@@ -9,6 +9,7 @@ import { APP_GLYPHS, Button, Choice, DataMeter, EmptyState, PhoneSheet, Toggle, 
 import { WORLD } from "@nzila/world/client";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { type DistrictMap, type MapLine, type WorldProvider } from "../world/provider.ts";
+import { Bi } from "./bi.tsx";
 import "./telemovel.css";
 
 type AppId = (typeof APP_GLYPHS)[number];
@@ -230,17 +231,12 @@ export function Telemovel({ world, open, first, marked, onMark, onClose }: { wor
         <Mapa world={world} marked={marked} onMark={onMark} />
       ) : app === "definicoes" ? (
         <Definicoes world={world} />
+      ) : app === "bi" ? (
+        <Bi world={world} />
       ) : app ? (
-        <>
-          <EmptyState glyph={app} title={tr.t("state.soon")}>
-            {tr.t(`app.${app}.soon`)}
-          </EmptyState>
-          {app === "bi" ? (
-            <p class="tm-centre">
-              <Button onPress={() => location.assign(`/provador?voltar=${encodeURIComponent(location.pathname + location.search)}`)}>{tr.t("look.change")}</Button>
-            </p>
-          ) : null}
-        </>
+        <EmptyState glyph={app} title={tr.t("state.soon")}>
+          {tr.t(`app.${app}.soon`)}
+        </EmptyState>
       ) : null}
     </PhoneSheet>
   );

@@ -6,3 +6,4 @@ export * from "./messages.ts";
 export * from "./snapshot.ts";
 export * from "./age.ts";
 export * from "./look.ts";
+export * from "./name.ts";

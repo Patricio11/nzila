@@ -38,7 +38,7 @@ const device = (n: number): string => `device-${String(n).padStart(4, "0")}-abcd
 const newGuest = async (n: number, ageBand = "18_plus") => {
   const res = await app.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(n), platform: "android", ageBand } });
   expect(res.statusCode).toBe(201);
-  return res.json() as { playerId: string; token: string; ageBand: string };
+  return res.json() as { playerId: string; token: string; ageBand: string; name: string; biNumber: string };
 };
 const as = (token: string) => ({ authorization: `Bearer ${token}` });
 
@@ -48,7 +48,11 @@ describe("a guest", () => {
     expect(guest.token).toMatch(/^[A-Za-z0-9_-]{40,}$/);
     const [player] = await sql`SELECT kind, status, name, age_band FROM players WHERE id = ${guest.playerId}`;
     // Of their age, only the band (D-0.32); and that they came in under the terms of play.
-    expect(player).toEqual({ kind: "guest", status: "active", name: null, age_band: "18_plus" });
+    expect(player).toMatchObject({ kind: "guest", status: "active", age_band: "18_plus" });
+    // They arrive with a BI number, which is the order of their arrival, and a first name made from it.
+    expect(guest).toMatchObject({ name: expect.stringMatching(/^Caluanda \d{4,}$/), biNumber: expect.stringMatching(/^\d{8}-LA$/) });
+    expect(player!.name).toBe(guest.name);
+    expect(Number(guest.biNumber.slice(0, 8))).toBe(Number(guest.name.split(" ")[1]));
     expect(await sql`SELECT purpose, version, granted FROM consents WHERE player_id = ${guest.playerId}`).toEqual([{ purpose: "play", version: 1, granted: true }]);
     const [seen] = await sql`SELECT device_hash, platform FROM devices WHERE player_id = ${guest.playerId}`;
     expect(seen!.platform).toBe("android");
@@ -67,7 +71,7 @@ describe("a guest", () => {
     const b = await newGuest(3);
     const me = await app.inject({ method: "GET", url: "/v1/me", headers: as(a.token) });
     expect(me.statusCode).toBe(200);
-    expect(me.json()).toMatchObject({ id: a.playerId, kind: "guest", name: null, ageBand: "18_plus", look: null, origin: null });
+    expect(me.json()).toMatchObject({ id: a.playerId, kind: "guest", name: a.name, nameFree: true, biNumber: a.biNumber, ageBand: "18_plus", look: null, origin: null });
     expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(b.token) })).json()).toMatchObject({ id: b.playerId });
     // A token that was never issued, of the right shape.
     expect((await app.inject({ method: "GET", url: "/v1/me", headers: as("x".repeat(43)) })).statusCode).toBe(401);
@@ -194,5 +198,68 @@ describe("a lotaria da vida", () => {
 
   test("is dealt to nobody without a session", async () => {
     expect((await app.inject({ method: "POST", url: "/v1/me/origin" })).statusCode).toBe(401);
+  });
+});
+
+describe("a name", () => {
+  const ask = async (token: string, name: string) => ((await app.inject({ method: "POST", url: "/v1/names/check", headers: as(token), payload: { name } })).json() as { answer: string }).answer;
+  const take = (token: string, name: unknown) => app.inject({ method: "PUT", url: "/v1/me/name", headers: as(token), payload: { name } });
+
+  test("is asked about while it is typed, taken once for nothing, and then it is theirs alone", async () => {
+    const a = await newGuest(40);
+    const b = await newGuest(41);
+    expect(await ask(a.token, "Zé Manel")).toBe("free");
+    const taken = await take(a.token, "  Zé   Manel ");
+    expect(taken.statusCode).toBe(200);
+    expect(taken.json()).toEqual({ name: "Zé Manel", nameFree: false });
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(a.token) })).json()).toMatchObject({ name: "Zé Manel", nameFree: false, biNumber: a.biNumber });
+    // The same name, however it is written, is taken for everyone else and theirs for them.
+    for (const other of ["Zé Manel", "ze manel", "ZE-MANEL", "zémanel"]) expect(await ask(b.token, other), other).toBe("taken");
+    expect(await ask(a.token, "ze manel")).toBe("yours");
+    const stolen = await take(b.token, "ze-manel");
+    expect(stolen.statusCode).toBe(409);
+    expect(stolen.json()).toEqual({ error: "name_taken" });
+    // The name they arrived with is nobody's to choose: names of that shape are the game's to give.
+    expect(await ask(b.token, a.name)).toBe("refused");
+  });
+
+  test("a correction of the same name costs nothing; a second change is not to be had yet", async () => {
+    const guest = await newGuest(42);
+    expect((await take(guest.token, "Dona Xepa")).statusCode).toBe(200);
+    expect((await take(guest.token, "Dona Xépa")).json()).toEqual({ name: "Dona Xépa", nameFree: false });
+    const again = await take(guest.token, "Outra Pessoa");
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toEqual({ error: "name_spent" });
+    expect((await sql`SELECT name, name_changes FROM players WHERE id = ${guest.playerId}`)[0]).toEqual({ name: "Dona Xépa", name_changes: 1 });
+  });
+
+  test("is refused when it is not a name, passes for the game, or the filter objects", async () => {
+    const guest = await newGuest(43);
+    expect(await ask(guest.token, "Zé")).toBe("short");
+    expect(await ask(guest.token, "Um nome comprido demais")).toBe("long");
+    expect(await ask(guest.token, "<b>Zé</b>")).toBe("letters");
+    for (const name of ["Nzila Oficial", "Admin", "Moderador Zé", "Suporte", "Caluanda 7", "caluanda-123456"]) expect(await ask(guest.token, name), name).toBe("refused");
+    expect((await take(guest.token, "A Equipa")).json()).toEqual({ error: "name_refused" });
+    expect((await take(guest.token, "Zé")).json()).toEqual({ error: "invalid" });
+    expect((await take(guest.token, 42)).json()).toEqual({ error: "invalid" });
+    // A word from the filter's list, however it is dressed.
+    const [bad] = (await import("node:fs")).readFileSync(new URL("../../../packages/i18n/filter/pt.txt", import.meta.url), "utf8").split(/\r?\n/).filter((line) => /^[a-z]{4,10}$/.test(line));
+    expect(bad).toBeDefined();
+    expect(await ask(guest.token, bad!)).toBe("refused");
+    expect(await ask(guest.token, bad!.toUpperCase().replace(/a/gi, "4"))).toBe("refused");
+    // Nothing of all that changed their name or spent their change.
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(guest.token) })).json()).toMatchObject({ name: guest.name, nameFree: true });
+  });
+
+  test("two players who ask for one name at the same instant: one gets it", async () => {
+    const guests = await Promise.all([44, 45, 46, 47].map((n) => newGuest(n)));
+    const answers = await Promise.all(guests.map((guest) => take(guest.token, "Rainha Ginga")));
+    expect(answers.map((res) => res.statusCode).sort()).toEqual([200, 409, 409, 409]);
+    expect(await sql`SELECT count(*)::int AS n FROM players WHERE name_key = 'rainhaginga'`).toEqual([{ n: 1 }]);
+  });
+
+  test("is asked of nobody without a session", async () => {
+    expect((await app.inject({ method: "POST", url: "/v1/names/check", payload: { name: "Zé Manel" } })).statusCode).toBe(401);
+    expect((await app.inject({ method: "PUT", url: "/v1/me/name", payload: { name: "Zé Manel" } })).statusCode).toBe(401);
   });
 });

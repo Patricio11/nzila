@@ -58,6 +58,9 @@ const PAGES = [
   ["origem-bem", "/origem?virada&carta=%7B%22family%22%3A%22engenheiro-medica%22%2C%22pai%22%3A%22engenheiro%22%2C%22mae%22%3A%22medica%22%2C%22tier%22%3A%22bem%22%2C%22province%22%3A%22cabinda%22%2C%22bairro%22%3A%22kilamba%22%2C%22makuta%22%3A35000%2C%22version%22%3A1%7D"],
   ["origem-ouro", "/origem?virada&carta=%7B%22family%22%3A%22conselheiro-ministra%22%2C%22pai%22%3A%22conselheiro%22%2C%22mae%22%3A%22ministra%22%2C%22tier%22%3A%22ouro%22%2C%22province%22%3A%22luanda%22%2C%22bairro%22%3A%22talatona%22%2C%22makuta%22%3A250000%2C%22version%22%3A1%7D"],
   ["origem-longa", "/origem?virada&carta=%7B%22family%22%3A%22candongueiro-quitandeira%22%2C%22pai%22%3A%22candongueiro%22%2C%22mae%22%3A%22quitandeira%22%2C%22tier%22%3A%22aperto%22%2C%22province%22%3A%22icolo-e-bengo%22%2C%22bairro%22%3A%22rangel%22%2C%22makuta%22%3A1500%2C%22version%22%3A1%7D"],
+  // The BI app, with an account given in the address.
+  ["bi", "/andar?hour=16.8&cam=200&telemovel=bi&conta=%7B%22ageBand%22%3A%2218_plus%22%2C%22name%22%3A%22Caluanda%201042%22%2C%22nameFree%22%3Atrue%2C%22biNumber%22%3A%2200001042-LA%22%2C%22arrivedAt%22%3A%222026-11-15T16%3A00%3A00.000Z%22%2C%22origin%22%3A%7B%22family%22%3A%22mecanico-zungueira%22%2C%22pai%22%3A%22mecanico%22%2C%22mae%22%3A%22zungueira%22%2C%22tier%22%3A%22aperto%22%2C%22province%22%3A%22malanje%22%2C%22bairro%22%3A%22cazenga%22%2C%22makuta%22%3A2500%2C%22version%22%3A1%7D%7D"],
+  ["bi-vazio", "/andar?hour=16.8&cam=200&telemovel=bi"],
   ["hud", "/andar?hour=16.8&cam=200"],
   ...["acenar", "rir", "aplaudir", "chamar", "dancar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
   ["ela-joelhos-lado", "/andar?hour=15&cam=90&quem=6&gesto=dancar&t=6.0&pausa"],

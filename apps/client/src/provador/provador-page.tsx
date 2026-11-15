@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { type Person } from "../render/person.ts";
 import { ground } from "../render/test-scene.ts";
 import { type TierName } from "../render/tiers.ts";
-import { COLOURS, FIRST_LOOK, dress, fitted, saveLook, savedLook, wardrobe, type Look, type Wardrobe } from "../render/wardrobe.ts";
+import { COLOURS, FIRST_LOOK, dress, fitted, saveLook, savedLook, takePhoto, wardrobe, type Look, type Wardrobe } from "../render/wardrobe.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";
 import { account, pushLook } from "../world/account.ts";
 import "./provador.css";
@@ -34,6 +34,10 @@ const css = (name: string): string => {
 };
 const skinTone = (n: number): string => `#${WORLD.skin[n]!.map((part) => part.toString(16).padStart(2, "0")).join("")}`;
 
+/** The photograph for the BI: how far the camera stands from the face, and the hour whose light it is taken in. */
+const PORTRAIT_M = 0.46;
+const PORTRAIT_HOUR = 15.5;
+
 export function Provador() {
   const params = new URLSearchParams(location.search);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -44,6 +48,8 @@ export function Provador() {
   const view = useRef({ angle: ((Number(params.get("ang")) || 20) * Math.PI) / 180, dragging: false, lastX: 0 });
   const wanted = useRef(look);
   wanted.current = look;
+  // Set when the player is done: the next frame is drawn as a portrait and kept for the BI.
+  const portrait = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!canvas.current) return;
@@ -100,6 +106,19 @@ export function Provador() {
       renderer.camera.lookAt(0, near ? tall * 0.94 : tall * 0.53, 0);
       renderer.setFocus(0, 0, 0);
       renderer.render(elapsed);
+      if (portrait.current && !busy) {
+        const taken = portrait.current;
+        portrait.current = null;
+        if (person && canvas.current) {
+          // The face, near, a little from one side, in the light of mid afternoon: as a photograph for a document is taken.
+          renderer.setTime(PORTRAIT_HOUR * 3600);
+          renderer.camera.position.set(Math.sin(0.35) * PORTRAIT_M, tall * 0.94, Math.cos(0.35) * PORTRAIT_M);
+          renderer.camera.lookAt(0, tall * 0.925, 0);
+          renderer.render(0);
+          takePhoto(canvas.current);
+        }
+        taken();
+      }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -137,6 +156,11 @@ export function Provador() {
   const done = async (): Promise<void> => {
     setSaving(true);
     saveLook(look);
+    await new Promise<void>((taken) => {
+      portrait.current = taken;
+      // A page in the background draws no frames: go on without the photograph.
+      window.setTimeout(taken, 1500);
+    });
     const onward = params.get("voltar") ?? "/andar?pack=l1";
     const recorded = await pushLook(look);
     location.assign(recorded && !account()?.origin ? `/origem?voltar=${encodeURIComponent(onward)}` : onward);

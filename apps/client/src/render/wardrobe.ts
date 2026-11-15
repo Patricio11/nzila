@@ -48,6 +48,33 @@ export function saveLook(look: Look): void {
   }
 }
 
+const PHOTO = "nzila.foto";
+
+/** The photograph for the BI, taken in the look chooser: an image address, or null. */
+export function savedPhoto(): string | null {
+  try {
+    const photo = localStorage.getItem(PHOTO);
+    return photo?.startsWith("data:image/") ? photo : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Keeps a photograph of what the canvas shows now: the middle of it, in the shape of the frame on the BI. Call it in the same turn as the drawing. */
+export function takePhoto(canvas: HTMLCanvasElement): void {
+  const frame = document.createElement("canvas");
+  frame.width = 144;
+  frame.height = 176;
+  const height = Math.min(canvas.height, (canvas.width * frame.height) / frame.width);
+  const width = (height * frame.width) / frame.height;
+  try {
+    frame.getContext("2d")?.drawImage(canvas, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height, 0, 0, frame.width, frame.height);
+    localStorage.setItem(PHOTO, frame.toDataURL("image/jpeg", 0.82));
+  } catch {
+    // No photograph: the BI shows its own mark in the frame.
+  }
+}
+
 let listed: Promise<Wardrobe> | null = null;
 
 /** What there is to wear. Rejects when the wardrobe is not built on this machine. */

@@ -46,6 +46,9 @@ export const players = pgTable("players", {
   kind: text("kind").notNull().default("guest"),
   status: text("status").notNull().default("active"),
   name: text("name"),
+  // The plain form of the name: what must be unique (packages/protocol/src/name.ts).
+  nameKey: text("name_key"),
+  nameChanges: integer("name_changes").notNull().default(0),
   biNumber: text("bi_number"),
   ageBand: text("age_band"),
   homeDistrictId: text("home_district_id"),

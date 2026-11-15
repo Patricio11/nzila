@@ -145,6 +145,59 @@ test.describe("the age question", () => {
   });
 });
 
+test.describe("the BI", () => {
+  test("shows who the server says they are, with the photograph from the look chooser; the name is asked about as it is typed, taken once, and kept", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/front.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). The BI was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    await bornIn(page, "2009");
+    await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Está bom" }).click();
+    await turnCard(page);
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    await page.getByRole("button", { name: "BI", exact: true }).click();
+    const card = page.locator(".n-bi");
+    // They arrived with a name and a number of their own, a bairro from their card, today.
+    await expect(card.locator(".n-bi-name")).toHaveText(/^Caluanda \d{4,}$/);
+    await expect(card).toContainText(/\d{8}-LA/);
+    await expect(card).toContainText(/\d{1,2} de \p{Lu}\p{L}+/u);
+    await expect(card.locator("img.tm-bi-photo")).toBeVisible();
+    expect(await card.locator("img.tm-bi-photo").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(144);
+
+    await page.getByRole("button", { name: "Mudar o nome" }).click();
+    const field = page.getByLabel("Como te chamas?");
+    const said = page.locator(".tm-name-said");
+    await field.fill("Zé");
+    await expect(said).toHaveText("Muito curto: pelo menos 3 letras.");
+    await field.fill("Admin Nzila");
+    await expect(said).toHaveText("Esse nome não pode ser.");
+    // One name a browser, so that the two of them do not ask for the same one.
+    const name = `Kamba ${info.project.name}`;
+    await field.fill(name);
+    await expect(said).toHaveText("Está livre. É teu, se quiseres.");
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(card.locator(".n-bi-name")).toHaveText(name);
+    // The one free change is spent: the button is gone, here and after the page is opened again.
+    await expect(page.getByRole("button", { name: "Mudar o nome" })).toHaveCount(0);
+    await page.goto("/andar?pack=l1&telemovel=bi");
+    await expect(page.locator(".n-bi-name")).toHaveText(name);
+    await expect(page.getByRole("button", { name: "Mudar o nome" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "A minha família" })).toBeVisible();
+    // The younger band is what the server kept of someone born in 2009.
+    const token = await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token?: string }).token);
+    expect(await (await page.request.get("/api/v1/me", { headers: { authorization: `Bearer ${token}` } })).json()).toMatchObject({ name, nameFree: false, ageBand: "15_17" });
+    await expectNoSidewaysScroll(page);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
 test.describe("first play", () => {
   // Measured as a first visit is: nothing kept yet, every byte from the network and seen by the count.
   test.use({ serviceWorkers: "block" });

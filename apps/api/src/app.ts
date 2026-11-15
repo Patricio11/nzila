@@ -9,6 +9,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
 import { memoryLimiter, type Limiter } from "./limiter.ts";
+import { askName, FREE_NAME_CHANGES, loadNameFilter, rename } from "./names.ts";
 import { dealOrigin, originOfPlayer } from "./origins.ts";
 import { Refusal, declare, routesOf, type Gate } from "./routes.ts";
 import { createGuest, playerOfToken, revokeSession } from "./sessions.ts";
@@ -32,6 +33,7 @@ export function buildApp(deps: Deps): FastifyInstance {
   const limiter = deps.limiter ?? memoryLimiter();
   const origins = deps.origins ?? BASE_ORIGINS;
   const roll = deps.roll ?? (() => randomInt(DICE) / DICE);
+  const names = loadNameFilter();
   const gate: Gate = {
     allow: (key, perMinute) => limiter.allow(key, perMinute),
     async playerOf(request) {
@@ -87,13 +89,16 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: nothing,
     perMinute: 120,
     handler: async (_body, caller) => {
-      const [me] = await deps.sql<{ id: string; kind: string; name: string | null; age_band: string | null; arrived_at: Date }[]>`
-        SELECT id, kind, name, age_band, arrived_at FROM players WHERE id = ${caller.player.id}`;
+      const [me] = await deps.sql<{ id: string; kind: string; name: string | null; bi_number: string | null; name_changes: number; age_band: string | null; arrived_at: Date }[]>`
+        SELECT id, kind, name, bi_number, name_changes, age_band, arrived_at FROM players WHERE id = ${caller.player.id}`;
       const [avatar] = await deps.sql<{ spec: unknown }[]>`SELECT spec FROM avatars WHERE player_id = ${caller.player.id}`;
       return {
         id: me!.id,
         kind: me!.kind,
         name: me!.name,
+        // Whether the name can still be changed for nothing.
+        nameFree: me!.name_changes < FREE_NAME_CHANGES,
+        biNumber: me!.bi_number,
         ageBand: me!.age_band,
         arrivedAt: me!.arrived_at.toISOString(),
         // Read back through the catalogue: a look the wardrobe no longer has is no look, and the player chooses again.
@@ -101,6 +106,24 @@ export function buildApp(deps: Deps): FastifyInstance {
         origin: await originOfPlayer(deps.sql, origins, caller.player.id),
       };
     },
+  });
+
+  // The name on the BI. Asked about while it is typed, then taken: the answer is one word either way.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/names/check",
+    guard: "player",
+    body: z.strictObject({ name: z.string().max(64) }),
+    perMinute: 90,
+    handler: async (body, caller) => ({ answer: await askName(deps.sql, names, caller.player.id, body.name) }),
+  });
+  declare(app, gate, {
+    method: "PUT",
+    url: "/v1/me/name",
+    guard: "player",
+    body: z.strictObject({ name: z.string().max(64) }),
+    perMinute: 12,
+    handler: async (body, caller) => rename(deps.sql, names, caller.player.id, body.name),
   });
 
   // How the player looks (D-2.1): the client proposes, and only what the wardrobe has is recorded.

@@ -10,5 +10,9 @@
   {
     "id": "0003_player_origins",
     "sha256": "b712056fc0a904d57dbbc5f5809cb9a651047b135a3600b8febda4ebe2d4fffc"
+  },
+  {
+    "id": "0004_player_names",
+    "sha256": "b7e6792b60150d780fc00a6565969b7c2cf43f46941378c910a037cff2b20d40"
   }
 ]

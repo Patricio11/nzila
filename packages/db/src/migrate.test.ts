@@ -25,6 +25,7 @@ test("every statement is guarded, so running a migration again changes nothing",
       const guarded =
         /^CREATE TABLE IF NOT EXISTS /.test(statement) ||
         /^CREATE (UNIQUE )?INDEX IF NOT EXISTS /.test(statement) ||
+        /^CREATE SEQUENCE IF NOT EXISTS /.test(statement) ||
         /^CREATE OR REPLACE (FUNCTION|TRIGGER) /.test(statement) ||
         /^ALTER TABLE \S+ ADD COLUMN IF NOT EXISTS /.test(statement) ||
         /^DO \$\$body\$\$$/.test(statement);

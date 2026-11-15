@@ -17,7 +17,7 @@
 
 **1. Client to API (Phase 2).**
 - Every route is declared through `declare()` (`apps/api/src/routes.ts`) with a **guard** (`public`, `player`, `staff`), a **shape** checked with Zod before the handler runs (unknown fields are refused, bodies are capped at 16 KB), and a **rate limit**. A route registered any other way stops the app from being built, and a test walks every route. The list of public routes is written out in that test: adding one is a deliberate act.
-- Errors are a status and a one-word code (`invalid`, `unauthenticated`, `slow_down`, `forbidden`, `not_found`, `failed`). No message, no stack, no detail of what was wrong: the client has the words, and an attacker learns nothing.
+- Errors are a status and a one-word code (`invalid`, `unauthenticated`, `slow_down`, `forbidden`, `not_found`, `failed`, and for a name `name_taken`, `name_refused`, `name_spent`). No message, no stack, no detail of what was wrong: the client has the words, and an attacker learns nothing.
 - `staff` passes nobody until the Estúdio exists (Phase 12).
 
 **2. Sessions (Task 2.1).**
@@ -30,6 +30,7 @@
 
 **2c. What the server decides for a player (Task 2.3).**
 - **The look:** the client proposes it; the API records it only when every part is in the catalogue both read (`packages/protocol/src/look.ts`), and refuses it whole otherwise. A look read back is checked again, so a wardrobe that has changed cannot hand out what no longer exists.
+- **The name:** its shape is a rule both sides share (`packages/protocol/src/name.ts`); the server alone says whether it is reserved, whether the filter objects, and whether it is taken. Uniqueness is an index on the plain form of the name, so two requests at the same instant cannot both win. A name reaches a page only as text, never as markup.
 - **The card of origin:** dealt by the server with its own dice (`crypto.randomInt`), once a player, inside a transaction that holds the player's row; a trigger refuses to rewrite a card. The Makuta on it is a record, not money, until the ledger pays it (Task 4.1). The client keeps a copy to show with no network; nothing reads that copy as truth.
 
 **3. Personal data (Task 0.10).** Fields that identify a person are encrypted with AES-256-GCM under a rotating keyring, bound to their column; phone numbers and device ids are matched by keyed hash. A guest has none.
@@ -40,5 +41,6 @@
 - No idempotency keys yet: they arrive with the first route that moves Makuta (Phase 4), and no such route exists.
 - **A card can be rerolled by someone determined:** the card belongs to the device's first guest, but a device is known only by the id it gives itself, and wiping the browser makes a new one (finding F-114).
 - The API is reached at `/api` on the game's own address (a proxy in development and in the browser tests), so there is no cross-origin policy to get wrong; production must keep it so (Phase 14).
+- **Whether a name is taken can be asked** by any player, ninety times a minute: names are public, but the list of them can be walked slowly.
 - No transport security in development; production terminates TLS in front of the API (Phase 14).
 - The service worker caches only same-origin GETs and passes anything under `/api/` straight to the network; when API answers become cacheable this must be revisited.

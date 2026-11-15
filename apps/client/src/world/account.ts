@@ -26,11 +26,26 @@ export interface Account {
   readonly token?: string;
   /** The card the server dealt, kept so that it can be shown with no network. */
   readonly origin?: Origin;
+  /** What is on the BI: the name, whether it can still be changed for nothing, the number, the day of arrival. */
+  readonly name?: string;
+  readonly nameFree?: boolean;
+  readonly biNumber?: string;
+  readonly arrivedAt?: string;
 }
+
+/** What the server may say of a name while it is typed. */
+export type NameAnswer = "free" | "yours" | "taken" | "refused" | "short" | "long" | "letters";
 
 /** The account kept on this device, or null when nobody has come in yet. */
 export function account(): Account | null {
   try {
+    // `?conta=<json>` shows an account in the address, for stills. It has no token, so nothing is asked in its name.
+    const shown = new URLSearchParams(location.search).get("conta");
+    if (shown) {
+      const given = JSON.parse(shown) as Record<string, unknown>;
+      delete given.token;
+      return { ...(given as unknown as Account), deviceId: "shown" };
+    }
     const value = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<Account> | null;
     return value && typeof value.deviceId === "string" && (value.ageBand === "15_17" || value.ageBand === "18_plus") ? (value as Account) : null;
   } catch {
@@ -64,8 +79,8 @@ function platform(): "android" | "ios" | "desktop" {
   return /android/i.test(agent) ? "android" : /iphone|ipad|ipod/i.test(agent) ? "ios" : "desktop";
 }
 
-/** One question to the server. Null when it cannot be reached or says no; `status` tells which no. */
-async function ask<T>(method: string, path: string, body: unknown, token?: string): Promise<{ status: number; answer: T | null }> {
+/** One question to the server. Null when it cannot be reached or says no; `status` and the one word of `error` tell which no. */
+async function ask<T>(method: string, path: string, body: unknown, token?: string): Promise<{ status: number; answer: T | null; error?: string }> {
   try {
     const response = await fetch(API + path, {
       method,
@@ -77,7 +92,8 @@ async function ask<T>(method: string, path: string, body: unknown, token?: strin
     // Megabytes are money, and these are bytes too.
     dataMeter.add(text.length);
     const json = response.headers.get("content-type")?.includes("json") ? (JSON.parse(text) as T) : null;
-    return { status: response.status, answer: response.ok ? json : null };
+    const error = response.ok ? undefined : (json as { error?: string } | null)?.error;
+    return { status: response.status, answer: response.ok ? json : null, ...(error ? { error } : {}) };
   } catch {
     return { status: 0, answer: null };
   }
@@ -86,9 +102,10 @@ async function ask<T>(method: string, path: string, body: unknown, token?: strin
 /** Makes sure the server knows this device's player. Gives back the account, with a token when the server answered. */
 export async function ensureGuest(): Promise<Account | null> {
   const mine = account();
-  if (!mine || mine.token) return mine;
-  const { answer } = await ask<{ playerId: string; token: string }>("POST", "/v1/guests", { deviceId: mine.deviceId, platform: platform(), ageBand: mine.ageBand });
-  return answer?.token ? keep({ ...mine, playerId: answer.playerId, token: answer.token }) : mine;
+  // An account shown in the address is a picture of one: nothing is asked of the server in its name.
+  if (!mine || mine.token || mine.deviceId === "shown") return mine;
+  const { answer } = await ask<{ playerId: string; token: string; name: string; biNumber: string; arrivedAt: string }>("POST", "/v1/guests", { deviceId: mine.deviceId, platform: platform(), ageBand: mine.ageBand });
+  return answer?.token ? keep({ ...mine, playerId: answer.playerId, token: answer.token, name: answer.name, nameFree: true, biNumber: answer.biNumber, arrivedAt: answer.arrivedAt }) : mine;
 }
 
 /** A session the server no longer knows is let go of, so that the next visit asks for a new one. */
@@ -115,4 +132,33 @@ export async function dealtOrigin(): Promise<Origin | null> {
   if (!answer?.origin) return null;
   keep({ ...mine, origin: answer.origin });
   return answer.origin;
+}
+
+/** Asks the server who the player is, and keeps what it says of the BI. The account as it is now known. */
+export async function refreshAccount(): Promise<Account | null> {
+  const mine = await ensureGuest();
+  if (!mine?.token) return mine;
+  const { status, answer } = await ask<{ name: string | null; nameFree: boolean; biNumber: string | null; arrivedAt: string; origin: Origin | null }>("GET", "/v1/me", undefined, mine.token);
+  if (status === 401) forget(mine);
+  if (!answer) return mine;
+  return keep({ ...mine, ...(answer.name ? { name: answer.name } : {}), nameFree: answer.nameFree, ...(answer.biNumber ? { biNumber: answer.biNumber } : {}), arrivedAt: answer.arrivedAt, ...(answer.origin ? { origin: answer.origin } : {}) });
+}
+
+/** Whether a name can be had. Null when there is no server to say. */
+export async function askName(name: string): Promise<NameAnswer | null> {
+  const mine = account();
+  if (!mine?.token) return null;
+  return (await ask<{ answer: NameAnswer }>("POST", "/v1/names/check", { name }, mine.token)).answer?.answer ?? null;
+}
+
+/** Takes a name. "ok", or the one word of why not. */
+export async function rename(name: string): Promise<"ok" | "taken" | "refused" | "spent" | "invalid" | "offline"> {
+  const mine = account();
+  if (!mine?.token) return "offline";
+  const { answer, error } = await ask<{ name: string; nameFree: boolean }>("PUT", "/v1/me/name", { name }, mine.token);
+  if (answer) {
+    keep({ ...mine, name: answer.name, nameFree: answer.nameFree });
+    return "ok";
+  }
+  return error === "name_taken" ? "taken" : error === "name_refused" ? "refused" : error === "name_spent" ? "spent" : error === "invalid" ? "invalid" : "offline";
 }

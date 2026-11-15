@@ -8,6 +8,19 @@ import { type Manifest } from "@nzila/world/client";
 import { dataMeter, meteredFetch } from "../net/data-meter.ts";
 import { type DistrictScene } from "../render/district-scene.ts";
 import { type TierName } from "../render/tiers.ts";
+import { savedPhoto } from "../render/wardrobe.ts";
+import { account, askName, refreshAccount, rename, type Account, type NameAnswer } from "./account.ts";
+
+/** Who the player is, as the BI shows it. */
+export interface Me {
+  readonly name: Account["name"] | undefined;
+  readonly nameFree: boolean | undefined;
+  readonly biNumber: string | undefined;
+  readonly arrivedAt: string | undefined;
+  readonly origin: Account["origin"] | undefined;
+  /** The photograph taken in the look chooser, as an image address, when there is one. */
+  readonly photo: string | null;
+}
 
 /** What a player has chosen for this device. */
 export interface Settings {
@@ -51,6 +64,14 @@ export interface WorldProvider {
   you(): { x: number; z: number; heading: number } | null;
   /** The vans on the road now. */
   vans(): { x: number; z: number }[];
+  /** Who the player is, as far as is known here; null before anyone has come in. */
+  me(): Me | null;
+  /** Asks again who the player is, where there is someone to ask. */
+  refreshMe(): Promise<Me | null>;
+  /** Whether a name can be had; null when nobody can say. */
+  askName(name: string): Promise<NameAnswer | null>;
+  /** Takes a name: "ok", or the one word of why not. */
+  rename(name: string): ReturnType<typeof rename>;
 }
 
 const KEY = "nzila.settings";
@@ -147,5 +168,23 @@ export class LocalWorld implements WorldProvider {
 
   vans(): { x: number; z: number }[] {
     return (this.scene?.traffic?.seen ?? []).map((van) => ({ x: van.x, z: van.z }));
+  }
+
+  me(): Me | null {
+    const mine = account();
+    return mine ? { name: mine.name, nameFree: mine.nameFree, biNumber: mine.biNumber, arrivedAt: mine.arrivedAt, origin: mine.origin, photo: savedPhoto() } : null;
+  }
+
+  async refreshMe(): Promise<Me | null> {
+    await refreshAccount();
+    return this.me();
+  }
+
+  askName(name: string): Promise<NameAnswer | null> {
+    return askName(name);
+  }
+
+  rename(name: string): ReturnType<typeof rename> {
+    return rename(name);
   }
 }
