@@ -17,7 +17,9 @@
     "vite": "^8.3.8"
   },
   "dependencies": {
+    "@nzila/economy": "workspace:*",
     "@nzila/i18n": "workspace:*",
+    "@nzila/protocol": "workspace:*",
     "@nzila/sim": "workspace:*",
     "@nzila/ui": "workspace:*",
     "@nzila/world": "workspace:*",

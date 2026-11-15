@@ -22,8 +22,8 @@ const SPEC = {
   /** Raised by one on every change, so a record says which numbers were live. */
   version: range(1, 1_000_000),
   player: {
-    /** Makuta a new player arrives with, from the grant faucet. */
-    startingCash: MK,
+    /** The least a new player arrives with: the floor under the table of origins (origins.json, D-0.44). */
+    startingFloor: MK,
   },
   fares: {
     /** One corrida on a candongueiro inside a district. */

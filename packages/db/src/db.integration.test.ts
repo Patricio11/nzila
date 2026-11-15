@@ -74,7 +74,7 @@ async function balance(id: string): Promise<number> {
 
 describe("migrations", () => {
   test("apply once, and a second run applies nothing", async () => {
-    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact"]);
+    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins"]);
     expect(await migrate(sql)).toEqual([]);
   });
 

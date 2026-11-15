@@ -6,6 +6,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { hashDeviceId } from "@nzila/db";
 import { type Sql } from "postgres";
+import { type AgeBand } from "@nzila/protocol";
 import { type Player } from "./routes.ts";
 
 /** A session lasts this long from when it was last used. */
@@ -19,11 +20,19 @@ export interface NewGuest {
   readonly token: string;
 }
 
-/** Makes a guest, remembers the device by its hash, and opens a session. One transaction: all of it or none. */
-export async function createGuest(sql: Sql, pepper: Uint8Array, deviceId: string, platform: string | null): Promise<NewGuest> {
+/** The version of the terms of play a new guest agrees to by coming in. */
+export const PLAY_TERMS = 1;
+
+/**
+ * Makes a guest, remembers the device by its hash, and opens a session. One
+ * transaction: all of it or none. The age band is what the phone worked out
+ * from a year of birth it kept to itself; nobody under 15 gets this far.
+ */
+export async function createGuest(sql: Sql, pepper: Uint8Array, deviceId: string, platform: string | null, ageBand: AgeBand): Promise<NewGuest> {
   const token = randomBytes(32).toString("base64url");
   return sql.begin(async (tx) => {
-    const [player] = await tx<{ id: string }[]>`INSERT INTO players DEFAULT VALUES RETURNING id`;
+    const [player] = await tx<{ id: string }[]>`INSERT INTO players (age_band) VALUES (${ageBand}) RETURNING id`;
+    await tx`INSERT INTO consents (player_id, purpose, version, granted) VALUES (${player!.id}, 'play', ${PLAY_TERMS}, true)`;
     const [device] = await tx<{ id: string }[]>`
       INSERT INTO devices (player_id, device_hash, platform) VALUES (${player!.id}, ${hashDeviceId(deviceId, pepper)}, ${platform}) RETURNING id`;
     await tx`

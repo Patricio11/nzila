@@ -6,5 +6,9 @@
   {
     "id": "0002_player_contact",
     "sha256": "51274093b7a999bb3e7ac7121f678c0b6a44cfb34ed2b34c4f10718a380fea5d"
+  },
+  {
+    "id": "0003_player_origins",
+    "sha256": "b712056fc0a904d57dbbc5f5809cb9a651047b135a3600b8febda4ebe2d4fffc"
   }
 ]

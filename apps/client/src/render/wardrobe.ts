@@ -4,6 +4,7 @@
 // of hair are put on one skeleton and the markers are repainted with what the
 // player chose: skin, hair, each piece of clothing.
 
+import { COLOURS, type Look } from "@nzila/protocol";
 import { ATLAS_CELLS, ATLAS_NAMES, atlasUv } from "@nzila/world/client";
 import { Mesh, SkinnedMesh, type BufferAttribute, type Group, type Material } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -13,27 +14,8 @@ import { type WorldRenderer } from "./world-renderer.ts";
 
 const WARDROBE = "/packs/guarda-roupa/";
 
-/** What a player looks like: everything they chose. Colours are names of the world's palette. */
-export interface Look {
-  readonly sex: "f" | "m";
-  /** 0 to 4. */
-  readonly skin: number;
-  readonly hair: string;
-  readonly hairColour: string;
-  readonly top: string;
-  readonly topColour: string;
-  /** "none" under a dress. */
-  readonly bottom: string;
-  readonly bottomColour: string;
-  /** The second colour of a pano. */
-  readonly bands: string;
-  readonly shoe: string;
-  /** What is worn on the face and the ears: "brincos", "oculos", "barba", "bigode". */
-  readonly extras?: readonly string[];
-  /** -1 shorter, 0, 1 taller; and -1 slighter, 0, 1 broader. */
-  readonly tall?: number;
-  readonly broad?: number;
-}
+// What a look is, and the colours it may have, are in packages/protocol: the server reads the same list (D-2.1).
+export { COLOURS, type Look };
 
 interface Piece {
   readonly model: string;
@@ -43,18 +25,6 @@ interface Piece {
 
 /** What the wardrobe holds, by sex. A hair style with no model is the scalp alone. */
 export type Wardrobe = Readonly<Record<"f" | "m", { readonly height: number; readonly bodies: Readonly<Record<string, Readonly<Record<string, Piece>>>>; readonly hair: Readonly<Record<string, Piece | null>>; readonly extras?: Readonly<Record<string, Piece>> }>>;
-
-/** The colours offered for each thing. Few and chosen: a wardrobe, not a paint shop. */
-export const COLOURS = {
-  hair: ["hairBlack", "hairBrown", "hairCopper", "hairRed", "hairBlond", "hairGrey"],
-  cloth: ["paintWhite", "clothBlack", "awningRed", "awningGold", "awningTeal", "zincBlue", "vanBlue", "person1", "person3", "person4", "khaki", "jeans"],
-  bottom: ["jeans", "jeansDark", "clothBlack", "khaki", "paintWhite", "awningRed", "awningTeal", "zincBlue", "person2", "awningGold"],
-  bands: ["awningGold", "paintWhite", "clothBlack", "cloth", "awningRed"],
-  shoe: ["shoe", "shoeWhite", "shoeTan", "clothBlack"],
-} as const;
-
-/** The cloth a lenço or a cap may be. */
-export const COVERS = ["lenco", "bone"] as const;
 
 export const FIRST_LOOK: Look = { sex: "f", skin: 2, hair: "trancas", hairColour: "hairBlack", top: "blusa", topColour: "awningGold", bottom: "pano", bottomColour: "awningTeal", bands: "awningGold", shoe: "shoeTan" };
 

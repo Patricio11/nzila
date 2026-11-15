@@ -6,7 +6,7 @@
   "description": "Stateless HTTP API.",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dev": "node --watch src/index.ts",
+    "dev": "node --env-file-if-exists=../../.env.example --env-file-if-exists=../../.env --watch src/index.ts",
     "start": "node src/index.ts"
   },
   "devDependencies": {
@@ -15,6 +15,8 @@
   },
   "dependencies": {
     "@nzila/db": "workspace:*",
+    "@nzila/economy": "workspace:*",
+    "@nzila/protocol": "workspace:*",
     "fastify": "^5.12.8",
     "postgres": "^4.1.1",
     "zod": "^4.6.7"

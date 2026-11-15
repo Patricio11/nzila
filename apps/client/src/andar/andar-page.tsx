@@ -28,6 +28,7 @@ import { DEV_PACK } from "../render/bench-scene.ts";
 import { DistrictScene } from "../render/district-scene.ts";
 import { EMOTES, EMOTE_SECONDS, loadPerson, type Emote, type Person } from "../render/person.ts";
 import { type VanSeen } from "../render/traffic.ts";
+import { account } from "../world/account.ts";
 import { type TierName } from "../render/tiers.ts";
 import { dress, savedLook } from "../render/wardrobe.ts";
 import { Sound } from "../sound/sound.ts";
@@ -606,7 +607,7 @@ export function Andar() {
       {hud.ready ? (
         <div class="andar-hud n-on-dark">
           <div class="andar-top">
-            <WalletChip amount={1500} />
+            <WalletChip amount={account()?.origin?.makuta ?? 0} />
             <span class="andar-top-right">
               <Compass heading={hud.heading} marks={hud.marks} />
               <ClockChip secondOfDay={hud.second} />

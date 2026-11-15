@@ -47,9 +47,12 @@ describe("every route is guarded", () => {
 
 describe("what a route is given is checked before it is used", () => {
   test("a body of the wrong shape, with extra fields, too large, or not JSON is refused", async () => {
-    const built = app();
+    // More bad bodies than one address may send in a minute: the limit has its own test.
+    const built = buildApp({ sql, pepper, limiter: { allow: () => true } });
     const post = (payload: string) => built.inject({ method: "POST", url: "/v1/guests", headers: { "content-type": "application/json" }, payload });
-    for (const payload of ["{}", JSON.stringify({ deviceId: "short" }), JSON.stringify({ deviceId: "a".repeat(24), admin: true }), JSON.stringify({ deviceId: "a".repeat(24), platform: "fridge" }), "{not json", JSON.stringify({ deviceId: "a".repeat(40_000) })]) {
+    const good = { deviceId: "a".repeat(24), ageBand: "18_plus" };
+    // Among them: no age band, the band of someone too young to have one, and a year of birth, which is never sent.
+    for (const payload of ["{}", JSON.stringify({ ...good, deviceId: "short" }), JSON.stringify({ ...good, admin: true }), JSON.stringify({ ...good, platform: "fridge" }), JSON.stringify({ deviceId: good.deviceId }), JSON.stringify({ ...good, ageBand: "under_15" }), JSON.stringify({ ...good, birthYear: 1990 }), "{not json", JSON.stringify({ ...good, deviceId: "a".repeat(40_000) })]) {
       const res = await post(payload);
       expect(res.statusCode, payload.slice(0, 40)).toBeGreaterThanOrEqual(400);
       expect(res.statusCode).toBeLessThan(500);

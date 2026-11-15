@@ -274,7 +274,7 @@ flowchart LR
 **Dependency gate:** Phase 1 complete. *(Opened 2026-11-15 under D-1.6 with Phase 1 built and its founder's checks open; see `docs/PHASE_2_PLAN.md`.)*
 
 ### Task 2.1: Guest accounts
-- [ ] First open creates a guest player bound to the device (Better Auth anonymous session; confirm the plugin against current docs). No personal data asked. *(2026-11-15: the server half exists: `POST /v1/guests` makes a guest, a device known by its hash and a session known by its hash; `GET /v1/me`; `DELETE /v1/session`. Our own sessions on `player_sessions`, not Better Auth, for now (D-2.4). Not ticked: the client does not call it yet.)*
+- [ ] First open creates a guest player bound to the device (Better Auth anonymous session; confirm the plugin against current docs). No personal data asked. *(2026-11-15: the server half exists: `POST /v1/guests` makes a guest, a device known by its hash and a session known by its hash; `GET /v1/me`; `DELETE /v1/session`. Our own sessions on `player_sessions`, not Better Auth, for now (D-2.4). The client calls it since the same day: the front door asks the year of birth, then asks the server for a guest and keeps the token (`apps/client/src/world/account.ts`); with no server the game opens on what the device knows and asks again next visit. Not ticked: Better Auth is not used, by decision D-2.4, which the founder confirmed; ticked when 2.2 settles what linking uses.)*
 - Depends on: 0.5, 1.8 · Unblocks: 2.2, 2.4.
 
 ### Task 2.2: Linking an account
@@ -283,8 +283,8 @@ flowchart LR
 - Depends on: 2.1 · Unblocks: 2.5, 14.1.
 
 ### Task 2.3: Avatar creator and the BI
-- [ ] **The player chooses how they look and can change it (founder, 2026-11-14):** the hair (tranças, afro, dreads, corte baixo, puxinho, lenço and more) and each piece of clothing separately: a dress, a skirt or a pano, jeans or trousers or shorts, a top, shoes. The bodies of `art/scripts/person.py` are already made of these parts; the creator shows the person turning as each is changed. *(2026-11-15: the chooser exists from Phase 1, `/provador`, kept on the device. Left for this task: the server keeps and validates it, D-2.1.)*
-- [ ] **A lotaria da vida, ours (D-0.44, founder 2026-11-14):** after the avatar, a card is drawn and turned over: the parents' trades, the family's province, the bairro, the starting Makuta (never under 1.500) and the first home. Written with wit, made to be screenshotted. The draw is made by the server, recorded once, and paid through the ledger from a named faucet.
+- [ ] **The player chooses how they look and can change it (founder, 2026-11-14):** the hair (tranças, afro, dreads, corte baixo, puxinho, lenço and more) and each piece of clothing separately: a dress, a skirt or a pano, jeans or trousers or shorts, a top, shoes. The bodies of `art/scripts/person.py` are already made of these parts; the creator shows the person turning as each is changed. *(2026-11-15: the chooser exists from Phase 1, `/provador`, kept on the device. The server keeps and validates it since the same day, D-2.1: `PUT /v1/me/look` against the catalogue of `packages/protocol/src/look.ts`, which a test holds equal to the wardrobe as built. Not ticked: a look kept on the server is not yet brought back to a second device, which is 2.5.)*
+- [ ] **A lotaria da vida, ours (D-0.44, founder 2026-11-14):** after the avatar, a card is drawn and turned over: the parents' trades, the family's province, the bairro, the starting Makuta (never under 1.500) and the first home. Written with wit, made to be screenshotted. The draw is made by the server, recorded once, and paid through the ledger from a named faucet. *(2026-11-15: built as far as Phase 2 can: `/origem`, a card dealt by `POST /v1/me/origin` from a first table of seventeen families (D-2.6), turned over with a thumb; the wallet shows what it says. No rerolls as far as a device can be known (D-2.7). Not ticked: the first home is a bairro's name only until homes exist (Phase 5), the Makuta is paid when the ledger has its API (4.1), and the table is the founder's to set.)*
 - [ ] Creator: body, skin, face, hair, clothes from a starter wardrobe; rotate with a thumb; under 20 seconds to something you like.
 - [ ] The BI (Bilhete de Identidade of the game): in-game name (unique, filtered), photo of the avatar, number, date of arrival, bairro. It is the player's profile card everywhere.
 - Depends on: 1.3, 1.7 · Unblocks: 3.5, 10.1.
@@ -300,7 +300,7 @@ flowchart LR
 - Depends on: 2.2, 2.4 · Unblocks: 3.1.
 
 ### Task 2.6: Age gate, consent, privacy
-- [ ] The year of birth is asked at first play; only an age band is stored (under 15: no account; 15 to 17; 18 or over). The band closes staked tables (D-0.32) and namoro (D-0.34) to the younger band: those things are absent for them, not disabled.
+- [x] The year of birth is asked at first play; only an age band is stored (under 15: no account; 15 to 17; 18 or over). *(2026-11-15: asked on the way in, on the game's own keys; the year never leaves the phone, D-2.5. Nothing reads the band yet: staked tables and namoro arrive in later phases and must.)* The band closes staked tables (D-0.32) and namoro (D-0.34) to the younger band: those things are absent for them, not disabled.
 - [ ] Age confirmation at first play (15+, D-0.10); consent for analytics and notifications asked plainly, off by default; the BI app shows "Os meus dados": export (JSON) and delete account.
 - Depends on: 0.10, 2.1 · Unblocks: 13.3.
 

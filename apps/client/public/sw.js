@@ -43,6 +43,8 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
+  // What the API answers is a player's own and is never kept here (docs/SECURITY.md).
+  if (url.pathname.startsWith("/api/")) return;
   if (HASHED.test(url.pathname)) {
     event.respondWith(caches.match(request).then((kept) => (kept ? marked(kept) : fetch(request).then((response) => keep(request, response)))));
     return;

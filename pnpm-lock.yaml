@@ -145,6 +145,12 @@ importers:
       '@nzila/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@nzila/economy':
+        specifier: workspace:*
+        version: link:../../packages/economy
+      '@nzila/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       fastify:
         specifier: ^5.12.8
         version: 5.12.8
@@ -164,9 +170,15 @@ importers:
 
   apps/client:
     dependencies:
+      '@nzila/economy':
+        specifier: workspace:*
+        version: link:../../packages/economy
       '@nzila/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@nzila/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@nzila/sim':
         specifier: workspace:*
         version: link:../../packages/sim

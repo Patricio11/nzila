@@ -23,6 +23,10 @@ if (path === "/bench") {
   // Where a player chooses how they look.
   const { Provador } = await import("./provador/provador-page.tsx");
   render(<Provador />, app);
+} else if (path === "/origem") {
+  // The card a new player is dealt: the family they were born into.
+  const { Origem } = await import("./origem/origem-page.tsx");
+  render(<Origem />, app);
 } else if (path === "/corpo") {
   // The people, to look at before they are given a skeleton.
   const { Corpo } = await import("./corpo/corpo-page.tsx");

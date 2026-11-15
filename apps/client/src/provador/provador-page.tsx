@@ -18,6 +18,7 @@ import { ground } from "../render/test-scene.ts";
 import { type TierName } from "../render/tiers.ts";
 import { COLOURS, FIRST_LOOK, dress, fitted, saveLook, savedLook, wardrobe, type Look, type Wardrobe } from "../render/wardrobe.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";
+import { account, pushLook } from "../world/account.ts";
 import "./provador.css";
 
 declare global {
@@ -131,9 +132,14 @@ export function Provador() {
   const swatches = (names: readonly string[]): { id: string; label: string; colour: string }[] => names.map((id, n) => ({ id, label: tr.t("look.colour", { n: n + 1 }), colour: css(id) }));
   const covered = look.hair === "lenco" || look.hair === "bone";
   const sizes = (of: "tall" | "broad"): { id: string; label: string }[] => [-1, 0, 1].map((n) => ({ id: String(n), label: tr.t(`look.${of}.${look.sex}.${n + 1}` as "look.tall.f.0") }));
-  const done = (): void => {
+  const [saving, setSaving] = useState(false);
+  /** Kept on the device, proposed to the server, and on: to the card of origin for someone who has none, to the world otherwise. */
+  const done = async (): Promise<void> => {
+    setSaving(true);
     saveLook(look);
-    location.assign(params.get("voltar") ?? "/andar?pack=l1");
+    const onward = params.get("voltar") ?? "/andar?pack=l1";
+    const recorded = await pushLook(look);
+    location.assign(recorded && !account()?.origin ? `/origem?voltar=${encodeURIComponent(onward)}` : onward);
   };
 
   return (
@@ -167,7 +173,9 @@ export function Provador() {
             {look.bottom === "pano" ? <Swatches label={tr.t("look.bands")} options={swatches(COLOURS.bands)} value={look.bands} onChange={(bands) => change({ bands })} /> : null}
             <Swatches label={tr.t("look.shoe")} options={swatches(COLOURS.shoe)} value={look.shoe} onChange={(shoe) => change({ shoe })} />
             <div class="provador-done">
-              <Button onPress={done}>{tr.t("look.done")}</Button>
+              <Button onPress={() => void done()} busy={saving}>
+                {tr.t("look.done")}
+              </Button>
             </div>
           </>
         ) : null}

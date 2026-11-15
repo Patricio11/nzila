@@ -88,6 +88,17 @@ export const avatars = pgTable("avatars", {
   updatedAt: at("updated_at").notNull().defaultNow(),
 });
 
+export const playerOrigins = pgTable("player_origins", {
+  playerId: uuid("player_id").primaryKey(),
+  family: text("family").notNull(),
+  province: text("province").notNull(),
+  bairro: text("bairro").notNull(),
+  makuta: bigint("makuta", { mode: "number" }).notNull(),
+  tableVersion: integer("table_version").notNull(),
+  paidTransferId: uuid("paid_transfer_id"),
+  drawnAt: at("drawn_at").notNull().defaultNow(),
+});
+
 export const consents = pgTable("consents", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   playerId: uuid("player_id").notNull(),
@@ -181,6 +192,7 @@ export const tables = {
   devices,
   playerSessions,
   avatars,
+  playerOrigins,
   consents,
   staff,
   staffRoles,

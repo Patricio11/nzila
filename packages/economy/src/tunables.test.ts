@@ -28,7 +28,7 @@ describe("the starter file", () => {
   });
 
   test("carries the numbers the founder set: a Makuta buys what a kwanza buys (D-0.9)", () => {
-    expect(BASE_TUNABLES.player.startingCash).toBe(25_000);
+    expect(BASE_TUNABLES.player.startingFloor).toBe(1500);
     // A corrida in Luanda costs 200 Kz.
     expect(BASE_TUNABLES.fares.candongueiroLocal).toBe(200);
   });
@@ -45,14 +45,14 @@ describe("the validator", () => {
   test("names every problem at once, with its path", () => {
     const t = copy();
     delete t.fares!.candongueiroLocal;
-    t.player!.startingCash = 99.5;
+    t.player!.startingFloor = 99.5;
     t.needs!.fomePerHour = "4000";
     t.crime!.assaltoPermilleOfCash = 1001;
     t.crime!.maxSentenceMinutes = 0;
     t.heat!.wind = 3;
     (t as Record<string, unknown>).casino = {};
     expect(errorsOf(t)).toEqual([
-      "player.startingCash: expected a whole number",
+      "player.startingFloor: expected a whole number",
       "fares.candongueiroLocal: missing",
       "needs.fomePerHour: expected a whole number",
       "crime.assaltoPermilleOfCash: 1001 is outside 0 to 1000",
@@ -81,8 +81,8 @@ describe("the validator", () => {
   test("parseTunables returns the tunables or throws with every problem", () => {
     expect(parseTunables(base)).toEqual(base);
     const t = copy();
-    t.player!.startingCash = -1;
+    t.player!.startingFloor = -1;
     t.fares!.candongueiroLocal = -1;
-    expect(() => parseTunables(t)).toThrow(/player\.startingCash[\s\S]*fares\.candongueiroLocal/);
+    expect(() => parseTunables(t)).toThrow(/player\.startingFloor[\s\S]*fares\.candongueiroLocal/);
   });
 });

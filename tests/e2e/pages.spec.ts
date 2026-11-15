@@ -6,8 +6,25 @@ declare global {
   }
 }
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { FPS_BUDGET, SHELL_BUDGET_BYTES, expectLooksTheSame, expectNoSidewaysScroll, slowPhone, watch } from "./harness.ts";
+
+/** Turns the card of origin over, reads the Makuta on it, and goes on. */
+async function turnCard(page: Page): Promise<string> {
+  await page.waitForURL(/\/origem/);
+  await page.getByRole("button", { name: "Virar a carta" }).click();
+  const makuta = (await page.locator(".origem-makuta").textContent()) ?? "";
+  expect(makuta).toMatch(/^\d[\d.]*\sMk$/);
+  await page.getByRole("button", { name: "Começar a vida" }).click();
+  return makuta;
+}
+
+/** Types a year of birth on the age question and confirms it. */
+async function bornIn(page: Page, year: string): Promise<void> {
+  await expect(page.getByRole("heading", { name: "Em que ano nasceste?" })).toBeVisible();
+  for (const digit of year) await page.getByRole("button", { name: digit, exact: true }).click();
+  await page.getByRole("button", { name: "Confirmar" }).click();
+}
 
 test.describe("the front door", () => {
   test("opens on a slow phone inside the shell budget, with nothing wrong on it", async ({ page }, info) => {
@@ -48,16 +65,28 @@ test.describe("going in", () => {
     await expect(page.locator(".frontdoor-cost")).toContainText(/A primeira entrada gasta \d+,\d\sMB de dados/);
     await expect(page.getByRole("link", { name: /Entrar em Modo Poupança \(\d+,\d\sMB\)/ })).toBeVisible();
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
-    // Someone new chooses how they look first; then they go in.
+    // Someone new is asked the year they were born, on the game's own keys.
+    await bornIn(page, "1990");
+    // Then they choose how they look; then they go in.
     await page.waitForURL(/\/provador/);
     await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
     await page.getByRole("button", { name: "Está bom" }).click();
+    // The server deals them their card: the family they were born into, and what they start with.
+    const makuta = await turnCard(page);
     await page.waitForURL(/\/andar\?pack=l1/);
     // On the way in: megabytes of megabytes, never a bare spinner.
     await expect(page.locator(".arriving-count")).toContainText(/ de \d+,\d\sMB/);
     await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
     await expect(page.locator(".arriving")).toHaveCount(0);
     await expect(page.locator(".n-arrival, .n-wallet").first()).toBeVisible();
+    // What the card said is what the wallet shows.
+    await expect(page.locator(".n-wallet")).toContainText(makuta.replace(/\sMk$/, ""));
+    // And the server knows them: a guest, of an age band and no more, with the look they chose and the card they were dealt.
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token?: string; ageBand?: string; origin?: { makuta: number; family: string } });
+    expect(kept.ageBand).toBe("18_plus");
+    const me = (await (await page.request.get("/api/v1/me", { headers: { authorization: `Bearer ${kept.token}` } })).json()) as { kind: string; ageBand: string; look: { sex: string } | null; origin: { makuta: number; family: string } | null };
+    expect(me).toMatchObject({ kind: "guest", ageBand: "18_plus", look: { sex: "f" }, origin: kept.origin });
+    expect(JSON.stringify(await page.evaluate(() => ({ ...localStorage })))).not.toContain("1990");
 
     // The light door: Modo Poupança is chosen for this device before the game opens.
     // And someone who has a look already goes straight in.
@@ -86,6 +115,36 @@ test.describe("going in", () => {
   });
 });
 
+test.describe("the age question", () => {
+  test("someone under 15 is turned away kindly, nothing of them is kept, and the door stays shut for the visit", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/front.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa is not built (it needs Blender). The age question was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    const asked: string[] = [];
+    page.on("request", (sent) => void (sent.url().includes("/api/") && asked.push(sent.url())));
+    await page.goto("/");
+    await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    // A year that is no year is said to be wrong, and can be typed again.
+    await bornIn(page, "1800");
+    await expect(page.getByRole("alert")).toHaveText("Esse ano não está certo. Experimenta outra vez.");
+    for (let n = 0; n < 4; n++) await page.getByRole("button", { name: "Apagar" }).click();
+    await bornIn(page, String(new Date().getFullYear() - 12));
+    await expect(page.getByRole("heading", { name: "Ainda não é a tua vez" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Confirmar" })).toHaveCount(0);
+    // Nothing kept on the phone, nothing sent to the server.
+    expect(await page.evaluate(() => localStorage.getItem("nzila.conta"))).toBeNull();
+    expect(asked).toEqual([]);
+    // Coming back to the door on the same visit does not ask again.
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Ainda não é a tua vez" })).toBeVisible();
+    await expectNoSidewaysScroll(page);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
 test.describe("first play", () => {
   // Measured as a first visit is: nothing kept yet, every byte from the network and seen by the count.
   test.use({ serviceWorkers: "block" });
@@ -102,9 +161,11 @@ test.describe("first play", () => {
     const started = Date.now();
     await page.goto("/");
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
-    // First play is the whole of it: the door, choosing a look, and arriving.
+    // First play is the whole of it: the door, the age question, choosing a look, and arriving.
+    await bornIn(page, "1990");
     await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 60_000 });
     await page.getByRole("button", { name: "Está bom" }).click();
+    await turnCard(page);
     await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 120_000 });
     const seconds = (Date.now() - started) / 1000;
     const megabytes = seen.bytes() / 1_000_000;

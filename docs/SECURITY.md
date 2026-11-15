@@ -26,11 +26,19 @@
 - A session lasts 90 days from last use, can be revoked, and dies with a player who is suspended, banned or deleted.
 - The token travels in the `Authorization` header, never in an address, and is kept by the client in local storage. A script injected into the page could read it: the defence is that the game loads no third-party script and writes no player's words into the page as markup (chat, Phase 3, must keep to that).
 
+**2b. Age (Task 2.6).** The year of birth is typed on the phone and never sent: the client works out the band with the rule it shares with the API and sends the band. It is self-declared either way; what is gained is that the server never holds a year of birth. Nobody under 15 is given an account, and nothing of them is stored on the phone or the server.
+
+**2c. What the server decides for a player (Task 2.3).**
+- **The look:** the client proposes it; the API records it only when every part is in the catalogue both read (`packages/protocol/src/look.ts`), and refuses it whole otherwise. A look read back is checked again, so a wardrobe that has changed cannot hand out what no longer exists.
+- **The card of origin:** dealt by the server with its own dice (`crypto.randomInt`), once a player, inside a transaction that holds the player's row; a trigger refuses to rewrite a card. The Makuta on it is a record, not money, until the ledger pays it (Task 4.1). The client keeps a copy to show with no network; nothing reads that copy as truth.
+
 **3. Personal data (Task 0.10).** Fields that identify a person are encrypted with AES-256-GCM under a rotating keyring, bound to their column; phone numbers and device ids are matched by keyed hash. A guest has none.
 
 ## Known gaps
 
 - Rate limits are counted in the memory of one API process. More than one process needs them in Redis (finding F-111).
 - No idempotency keys yet: they arrive with the first route that moves Makuta (Phase 4), and no such route exists.
+- **A card can be rerolled by someone determined:** the card belongs to the device's first guest, but a device is known only by the id it gives itself, and wiping the browser makes a new one (finding F-114).
+- The API is reached at `/api` on the game's own address (a proxy in development and in the browser tests), so there is no cross-origin policy to get wrong; production must keep it so (Phase 14).
 - No transport security in development; production terminates TLS in front of the API (Phase 14).
-- The service worker caches only same-origin GETs and never an API answer; when API answers become cacheable this must be revisited.
+- The service worker caches only same-origin GETs and passes anything under `/api/` straight to the network; when API answers become cacheable this must be revisited.

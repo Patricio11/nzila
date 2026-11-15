@@ -13,6 +13,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 4174;
+// The API the game asks at /api: the real one, on a database of its own (apps/api/src/e2e-server.ts). It needs `pnpm services`.
+const API_PORT = "4010";
 
 export default defineConfig({
   testDir: ".",
@@ -23,13 +25,24 @@ export default defineConfig({
   timeout: 90_000,
   reporter: [["list"]],
   use: { baseURL: `http://localhost:${PORT}`, reducedMotion: "reduce" },
-  webServer: {
-    command: `pnpm --filter @nzila/client exec vite preview --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}`,
-    cwd: "../..",
-    reuseExistingServer: false,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: "node apps/api/src/e2e-server.ts",
+      url: `http://127.0.0.1:${API_PORT}/health`,
+      cwd: "../..",
+      env: { API_PORT },
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      command: `pnpm --filter @nzila/client exec vite preview --port ${PORT} --strictPort`,
+      url: `http://localhost:${PORT}`,
+      cwd: "../..",
+      env: { API_PORT },
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+  ],
   projects: [
     {
       name: "phone",

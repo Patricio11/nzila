@@ -90,3 +90,26 @@ html, body { margin: 0; height: 100%; background: var(--n-noite); color: var(--n
 .install { position: absolute; left: var(--s-3); right: var(--s-3); top: 30%; z-index: 3; margin: 0 auto; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: var(--s-3); padding: var(--s-4); border-radius: var(--r-sheet); background: var(--n-noite); color: var(--n-luz); box-shadow: 0 10px 30px var(--n-sombra), inset 0 0 0 1.5px var(--n-linha); pointer-events: auto; text-align: center; font: var(--type-body); }
 .install p { margin: 0; }
 .install-keys { display: flex; gap: var(--s-3); }
+
+/* The age question (frontdoor/age.tsx): a year typed on the game's own keys, as on a telephone. */
+.age { width: min(100%, 320px); display: flex; flex-direction: column; align-items: center; gap: var(--s-3); animation: n-pop 320ms var(--ease-mola) both; }
+.age-title { margin: 0; font: var(--type-place); }
+.age .age-note { max-width: 30ch; color: var(--n-luz-suave); font: var(--type-small); }
+.age-year { display: flex; gap: var(--s-2); padding: var(--s-3) var(--s-4); box-shadow: 0 4px 0 var(--n-luz-fundo), 0 12px 22px var(--n-sombra); transform: rotate(-1deg); }
+.age-digit { width: 40px; height: 52px; display: grid; place-items: center; border-radius: 8px; background: var(--n-papel-2); box-shadow: inset 0 0 0 2px var(--n-luz-fundo); font: var(--type-number-l); color: var(--n-tinta); }
+.age-digit-set { animation: n-pop 260ms var(--ease-mola) both; box-shadow: inset 0 0 0 2px var(--n-tinta); }
+.age-digit[data-next] { box-shadow: inset 0 0 0 2px var(--n-dourado-fundo), 0 0 0 3px var(--n-brilho-dourado); }
+.age-wrong .age-year { animation: age-no 360ms ease-in-out; }
+.age .age-said { min-height: 1.4em; color: var(--n-dourado-claro); font: var(--type-small); }
+.age-keys { display: grid; grid-template-columns: repeat(3, 64px); gap: var(--s-3); }
+.age-key { height: 56px; margin-bottom: 4px; padding: 0; border: 0; border-radius: var(--r-button); cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; display: grid; place-items: center;
+  font: var(--type-number-l); font-size: 24px; color: var(--n-luz); background: var(--n-noite-2); box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 4px 0 var(--n-noite-fundo); transition: transform var(--t-press) ease-out, box-shadow var(--t-press) ease-out; }
+.age-key:not(:disabled):active { transform: translateY(4px); box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 0 0 var(--n-noite-fundo); }
+.age-key:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 3px; }
+.age-key-quiet { color: var(--n-luz-suave); }
+.age-key:disabled { opacity: 0.4; cursor: default; }
+.age-young { width: min(100%, 520px); }
+.age-young .frontdoor-card { width: 100%; }
+.age-young .age-note { font: var(--type-body); }
+@keyframes age-no { 20%, 60% { transform: rotate(-1deg) translateX(-7px); } 40%, 80% { transform: rotate(-1deg) translateX(7px); } }
+@media (prefers-reduced-motion: reduce) { .age, .age-digit-set, .age-wrong .age-year { animation: none; } .age-key { transition: none; } }

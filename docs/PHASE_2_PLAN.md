@@ -48,6 +48,23 @@ Order of work: 2.4 and 2.1 together (the API and a guest), 2.6 (the age gate sit
 
 **D-2.4 Guest sessions are our own, for now (delegated, 2026-11-15; the founder may overrule).** The roadmap names Better Auth's anonymous sessions and says to confirm the plugin first (Q1). A guest needs one table that already exists and forty lines: a random token, its hash, an expiry. Writing it ourselves keeps the player's id fixed from the first second and adds no dependency to trust before it has been read. Better Auth is looked at again at Task 2.2, where linking by phone, Google and email is real work it may save. *Recommendation: yes.*
 
+**The founder on 2026-11-15:** D-2.4 (our own guest sessions) and Q3 (the card is drawn now, paid when the ledger has its API) stand. The words of the look chooser and the Telemóvel are good.
+
+**D-2.5 The year of birth stays on the phone (delegated, 2026-11-15).** The age question is asked on the front door's way in, before the look chooser (Q5). The year is typed on the game's own keys and never leaves the device: the client works out the band with the rule it shares with the API (`packages/protocol/src/age.ts`) and only the band is sent and stored. Whoever turns 15 this year may play; someone counts as 18 or over only when they are 18 whatever the month (the year alone cannot say whether the birthday has passed, and the adult band opens staked tables and namoro). Under 15: turned away kindly, nothing kept on the phone, nothing sent, and the door stays shut for that visit. *Recommendation: yes.*
+
+**D-2.6 The table of origins, first draft (founder's direction, 2026-11-15: "father conselheiro do Presidente, mother ministra is a rich family; father mecânico, mother zungueira").** Seventeen families in four ways of living, in `packages/economy/tunables/origins.json`, for the founder to change:
+
+| How they live | Share | Starts with | Families (father, mother; bairro) |
+|---|---|---|---|
+| No aperto | 64% | 1.500 to 4.000 Mk | mecânico, zungueira (Cazenga) · motorista de candongueiro, quitandeira (Rangel) · pedreiro, lavadeira (Viana) · roboteiro, zungueira (Zango) · guarda, empregada doméstica (Sambizanga) · pescador, peixeira (Ilha) · kupapata, kínguila (Palanca) |
+| Remediados | 27% | 4.500 to 10.000 Mk | professor, enfermeira (Prenda) · polícia, costureira (Golf 2) · funcionário público, professora (Vila Alice) · camionista, cabeleireira (Benfica) |
+| Bem na vida | 8% | 15.000 to 50.000 Mk | engenheiro de petróleos, médica (Kilamba) · bancário, advogada (Maianga) · comerciante, empresária (Kilamba, Talatona) |
+| Berço de ouro | 1% | 250.000 Mk | conselheiro do Presidente, ministra (Talatona) · general, deputada (Talatona) · embaixador, juíza (Maianga) |
+
+Amounts fall on steps of 500. The province the family came from is drawn apart (Luanda three in ten, the other twenty by rough weight). Each family has a line on its card, written to be screenshotted. The average start is about 8.800 Mk a player, against the flat 25.000 it replaces. A family leaves the deal by a weight of nothing and is never deleted, so a card dealt once can always be read. No office on a card names a real person. **For the founder:** the shares, the amounts, the families, the bairros, and every line on a card.
+
+**D-2.7 No rerolls, as far as a device can be known (delegated).** The server deals the card with its own dice, once a player; the database refuses to rewrite one. A second guest made on a device that already has one is dealt the first one's card. A device id is only what a phone says of itself, so a player who wipes the browser's storage is a new device and gets a new draw: closing that needs something that costs to replace (a linked phone number, Task 2.2), and the guest limit per address slows it meanwhile (finding F-114). *Recommendation: accept for guests.*
+
 ## What "done" means for this phase
 
 From the roadmap, Task 2.7: a guest upgraded on one device appears whole on another; deletion removes personal data and keeps anonymous ledger rows; every route is guarded, and a test fails the build on one that is not.

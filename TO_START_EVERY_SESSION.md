@@ -72,7 +72,7 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 **Phase list:**
 - **Phase 0** (foundations: monorepo, shared simulation, economy rules, protocol, pack format, tokens, budgets): **complete 2026-11-14.**
 - **Phase 1** (Primeiro Passeio: walk the Marginal on a real phone, local simulation): **built 2026-11-15; its founder's checks (1.9) and some lines open, carried.**
-- **Phase 2** (identity: guest play, linked accounts, the BI, persistence): **open since 2026-11-15; the guarded API and guests exist on the server (2.4, 2.1 in part); next: the client calls it, then the age gate (2.6).**
+- **Phase 2** (identity: guest play, linked accounts, the BI, persistence): **open since 2026-11-15. Built: the guarded API (2.4); guests, made by the game on the way in (2.1); the age question, whose year never leaves the phone (2.6, D-2.5); the look recorded by the server (D-2.1); the lotaria da vida, a card dealt by the server from a first table of families (2.3, D-2.6, D-2.7). The browser tests now run against the real API on a database of their own. Next: the name and the BI (2.3), then consents, "Os meus dados", export and deletion (2.6), then persistence across devices (2.5) and linking (2.2).**
 - **Phase 3** (multiplayer core: zones, channels, netcode, chat, safety v1, bot swarm): not started.
 - **Phase 4** (economy core: ledger, wallet and bank, items, shops, biscatos): not started.
 - **Phase 4B** (alfa aberta: real players on the Marginal, Não te irrites, share cards, the first retention numbers): not started.
