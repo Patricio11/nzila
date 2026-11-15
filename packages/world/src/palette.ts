@@ -53,6 +53,11 @@ export const WORLD = {
   flagRed: hex("#CC092F"),
   flagBlack: hex("#16130F"),
   flagYellow: hex("#F9D616"),
+  // The colours cars come in on Luanda's streets: white before all, then silver, black, a red
+  carWhite: hex("#ECEAE3"),
+  carSilver: hex("#9FA4AA"),
+  carBlack: hex("#23252B"),
+  carRed: hex("#9C2B26"),
   vanInside: hex("#B9B2A4"), // the lining of a van
   vanSeat: hex("#3B4558"),
   // An advertising board with nothing sold on it yet: the house's gold, and a dark band where a name goes

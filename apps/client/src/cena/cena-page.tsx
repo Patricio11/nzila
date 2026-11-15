@@ -34,7 +34,7 @@ const worldClock = compileClock(DEFAULT_CLOCK);
 declare global {
   interface Window {
     /** Set once the first frame has been drawn, for the test harness and the screenshots. */
-    __cena?: FrameCounts & { graphics: string; stream?: StreamState; sessionBytes?: number; packBytes?: { poupanca: number; normal: number; alta: number }; vans?: { route: string; x: number; z: number; dwelling: boolean }[]; people?: { role: string; x: number; z: number; pose: string; speed: number }[] };
+    __cena?: FrameCounts & { graphics: string; stream?: StreamState; sessionBytes?: number; packBytes?: { poupanca: number; normal: number; alta: number }; vans?: { route: string; x: number; z: number; dwelling: boolean }[]; cars?: { model: string; x: number; z: number }[]; people?: { role: string; x: number; z: number; pose: string; speed: number }[] };
     /** Moves the viewer to a place in a streamed district, in metres. */
     __cenaGoto?: (x: number, z: number) => void;
     /** For the tests: holds the traffic and the people at this second of their timetables. */
@@ -117,7 +117,7 @@ export function Cena() {
         sessionBytes: dataMeter.session,
         ...(streamed ? { stream: streamed } : {}),
         ...(district ? { packBytes: district.manifest.sizes.total } : {}),
-        ...(district?.traffic ? { vans: district.traffic.seen } : {}),
+        ...(district?.traffic ? { vans: district.traffic.seen, cars: district.traffic.roaming } : {}),
         ...(district?.crowd ? { people: district.crowd.seen } : {}),
       };
       if (now - shown > 500) {

@@ -368,6 +368,14 @@ for cx in range(ACROSS):
             mark(stop_x - 2.1, oz + lo - 2.4, stop_x + 2.1, oz + lo - 2.0, "#")
             # Heading west, so that its sliding door is on the kerb's side.
             kit.candongueiro(b, stop_x + 1.0, oz + lo + 1.3, math.pi)
+            if cx == 1:
+                # One of each of the other vehicles on the far side of the street, facing east: to be looked at.
+                import vehicles
+                far_z = oz + hi - 1.3
+                vehicles.VEHICLES["carro-branco"][0](b, stop_x + 8.0, far_z, math.pi / 2)
+                vehicles.VEHICLES["carro-vermelho"][0](b, stop_x + 2.5, far_z, math.pi / 2)
+                vehicles.VEHICLES["kupapata"][0](b, stop_x + 14.0, far_z, math.pi / 2)
+                vehicles.VEHICLES["mota"][0](b, stop_x + 19.0, far_z, math.pi / 2)
             places["paragens"].append([round(stop_x, 2), KERB, round(oz + lo - 0.9, 2)])
 
         if seaside:

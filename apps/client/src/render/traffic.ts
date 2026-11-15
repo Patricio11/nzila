@@ -9,6 +9,9 @@ import { ptAOTranslator as tr } from "@nzila/i18n";
 import { BufferAttribute, BufferGeometry, CanvasTexture, Group, LinearFilter, Mesh, MeshLambertMaterial, SRGBColorSpace, type Material, type Object3D } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { gltfLoader } from "./chunk-stream.ts";
+import { actorAt, type CrowdFile, type CrowdVehicle } from "./crowd-plan.ts";
+import { type People } from "./people.ts";
+import { type Person } from "./person.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
 /** Where the vehicles' models are served. They belong to the game, not to a district. */
@@ -114,12 +117,29 @@ export interface VanSeat {
   readonly pos: readonly [number, number, number];
 }
 
+/** A car, a kupapata or a moto going round by its timetable, and whoever rides it. */
+interface Roamer {
+  readonly plan: CrowdVehicle;
+  readonly body: Object3D;
+  readonly halfWidthMm: number;
+  readonly halfLengthMm: number;
+  rider: Person | null;
+  yaw: number;
+  x: number;
+  z: number;
+}
+
+/** How near a moto or a kupapata must be for its rider to be drawn, in metres, and how many riders at once. */
+const RIDER_REACH_M = 55;
+const RIDERS = 2;
+
 export class Traffic {
   private readonly lines: Line[] = [];
   private readonly root = new Group();
   private readonly renderer: WorldRenderer;
   private readonly geometries: BufferGeometry[] = [];
   private readonly materials: MeshLambertMaterial[] = [];
+  private readonly roamers: Roamer[] = [];
   /** Where people sit in a van. */
   seats: readonly VanSeat[] = [];
   /** The vans on the road at the last update. */
@@ -131,13 +151,13 @@ export class Traffic {
   }
 
   /** Opens the traffic of a district, or resolves to null when it has no routes or the vehicles are not built. */
-  static async open(renderer: WorldRenderer, base: string, manifest: Manifest): Promise<Traffic | null> {
+  static async open(renderer: WorldRenderer, base: string, manifest: Manifest, people: People | null = null): Promise<Traffic | null> {
     const routes = manifest.routes.filter((route) => route.kind === "candongueiro");
     if (routes.length === 0) return null;
     try {
       const gltf = await gltfLoader().parseAsync(await meteredFetch(`${VEHICLES}candongueiro.glb`), "");
       const traffic = new Traffic(renderer);
-      const listed = JSON.parse(new TextDecoder().decode(await meteredFetch(`${VEHICLES}veiculos.json`))) as { vehicles: { name: string; seats?: VanSeat[]; adSlots?: VanAd[] }[] };
+      const listed = JSON.parse(new TextDecoder().decode(await meteredFetch(`${VEHICLES}veiculos.json`))) as { vehicles: { name: string; model: string; halfWidth: number; halfLength: number; seats?: VanSeat[]; adSlots?: VanAd[] }[] };
       const model = listed.vehicles.find((vehicle) => vehicle.name === "candongueiro");
       traffic.seats = model?.seats ?? [];
       const glass = model?.adSlots?.find((slot) => slot.id === "vidro-traseiro" && slot.pos);
@@ -182,6 +202,48 @@ export class Traffic {
         const stops = listed.stops.map((id) => manifest.paragens.find((p) => p.id === id)?.nameKey ?? id);
         traffic.lines.push({ id: listed.id, route, stops, vans });
       }
+      // The other traffic, when the district has a timetable for it: each model fetched once, each vehicle a copy.
+      if (manifest.npc.crowd) {
+        const file = JSON.parse(new TextDecoder().decode(await meteredFetch(base + manifest.npc.crowd))) as CrowdFile;
+        const loaded = new Map<string, Promise<Object3D>>();
+        for (const [n, plan] of (file.vehicles ?? []).entries()) {
+          const kind = listed.vehicles.find((vehicle) => vehicle.name === plan.model);
+          if (!kind) continue;
+          let loading = loaded.get(kind.model);
+          if (!loading) {
+            loading = meteredFetch(VEHICLES + kind.model).then(async (bytes) => {
+              const scene = (await gltfLoader().parseAsync(bytes, "")).scene;
+              scene.traverse((node) => {
+                if (!(node instanceof Mesh)) return;
+                (node.material as Material).dispose();
+                node.material = renderer.paletteMaterial;
+                node.castShadow = true;
+                node.receiveShadow = false;
+                traffic.geometries.push(node.geometry as BufferGeometry);
+              });
+              return scene;
+            });
+            loaded.set(kind.model, loading);
+          }
+          const body = (await loading).clone();
+          traffic.root.add(body);
+          const roamer: Roamer = { plan, body, halfWidthMm: kind.halfWidth * 1000, halfLengthMm: kind.halfLength * 1000, rider: null, yaw: 0, x: 0, z: 0 };
+          traffic.roamers.push(roamer);
+          // A moto and a kupapata are ridden by someone: seated, hands to the bars.
+          const seat = kind.seats?.find((s) => s.who === "condutor");
+          const who = seat ? people?.pick("any", n * 5 + 1) : undefined;
+          if (seat && who && people) {
+            void people.make(who).then((rider) => {
+              if (!rider) return;
+              rider.root.position.set(seat.pos[0], seat.pos[1] - 0.46 * (rider.height / 1.7), seat.pos[2]);
+              rider.root.visible = false;
+              rider.shadow = false;
+              body.add(rider.root);
+              roamer.rider = rider;
+            });
+          }
+        }
+      }
       return traffic;
     } catch {
       return null;
@@ -189,7 +251,28 @@ export class Traffic {
   }
 
   /** Puts every van where the clock says it is. `elapsedMs` since the last call eases the turns. */
-  update(nowMs: number, elapsedMs: number): void {
+  update(nowMs: number, elapsedMs: number, viewerX = 0, viewerZ = 0): void {
+    // The other traffic first: where each is, and a rider for the nearest few that have one.
+    const near: { roamer: Roamer; far: number }[] = [];
+    for (const roamer of this.roamers) {
+      const at = actorAt({ role: "", offset: roamer.plan.offset, keys: roamer.plan.keys }, nowMs / 1000);
+      const turn = Math.atan2(Math.sin(at.yaw - roamer.yaw), Math.cos(at.yaw - roamer.yaw));
+      roamer.yaw = elapsedMs > 0 ? roamer.yaw + turn * Math.min(1, elapsedMs / 380) : at.yaw;
+      roamer.x = at.x;
+      roamer.z = at.z;
+      roamer.body.position.set(at.x, 0, at.z);
+      roamer.body.rotation.y = roamer.yaw;
+      if (roamer.rider) {
+        roamer.rider.root.visible = false;
+        const far = Math.hypot(at.x - viewerX, at.z - viewerZ);
+        if (far < RIDER_REACH_M) near.push({ roamer, far });
+      }
+    }
+    near.sort((a, b) => a.far - b.far);
+    for (const { roamer } of near.slice(0, RIDERS)) {
+      roamer.rider!.root.visible = true;
+      roamer.rider!.pose({ speed: 0, phase: 0, time: nowMs / 1000 + roamer.plan.offset }, { sit: 1, hold: "guiador" });
+    }
     const seen: VanSeen[] = [];
     for (const line of this.lines) {
       for (const van of line.vans) van.body.visible = false;
@@ -212,6 +295,11 @@ export class Traffic {
     this.seen = seen;
   }
 
+  /** The other traffic at the last update: what each is and where. */
+  get roaming(): { model: string; x: number; z: number }[] {
+    return this.roamers.map((roamer) => ({ model: roamer.plan.model, x: roamer.x, z: roamer.z }));
+  }
+
   /** The van itself, to seat people in or to see out of. */
   bodyOf(route: string, index: number): Object3D | null {
     return this.lines.find((line) => line.id === route)?.vans[index]?.body ?? null;
@@ -219,11 +307,16 @@ export class Traffic {
 
   /** The vans as things a body cannot walk through, for the step of whoever is on foot. */
   obstacles(): Obstacle[] {
-    return this.seen.map((van) => ({ kind: "box", x: Math.round(van.x * 1000), z: Math.round(van.z * 1000), halfWidthMm: HALF_WIDTH_MM, halfLengthMm: HALF_LENGTH_MM, yaw: ((Math.round((van.yaw * 18_000) / Math.PI) % 36_000) + 36_000) % 36_000 }));
+    const turned = (yaw: number): number => ((Math.round((yaw * 18_000) / Math.PI) % 36_000) + 36_000) % 36_000;
+    return [
+      ...this.seen.map((van): Obstacle => ({ kind: "box", x: Math.round(van.x * 1000), z: Math.round(van.z * 1000), halfWidthMm: HALF_WIDTH_MM, halfLengthMm: HALF_LENGTH_MM, yaw: turned(van.yaw) })),
+      ...this.roamers.map((roamer): Obstacle => ({ kind: "box", x: Math.round(roamer.x * 1000), z: Math.round(roamer.z * 1000), halfWidthMm: roamer.halfWidthMm, halfLengthMm: roamer.halfLengthMm, yaw: turned(roamer.yaw) })),
+    ];
   }
 
   close(): void {
     this.renderer.scene.remove(this.root);
+    for (const roamer of this.roamers) roamer.rider?.release();
     for (const geometry of this.geometries) geometry.dispose();
     for (const material of this.materials) {
       material.map?.dispose();

@@ -43,7 +43,7 @@ export interface Doing {
   /** 1 as the feet come down, falling to 0 as the knees take the landing. */
   readonly land?: number;
   /** Something held: a fishing rod out over the water, or a hand up to the bacia on the head. */
-  readonly hold?: "cana" | "bacia";
+  readonly hold?: "cana" | "bacia" | "guiador";
 }
 
 interface Joint {
@@ -278,6 +278,16 @@ export class Person {
       this.toward("lowerArmL", 1, -0.9, -0.5);
       this.toward("chest", 1, 0.04, -0.12);
       this.toward("head", 1, 0.06, 0.1);
+    } else if (doing.hold === "guiador") {
+      // Astride, both hands forward to the bars, leaning a little into the road.
+      for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+        this.toward(`upperArm${tag}`, 1, -0.95, 0, side * 0.22);
+        this.toward(`lowerArm${tag}`, 1, -0.5);
+        this.toward(`thigh${tag}`, 1, -1.25, 0, side * 0.3);
+        this.toward(`shin${tag}`, 1, 1.5);
+      }
+      this.toward("spine", 1, 0.16);
+      this.toward("neck", 1, -0.14);
     } else if (doing.hold === "bacia") {
       // One hand up to steady the bacia; the head and the neck held still under it.
       this.toward("upperArmL", 1, -0.25, 0, 2.35);

@@ -20,8 +20,16 @@ export interface CrowdActor {
   readonly keys: readonly CrowdKey[];
 }
 
+/** A vehicle going round by a timetable: which model (art/scripts/vehicles.py), and its keys, as a person's. */
+export interface CrowdVehicle {
+  readonly model: string;
+  readonly offset: number;
+  readonly keys: readonly CrowdKey[];
+}
+
 export interface CrowdFile {
   readonly actors: readonly CrowdActor[];
+  readonly vehicles?: readonly CrowdVehicle[];
 }
 
 export interface ActorMoment {

@@ -76,7 +76,7 @@ export class DistrictScene {
     const words = JSON.parse(new TextDecoder().decode(await meteredFetch(base + chunks.manifest.strings))) as Record<string, string>;
     // The people's bodies, when they are built on this machine: the crowd and a van's passengers come from them.
     const people = await People.open(renderer).catch(() => null);
-    const [traffic, crowd] = await Promise.all([Traffic.open(renderer, base, chunks.manifest), Crowd.open(renderer, base, chunks.manifest, people)]);
+    const [traffic, crowd] = await Promise.all([Traffic.open(renderer, base, chunks.manifest, people), Crowd.open(renderer, base, chunks.manifest, people)]);
     return new DistrictScene(renderer, chunks, words, traffic, crowd, people);
   }
 
@@ -139,7 +139,7 @@ export class DistrictScene {
     this.chunks.update(this.x, this.z);
     const now = performance.now();
     const elapsed = this.lastUpdate === 0 ? 0 : now - this.lastUpdate;
-    this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed);
+    this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z);
     this.crowd?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, this.chunks.ground());
     this.lastUpdate = now;
   }

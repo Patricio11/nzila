@@ -768,9 +768,32 @@ for keys in (seller, watch):
         keys.append([round(round_s, 1), keys[0][1], keys[0][2], "", keys[0][4]])
 actors.append({"role": "zungueira", "who": 0, "offset": 40.0, "keys": seller})
 actors.append({"role": "policia", "offset": 40.0, "keys": watch})
+
+# The other traffic: cars, a kupapata and moto-táxis going round, by the same kind of timetable. They keep
+# to the right and to the lane away from the kerb, where the candongueiros stop.
+INNER_TOWN, INNER_BAY = 43.4, 39.0
+drivers = []
+
+
+def circuit(model, points, pace, offset):
+    """Round a closed line of (x, z) for ever, at a pace in metres a second."""
+    stages = [("at", points[0][0], points[0][1])] + [("go", px, pz, pace) for px, pz in points[1:]] + [("go", points[0][0], points[0][1], pace)]
+    keys = timetable(stages)
+    drivers.append({"model": model, "offset": round(offset * keys[-1][0], 1), "keys": keys})
+
+
+# Round the avenue: east on the town side, across at the last street, west on the bay side, back at the first.
+avenue_ring = [(px, shore(px) + INNER_TOWN) for px in range(112, 420, 14)] + [(422.5, shore(422.5) + INNER_TOWN), (425.5, shore(425.5) + 41.2), (422.5, shore(422.5) + INNER_BAY)]
+avenue_ring += [(px, shore(px) + INNER_BAY) for px in range(410, 108, -14)] + [(105.5, shore(105.5) + INNER_BAY), (102.5, shore(102.5) + 41.2), (105.5, shore(105.5) + INNER_TOWN)]
+for n, (model, pace) in enumerate([("carro-branco", 10.5), ("carro-cinza", 9.6), ("mota", 12.0), ("carro-preto", 10.0), ("carro-branco", 9.2), ("carro-vermelho", 10.8)]):
+    circuit(model, avenue_ring, pace, n / 6 + 0.04)
+# Round a block of the Baixa: east along the first street, down a street, west along the second, up again.
+block_ring = [(270.0, STREET_A[1] - 2.0), (336.0, STREET_A[1] - 2.0), (342.0, STREET_A[1] + 4.0), (342.0, STREET_B[0] - 4.0), (336.0, STREET_B[0] + 2.0), (272.0, STREET_B[0] + 2.0), (266.0, STREET_B[0] - 4.0), (266.0, STREET_A[1] + 4.0)]
+for n, (model, pace) in enumerate([("kupapata", 6.2), ("carro-cinza", 8.0), ("mota", 9.5)]):
+    circuit(model, block_ring, pace, n / 3 + 0.1)
 os.makedirs(os.path.join(out_dir, "npc"), exist_ok=True)
 with open(os.path.join(out_dir, "npc", "crowd.json"), "w", encoding="utf-8") as handle:
-    json.dump({"actors": actors}, handle, separators=(",", ":"))
+    json.dump({"actors": actors, "vehicles": drivers}, handle, separators=(",", ":"))
 
 spawn_x = 250.0
 partial = {
