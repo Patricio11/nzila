@@ -9,7 +9,7 @@
 
 import { type Origin } from "@nzila/economy";
 import { ptAO, ptAOTranslator as tr, type MessageKey } from "@nzila/i18n";
-import { Button, RoadMark, Wordmark } from "@nzila/ui";
+import { Button, Pano, RoadMark, Wordmark, type PanoColour } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { dealtOrigin } from "../world/account.ts";
 import "./origem.css";
@@ -22,6 +22,9 @@ declare global {
 }
 
 /** A word of the catalog whose key is put together from the card. A card the catalog has no word for shows its id. */
+/** The colourway of the cloth each lot in life wears. */
+const CLOTH: Readonly<Record<string, PanoColour>> = { aperto: "vermelho", remediado: "azul", bem: "preto", ouro: "dourado" };
+
 const word = (key: string, fallback: string): string => (key in ptAO ? tr.t(key as MessageKey) : fallback);
 
 export function Origem() {
@@ -42,16 +45,21 @@ export function Origem() {
 
   return (
     <main class="origem n-on-dark">
+      <i class="n-pano-faixa n-pano-faixa-vermelha origem-edge" aria-hidden="true" />
       <h1 class="origem-title">{tr.t("origin.title")}</h1>
       {card ? (
         <>
           <div class={`origem-card origem-${card.tier}${turned ? " origem-turned" : ""}`}>
             <button type="button" class="origem-back" aria-label={tr.t("origin.turn")} onClick={() => setTurned(true)} disabled={turned} aria-hidden={turned ? "true" : undefined}>
+              <Pano scale={1.12} shiftX={-1} shiftY={-22} />
               <span class="origem-back-frame">
-                <Wordmark width={120} />
+                <Wordmark width={112} />
               </span>
             </button>
             <article class="origem-face n-paper" aria-hidden={turned ? undefined : "true"}>
+              <div class="origem-cloth">
+                <Pano colour={CLOTH[card.tier] ?? "vermelho"} scale={0.56} shiftX={-1} shiftY={-8} />
+              </div>
               <p class="origem-tier">{word(`origin.tier.${card.tier}`, card.tier)}</p>
               <dl class="origem-parents">
                 <dt>{tr.t("origin.pai")}</dt>
@@ -68,6 +76,7 @@ export function Origem() {
               <span class="origem-stamp" aria-hidden="true">
                 <RoadMark state="done" size={30} />
               </span>
+              <i class="n-pano-faixa origem-foot" aria-hidden="true" />
             </article>
           </div>
           {turned ? (

@@ -284,6 +284,11 @@ export const ptAO = {
   "map.mark": "Marcar",
   "map.unmark": "Desmarcar",
   // Definições
+  "settings.pano": "O meu pano",
+  "settings.pano.vermelho": "Vermelho",
+  "settings.pano.azul": "Azul",
+  "settings.pano.preto": "Preto",
+  "settings.pano.dourado": "Amarelo",
   "settings.quality": "Qualidade",
   "settings.quality.poupanca": "Poupança",
   "settings.quality.normal": "Normal",

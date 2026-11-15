@@ -63,6 +63,7 @@ export function FrontDoor() {
 
   return (
     <div class="frontdoor n-on-dark">
+      <i class="n-pano-faixa n-pano-faixa-vermelha frontdoor-edge" aria-hidden="true" />
       <Wordmark width={asking || returning ? 150 : 220} />
       {returning ? (
         <>

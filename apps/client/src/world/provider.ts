@@ -9,6 +9,7 @@ import { dataMeter, meteredFetch } from "../net/data-meter.ts";
 import { type DistrictScene } from "../render/district-scene.ts";
 import { type TierName } from "../render/tiers.ts";
 import { savedPhoto } from "../render/wardrobe.ts";
+import { PANOS, wearPano, type MeuPano } from "./pano.ts";
 import { account, askName, choices, choose, deleteAccount, exportData, refreshAccount, rename, type Account, type Choices, type NameAnswer } from "./account.ts";
 
 /** Who the player is, as the BI shows it. */
@@ -33,6 +34,8 @@ export interface Settings {
   readonly sound: boolean;
   /** Left-handed: the stick on the right, the buttons on the left. */
   readonly leftHanded: boolean;
+  /** The colourway of the cloth the interface wears: the player's own pano. */
+  readonly pano: MeuPano;
 }
 
 /** The district as a map: one character a cell, north up (art/scripts/make_l1.py writes it). */
@@ -84,7 +87,7 @@ export interface WorldProvider {
 }
 
 const KEY = "nzila.settings";
-const DEFAULTS: Settings = { tier: "normal", poupanca: false, sound: true, leftHanded: false };
+const DEFAULTS: Settings = { tier: "normal", poupanca: false, sound: true, leftHanded: false, pano: "vermelho" };
 
 function stored(): Partial<Settings> {
   try {
@@ -94,6 +97,7 @@ function stored(): Partial<Settings> {
       ...(typeof value.poupanca === "boolean" ? { poupanca: value.poupanca } : {}),
       ...(typeof value.sound === "boolean" ? { sound: value.sound } : {}),
       ...(typeof value.leftHanded === "boolean" ? { leftHanded: value.leftHanded } : {}),
+      ...(PANOS.some((pano) => pano === value.pano) ? { pano: value.pano as MeuPano } : {}),
     };
   } catch {
     return {};
@@ -111,7 +115,10 @@ export class LocalWorld implements WorldProvider {
 
   /** `asked` is what the address of the page asked for, which wins over what was stored. */
   constructor(asked: Partial<Settings> = {}) {
-    this.current = { ...DEFAULTS, ...stored(), ...asked };
+    // `?pano=azul` in the address shows another pano, for stills.
+    const shown = PANOS.find((pano) => pano === new URLSearchParams(location.search).get("pano"));
+    this.current = { ...DEFAULTS, ...stored(), ...asked, ...(shown ? { pano: shown } : {}) };
+    wearPano(this.current);
   }
 
   get settings(): Settings {
@@ -120,6 +127,7 @@ export class LocalWorld implements WorldProvider {
 
   change(patch: Partial<Settings>): void {
     this.current = { ...this.current, ...patch };
+    wearPano(this.current);
     try {
       localStorage.setItem(KEY, JSON.stringify(this.current));
     } catch {

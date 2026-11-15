@@ -119,9 +119,9 @@ The world supplies the colour; the HUD stays quiet. Text over the 3D view always
 --n-calor-3:      #D9483B;   /* heat: very hot */
 ```
 
-Rules: gold is only ever "the thing to press"; one gold element per screen. Blue is only ever transport. Red is only ever loss or danger. Heat always has a word and an icon with its colour. All text pairs meet WCAG AA; checked by a test against the brightest and darkest reference frames.
+Rules: yellow is "the thing to press" (the one solid button of a screen, the context action) and one of the cloth's four colours, where it is pattern and never a surface someone might press. Blue is only ever transport. Red is only ever loss or danger. Heat always has a word and an icon with its colour. All text pairs meet WCAG AA; checked by a test against the brightest and darkest reference frames.
 
-**The house pattern.** A geometric band inspired by Angolan pano prints, drawn by us (not a copy of any registered design), in black, red, gold and white. It appears in exactly three places: the edge of the BI, the loading screen, and stamps in the Passaporte. Nowhere else.
+**The pano (rewritten 2026-11-15 at the founder's word, D-0.52).** The interface wears a Samakaka cloth, the print that says Angola at a glance: black, red, yellow and white, with a royal-blue colourway. Drawn by us, shape by shape (`packages/ui/src/pano.tsx`): rows of triangles, discs, stacked diamonds, the black panel with a diamond inside a diamond. Never a photograph of cloth and never a copy of a registered design. It comes in two forms: **the whole cloth** (the back of a card, a strip across the head of a card, a wide header) and **the band** of triangles, yellow standing and white hanging on black, with a red line under it (the top edge of every full screen and of the Telemóvel, the foot of a card, the edge of the BI). The solid button is the yellow of the cloth with a row of small teeth along its foot. **It is an accent, never a wall:** the cloth covers a whole surface only on the back of a card; a screen people read or play on gets edges. The surfaces behind it are the cloth's own black, warm, not navy. The earlier rule ("exactly three places, nowhere else") is withdrawn.
 
 ### 1.3 Space, shape, elevation
 - Spacing (px): 4 / 8 / 12 / 16 / 24 / 32. Edges of the screen keep 12 plus the device safe area.

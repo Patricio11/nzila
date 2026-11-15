@@ -121,7 +121,7 @@ describe("two palettes and no more: the interface's tokens and the world's colou
   test("no stylesheet, component or page of the client writes a colour", () => {
     expect(styled.length).toBeGreaterThan(5);
     // The browser's theme colour must be a literal in index.html; it is the one exception, and it must match the token.
-    const found = violations(styled, strayColour).filter((v) => v !== "apps/client/index.html: a colour outside tokens.css: #0F1B2A");
+    const found = violations(styled, strayColour).filter((v) => v !== "apps/client/index.html: a colour outside tokens.css: #16120F");
     expect(found).toEqual([]);
   });
 

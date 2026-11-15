@@ -16,6 +16,7 @@ import {
   Glyph,
   HeatLine,
   IdCard,
+  Pano,
   NeedsBars,
   PriceTag,
   Receipt,
@@ -36,6 +37,7 @@ import "./styleguide.css";
 const TOKENS: readonly (readonly [string, readonly string[]])[] = [
   ["Sheets and chips", ["noite", "noite-2", "luz", "luz-suave"]],
   ["Paper", ["papel", "papel-2", "tinta", "tinta-suave"]],
+  ["The cloth", ["vermelho", "dourado", "pano-preto", "luz", "azul"]],
   ["Identity", ["dourado", "azul", "mar", "terra"]],
   ["Meaning", ["ganho", "gasto", "escudo", "calor-1", "calor-2", "calor-3"]],
 ];
@@ -176,6 +178,23 @@ export function Styleguide() {
           <Case name="saved: the sun comes up" on="world"><Banner state="done">{t("state.saved")}</Banner></Case>
           <Case name="reconnecting" on="night"><Banner>{t("state.reconnecting")}</Banner></Case>
           <Case name="offline: the road stops" on="night"><Banner state="stopped">{t("state.offline")}</Banner></Case>
+        </div>
+      </Section>
+
+      <Section title="The pano" note="Our drawing of a Samakaka cloth: the game's identity (founder, 2026-11-15). The whole cloth for the back of a card or a wide head; the band of triangles for an edge. An accent, never a wall.">
+        <div class="sg-grid sg-wide">
+          {(["vermelho", "azul", "preto", "dourado"] as const).map((colour) => (
+            <Case name={colour}>
+              <div class="sg-pano">
+                <Pano colour={colour} />
+              </div>
+            </Case>
+          ))}
+          <Case name="the band">
+            <div class="sg-pano-band">
+              <i class="n-pano-faixa n-pano-faixa-vermelha" />
+            </div>
+          </Case>
         </div>
       </Section>
 

@@ -113,3 +113,12 @@ html, body { margin: 0; height: 100%; background: var(--n-noite); color: var(--n
 .age-young .age-note { font: var(--type-body); }
 @keyframes age-no { 20%, 60% { transform: rotate(-1deg) translateX(-7px); } 40%, 80% { transform: rotate(-1deg) translateX(7px); } }
 @media (prefers-reduced-motion: reduce) { .age, .age-digit-set, .age-wrong .age-year { animation: none; } .age-key { transition: none; } }
+
+/* The cloth along the top of the door, and along the foot of the card the postcard sits in. */
+.frontdoor-edge { position: fixed; left: 0; right: 0; top: 0; --faixa: 14px; }
+.frontdoor-card { border-bottom: 10px solid var(--n-pano-preto); box-sizing: content-box;
+  border-image: conic-gradient(from -39deg at 50% 100%, var(--n-dourado) 78deg, var(--n-pano-preto) 0) 0 0 100% 0 / 0 0 10px 0 round; }
+.arriving::before { content: ""; position: absolute; left: 0; right: 0; top: 0; z-index: 2; height: 14px; background-color: var(--n-pano-preto);
+  background-image: conic-gradient(from 141deg at 50% 0, var(--n-dourado) 78deg, transparent 0), conic-gradient(from -39deg at 50% 100%, var(--n-luz) 78deg, transparent 0);
+  background-size: 28px 14px; background-position: 0 0, 14px 0; background-repeat: repeat-x; box-shadow: 0 3px 0 var(--n-pano-meu); }
+.age-year { border-top: 8px solid var(--n-pano-meu); border-bottom: 3px solid var(--n-pano-preto); }

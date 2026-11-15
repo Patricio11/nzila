@@ -47,3 +47,7 @@
 .tm-bi-saved { margin: 0; text-align: center; font: var(--type-label); color: var(--n-dourado-claro); }
 .tm-bi-why { text-align: center; margin-top: calc(var(--s-2) * -1); }
 .frontdoor .tm-save { text-align: left; }
+
+/* O meu pano: the colourways to choose from, and a strip of the cloth as it will be worn. */
+.tm-pano { display: flex; flex-direction: column; gap: var(--s-2); }
+.tm-pano-sample { height: 56px; border-radius: var(--r-button); overflow: hidden; box-shadow: inset 0 0 0 2px var(--n-pano-preto), 0 3px 0 var(--n-noite-fundo); }

@@ -2,9 +2,20 @@ import "@nzila/ui/tokens.css";
 import "@nzila/ui/ui.css";
 import { render } from "preact";
 import "./shell.css";
+import { PANOS, wearPano } from "./world/pano.ts";
 
 const app = document.querySelector<HTMLElement>("#app");
 if (!app) throw new Error("#app missing");
+
+// The player's pano, before anything is drawn. `?pano=azul` shows another, for stills.
+const asked = new URLSearchParams(location.search).get("pano");
+let kept: unknown;
+try {
+  kept = (JSON.parse(localStorage.getItem("nzila.settings") ?? "{}") as { pano?: unknown }).pano;
+} catch {
+  kept = undefined;
+}
+wearPano({ pano: PANOS.find((pano) => pano === (asked ?? kept)) ?? "vermelho" });
 
 const path = location.pathname.replace(/\/$/, "");
 if (path === "/bench") {

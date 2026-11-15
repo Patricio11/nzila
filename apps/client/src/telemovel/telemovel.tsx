@@ -5,12 +5,16 @@
 // they are not here yet. Everything they show is asked of the WorldProvider.
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
-import { APP_GLYPHS, Button, Choice, DataMeter, EmptyState, PhoneSheet, Toggle, type PhoneApp } from "@nzila/ui";
+import { APP_GLYPHS, Button, Choice, DataMeter, EmptyState, PhoneSheet, Toggle, type PhoneApp, Pano, Swatches } from "@nzila/ui";
 import { WORLD } from "@nzila/world/client";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { PANOS } from "../world/pano.ts";
 import { type DistrictMap, type MapLine, type WorldProvider } from "../world/provider.ts";
 import { Bi } from "./bi.tsx";
 import "./telemovel.css";
+
+/** The token each pano's ground is painted with. */
+const PANO_TOKEN = { vermelho: "vermelho", azul: "azul", preto: "noite-2", dourado: "dourado" } as const;
 
 type AppId = (typeof APP_GLYPHS)[number];
 
@@ -199,6 +203,12 @@ function Definicoes({ world }: { world: WorldProvider }) {
         value={settings.poupanca ? "poupanca" : settings.tier}
         onChange={(tier) => world.change({ tier, poupanca: false })}
       />
+      <div class="tm-pano">
+        <Swatches label={tr.t("settings.pano")} options={PANOS.map((pano) => ({ id: pano, label: tr.t(`settings.pano.${pano}`), colour: `var(--n-${PANO_TOKEN[pano]})` }))} value={settings.pano} onChange={(pano) => world.change({ pano })} />
+        <div class="tm-pano-sample" aria-hidden="true">
+          <Pano scale={0.5} shiftY={-6} />
+        </div>
+      </div>
       <Toggle label={tr.t("hud.poupanca")} on={settings.poupanca} onChange={(poupanca) => world.change({ poupanca })} />
       <p class="tm-note">{tr.t("settings.poupanca.note")}</p>
       <div class="tm-row">

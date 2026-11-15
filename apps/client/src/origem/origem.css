@@ -2,26 +2,25 @@
 .origem { position: fixed; inset: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-4); box-sizing: border-box;
   padding: max(var(--s-4), env(safe-area-inset-top)) var(--s-4) max(var(--s-5), env(safe-area-inset-bottom)); text-align: center; color: var(--n-luz);
   background: radial-gradient(120% 70% at 50% 42%, var(--n-noite-2), var(--n-noite) 70%); }
+.origem-edge { position: fixed; left: 0; right: 0; top: 0; z-index: 1; --faixa: 14px; }
 .origem p { margin: 0; }
 .origem-title { margin: 0; font: var(--type-place); }
 
 /* The card: two faces back to back, turned on its upright axis. */
-.origem-card { position: relative; width: min(100%, 320px); aspect-ratio: 5 / 7; flex: 0 0 auto; perspective: 1200px; --tier: var(--n-terra); }
-.origem-remediado { --tier: var(--n-mar); }
-.origem-bem { --tier: var(--n-azul); }
-.origem-ouro { --tier: var(--n-dourado); }
+.origem-card { position: relative; width: min(100%, 320px); aspect-ratio: 5 / 7; flex: 0 0 auto; perspective: 1200px; --tier: var(--n-vermelho); --tier-ink: var(--n-luz); }
+.origem-remediado { --tier: var(--n-azul); }
+.origem-bem { --tier: var(--n-pano-preto); --tier-ink: var(--n-dourado); }
+.origem-ouro { --tier: var(--n-dourado); --tier-ink: var(--n-tinta); }
 .origem-back, .origem-face { position: absolute; inset: 0; box-sizing: border-box; border-radius: var(--r-sheet); backface-visibility: hidden; -webkit-backface-visibility: hidden;
   transition: transform 700ms var(--ease-mola); box-shadow: 0 6px 0 var(--n-noite-fundo), 0 18px 34px var(--n-sombra); }
-.origem-back { padding: 0; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; display: grid; place-items: center; color: var(--n-luz);
-  background:
-    repeating-linear-gradient(45deg, transparent 0 14px, var(--n-brilho-dourado) 14px 16px),
-    repeating-linear-gradient(-45deg, transparent 0 14px, var(--n-brilho-dourado) 14px 16px),
-    linear-gradient(160deg, var(--n-azul), var(--n-azul-fundo));
-  animation: origem-ask 2.4s ease-in-out 600ms infinite; }
+/* The back: the whole cloth, and the game's name on a black disc ringed in yellow. */
+.origem-back { padding: 0; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; display: grid; place-items: center; overflow: hidden; color: var(--n-luz); background: var(--n-pano-preto);
+  box-shadow: inset 0 0 0 4px var(--n-pano-preto), 0 6px 0 var(--n-noite-fundo), 0 18px 34px var(--n-sombra); animation: origem-ask 2.4s ease-in-out 600ms infinite; }
+.origem-back .n-pano { position: absolute; inset: 0; }
 .origem-back:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 4px; }
-.origem-back-frame { display: grid; place-items: center; width: 68%; aspect-ratio: 1; border-radius: 50%; background: var(--n-noite); box-shadow: 0 0 0 3px var(--n-dourado), 0 0 0 9px var(--n-noite), 0 0 0 11px var(--n-dourado); }
-.origem-face { transform: rotateY(180deg); overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: var(--s-2); padding: var(--s-5) var(--s-4) var(--s-4); text-align: center;
-  box-shadow: 0 6px 0 var(--n-luz-fundo), 0 18px 34px var(--n-sombra), inset 0 0 0 2px var(--n-papel), inset 0 0 0 4px var(--tier); }
+.origem-back-frame { position: relative; display: grid; place-items: center; width: 62%; aspect-ratio: 1; border-radius: 50%; background: var(--n-pano-preto); box-shadow: 0 0 0 3px var(--n-dourado), 0 0 0 8px var(--n-pano-preto), 0 0 0 10px var(--n-luz); }
+.origem-face { transform: rotateY(180deg); overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: var(--s-2); padding: 0 var(--s-4) var(--s-4); text-align: center;
+  box-shadow: 0 6px 0 var(--n-luz-fundo), 0 18px 34px var(--n-sombra), inset 0 0 0 3px var(--n-pano-preto); }
 /* The rarest card catches the light. */
 .origem-ouro .origem-face::after { content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 34%; transform: skewX(-20deg); background: linear-gradient(90deg, transparent, var(--n-brilho), transparent); pointer-events: none; }
 .origem-ouro.origem-turned .origem-face::after { animation: n-sheen 4.2s ease-in-out 1.2s infinite; }
@@ -30,8 +29,10 @@
 /* Face down, the face takes no touch: in Safari a turned-away face still stands between the thumb and the back. */
 .origem-face { pointer-events: none; }
 
-.origem-tier { align-self: stretch; margin: calc(var(--s-5) * -1) calc(var(--s-4) * -1) var(--s-2) !important; padding: var(--s-3) var(--s-3) var(--s-2); background: var(--tier); color: var(--n-papel); font: var(--type-title); letter-spacing: 0.02em; }
-.origem-ouro .origem-tier { color: var(--n-tinta); }
+/* The head of the face: a strip of the cloth in the colourway of the family's lot, and the name of the lot under it. */
+.origem-cloth { align-self: stretch; flex: 0 0 auto; height: 52px; margin: 0 calc(var(--s-4) * -1); border-bottom: 3px solid var(--n-pano-preto); overflow: hidden; }
+.origem-tier { align-self: stretch; margin: 0 calc(var(--s-4) * -1) var(--s-2) !important; padding: var(--s-2) var(--s-3); background: var(--tier); color: var(--tier-ink); font: var(--type-title); letter-spacing: 0.02em; box-shadow: 0 3px 0 var(--n-pano-preto); }
+.origem-foot { align-self: stretch; margin: var(--s-2) calc(var(--s-4) * -1) calc(var(--s-4) * -1); --faixa: 12px; }
 .origem-parents { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px var(--s-3); align-items: baseline; text-align: left; align-self: stretch; }
 .origem-parents dt { color: var(--n-tinta-suave); font: var(--type-small); }
 .origem-parents dd { margin: 0; font: var(--type-title); overflow-wrap: anywhere; }
@@ -40,8 +41,8 @@
 .origem-starts { font: var(--type-small); color: var(--n-tinta-suave); }
 .origem-makuta { font: var(--type-number-l); color: var(--n-tinta); }
 .origem-turned .origem-makuta { animation: n-pop 520ms var(--ease-mola) 520ms both; }
-.origem-stamp { position: absolute; right: 10px; bottom: 54px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--n-terra); opacity: 0;
-  box-shadow: inset 0 0 0 2px var(--n-terra), inset 0 0 0 5px var(--n-papel), inset 0 0 0 6px var(--n-terra); transform: rotate(-14deg); }
+.origem-stamp { position: absolute; right: 10px; bottom: 70px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--n-vermelho); opacity: 0;
+  box-shadow: inset 0 0 0 2px var(--n-vermelho), inset 0 0 0 5px var(--n-papel), inset 0 0 0 6px var(--n-vermelho); transform: rotate(-14deg); }
 .origem-stamp .n-road-line { stroke: var(--n-papel); }
 .origem-turned .origem-stamp { animation: n-stamp 420ms cubic-bezier(0.2, 1.4, 0.4, 1) 900ms both; }
 
@@ -52,7 +53,7 @@
 /* While the server deals: three cards, shuffled. */
 .origem-dealing { display: flex; flex-direction: column; align-items: center; gap: var(--s-5); color: var(--n-luz-suave); font: var(--type-label); }
 .origem-deck { position: relative; width: 84px; height: 118px; }
-.origem-deck i { position: absolute; inset: 0; border-radius: 10px; background: linear-gradient(160deg, var(--n-azul), var(--n-azul-fundo)); box-shadow: inset 0 0 0 2px var(--n-dourado), 0 3px 0 var(--n-noite-fundo); animation: origem-shuffle 1.2s ease-in-out infinite; }
+.origem-deck i { position: absolute; inset: 0; border-radius: 10px; background: linear-gradient(160deg, var(--n-vermelho), var(--n-vermelho-fundo)); box-shadow: inset 0 0 0 3px var(--n-pano-preto), inset 0 0 0 5px var(--n-dourado), 0 3px 0 var(--n-noite-fundo); animation: origem-shuffle 1.2s ease-in-out infinite; }
 .origem-deck i:nth-child(2) { animation-delay: -400ms; }
 .origem-deck i:nth-child(3) { animation-delay: -800ms; }
 

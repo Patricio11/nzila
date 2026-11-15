@@ -1,4 +1,4 @@
-/* Hora Dourada: the design tokens (UX_UI_SPEC.md §1). Every colour, type
+/* Hora Dourada, in the colours of the pano Samakaka (founder, 2026-11-15): the design tokens (UX_UI_SPEC.md §1). Every colour, type
    size, space and radius the HUD uses is named here and nowhere else. A test
    (house-rules.test.ts) fails the build on a colour written anywhere else. */
 
@@ -26,36 +26,42 @@
   --type-small: 400 14px/1.35 var(--font-ui);
 
   /* Sheets and chips: dark, the default over the world */
-  --n-noite: #0F1B2A;
-  --n-noite-2: #18283B;
+  --n-noite: #16120F;
+  --n-noite-2: #28211C;
   --n-luz: #FBF8F1;
-  --n-luz-suave: #B8C2CE;
+  --n-luz-suave: #C8BDAE;
   --n-linha: rgba(255, 255, 255, 0.14);
-  --n-scrim: rgba(15, 27, 42, 0.62);
+  --n-scrim: rgba(22, 18, 15, 0.64);
 
   /* Paper: the BI, receipts, documents */
   --n-papel: #F6F1E7;
   --n-papel-2: #EAE2D2;
-  --n-tinta: #17202B;
-  --n-tinta-suave: #5A6675;
+  --n-tinta: #1A1512;
+  --n-tinta-suave: #63574B;
 
   /* Identity */
-  --n-dourado: #F2A93B;
-  --n-azul: #1E63C4;
+  --n-dourado: #F7B916;
+  --n-azul: #2438B5;
   --n-mar: #17877F;
   --n-terra: #B5502E;
+  /* The cloth (pano Samakaka): its red, and the black its patterns are drawn in. Yellow is --n-dourado, white --n-luz, blue --n-azul. */
+  --n-vermelho: #D3241C;
+  --n-vermelho-fundo: #8C140F;
+  --n-pano-preto: #100D0B;
+  /* The player's own pano (Definições): the ground of the cloth wherever no colourway is asked for, and the line under every band. */
+  --n-pano-meu: var(--n-vermelho);
 
   /* Depth: things you press have a lip under them, a darker shade of themselves,
      and sink onto it when pressed. Light comes from above, as at golden hour. */
-  --n-dourado-claro: #FFCB6B;
-  --n-dourado-fundo: #B96F12;
+  --n-dourado-claro: #FFD44F;
+  --n-dourado-fundo: #B27A00;
   --n-luz-fundo: #C9BFA9;
-  --n-noite-fundo: #070E17;
-  --n-azul-claro: #3F86E8;
-  --n-azul-fundo: #123F82;
+  --n-noite-fundo: #070504;
+  --n-azul-claro: #5568E8;
+  --n-azul-fundo: #141F73;
   --n-brilho: rgba(255, 255, 255, 0.38);
-  --n-brilho-dourado: rgba(242, 169, 59, 0.42);
-  --n-sombra: rgba(7, 14, 23, 0.35);
+  --n-brilho-dourado: rgba(247, 185, 22, 0.42);
+  --n-sombra: rgba(7, 5, 4, 0.4);
   --n-mascara: #000;
 
   /* Meaning */
@@ -90,3 +96,8 @@
   /* A spring: things arrive a little past where they stop, then settle. */
   --ease-mola: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* The player chose another pano: set on the page's root (apps/client/src/world/pano.ts). */
+.n-meu-pano-azul { --n-pano-meu: var(--n-azul); }
+.n-meu-pano-preto { --n-pano-meu: var(--n-noite-2); }
+.n-meu-pano-dourado { --n-pano-meu: var(--n-dourado); }
