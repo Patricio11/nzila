@@ -366,7 +366,8 @@ for cx in range(ACROSS):
             kit.paragem(b, stop_x, oz + lo - 1.4, 0.0, KERB)
             # Only the shelter's back wall stops anyone: people stand under the roof, in front of it.
             mark(stop_x - 2.1, oz + lo - 2.4, stop_x + 2.1, oz + lo - 2.0, "#")
-            kit.candongueiro(b, stop_x + 1.0, oz + lo + 1.3, 0.0)
+            # Heading west, so that its sliding door is on the kerb's side.
+            kit.candongueiro(b, stop_x + 1.0, oz + lo + 1.3, math.pi)
             places["paragens"].append([round(stop_x, 2), KERB, round(oz + lo - 0.9, 2)])
 
         if seaside:

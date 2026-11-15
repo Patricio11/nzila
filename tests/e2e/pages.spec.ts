@@ -105,6 +105,28 @@ test.describe("the renderer", () => {
   });
 });
 
+test.describe("the candongueiros", () => {
+  test("run their linhas by the clock: one stands at each line's first paragem, then it has moved on", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/dev-vehicles/veiculos.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the vehicles are not built (they need Blender). The traffic was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await page.goto("/cena?pack=l1&tier=poupanca&hour=12&transito=3&at=313,110.5,1.6&look=304,104.5,1");
+    await page.waitForFunction(() => (window.__cena?.vans?.length ?? 0) > 0, undefined, { timeout: 45_000 });
+    const standing = await page.evaluate(() => window.__cena!.vans!);
+    expect(standing.filter((van) => van.dwelling).map((van) => van.route).sort()).toEqual(["linha-marginal", "linha-mutamba"]);
+    const atStop = standing.find((van) => van.route === "linha-marginal" && van.dwelling)!;
+    await page.goto("/cena?pack=l1&tier=poupanca&hour=12&transito=40&at=313,110.5,1.6&look=304,104.5,1");
+    await page.waitForFunction(() => (window.__cena?.vans?.length ?? 0) > 0, undefined, { timeout: 45_000 });
+    const later = await page.evaluate(() => window.__cena!.vans!);
+    // Traffic keeps to the right: on the avenue's town side the van has gone east.
+    expect(later.some((van) => van.route === "linha-marginal" && !van.dwelling && van.x > atStop.x + 20)).toBe(true);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
 test.describe("a person", () => {
   test("walks the district by the simulation's rules: the body moves over the ground, and nothing errors", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {

@@ -160,6 +160,24 @@ export async function buildPeople(workDir: string, outDir: string): Promise<{ pe
   return { ...list, bytes: model.length };
 }
 
+/** Builds the vehicles the game drives along its routes, each alone as one model. */
+export async function buildVehicles(workDir: string, outDir: string): Promise<{ vehicles: { name: string; triangles: number }[]; bytes: number }> {
+  await rm(workDir, { recursive: true, force: true });
+  const palette = await writePalette(join(root, "art"));
+  await blender(join(scripts, "make_vehicles.py"), [workDir, palette.json, palette.png]);
+  const list = JSON.parse(await readFile(join(workDir, "veiculos.json"), "utf8")) as { vehicles: { name: string; model: string; triangles: number }[] };
+  await rm(outDir, { recursive: true, force: true });
+  await mkdir(outDir, { recursive: true });
+  let bytes = 0;
+  for (const vehicle of list.vehicles) {
+    const model = await optimiseGlb(await readFile(join(workDir, vehicle.model)));
+    bytes += model.length;
+    await writeFile(join(outDir, vehicle.model), model);
+  }
+  await writeFile(join(outDir, "veiculos.json"), JSON.stringify(list));
+  return { ...list, bytes };
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const command = process.argv[2];
   if (command === "palette") {
@@ -177,6 +195,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         const mb = (bytes: number): string => (bytes / 1_000_000).toFixed(2);
         const draws = Math.max(...manifest.chunks.map((chunk) => chunk.stats.far.draws));
         const people = await buildPeople(join(root, "dist", "dev-people"), join(root, "apps", "client", "public", "packs", "dev-people"));
+        const vehicles = await buildVehicles(join(root, "dist", "dev-vehicles"), join(root, "apps", "client", "public", "packs", "dev-vehicles"));
+        console.log(`pack dev: ${vehicles.vehicles.map((v) => `${v.name} ${v.triangles} triangles`).join(", ")}, ${(vehicles.bytes / 1024).toFixed(0)} KB together.`);
         console.log(`pack dev: ${people.people.length} people, about ${people.each} triangles each, ${(people.bytes / 1024).toFixed(0)} KB together. Shown at /corpo.`);
         console.log(`pack dev: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal, at most ${draws} draw call(s) a chunk. Served at /packs/dev/.`);
       } catch (error) {

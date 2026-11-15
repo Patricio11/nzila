@@ -38,7 +38,7 @@ async function inflate(packed: ArrayBuffer): Promise<Uint8Array> {
 }
 
 let loader: GLTFLoader | null = null;
-function gltfLoader(): GLTFLoader {
+export function gltfLoader(): GLTFLoader {
   if (!loader) {
     // Unpack geometry off the main thread, so a chunk arriving never costs a frame.
     MeshoptDecoder.useWorkers(2);

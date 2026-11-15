@@ -34,7 +34,7 @@ const worldClock = compileClock(DEFAULT_CLOCK);
 declare global {
   interface Window {
     /** Set once the first frame has been drawn, for the test harness and the screenshots. */
-    __cena?: FrameCounts & { graphics: string; stream?: StreamState; sessionBytes?: number; packBytes?: { poupanca: number; normal: number; alta: number } };
+    __cena?: FrameCounts & { graphics: string; stream?: StreamState; sessionBytes?: number; packBytes?: { poupanca: number; normal: number; alta: number }; vans?: { route: string; x: number; z: number; dwelling: boolean }[] };
     /** Moves the viewer to a place in a streamed district, in metres. */
     __cenaGoto?: (x: number, z: number) => void;
   }
@@ -75,6 +75,8 @@ export function Cena() {
         (opened) => {
           if (closed) opened.close();
           else district = opened;
+          // `&transito=3` holds the traffic at that second of its timetable (3: a van stands at each line's first paragem).
+          if (params.has("transito")) opened.trafficAt = Number(params.get("transito")) * 1000;
         },
         () => {
           // No such pack on this machine: the boxes are better than a blank page.
@@ -112,6 +114,7 @@ export function Cena() {
         sessionBytes: dataMeter.session,
         ...(streamed ? { stream: streamed } : {}),
         ...(district ? { packBytes: district.manifest.sizes.total } : {}),
+        ...(district?.traffic ? { vans: district.traffic.seen } : {}),
       };
       if (now - shown > 500) {
         shown = now;

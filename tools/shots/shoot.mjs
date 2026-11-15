@@ -52,6 +52,20 @@ const PAGES = [
   ["hud-sentar", "/andar?hour=16.8&cam=40&quem=4&sentar"],
   ["hud-sentar-calcas", "/andar?hour=12&cam=320&quem=1&sentar"],
   ["hud-esquerda", "/andar?hour=16.8&cam=200&mao=esquerda&quem=2"],
+  // The candongueiro, parked at a paragem of the rehearsal town.
+  ["carrinha-lado", "/cena?hour=15&tier=normal&at=115,101,1.6&look=115,93.3,1.0"],
+  ["carrinha-frente", "/cena?hour=15&tier=normal&at=108,98,1.5&look=115,93.3,1.0"],
+  ["carrinha-tras", "/cena?hour=16.8&tier=normal&at=122,98.5,1.9&look=115,93.3,0.9"],
+  ["carrinha-porta", "/cena?hour=12&tier=normal&at=110.5,88.6,1.7&look=115.5,93.3,1.0"],
+  ["carrinha-cima", "/cena?hour=12&tier=normal&at=119,99,5.5&look=115,93.3,0.8"],
+  ["carrinha-noite", "/cena?hour=20.5&tier=normal&at=108,98,1.5&look=115,93.3,1.0"],
+  // The vans on their linhas in Marginal e Baixa (transito=3: one stands at each line's first paragem).
+  ["transito-paragem", "/cena?pack=l1&hour=16.5&tier=normal&transito=3&at=313,110.5,1.6&look=304,104.5,1.0"],
+  ["transito-paragem-tras", "/cena?pack=l1&hour=12&tier=normal&transito=3&at=294,109.5,1.7&look=304,104.5,1.0"],
+  ["transito-arranca", "/cena?pack=l1&hour=16.5&tier=normal&transito=22&at=300,97,3.2&look=325,105,1.0"],
+  ["transito-mutamba", "/cena?pack=l1&hour=17.3&tier=normal&transito=3&at=175,161,1.7&look=184,156,1.0"],
+  ["transito-do-alto", "/cena?pack=l1&hour=15&tier=alta&transito=60&at=224,40,70&look=224,120,0"],
+  ["transito-noite", "/cena?pack=l1&hour=20.5&tier=normal&transito=3&at=313,110.5,1.6&look=304,104.5,1.0"],
   // The jump, held at three moments of it.
   ["salto-inicio", "/andar?hour=16.8&cam=70&quem=1&salto=0.2"],
   ["salto-alto", "/andar?hour=16.8&cam=70&quem=1&salto=0.5"],
@@ -108,6 +122,7 @@ const FILMS = [
   ["danca-lado", "/andar?cam=95&quem=5&hour=16.8&gesto=dancar"],
   ["danca-pano", "/andar?cam=20&quem=0&hour=16.8&gesto=dancar"],
   ["danca-ela", "/andar?cam=110&quem=6&hour=16.8&gesto=dancar"],
+  ["transito-andar", "/andar?pack=l1&em=297,107.2&cam=250&quem=4&hour=16.8"],
   // Jumping: on the spot, at a run, and over the planted strip of the Marginal's avenue.
   ["salto-parado", "/andar?salto&cam=70&quem=1&hour=16.8"],
   ["salto-corrida", "/andar?auto&salto&cam=20&quem=3&hour=16.8"],

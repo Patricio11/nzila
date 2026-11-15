@@ -7,6 +7,7 @@ import { type Manifest } from "@nzila/world/client";
 import { type Mesh } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
+import { Traffic } from "./traffic.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
 /** Eye height above the road, standing on a pavement, in metres. */
@@ -24,7 +25,14 @@ export class DistrictScene {
   /** The district's own words (the names of its places), by key: they travel with the pack, not with the game. */
   private readonly words: Readonly<Record<string, string>>;
 
-  private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>) {
+  /** The vans on the district's linhas, when it has any and their model is built. */
+  readonly traffic: Traffic | null;
+  /** For a still: the moment the traffic is shown at, in milliseconds, instead of now. */
+  trafficAt: number | null = null;
+  private lastUpdate = 0;
+
+  private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null) {
+    this.traffic = traffic;
     this.words = words;
     this.renderer = renderer;
     this.chunks = chunks;
@@ -45,7 +53,7 @@ export class DistrictScene {
   static async open(renderer: WorldRenderer, base: string): Promise<DistrictScene> {
     const chunks = await ChunkStream.open(renderer, base);
     const words = JSON.parse(new TextDecoder().decode(await meteredFetch(base + chunks.manifest.strings))) as Record<string, string>;
-    return new DistrictScene(renderer, chunks, words);
+    return new DistrictScene(renderer, chunks, words, await Traffic.open(renderer, base, chunks.manifest));
   }
 
   /** A word of the district, or the key itself when the pack does not have it. */
@@ -105,6 +113,9 @@ export class DistrictScene {
   /** Call every frame, after placing the viewer: fetches, shows and lets go of chunks. */
   update(): void {
     this.chunks.update(this.x, this.z);
+    const now = performance.now();
+    this.traffic?.update(this.trafficAt ?? Date.now(), this.lastUpdate === 0 ? 0 : now - this.lastUpdate);
+    this.lastUpdate = now;
   }
 
   state(): StreamState {
@@ -127,6 +138,7 @@ export class DistrictScene {
 
   close(): void {
     this.chunks.close();
+    this.traffic?.close();
     for (const water of this.waters) {
       this.renderer.scene.remove(water);
       water.geometry.dispose();

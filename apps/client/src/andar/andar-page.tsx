@@ -14,6 +14,7 @@
 //   /andar?salto           jumps again and again; /andar?salto=0.5 holds the body that far through a jump (for stills)
 //   /andar?gesto=acenar    makes that gesture over and over; /andar?sentar sits on the nearest bench (for stills)
 //   /andar?cam=120         where the camera starts, in degrees round the person
+//   /andar?transito=3      holds the traffic at that second of its timetable (for stills)
 //   /andar?hour=17.3&tier=normal
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
@@ -119,6 +120,7 @@ export function Andar() {
         if (closed) return opened.close();
         renderer.scene.add(loaded.root);
         district = opened;
+        if (params.has("transito")) opened.trafficAt = Number(params.get("transito")) * 1000;
         person = loaded;
         setArrived(true);
         setTimeout(() => setArrived(false), 2600);

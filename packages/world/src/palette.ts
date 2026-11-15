@@ -46,6 +46,13 @@ export const WORLD = {
   // The blue and white
   vanWhite: hex("#F6F3EA"),
   vanBlue: hex("#2E97E6"), // the blue of the candongueiro, from the founder's photograph
+  // Vehicles (art/scripts/vehicles.py)
+  vanGlass: hex("#27384C"),
+  vanLine: hex("#1F6DA8"), // a door's edge on the blue
+  tyre: hex("#22242A"),
+  rim: hex("#9AA0A6"),
+  indicator: hex("#F2A23A"),
+  tailLight: hex("#C2382E"), // red by day; at night it glows (see GLOW)
   // Buildings
   window: hex("#2A3B56"),
   windowLit: hex("#5F7896"), // glass by day; at night it glows (see GLOW)
@@ -126,6 +133,7 @@ export const WORLD = {
 export const GLOW = {
   windowLit: hex("#FFCB73"),
   lamp: hex("#FFE9B8"),
+  tailLight: hex("#FF4A32"),
   lampPool: hex("#8A5F26"),
   lampPoolSand: hex("#7A5628"),
 } as const;

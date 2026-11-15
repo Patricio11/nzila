@@ -198,7 +198,7 @@ def paragem(key, x, z, name, van_z):
     words[f"l1.paragem.{key}"] = name
     kit.paragem(b, x, z, 0.0, G)
     mark(x - 2.1, z - 1.0, x + 2.1, z - 0.6, "#")
-    kit.candongueiro(b, x + 1.0, van_z, 0.0)
+    # No van is parked here: the ones on the linhas come and stand at it (render/traffic.ts).
     places["paragens"].append({"id": key, "pos": [round(x, 2), G, round(z + 0.5, 2)], "nameKey": f"l1.paragem.{key}"})
 
 
@@ -536,7 +536,9 @@ def loop(points):
     return [[round(px, 2), 0.0, round(pz, 2)] for px, pz in points]
 
 
-avenue_out = [(px, shore(px) + 37.0) for px in range(112, 440, 16)]
+# Traffic keeps to the right: east along the town side of the avenue, by the kerb the paragens are on,
+# and back west along the near side of the first street.
+avenue_out = [(px, shore(px) + 47.4) for px in range(112, 440, 16)]
 avenue_back = [(px, STREET_A[0] + 2.0) for px in range(432, 104, -16)]
 routes = {
     "linha-marginal": loop(avenue_out + [(424.0, 120.0)] + avenue_back + [(104.0, 130.0)]),

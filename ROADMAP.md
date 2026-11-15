@@ -239,6 +239,7 @@ flowchart LR
 
 ### Task 1.6: Ambient life
 - [ ] NPC pedestrians from a seeded, clock-driven crowd (the same seed gives every player roughly the same street): zungueiras with bacias, people on the benches, fishermen, children playing.
+- [ ] *(2026-11-15: the candongueiro is a real van made by us (`art/scripts/vehicles.py`, 858 triangles, 14 KB) and runs both linhas of L1 by the clock (`render/traffic.ts`), standing at each paragem. Not ticked: boarding and riding, other traffic, the cobrador's call; see F-87.)*
 - [ ] Traffic on splines; candongueiros on their routes from `route.ts`, stopping at paragens; the cobrador's call as the district's signature sound. The player can board, ride and get off.
 - [ ] Ambient sound beds per area (the sea, the square, traffic), streamed, off in Modo Poupança.
 - Depends on: 0.2, 1.5 · Unblocks: 1.9, 6.1.

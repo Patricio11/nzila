@@ -527,30 +527,9 @@ def paragem(b, x, z, yaw, ground=0.14):
 
 
 def candongueiro(b, x, z, yaw, ground=0.0):
-    """The blue and white van: white above, blue below, standing at the kerb."""
-    b.at(x, z)
-
-    def part(offset, size, colour, top=None):
-        b.box(_add((x, ground, z), _turn(offset, yaw)), size, colour, yaw=yaw, top=top, skip_bottom=False)
-
-    b.level = BOTH
-    part((0.0, 0.72, 0.0), (4.9, 0.74, 1.85), "vanBlue")
-    part((-0.15, 1.52, 0.0), (4.3, 0.86, 1.78), "vanWhite")
-    part((0.0, 1.5, 0.0), (3.4, 0.5, 1.82), "window")
-    part((2.05, 1.42, 0.0), (0.25, 0.56, 1.6), "window")
-    b.level = FULL
-    part((2.5, 0.5, 0.0), (0.12, 0.25, 1.8), "metal")
-    part((-2.5, 0.5, 0.0), (0.12, 0.25, 1.8), "metal")
-    for sx in (-1.55, 1.55):
-        for sz in (-0.86, 0.86):
-            hub = _add((x, ground + 0.36, z), _turn((sx, 0.0, sz), yaw))
-            axle = _turn((0.0, 0.0, 0.14), yaw)
-            b.tube([_sub(hub, axle), _add(hub, axle)], [0.36, 0.36], 8, "tarShade")
-    b.level = LIGHT
-    for sx in (-1.55, 1.55):
-        part((sx, 0.36, 0.0), (0.7, 0.72, 1.9), "tarShade")
-    b.level = BOTH
-    return 2.6
+    """The blue and white van, standing at the kerb with its length along X when yaw is 0 (art/scripts/vehicles.py)."""
+    import vehicles
+    return vehicles.carrinha(b, x, z, yaw + math.pi / 2, ground)
 
 
 # ==================================================================== the bairro
