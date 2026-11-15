@@ -340,8 +340,8 @@ test.describe("the people of the street", () => {
     await page.waitForFunction(() => (window.__cena?.people?.length ?? 0) > 0 && window.__cena!.stream !== undefined && window.__cena!.stream.shown === window.__cena!.stream.wanted && window.__cena!.stream.loading === 0, undefined, { timeout: 45_000 });
     const quiet = await page.evaluate(() => window.__cena!);
     expect(quiet.people!.find((p) => p.role === "pescador")).toMatchObject({ pose: "fish", speed: 0 });
-    // Six bodies at most at Normal, and the whole picture inside the reference budget.
-    expect(quiet.people!.length).toBeLessThanOrEqual(6);
+    // Eighteen people at most at Normal (six in their whole body), and the whole picture inside the reference budget.
+    expect(quiet.people!.length).toBeLessThanOrEqual(18);
     expect(quiet.triangles).toBeLessThan(120_000);
     await page.evaluate(() => window.__cenaMoment!(96));
     await page.waitForFunction(() => window.__cena!.people!.some((p) => p.role === "pescador" && p.speed > 0), undefined, { timeout: 10_000 });

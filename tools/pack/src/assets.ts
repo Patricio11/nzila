@@ -19,8 +19,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { Logger, NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
-import { dedup, flatten, join as joinMeshes, meshopt, prune } from "@gltf-transform/functions";
-import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
+import { dedup, flatten, join as joinMeshes, meshopt, prune, simplify, weld } from "@gltf-transform/functions";
+import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer";
 
 const run = promisify(execFile);
 
@@ -88,6 +88,24 @@ async function gltfIo(): Promise<NodeIO> {
  *
  * A file that has been through here already comes out the same.
  */
+/**
+ * A lighter copy of a model with a skeleton: the same body in a share of its triangles, for people seen
+ * from across the street. The bones and each corner's weights are kept, so it moves as the full one does.
+ * Returns the copy and how many triangles it has.
+ */
+export async function lightenGlb(bytes: Uint8Array, ratio: number): Promise<{ bytes: Uint8Array; triangles: number }> {
+  const gltf = await gltfIo();
+  const document = await gltf.readBinary(bytes);
+  document.setLogger(new Logger(Logger.Verbosity.SILENT));
+  await MeshoptSimplifier.ready;
+  await document.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio, error: 0.03 }), prune({ keepAttributes: true }));
+  let triangles = 0;
+  for (const mesh of document.getRoot().listMeshes()) {
+    for (const primitive of mesh.listPrimitives()) triangles += (primitive.getIndices()?.getCount() ?? primitive.getAttribute("POSITION")?.getCount() ?? 0) / 3;
+  }
+  return { bytes: await gltf.writeBinary(document), triangles: Math.round(triangles) };
+}
+
 export async function optimiseGlb(bytes: Uint8Array): Promise<Uint8Array> {
   const gltf = await gltfIo();
   const document = await gltf.readBinary(bytes);

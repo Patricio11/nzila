@@ -11,7 +11,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { ATLAS_CELLS, ATLAS_CELL_PX, ATLAS_NAMES, atlasPixels, type Registry, type SourceManifest } from "@nzila/world";
-import { blender, exportChunks, findBlender, findKtx, optimiseGlb } from "./assets.ts";
+import { blender, exportChunks, findBlender, findKtx, optimiseGlb, lightenGlb } from "./assets.ts";
 import { PackError, buildPack } from "./build.ts";
 import { checkPack } from "./check.ts";
 
@@ -155,7 +155,16 @@ export async function buildPeople(workDir: string, outDir: string): Promise<{ pe
   await writeFile(join(outDir, "pessoas.glb"), model);
   // Each person alone with a skeleton. These are not put through the optimiser yet: it is
   // written for the world's still models, and a skeleton is not something to risk in it unseen.
-  for (let i = 0; i < list.people.length; i++) await writeFile(join(outDir, `pessoa-${i}.glb`), await readFile(join(workDir, `pessoa-${i}.glb`)));
+  let light = 0;
+  for (let i = 0; i < list.people.length; i++) {
+    const full = await readFile(join(workDir, `pessoa-${i}.glb`));
+    await writeFile(join(outDir, `pessoa-${i}.glb`), full);
+    // And the same person in a fifth of the triangles, for the far side of the street (D-0.30).
+    const lighter = await lightenGlb(full, 0.2);
+    await writeFile(join(outDir, `pessoa-${i}-leve.glb`), lighter.bytes);
+    light += lighter.triangles;
+  }
+  Object.assign(list, { light: Math.round(light / list.people.length) });
   await writeFile(join(outDir, "pessoas.json"), JSON.stringify(list));
   return { ...list, bytes: model.length };
 }
@@ -219,7 +228,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         console.log(`pack dev: ${vehicles.vehicles.map((v) => `${v.name} ${v.triangles} triangles`).join(", ")}, ${(vehicles.bytes / 1024).toFixed(0)} KB together.`);
         const wardrobe = await buildWardrobe(join(root, "dist", "dev-wardrobe"), join(root, "apps", "client", "public", "packs", "guarda-roupa"));
         console.log(`pack dev: a wardrobe of ${wardrobe.pieces} pieces, ${(wardrobe.bytes / 1024).toFixed(0)} KB on disk; a player fetches one body and one head of hair.`);
-        console.log(`pack dev: ${people.people.length} people, about ${people.each} triangles each, ${(people.bytes / 1024).toFixed(0)} KB together. Shown at /corpo.`);
+        console.log(`pack dev: ${people.people.length} people, about ${people.each} triangles each (${(people as { light?: number }).light ?? 0} in the light body), ${(people.bytes / 1024).toFixed(0)} KB together. Shown at /corpo.`);
         console.log(`pack dev: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal, at most ${draws} draw call(s) a chunk. Served at /packs/dev/.`);
       } catch (error) {
         if (!(error instanceof PackError)) throw error;

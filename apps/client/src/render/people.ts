@@ -43,17 +43,21 @@ export class People {
     return fitting[((n % Math.max(1, fitting.length)) + fitting.length) % Math.max(1, fitting.length)];
   }
 
-  /** A body for them, with its own skeleton, wearing the world's palette. */
-  async make(who: Listed): Promise<Person | null> {
-    let loading = this.models.get(who.model);
+  /**
+   * A body for them, with its own skeleton, wearing the world's palette. `light` is the same person in a
+   * fifth of the triangles and a third of the download, for the far side of the street (D-0.30).
+   */
+  async make(who: Listed, light = false): Promise<Person | null> {
+    const file = light ? who.model.replace(/\.glb$/, "-leve.glb") : who.model;
+    let loading = this.models.get(file);
     if (!loading) {
-      loading = meteredFetch(PEOPLE + who.model).then(async (bytes) => {
+      loading = meteredFetch(PEOPLE + file).then(async (bytes) => {
         const scene = (await new GLTFLoader().parseAsync(bytes, "")).scene;
         // The material the file came with is not used: every body wears the world's one palette.
         scene.traverse((node) => node instanceof Mesh && (node.material as Material).dispose());
         return scene;
       });
-      this.models.set(who.model, loading);
+      this.models.set(file, loading);
     }
     const scene = cloneSkinned(await loading) as Group;
     const found: SkinnedMesh[] = [];
