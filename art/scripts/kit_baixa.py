@@ -473,20 +473,28 @@ def mesa_de_xadrez(b, x, z, ground=0.14):
     return 1.1
 
 
-def mural(b, x, z, length, rng, ground=0.14, high=4.2):
+def mural(b, x, z, length, rng, ground=0.14, high=4.2, side_on=False):
     """
     A long wall painted from end to end, as walls under Luanda's roads are: panels of loud colour, and
     on them a sun, flowers, a wheel, waves and zigzags. No word and no mark of anybody's on it.
-    Faces the side of smaller z.
+    Faces the side of smaller z; `side_on` turns it to run along z and face the side of smaller x, and
+    then it is paint alone, on a wall that is already there.
     """
     b.at(x, z)
     b.level = BOTH
-    b.box((x, ground + high / 2, z + 0.15), (length, high, 0.3), "paintWhite")
     x0 = x - length / 2
-    facing = (0.0, 0.0, -1.0)
+    if side_on:
+        z0 = z - length / 2
+        facing = (-1.0, 0.0, 0.0)
 
-    def at(px, py, out=1):
-        return (x0 + px, ground + py, z - 0.012 * out)
+        def at(px, py, out=1):
+            return (x - 0.012 * out, ground + py, z0 + length - px)
+    else:
+        b.box((x, ground + high / 2, z + 0.15), (length, high, 0.3), "paintWhite")
+        facing = (0.0, 0.0, -1.0)
+
+        def at(px, py, out=1):
+            return (x0 + px, ground + py, z - 0.012 * out)
 
     def patch(points, colour, out=2):
         b.face([at(px, py, out) for px, py in points], colour, toward=facing)
@@ -545,3 +553,57 @@ def mural(b, x, z, length, rng, ground=0.14, high=4.2):
                         disc((tx0 + tx1) / 2, by + 0.72, 0.1, ink[3 % len(ink)], 3, 6)
     b.level = BOTH
     return (x - length / 2, z, x + length / 2, z + 0.4)
+
+
+def viaduto(b, x0, x1, parts, ground=0.14):
+    """
+    A road on pillars (founder's picture, 2026-11-15): the deck with its barriers and its line, and under
+    it whatever each stretch stands on. `parts` run along z, each (z from, z to, deck height at the first,
+    at the second, what is under it): "pilares" leaves the ground open in its shade, "muro" and "rampa"
+    are walled and filled. Returns the rectangles nobody can walk into, as (x0, z0, x1, z1).
+    """
+    THICK, RAIL = 0.6, 0.85
+    solid = []
+    up, down, west, east = (0.0, 1.0, 0.0), (0.0, -1.0, 0.0), (-1.0, 0.0, 0.0), (1.0, 0.0, 0.0)
+    for za, zb, ya, yb, kind in parts:
+        steps = max(1, int(abs(zb - za) / 16.0 + 0.999))
+        for n in range(steps):
+            z0, z1 = za + (zb - za) * n / steps, za + (zb - za) * (n + 1) / steps
+            y0, y1 = ya + (yb - ya) * n / steps, ya + (yb - ya) * (n + 1) / steps
+            b.at((x0 + x1) / 2, (z0 + z1) / 2)
+            b.level = BOTH
+            # The deck: its top of tar, its underside in shadow, its two edges.
+            b.face([(x0, y0, z0), (x1, y0, z0), (x1, y1, z1), (x0, y1, z1)], "tar", toward=up)
+            b.face([(x0, y0 - THICK, z0), (x1, y0 - THICK, z0), (x1, y1 - THICK, z1), (x0, y1 - THICK, z1)], "tarShade", toward=down)
+            for px, out in ((x0, west), (x1, east)):
+                inner = px + (0.3 if out is west else -0.3)
+                b.face([(px, y0 - THICK, z0), (px, y0 + RAIL, z0), (px, y1 + RAIL, z1), (px, y1 - THICK, z1)], "kerb", toward=out)
+                b.face([(inner, y0, z0), (inner, y0 + RAIL, z0), (inner, y1 + RAIL, z1), (inner, y1, z1)], "pavementShade", toward=(-out[0], 0.0, 0.0))
+                b.face([(px, y0 + RAIL, z0), (inner, y0 + RAIL, z0), (inner, y1 + RAIL, z1), (px, y1 + RAIL, z1)], "kerb", toward=up)
+            b.level = FULL
+            mid = (x0 + x1) / 2
+            dashes = max(1, int(abs(z1 - z0) / 6.0))
+            for d in range(dashes):
+                t0, t1 = (d + 0.2) / dashes, (d + 0.6) / dashes
+                b.face([(mid - 0.07, y0 + (y1 - y0) * t0 + 0.02, z0 + (z1 - z0) * t0), (mid + 0.07, y0 + (y1 - y0) * t0 + 0.02, z0 + (z1 - z0) * t0), (mid + 0.07, y0 + (y1 - y0) * t1 + 0.02, z0 + (z1 - z0) * t1), (mid - 0.07, y0 + (y1 - y0) * t1 + 0.02, z0 + (z1 - z0) * t1)], "line", toward=up)
+            b.level = BOTH
+            if kind == "pilares":
+                # A pair of columns under a beam, one pair to each stretch.
+                zc, top = (z0 + z1) / 2, (y0 + y1) / 2 - THICK
+                b.box(((x0 + x1) / 2, top - 0.35, zc), (x1 - x0 - 0.5, 0.7, 1.1), "plinth")
+                for px in (x0 + 1.3, x1 - 1.3):
+                    b.box((px, (ground + top - 0.7) / 2, zc), (0.95, top - 0.7 - ground, 0.95), "plinth")
+                    solid.append((px - 0.6, zc - 0.6, px + 0.6, zc + 0.6))
+            else:
+                # Walled and filled: a wall each side from the ground to the deck.
+                for px, out in ((x0 + 0.05, west), (x1 - 0.05, east)):
+                    b.face([(px, ground, z0), (px, y0 - THICK, z0), (px, y1 - THICK, z1), (px, ground, z1)], "plinth", toward=out)
+                solid.append((x0, min(z0, z1), x1, max(z0, z1)))
+        if kind != "pilares":
+            # The ends of a walled stretch, where the next one is open.
+            for zend, yend, toward in ((za, ya, (0.0, 0.0, -1.0 if zb > za else 1.0)), (zb, yb, (0.0, 0.0, 1.0 if zb > za else -1.0))):
+                if yend - THICK > ground + 0.05:
+                    b.at((x0 + x1) / 2, zend)
+                    b.face([(x0, ground, zend), (x1, ground, zend), (x1, yend - THICK, zend), (x0, yend - THICK, zend)], "plinth", toward=toward)
+    b.level = BOTH
+    return solid

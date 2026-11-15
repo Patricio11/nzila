@@ -126,8 +126,13 @@ interface Roamer {
   rider: Person | null;
   yaw: number;
   x: number;
+  /** How high it is: on a viaduct it is over people's heads and stops nobody. */
+  y: number;
   z: number;
 }
+
+/** Whether a vehicle is down among people: one on a viaduct is over their heads and stops nobody. */
+const onTheGround = (roamer: Roamer): boolean => 1.5 > roamer.y;
 
 /** How near a moto or a kupapata must be for its rider to be drawn, in metres, and how many riders at once. */
 const RIDER_REACH_M = 55;
@@ -227,7 +232,7 @@ export class Traffic {
           }
           const body = (await loading).clone();
           traffic.root.add(body);
-          const roamer: Roamer = { plan, body, halfWidthMm: kind.halfWidth * 1000, halfLengthMm: kind.halfLength * 1000, rider: null, yaw: 0, x: 0, z: 0 };
+          const roamer: Roamer = { plan, body, halfWidthMm: kind.halfWidth * 1000, halfLengthMm: kind.halfLength * 1000, rider: null, yaw: 0, x: 0, y: 0, z: 0 };
           traffic.roamers.push(roamer);
           // A moto and a kupapata are ridden by someone: seated, hands to the bars.
           const seat = kind.seats?.find((s) => s.who === "condutor");
@@ -260,7 +265,8 @@ export class Traffic {
       roamer.yaw = elapsedMs > 0 ? roamer.yaw + turn * Math.min(1, elapsedMs / 380) : at.yaw;
       roamer.x = at.x;
       roamer.z = at.z;
-      roamer.body.position.set(at.x, 0, at.z);
+      roamer.body.position.set(at.x, at.y, at.z);
+      roamer.y = at.y;
       roamer.body.rotation.y = roamer.yaw;
       if (roamer.rider) {
         roamer.rider.root.visible = false;
@@ -310,7 +316,7 @@ export class Traffic {
     const turned = (yaw: number): number => ((Math.round((yaw * 18_000) / Math.PI) % 36_000) + 36_000) % 36_000;
     return [
       ...this.seen.map((van): Obstacle => ({ kind: "box", x: Math.round(van.x * 1000), z: Math.round(van.z * 1000), halfWidthMm: HALF_WIDTH_MM, halfLengthMm: HALF_LENGTH_MM, yaw: turned(van.yaw) })),
-      ...this.roamers.map((roamer): Obstacle => ({ kind: "box", x: Math.round(roamer.x * 1000), z: Math.round(roamer.z * 1000), halfWidthMm: roamer.halfWidthMm, halfLengthMm: roamer.halfLengthMm, yaw: turned(roamer.yaw) })),
+      ...this.roamers.filter(onTheGround).map((roamer): Obstacle => ({ kind: "box", x: Math.round(roamer.x * 1000), z: Math.round(roamer.z * 1000), halfWidthMm: roamer.halfWidthMm, halfLengthMm: roamer.halfLengthMm, yaw: turned(roamer.yaw) })),
     ];
   }
 

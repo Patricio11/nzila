@@ -119,6 +119,14 @@ const PAGES = [
   ["provador-barba-corpo", "/provador?hour=15.5&ang=35&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A0%2C%22hair%22%3A%22bone%22%2C%22hairColour%22%3A%22awningRed%22%2C%22top%22%3A%22long%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22khaki%22%2C%22shoe%22%3A%22shoe%22%2C%22extras%22%3A%5B%22barba%22%5D%2C%22tall%22%3A-1%2C%22broad%22%3A1%7D"],
   ["provador-brincos", "/provador?hour=15.5&ang=20&perto&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A3%2C%22hair%22%3A%22bob%22%2C%22hairColour%22%3A%22hairCopper%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22skirt%22%2C%22bottomColour%22%3A%22awningRed%22%2C%22shoe%22%3A%22shoe%22%2C%22extras%22%3A%5B%22brincos%22%2C%22oculos%22%5D%2C%22tall%22%3A1%2C%22broad%22%3A-1%7D"],
   ["provador-brincos-corpo", "/provador?hour=15.5&ang=35&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A3%2C%22hair%22%3A%22bob%22%2C%22hairColour%22%3A%22hairCopper%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22skirt%22%2C%22bottomColour%22%3A%22awningRed%22%2C%22shoe%22%3A%22shoe%22%2C%22extras%22%3A%5B%22brincos%22%2C%22oculos%22%5D%2C%22tall%22%3A1%2C%22broad%22%3A-1%7D"],
+  // The viaduct: the road on pillars, the painted bank, the market in its shade.
+  ["viaduto", "/cena?pack=l1&hour=15&tier=normal&transito=40&at=412,176,1.8&look=438,180,4.5"],
+  ["viaduto-mural", "/cena?pack=l1&hour=16.5&tier=normal&transito=40&at=424,170,1.7&look=433.5,181,2.6"],
+  ["viaduto-sombra", "/cena?pack=l1&hour=12&tier=normal&transito=12&at=425,214,1.7&look=437,226,2.0"],
+  ["viaduto-debaixo", "/cena?pack=l1&hour=12&tier=normal&transito=12&at=438,236,1.7&look=437,214,2.4"],
+  ["viaduto-rampa", "/cena?pack=l1&hour=16.5&tier=normal&transito=75&at=424,96,2.2&look=438,128,3.0"],
+  ["viaduto-do-alto", "/cena?pack=l1&hour=15&tier=alta&transito=75&at=392,150,30&look=438,180,2"],
+  ["viaduto-noite", "/cena?pack=l1&hour=20.2&tier=normal&transito=40&at=412,176,1.8&look=438,180,4.5"],
   // The mural.
   ["mural", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=207,164.5,1.7&look=207,173,2.0"],
   ["mural-lado", "/cena?pack=l1&hour=16.8&tier=normal&transito=30&at=190,166,1.7&look=205,172.6,2.0"],

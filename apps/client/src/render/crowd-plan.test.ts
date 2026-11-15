@@ -37,6 +37,13 @@ describe("a timetable", () => {
     expect(actorAt(actor, 30).travelled).toBe(30);
   });
 
+  test("a key may say how high the road is, and the height is walked between two of them", () => {
+    const climbing: CrowdActor = { role: "", offset: 0, keys: [[0, 0, 0, "", 0, 6], [10, 0, 40, "", 0, 0], [20, 0, 0, "", 0, 6]] };
+    expect(actorAt(climbing, 5).y).toBe(3);
+    expect(actorAt(climbing, 0).y).toBe(6);
+    expect(actorAt(actor, 15).y).toBe(0);
+  });
+
   test("a timetable of one place is that place for ever", () => {
     const seated: CrowdActor = { role: "any", offset: 0, y: 0.3, keys: [[0, 5, 6, "sit", 90], [600, 5, 6, "sit", 90]] };
     expect(actorAt(seated, 12345)).toMatchObject({ x: 5, z: 6, pose: "sit", speed: 0 });

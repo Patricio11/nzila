@@ -437,6 +437,9 @@ for index, (x0, x1) in enumerate(BLOCKS):
     wide = x1 - x0
     fz = front_z(x0, x1)
     back = STREET_A[0] - 3.0
+    if index == 4:
+        # The last block is the viaduct's (see below): nothing is built under or beside its ramp.
+        continue
     if index == 1:
         # The pink building has the block that faces the middle of the bay.
         keep = kb.edificio_rosa(b, x0 + 4.0, fz + 1.0, x1 - 4.0, back - 2.0, rng, G)
@@ -505,7 +508,7 @@ keep = kb.palacio_de_ferro(b, fx0 + 16.0, (z0 + z1) / 2, rng, G)
 mark(keep[0], keep[1], keep[2], keep[3], "#")
 row(fx0 + 32, fx1, z0, z1, 1, ["moderno"], gap_chance=0.0)
 poi("cinema", fx0 + 44.0, z0 - 1.5, "A fachada do cinema velho", "Já não passa filmes, mas a fachada continua a ser a mais bonita da rua.")
-for bx0, bx1 in BLOCKS[3:]:
+for bx0, bx1 in BLOCKS[3:4]:
     row(bx0, bx1, z0, z1, 1, ["moderno", "sobrado", "moderno", "torre"])
 
 # Behind the second street: the church and its quiet square, homes, and the skyline.
@@ -515,15 +518,47 @@ mark(keep[0], keep[1], keep[2], keep[3], "#")
 rect = kb.mural(b, BLOCKS[1][0] + 19.0, z0 + 12.0, 30.0, rng, G)
 mark(rect[0], rect[1], rect[2], rect[3], "#")
 poi("mural", BLOCKS[1][0] + 14.0, z0 + 9.5, "O mural", "Pintado por gente do bairro. Todos os anos ganha mais um bocado.")
-for bx0, bx1 in [BLOCKS[0], BLOCKS[2], BLOCKS[3], BLOCKS[4]]:
+for bx0, bx1 in [BLOCKS[0], BLOCKS[2], BLOCKS[3]]:
     row(bx0, bx1, z0, z1, 1, ["moderno", "moderno", "torre", "sobrado"])
-for i, bx in enumerate([150.0, 300.0, 380.0, 440.0]):
+for i, bx in enumerate([150.0, 300.0, 380.0, 405.0]):
     words[f"l1.residence.{i}"] = f"Prédio {i + 1}"
     places["residences"].append({"id": f"predio-{i + 1}", "pos": [bx, G, STREET_B[1] + 1.5], "units": 100, "layouts": ["quarto", "t1", "t2"], "rentKey": "rent.l1.standard"})
 # Towers on the skyline, out of reach.
 for i in range(9):
     tx = 70 + i * 44 + rng.uniform(-8, 8)
     kb.torre(b, tx, BACK + 9.0, rng.uniform(14, 20), 14.0, rng.randint(14, 24), rng, 0.0)
+
+# The viaduct (founder's picture, 2026-11-15): the road from the port comes in over the Baixa on pillars,
+# passes over both straight streets, and comes down a ramp to the avenue. Between the streets it stands on
+# a walled bank painted from end to end; behind the second street a market has grown up in its shade.
+VX0, VX1, DECK = 433.5, 442.5, 6.4
+RAMP_TOP, RAMP_FOOT = 140.0, shore(438.0) + AVENUE + 15.0
+for rect in kb.viaduto(b, VX0, VX1, [
+    (RAMP_FOOT, RAMP_TOP, G, DECK, "rampa"),
+    (RAMP_TOP, STREET_A[1] + 4.0, DECK, DECK, "pilares"),
+    (STREET_A[1] + 4.0, STREET_B[0] - 4.0, DECK, DECK, "muro"),
+    (STREET_B[0] - 4.0, DEEP, DECK, DECK, "pilares"),
+], G):
+    mark(rect[0], rect[1], rect[2], rect[3], "#")
+# From the ramp's foot to the avenue: a short street of its own.
+flat(VX0, shore(438.0) + AVENUE, VX1, RAMP_FOOT, 0.0, "tar")
+mark(VX0, shore(438.0) + AVENUE - 0.5, VX1, RAMP_FOOT, "=", 0)
+# The bank's west face, painted its whole length.
+kb.mural(b, VX0 - 0.02, (STREET_A[1] + STREET_B[0]) / 2, STREET_B[0] - STREET_A[1] - 9.0, rng, G, high=5.2, side_on=True)
+# The market in the shade, and along the pavement beside it: bancas, sellers on their benches, bacias.
+shade_z0, shade_z1 = STREET_B[1] + 4.0, BACK - 3.0
+for k in range(4):
+    sz = shade_z0 + 2.5 + k * 6.2
+    block(VX0 - 2.6, sz, kb.banca(b, VX0 - 2.6, sz, rng, G))
+    if k % 2 == 0:
+        block((VX0 + VX1) / 2 + 1.0, sz + 2.6, kb.banca(b, (VX0 + VX1) / 2 + 1.0, sz + 2.6, rng, G))
+shade_sellers = []
+for k, (sx, sz) in enumerate([((VX0 + VX1) / 2 - 2.0, shade_z0 + 4.0), ((VX0 + VX1) / 2 - 1.4, shade_z0 + 13.0), (VX0 - 3.4, STREET_B[0] - 6.5), (VX0 - 3.4, STREET_A[1] + 9.0)]):
+    kb.banquinho(b, sx, sz, G)
+    block(sx, sz, 0.3)
+    for dx, dz in [(-0.95, -0.45), (-1.05, 0.4)]:
+        block(sx + dx, sz + dz, kb.bacia_no_chao(b, sx + dx, sz + dz, rng, G))
+    shade_sellers.append((sx, sz))
 
 # Two more paragens, on the avenue.
 for key, px, name, at in [("marginal", 300.0, "Marginal", "na Marginal"), ("porto", 404.0, "Porto", "no Porto")]:
@@ -707,6 +742,16 @@ for n, (sx, sz) in enumerate(sellers):
     keys = timetable([("at", sx, sz + 0.04), ("stay", 14.0 + n * 5.0, "baixo", 180.0), ("stay", 2.2, "baixo-chamar", 180.0), ("stay", 22.0 - n * 3.0, "baixo", 180.0)])
     actors.append({"role": "vendedeira", "who": n, "offset": n * 7.0, "keys": keys})
 
+# In the viaduct's shade and before its painted wall: more sellers, facing the street that passes.
+for n, (sx, sz) in enumerate(shade_sellers):
+    keys = timetable([("at", sx - 0.04, sz), ("stay", 11.0 + n * 6.0, "baixo", 270.0), ("stay", 2.2, "baixo-chamar", 270.0), ("stay", 19.0, "baixo", 270.0)])
+    actors.append({"role": "vendedeira", "who": n + 1, "offset": n * 5.0, "keys": keys})
+# People who shop there, to and fro along the pavement under the wall.
+for who, (pace, lane) in enumerate([(1.2, 2.2), (1.35, 3.4)]):
+    ends = (STREET_A[1] + 5.0, BACK - 6.0) if who == 0 else (BACK - 8.0, STREET_A[1] + 7.0)
+    keys = timetable([("at", VX0 - lane - 2.4, ends[0]), ("go", VX0 - lane - 2.4, ends[1], pace), ("stay", 9.0, "", 90.0), ("go", VX0 - lane - 2.4, ends[0], pace), ("stay", 6.0, "", 90.0)])
+    actors.append({"role": "any", "who": who + 5, "offset": round(crowd_rng.uniform(0, keys[-1][0]), 1), "keys": keys})
+
 # Nobody may fish on the Marginal (D-0.47). One man does, off the edge east of the courts; the officer
 # comes from the post and runs him off; he comes back when the officer has gone. For ever.
 fish_x = 362.0
@@ -803,6 +848,26 @@ avenue_ring = [(px, shore(px) + INNER_TOWN) for px in range(112, 420, 14)] + [(4
 avenue_ring += [(px, shore(px) + INNER_BAY) for px in range(410, 108, -14)] + [(105.5, shore(105.5) + INNER_BAY), (102.5, shore(102.5) + 41.2), (105.5, shore(105.5) + INNER_TOWN)]
 for n, (model, pace) in enumerate([("carro-branco", 10.5), ("carro-cinza", 9.6), ("mota", 12.0), ("carro-preto", 10.0), ("carro-branco", 9.2), ("carro-vermelho", 10.8)]):
     circuit(model, avenue_ring, pace, n / 6 + 0.04)
+# Over the viaduct: in from the port on the deck, down the ramp, right into the avenue and away east;
+# then round again where nobody sees (a key's sixth number is how high the road is there).
+def descent(model, pace, offset):
+    lane_x = VX1 - 2.4
+    out_z = shore(440.0) + INNER_TOWN + 3.0
+    path = [(lane_x, DEEP + 6.0, DECK), (lane_x, RAMP_TOP, DECK), (lane_x, RAMP_FOOT, 0.0), (lane_x, out_z + 6.0, 0.0), (lane_x + 3.0, out_z, 0.0), (WIDE + 22.0, out_z, 0.0)]
+    keys, clock_s = [], 0.0
+    for (px, pz, py), (nx, nz, ny) in zip(path, path[1:]):
+        keys.append([round(clock_s, 1), round(px, 2), round(pz, 2), "", round(math.degrees(math.atan2(nx - px, nz - pz)) % 360, 1), py])
+        clock_s += math.hypot(nx - px, nz - pz) / pace
+    # Out of the district and back to where it came in, fast and unseen.
+    for px, pz, py, wait in [(WIDE + 22.0, out_z, 0.0, 2.0), (WIDE + 22.0, DEEP + 6.0, DECK, 2.0), (lane_x, DEEP + 6.0, DECK, 9.0)]:
+        keys.append([round(clock_s, 1), round(px, 2), round(pz, 2), "", 180.0, py])
+        clock_s += wait
+    keys[-1][0] = round(clock_s, 1)
+    drivers.append({"model": model, "offset": round(offset * clock_s, 1), "keys": keys})
+
+
+for n, (model, pace) in enumerate([("carro-preto", 9.0), ("candongueiro", 8.0), ("carro-branco", 9.6)]):
+    descent(model, pace, n / 3 + 0.05)
 # Round a block of the Baixa: east along the first street, down a street, west along the second, up again.
 block_ring = [(270.0, STREET_A[1] - 2.0), (336.0, STREET_A[1] - 2.0), (342.0, STREET_A[1] + 4.0), (342.0, STREET_B[0] - 4.0), (336.0, STREET_B[0] + 2.0), (272.0, STREET_B[0] + 2.0), (266.0, STREET_B[0] - 4.0), (266.0, STREET_A[1] + 4.0)]
 for n, (model, pace) in enumerate([("kupapata", 6.2), ("carro-cinza", 8.0), ("mota", 9.5)]):

@@ -6,7 +6,7 @@
 // every phone the same street.
 
 /** [seconds, x, z, what they do from then on, the way they face when they stand (degrees)] */
-export type CrowdKey = readonly [number, number, number, string, number];
+export type CrowdKey = readonly [number, number, number, string, number] | readonly [number, number, number, string, number, number];
 
 export interface CrowdActor {
   /** "any" for someone of the playable people, or a role of the street: zungueira, policia, pescador. */
@@ -35,6 +35,8 @@ export interface CrowdFile {
 export interface ActorMoment {
   readonly x: number;
   readonly z: number;
+  /** How high the ground is there, when the timetable says (a road on a viaduct): otherwise 0. */
+  readonly y: number;
   /** Radians about the vertical, 0 facing +Z. */
   readonly yaw: number;
   /** Metres a second. */
@@ -65,6 +67,7 @@ export function actorAt(actor: CrowdActor, seconds: number): ActorMoment {
       return {
         x: x0 + (x1 - x0) * part,
         z: z0 + (z1 - z0) * part,
+        y: (keys[i]![5] ?? 0) + ((keys[i + 1]![5] ?? 0) - (keys[i]![5] ?? 0)) * part,
         yaw: moving ? Math.atan2(x1 - x0, z1 - z0) : (face * Math.PI) / 180,
         speed: moving ? length / span : 0,
         travelled: travelled + length * part,
@@ -75,5 +78,5 @@ export function actorAt(actor: CrowdActor, seconds: number): ActorMoment {
     travelled += length;
   }
   const [, x, z, pose, face] = keys[0]!;
-  return { x, z, yaw: (face * Math.PI) / 180, speed: 0, travelled: 0, pose, since: 0 };
+  return { x, z, y: keys[0]![5] ?? 0, yaw: (face * Math.PI) / 180, speed: 0, travelled: 0, pose, since: 0 };
 }

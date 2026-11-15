@@ -205,9 +205,10 @@ test.describe("the candongueiros", () => {
     const later = await page.evaluate(() => window.__cena!.vans!);
     // The other traffic goes round too: cars, motos and a kupapata, none where it was a moment ago.
     const cars = await page.evaluate(() => window.__cena!.cars!);
-    expect(cars.map((car) => car.model.split("-")[0]).sort().filter((model, n, all) => all.indexOf(model) === n)).toEqual(["carro", "kupapata", "mota"]);
+    expect(cars.map((car) => car.model.split("-")[0]).sort().filter((model, n, all) => all.indexOf(model) === n)).toEqual(["candongueiro", "carro", "kupapata", "mota"]);
     const first = (await page.evaluate(() => (window.__cenaMoment!(3), new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(window.__cena!.cars!))))))) as typeof cars;
-    expect(first.every((car, n) => Math.hypot(car.x - cars[n]!.x, car.z - cars[n]!.z) > 20)).toBe(true);
+    // (One of those that come down the viaduct may be waiting out of sight at either moment.)
+    expect(first.filter((car, n) => Math.hypot(car.x - cars[n]!.x, car.z - cars[n]!.z) > 20).length >= first.length - 1).toBe(true);
     // Traffic keeps to the right: on the avenue's town side the van has gone east.
     expect(later.some((van) => van.route === "linha-marginal" && !van.dwelling && van.x > atStop.x + 20)).toBe(true);
     expect(seen.errors).toEqual([]);
