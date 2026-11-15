@@ -63,7 +63,7 @@ const PAGES = [
   // The other vehicles, standing in the rehearsal town's street.
   ["veiculos-fila", "/cena?hour=15&tier=normal&at=125,91.7,2.2&look=125,98.7,0.8"],
   ["veiculos-carro", "/cena?hour=16.5&tier=normal&at=125.5,94.7,1.4&look=122,98.7,0.8"],
-  ["veiculos-carro-tras", "/cena?hour=12&tier=normal&at=112.6,95.7,1.5&look=116.5,98.7,0.8"],
+  ["veiculos-carro-tras", "/cena?hour=12&tier=normal&at=118.2,95.7,1.5&look=122,98.7,0.8"],
   ["veiculos-kupapata", "/cena?hour=15&tier=normal&at=131,95.2,1.5&look=128,98.7,0.9"],
   ["veiculos-kupapata-tras", "/cena?hour=12&tier=normal&at=124.6,95.7,1.6&look=128,98.7,0.9"],
   ["veiculos-mota", "/cena?hour=15&tier=normal&at=134.8,96.2,1.3&look=133,98.7,0.7"],
@@ -102,6 +102,9 @@ const PAGES = [
   ["gente-vendedeiras-lado", "/cena?pack=l1&hour=16.5&tier=normal&transito=31&at=113.5,159,1.3&look=120,160.1,0.6"],
   ["gente-poupanca", "/cena?pack=l1&hour=17.2&tier=poupanca&transito=30&at=250,66.5,1.7&look=215,66,1.2"],
   ["viagem-espera", "/andar?pack=l1&em=302.5,107.4&cam=215&quem=2&hour=16.8&transito=3"],
+  // The mural.
+  ["mural", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=207,164.5,1.7&look=207,173,2.0"],
+  ["mural-lado", "/cena?pack=l1&hour=16.8&tier=normal&transito=30&at=190,166,1.7&look=205,172.6,2.0"],
   // Street name plates and the crossing's sign.
   ["placas-avenida", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=262,113.5,1.7&look=268.9,109.5,2.6"],
   ["placas-avenida-perto", "/cena?pack=l1&hour=12&tier=normal&transito=30&at=266.5,106,2.0&look=268.9,109.9,2.6"],

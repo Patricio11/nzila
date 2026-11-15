@@ -141,7 +141,7 @@ export function Andar() {
     let seat: { x: number; y: number; z: number; facing: number } | null = null;
     let sit = 0;
     // Riding a van: which one, and whether the cobrador has been asked for the next paragem.
-    let ride: { route: string; index: number; last: VanSeen; asked: boolean; left: boolean; camYaw: number; askedAt: number; arrivedAt: number; riders: { who: string; person: Person }[] } | null = null;
+    let ride: { route: string; index: number; last: VanSeen; asked: boolean; left: boolean; camYaw: number; boardedAt: number; askedAt: number; arrivedAt: number; riders: { who: string; person: Person }[] } | null = null;
     const eye = new Vector3();
     // The lamp in a van's ceiling: lit for the one being ridden, after dark, so that everyone inside is seen.
     const cabin = new PointLight(undefined, 0, 6, 1);
@@ -289,7 +289,7 @@ export function Andar() {
         } else if (waiting && (asks.current.act || boardsItself) && !seat) {
           asks.current.act = false;
           // For a film: gets on by itself and asks for the next paragem.
-          const boarded = { route: waiting.route, index: waiting.index, last: waiting, asked: boardsItself, left: false, camYaw: camera.yaw, askedAt: boardsItself ? seconds : -99, arrivedAt: -99, riders: [] as { who: string; person: Person }[] };
+          const boarded = { route: waiting.route, index: waiting.index, last: waiting, asked: boardsItself, left: false, camYaw: camera.yaw, boardedAt: seconds, askedAt: boardsItself ? seconds + 3 : -99, arrivedAt: -99, riders: [] as { who: string; person: Person }[] };
           ride = boarded;
           // The others in the van: the driver, the cobrador by the door, a few passengers. They get in as their bodies arrive.
           const van = district.traffic?.bodyOf(waiting.route, waiting.index);
@@ -456,9 +456,12 @@ export function Andar() {
           const band = ride ? { line: `${word(ride.last.stops[0]!)} · ${word(ride.last.stops[ride.last.stops.length - 1]!)}`, stops: ride.last.stops.map(word), stopsAt: ride.last.stops.map((key) => (word(`${key}.em`) === `${key}.em` ? word(key) : word(`${key}.em`))), next: ride.last.stop, progress: ride.last.progress, waiting: ride.last.dwelling, said: null as string | null } : null;
           if (band && ride) {
             // What the cobrador is saying: that the paragem was heard, where we are, or that there is room.
-            if (seconds - ride.askedAt < 3.5 && !ride.last.dwelling) band.said = tr.t("ride.cobrador.asked");
-            else if (ride.last.dwelling && ride.left && seconds - ride.arrivedAt < 5) band.said = tr.t("ride.cobrador.arrived", { paragem: band.stopsAt[band.next] ?? "" });
-            else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { linha: band.line });
+            // He calls the paragem ahead, always; "a sair" when someone has asked for it or the van is there.
+            const ahead = band.stops[ride.last.dwelling && !ride.left ? (band.next + 1) % band.stops.length : band.next] ?? "";
+            if (seconds - ride.boardedAt < 3) band.said = tr.t("ride.cobrador.squeeze");
+            else if (seconds - ride.askedAt < 3.5 && !ride.last.dwelling) band.said = tr.t("ride.cobrador.asked", { proxima: ahead });
+            else if (ride.last.dwelling && ride.left && seconds - ride.arrivedAt < 5) band.said = tr.t("ride.cobrador.arrived", { paragem: band.stops[band.next] ?? "" });
+            else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { proxima: ahead });
           }
           setHud({ ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }

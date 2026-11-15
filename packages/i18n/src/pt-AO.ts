@@ -117,22 +117,24 @@ export const ptAO = {
   "settings.hand": "Mão",
   "settings.hand.right": "Direita",
   "settings.hand.left": "Esquerda",
-  // What a candongueiro has written across its back window: each van its own. Invented, in the manner of the
-  // real ones; drafts for the founder to cross out and add to. None is the name of a brand, a film or a song.
-  "van.phrase.0": "Tá Cromado",
-  "van.phrase.1": "Sem Maka",
-  "van.phrase.2": "Calma, Mano",
-  "van.phrase.3": "Filho da Mutamba",
-  "van.phrase.4": "Kota do Volante",
-  "van.phrase.5": "Só na Paz",
-  "van.phrase.6": "Mamã Confia",
-  "van.phrase.7": "Rei da Marginal",
+  // What a candongueiro has written across its back window: each van its own. The founder's list (2026-11-15),
+  // as such phrases are painted on real vans, English and all.
+  "van.phrase.0": "In God We Trust",
+  "van.phrase.1": "Ser Africano dá trabalho",
+  "van.phrase.2": "Bumba Bumba",
+  "van.phrase.3": "Marimbondo",
+  "van.phrase.4": "Velocidade Furiosa",
+  "van.phrase.5": "Sem Energia",
+  "van.phrase.6": "Soldado Abatido",
+  "van.phrase.7": "Jesus é o Caminho",
   // The house's own advert, on the back window of a van whose slot nobody has bought.
   "van.ad.house": "O teu anúncio aqui",
-  // What the cobrador says. Drafts for the founder: {linha} is the line, {paragem} the place with its own preposition.
-  "ride.cobrador.call": "{linha}. Há lugar, há lugar.",
-  "ride.cobrador.asked": "Paragem na próxima, motorista.",
-  "ride.cobrador.arrived": "Estamos {paragem}. Quem fica?",
+  // What the cobrador says (founder, 2026-11-15): he always calls the next paragem, twice, and "a sair" for whoever
+  // gets off there; and he tells people to squeeze up ("emagrece") when someone gets in. {proxima} and {paragem} are names.
+  "ride.cobrador.call": "{proxima}, {proxima}. Há lugar.",
+  "ride.cobrador.squeeze": "Emagrece aí.",
+  "ride.cobrador.asked": "{proxima} a sair.",
+  "ride.cobrador.arrived": "{paragem}, {paragem}. {paragem} a sair.",
   // Followed by the place with its own preposition, which the place brings: "na Marginal", "no Kilamba", "em Cazenga".
   "route.atStop": "Estamos",
 

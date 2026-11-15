@@ -473,15 +473,75 @@ def mesa_de_xadrez(b, x, z, ground=0.14):
     return 1.1
 
 
-def mural(b, x, z, length, rng, ground=0.14):
-    """A long wall painted in blocks of colour: the mural. Faces the side of smaller z."""
+def mural(b, x, z, length, rng, ground=0.14, high=4.2):
+    """
+    A long wall painted from end to end, as walls under Luanda's roads are: panels of loud colour, and
+    on them a sun, flowers, a wheel, waves and zigzags. No word and no mark of anybody's on it.
+    Faces the side of smaller z.
+    """
     b.at(x, z)
     b.level = BOTH
-    b.box((x, ground + 1.6, z + 0.15), (length, 3.2, 0.3), "paintWhite")
-    at = x - length / 2
-    while at < x + length / 2 - 0.5:
-        w = min(rng.uniform(1.2, 3.2), x + length / 2 - at)
-        h = rng.uniform(1.6, 3.0)
-        b.rect((at + w / 2, ground + h / 2 + 0.1, z - 0.02), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), w, h, rng.choice(["awningRed", "awningGold", "awningTeal", "zincBlue", "bankPink", "acaciaLeaf", "cloth", "ferroYellow"]))
-        at += w
+    b.box((x, ground + high / 2, z + 0.15), (length, high, 0.3), "paintWhite")
+    x0 = x - length / 2
+    facing = (0.0, 0.0, -1.0)
+
+    def at(px, py, out=1):
+        return (x0 + px, ground + py, z - 0.012 * out)
+
+    def patch(points, colour, out=2):
+        b.face([at(px, py, out) for px, py in points], colour, toward=facing)
+
+    def disc(cx, cy, r, colour, out=2, sides=10, squash=1.0):
+        patch([(cx + math.cos(2 * math.pi * k / sides) * r, cy + math.sin(2 * math.pi * k / sides) * r * squash) for k in range(sides)], colour, out)
+
+    # The panels, their edges leaning, so that one colour runs into the next.
+    paints = ["muralPink", "muralYellow", "muralBlue", "muralPink", "muralGreen", "muralPurple", "muralYellow", "muralBlue"]
+    count = max(3, int(length / 5.5))
+    edges = [0.0] + [length * k / count + rng.uniform(-0.5, 0.5) for k in range(1, count)] + [length]
+    for k in range(count):
+        lean0 = 0.0 if k == 0 else 0.7
+        lean1 = 0.0 if k == count - 1 else 0.7
+        patch([(edges[k] - lean0, 0.12), (edges[k + 1] - lean1, 0.12), (edges[k + 1] + lean1, high - 0.08), (edges[k] + lean0, high - 0.08)], paints[k % len(paints)], 1)
+    b.level = FULL
+    for k in range(count):
+        mid = (edges[k] + edges[k + 1]) / 2
+        wide = edges[k + 1] - edges[k]
+        ground_paint = paints[k % len(paints)]
+        ink = [p for p in ("muralYellow", "paintWhite", "muralPink", "muralBlue", "muralGreen", "clothBlack") if p != ground_paint]
+        kind = k % 4
+        if kind == 0:
+            # A sun with its rays, low on the wall.
+            for r in range(9):
+                a0, a1 = math.pi * (r - 0.18) / 8, math.pi * (r + 0.18) / 8
+                patch([(mid + math.cos(a0) * 0.95, 1.1 + math.sin(a0) * 0.95), (mid + math.cos(a1) * 0.95, 1.1 + math.sin(a1) * 0.95), (mid + math.cos((a0 + a1) / 2) * 1.75, 1.1 + math.sin((a0 + a1) / 2) * 1.75)], ink[0])
+            disc(mid, 1.1, 0.8, ink[0], 2, 12)
+            disc(mid, 1.1, 0.5, ink[1], 3, 10)
+        elif kind == 1:
+            # Flowers: petals round a middle, large and small.
+            for fx, fy, size, petal, heart in [(mid - wide * 0.2, 2.5, 0.62, ink[0], ink[1]), (mid + wide * 0.22, 1.5, 0.82, ink[1], ink[2]), (mid - wide * 0.05, 0.85, 0.4, ink[2], ink[0])]:
+                for pk in range(7):
+                    a = 2 * math.pi * pk / 7
+                    disc(fx + math.cos(a) * size * 0.62, fy + math.sin(a) * size * 0.62, size * 0.36, petal, 2, 7)
+                disc(fx, fy, size * 0.34, heart, 3, 8)
+        elif kind == 2:
+            # A wheel: its tyre, its rim, its spokes.
+            cy, r = 1.9, min(1.45, wide * 0.36)
+            for s in range(16):
+                a0, a1 = 2 * math.pi * s / 16, 2 * math.pi * (s + 1) / 16
+                patch([(mid + math.cos(a0) * r, cy + math.sin(a0) * r), (mid + math.cos(a1) * r, cy + math.sin(a1) * r), (mid + math.cos(a1) * r * 0.76, cy + math.sin(a1) * r * 0.76), (mid + math.cos(a0) * r * 0.76, cy + math.sin(a0) * r * 0.76)], "clothBlack")
+            for s in range(8):
+                a = 2 * math.pi * s / 8
+                patch([(mid + math.cos(a - 0.06) * r * 0.74, cy + math.sin(a - 0.06) * r * 0.74), (mid + math.cos(a + 0.06) * r * 0.74, cy + math.sin(a + 0.06) * r * 0.74), (mid + math.cos(a + 0.3) * r * 0.16, cy + math.sin(a + 0.3) * r * 0.16), (mid + math.cos(a - 0.3) * r * 0.16, cy + math.sin(a - 0.3) * r * 0.16)], ink[1])
+            disc(mid, cy, r * 0.2, ink[0], 3, 8)
+        else:
+            # Zigzags and dots, in bands.
+            for band, (by, paint) in enumerate([(0.7, ink[0]), (1.7, ink[1]), (2.7, ink[2])]):
+                teeth = max(3, int(wide / 1.1))
+                for tk in range(teeth):
+                    tx0 = edges[k] + 0.4 + (wide - 0.8) * tk / teeth
+                    tx1 = edges[k] + 0.4 + (wide - 0.8) * (tk + 1) / teeth
+                    patch([(tx0, by), (tx1, by), ((tx0 + tx1) / 2, by + 0.55)], paint)
+                    if band == 1:
+                        disc((tx0 + tx1) / 2, by + 0.72, 0.1, ink[3 % len(ink)], 3, 6)
+    b.level = BOTH
     return (x - length / 2, z, x + length / 2, z + 0.4)

@@ -512,7 +512,7 @@ for bx0, bx1 in BLOCKS[3:]:
 z0, z1 = STREET_B[1] + 3.0, BACK - 2.0
 keep = kb.igreja(b, (BLOCKS[1][0] + BLOCKS[1][1]) / 2, z0 + 7.0, G)
 mark(keep[0], keep[1], keep[2], keep[3], "#")
-rect = kb.mural(b, BLOCKS[1][0] + 14.0, z0 + 12.0, 20.0, rng, G)
+rect = kb.mural(b, BLOCKS[1][0] + 19.0, z0 + 12.0, 30.0, rng, G)
 mark(rect[0], rect[1], rect[2], rect[3], "#")
 poi("mural", BLOCKS[1][0] + 14.0, z0 + 9.5, "O mural", "Pintado por gente do bairro. Todos os anos ganha mais um bocado.")
 for bx0, bx1 in [BLOCKS[0], BLOCKS[2], BLOCKS[3], BLOCKS[4]]:
@@ -546,10 +546,12 @@ for street in (STREET_A, STREET_B):
 STREETS = {
     "marginal": "Avenida 4 de Fevereiro",
     "a": "Rua Major Kanhangulo",
-    "b": "Rua Rainha Ginga",
+    "b": "Rua Amílcar Cabral",
     "largo": "Largo da Mutamba",
 }
-CROSS_NAMES = ["Rua Pedro Félix Machado", "Rua Amílcar Cabral", "Rua Cerveira Pereira", "Rua Friedrich Engels", "Rua Robert Shields"]
+# The five that run inland are the founder's own list (2026-11-15), west to east. He named Rua Rainha Ginga
+# among them, so the second straight street, which had that name, takes another of the Baixa's.
+CROSS_NAMES = ["Rua Rainha Ginga", "Avenida Ho Chi Minh", "Avenida Comandante Valódia", "Avenida Hoji-ya-Henda", "Rua dos Mercadores"]
 signs = []
 
 

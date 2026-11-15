@@ -63,6 +63,12 @@ export const WORLD = {
   // An advertising board with nothing sold on it yet: the house's gold, and a dark band where a name goes
   adBoard: hex("#F2B544"),
   adBoardBand: hex("#1B2238"),
+  // The mural's paints: louder than anything else in the world, as a mural is
+  muralPink: hex("#E63E8C"),
+  muralYellow: hex("#F7C531"),
+  muralBlue: hex("#2D7FD3"),
+  muralGreen: hex("#35B06F"),
+  muralPurple: hex("#7A4BC2"),
   signBlue: hex("#1D4F9C"), // the blue of a road sign and of a street's name plate
   // Vehicles (art/scripts/vehicles.py)
   vanGlass: hex("#27384C"),
