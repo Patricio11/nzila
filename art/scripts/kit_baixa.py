@@ -325,6 +325,32 @@ def posto(b, x, z, ground=0.14):
     return (x - 2.5, z - 1.8, x + 2.5, z + 1.8)
 
 
+def bacia_no_chao(b, x, z, rng, ground=0.14, colour=None, goods=None):
+    """A wide plastic bacia on the ground, heaped with what is for sale: how the sellers lay out their place."""
+    b.at(x, z)
+    b.level = FULL
+    colour = colour or rng.choice(["zincBlue", "awningRed", "awningTeal", "paintMint"])
+    b.tube([(x, ground, z), (x, ground + 0.09, z), (x, ground + 0.2, z)], [0.2, 0.3, 0.34], 9, colour, cap=False)
+    heap = goods or rng.choice([["awningGold"], ["awningRed", "acaciaLeaf"], ["sand", "paintWhite"], ["awningGold", "acaciaLeaf"], ["roofTile"]])
+    for k in range(6):
+        angle = 2 * math.pi * k / 6 + rng.uniform(0, 0.6)
+        reach = 0.17 if k else 0.0
+        b.gem((x + math.cos(angle) * reach, ground + 0.23, z + math.sin(angle) * reach), (0.1, 0.075, 0.1), 5, heap[k % len(heap)], rng, rough=0.1)
+    b.level = BOTH
+    return 0.36
+
+
+def banquinho(b, x, z, ground=0.14):
+    """The low wooden bench a seller sits on all day."""
+    b.at(x, z)
+    b.level = FULL
+    b.box((x, ground + 0.2, z), (0.36, 0.04, 0.26), "wood", skip_bottom=False)
+    for dx in (-0.14, 0.14):
+        b.box((x + dx, ground + 0.09, z), (0.04, 0.18, 0.22), "wood")
+    b.level = BOTH
+    return 0.2
+
+
 def placa(b, x, z, ground=0.14):
     """
     The post of a street's name plates, at a corner. The plates themselves are drawn by the game, which

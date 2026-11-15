@@ -46,7 +46,7 @@ const PAGES = [
   ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((n) => [[`corpo-${n}`, `/corpo?hour=16.6&quem=${n}&ang=20`], [`corpo-${n}-rosto`, `/corpo?hour=15&quem=${n}&perto&ang=18`]]),
   ["corpo-2-tras", "/corpo?hour=16.6&quem=0&ang=160"],
   // The people of the street: two zungueiras, the police officer, the one who fishes.
-  ...[8, 9, 10, 11].flatMap((n) => [[`rua-${n}`, `/corpo?hour=16.6&quem=${n}&ang=25`], [`rua-${n}-tras`, `/corpo?hour=15&quem=${n}&ang=200`]]),
+  ...[8, 9, 10, 11, 12, 13, 14].flatMap((n) => [[`rua-${n}`, `/corpo?hour=16.6&quem=${n}&ang=25`], [`rua-${n}-tras`, `/corpo?hour=15&quem=${n}&ang=200`]]),
   ["hud", "/andar?hour=16.8&cam=200"],
   ...["acenar", "rir", "aplaudir", "chamar", "dancar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
   ["ela-joelhos-lado", "/andar?hour=15&cam=90&quem=6&gesto=dancar&t=6.0&pausa"],
@@ -97,6 +97,9 @@ const PAGES = [
   ["gente-zunga", "/cena?pack=l1&hour=15&tier=normal&transito=20&at=203,109,1.6&look=212,114.2,1.2"],
   ["gente-zunga-corrida", "/cena?pack=l1&hour=15&tier=normal&transito=42.5&at=186,110,1.7&look=200,114,1.1"],
   ["gente-posto", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=392,58,1.7&look=384,70,2.4"],
+  ["gente-vendedeiras", "/cena?pack=l1&hour=15&tier=normal&transito=10&at=127.5,155.8,1.5&look=123.5,160,0.5"],
+  ["gente-vendedeiras-perto", "/cena?pack=l1&hour=12&tier=normal&transito=10&at=121,157.6,1.2&look=118.2,160.2,0.55"],
+  ["gente-vendedeiras-lado", "/cena?pack=l1&hour=16.5&tier=normal&transito=31&at=113.5,159,1.3&look=120,160.1,0.6"],
   ["gente-poupanca", "/cena?pack=l1&hour=17.2&tier=poupanca&transito=30&at=250,66.5,1.7&look=215,66,1.2"],
   ["viagem-espera", "/andar?pack=l1&em=302.5,107.4&cam=215&quem=2&hour=16.8&transito=3"],
   // Street name plates and the crossing's sign.

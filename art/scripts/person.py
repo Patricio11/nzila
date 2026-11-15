@@ -394,6 +394,21 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         b.face([T((-0.02, 0.992, waist_z * 1.14)), T((0.02, 0.992, waist_z * 1.14)), T((0.02, 1.024, waist_z * 1.14)), T((-0.02, 1.024, waist_z * 1.14))], "rim", toward=_turn((0.0, 0.0, 1.0), yaw))
 
     # ------------------------------------------------------------ what is carried
+    if spec.get("bebe"):
+        # A baby on the back, tied on with a pano: the cloth round the chest and under the child, the
+        # small head against the mother's shoulders, a foot out at each side.
+        b.part = "torso"
+        cloth = spec["bebe"]
+        wrap = [ring(0.0, y, -0.012, chest * 1.1 * grow, chest_z * 1.16 * grow, 12) for y, grow in [(1.10, 1.0), (1.20, 1.03), (1.31, 1.0)]]
+        loft(wrap, [cloth, cloth])
+        bundle = [ring(0.0, y, -chest_z - 0.045, rx, rz, 8) for y, rx, rz in [(1.04, 0.07, 0.05), (1.12, 0.115, 0.085), (1.24, 0.12, 0.09), (1.33, 0.085, 0.07)]]
+        loft(bundle, [cloth] * 3)
+        cap(bundle[0], cloth, T((0.0, 1.2, -chest_z)))
+        cap(bundle[-1], cloth, T((0.0, 1.2, -chest_z)))
+        b.gem(T((0.0, 1.385, -chest_z - 0.05)), (0.062 * s, 0.066 * s, 0.066 * s), 7, skin, rng, rough=0.03)
+        b.gem(T((0.0, 1.425, -chest_z - 0.062)), (0.055 * s, 0.03 * s, 0.055 * s), 6, "hairBlack", rng, rough=0.05)
+        for side in (1, -1):
+            b.tube([T((side * 0.11, 1.1, -chest_z - 0.03)), T((side * 0.165, 1.04, -chest_z + 0.03))], [0.024 * s, 0.02 * s], 5, skin)
     if spec.get("bacia"):
         # The zungueira's bacia, on a rolled cloth on the head, heaped with what she sells.
         b.part = "head"

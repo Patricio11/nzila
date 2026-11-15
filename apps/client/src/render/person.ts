@@ -44,6 +44,8 @@ export interface Doing {
   readonly land?: number;
   /** Something held: a fishing rod out over the water, or a hand up to the bacia on the head. */
   readonly hold?: "cana" | "bacia" | "guiador";
+  /** 0 to 1: seated low, on a little bench or a kerb, knees up and forearms on them. Over and above `sit`. */
+  readonly low?: number;
 }
 
 interface Joint {
@@ -162,6 +164,22 @@ export class Person {
         this.toward(`foot${tag}`, sit, 0.05);
         this.toward(`upperArm${tag}`, sit, -0.42, 0, -side * 0.16);
         this.toward(`lowerArm${tag}`, sit, -0.95, -side * 0.25);
+      }
+    }
+
+    // Seated low: the hips nearly to the ground, the knees up and apart, the back rounded forward.
+    const low = ease(doing.low ?? 0);
+    if (low > 0) {
+      hipsY -= low * 0.27 * scale;
+      this.toward("hips", low, -0.05);
+      this.toward("spine", low, 0.22);
+      this.toward("chest", low, 0.12);
+      for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+        this.toward(`thigh${tag}`, low, -1.98, 0, side * (this.skirt ? 0.16 : 0.3));
+        this.toward(`shin${tag}`, low, 2.12);
+        this.toward(`foot${tag}`, low, -0.1);
+        this.toward(`upperArm${tag}`, low, -0.78, 0, -side * 0.1);
+        this.toward(`lowerArm${tag}`, low, -0.7, -side * 0.35);
       }
     }
 

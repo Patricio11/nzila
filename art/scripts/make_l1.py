@@ -465,6 +465,15 @@ for i in range(5):
         block(sx, sz, kb.banca(b, sx, sz, rng, G))
 row(mx0 + 44, mx1, z0, z1, 1, ["moderno", "sobrado"])
 row(mx0, mx0 + 40, z0 + 22, z1, 0, ["sobrado"])
+# Before the market, on the pavement of the first street: sellers on their low benches, bacias on the ground.
+sellers = []
+for i, sx in enumerate([mx0 + 10.0, mx0 + 15.5, mx0 + 21.5, mx0 + 29.0]):
+    seat_z = z0 - 0.75
+    kb.banquinho(b, sx, seat_z, G)
+    block(sx, seat_z, 0.3)
+    for dx, dz in [(-0.5, -0.9), (0.35, -1.0)] + ([(1.1, -0.75)] if i % 2 == 0 else []):
+        block(sx + dx, seat_z + dz, kb.bacia_no_chao(b, sx + dx, seat_z + dz, rng, G))
+    sellers.append((sx, seat_z))
 poi("fruta", mx0 + 14.0, z0 + 9.0, "A fila da fruta", "Manga, maboque, múcua. Prova antes de comprar, ninguém leva a mal.")
 # Largo da Mutamba: an open square, trees, chess tables, and the paragem where the linhas meet.
 lx0, lx1 = BLOCKS[1]
@@ -690,6 +699,11 @@ for who, (pace, lane) in enumerate([(1.3, 6.0), (1.2, 8.0), (1.4, 7.0)]):
     actors.append({"role": "any", "who": who + 3, "offset": round(crowd_rng.uniform(0, keys[-1][0]), 1), "keys": keys})
 sell_x, sell_z = largo[0] + 52.5, largo[1] + 4.0
 actors.append({"role": "zungueira", "who": 1, "offset": 0.0, "keys": timetable([("at", sell_x, sell_z), ("stay", 20.0, "", 0.0), ("stay", 2.4, "chamar", 0.0), ("go", sell_x - 6.0, sell_z + 0.6, 0.9), ("stay", 18.0, "", 0.0), ("go", sell_x, sell_z, 0.9)])})
+
+# The sellers before the market: seated low all day; now and then one calls to whoever passes.
+for n, (sx, sz) in enumerate(sellers):
+    keys = timetable([("at", sx, sz + 0.04), ("stay", 14.0 + n * 5.0, "baixo", 180.0), ("stay", 2.2, "baixo-chamar", 180.0), ("stay", 22.0 - n * 3.0, "baixo", 180.0)])
+    actors.append({"role": "vendedeira", "who": n, "offset": n * 7.0, "keys": keys})
 
 # Nobody may fish on the Marginal (D-0.47). One man does, off the edge east of the courts; the officer
 # comes from the post and runs him off; he comes back when the officer has gone. For ever.

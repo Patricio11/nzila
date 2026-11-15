@@ -92,7 +92,9 @@ export class Crowd {
       const person = walker.person;
       const turn = Math.atan2(Math.sin(at.yaw - walker.yaw), Math.cos(at.yaw - walker.yaw));
       walker.yaw = walker.shown ? walker.yaw + turn * Math.min(1, elapsedMs / 220) : at.yaw;
-      const seated = at.pose === "sit";
+      // "baixo" is seated low, on a little bench; "baixo-chamar" the same, calling to someone.
+      const lowly = at.pose.startsWith("baixo");
+      const seated = at.pose === "sit" || lowly;
       walker.sit = walker.shown ? walker.sit + ((seated ? 1 : 0) - walker.sit) * Math.min(1, elapsedMs / 220) : seated ? 1 : 0;
       walker.shown = true;
       const y = walker.actor.y ?? (ground ? ground.heightAt(Math.floor((at.x * 1000) / ground.cellMm), Math.floor((at.z * 1000) / ground.cellMm)) / 1000 : 0);
@@ -101,11 +103,12 @@ export class Crowd {
       person.root.position.set(at.x, y, at.z);
       person.root.rotation.y = walker.yaw;
       const stride = (at.speed > 2.2 ? 2.5 : 1.42) * (person.height / 1.7) * (person.skirt ? 0.8 : 1);
-      const gesture: Emote | undefined = EMOTES.find((kind) => kind === at.pose);
+      const gesture: Emote | undefined = EMOTES.find((kind) => kind === at.pose || `baixo-${kind}` === at.pose);
       person.pose(
         { speed: at.speed, phase: (at.travelled / stride) * Math.PI * 2, time: seconds + walker.actor.offset },
         {
           sit: walker.sit,
+          ...(lowly ? { low: walker.sit } : {}),
           ...(gesture ? { emote: { kind: gesture, seconds: at.since % EMOTE_SECONDS[gesture] } } : {}),
           ...(at.pose === "fish" ? { hold: "cana" as const } : walker.actor.role === "zungueira" ? { hold: "bacia" as const } : {}),
         },
