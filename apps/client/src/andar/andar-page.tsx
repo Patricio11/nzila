@@ -46,7 +46,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; waited: number; nearestVehicle: number; tangled: number; heeding: number };
   }
 }
 
@@ -371,7 +371,7 @@ export function Andar() {
           air.liftBefore = air.liftAfter;
           if (!seat && !ride) {
             const leaving = asks.current.jump && !state.air;
-            stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, district.traffic?.obstacles() ?? [], DEFAULT_CHARACTER);
+            stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, district.obstacles(), DEFAULT_CHARACTER);
             if (leaving) {
               air.count += 1;
               sound.jump();
@@ -447,6 +447,7 @@ export function Andar() {
         camera.held = allowed < camera.held ? allowed : camera.held + (allowed - camera.held) * Math.min(1, elapsed / 420);
         allowed = camera.held;
         const flat = Math.cos(camera.pitch) * allowed;
+        district.afoot = !ride;
         district.stand([x, z]);
         // North is the world's -Z; a heading is degrees clockwise from it.
         world.place(x, z, ((Math.atan2(Math.sin(facing), -Math.cos(facing)) * 180) / Math.PI + 360) % 360);
@@ -470,7 +471,7 @@ export function Andar() {
         district.update();
 
         const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played };
+        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.

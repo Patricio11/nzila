@@ -3,6 +3,7 @@
 // postcard, any spot asked for). The viewer here is a camera, not a body: the
 // character controller and the real camera are Task 1.3.
 
+import { type Obstacle } from "@nzila/sim";
 import { type Manifest } from "@nzila/world/client";
 import { type Mesh } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
@@ -15,6 +16,11 @@ import { type WorldRenderer } from "./world-renderer.ts";
 
 /** Eye height above the road, standing on a pavement, in metres. */
 const EYE = 1.8;
+
+/** A bench on the ground (art/scripts/kit.py: 1.7 m of slats, half a metre deep), and the room a standing person takes. */
+const BENCH_HALF_WIDTH_MM = 850;
+const BENCH_HALF_DEPTH_MM = 270;
+const PERSON_RADIUS_MM = 230;
 
 export class DistrictScene {
   readonly chunks: ChunkStream;
@@ -32,6 +38,8 @@ export class DistrictScene {
   readonly traffic: Traffic | null;
   /** For a still: the moment the traffic and the people are shown at, in milliseconds, instead of now. */
   trafficAt: number | null = null;
+  /** Whether the viewer is on foot: someone riding is in no vehicle's way. */
+  afoot = true;
   private lastUpdate = 0;
   /** For a film: added to the clock, so that the street's timetables run from a chosen moment. */
   private shift = 0;
@@ -48,6 +56,19 @@ export class DistrictScene {
   readonly signs: Signs | null;
   /** The people of the street, when the district has a timetable for them and they are built. */
   readonly crowd: Crowd | null;
+
+  /** The benches, as things with a body: a person sits on one, and walks round it. */
+  private benches: Obstacle[] | null = null;
+
+  /**
+   * Everything a body on foot cannot walk through that the walk grid does not hold: the vehicles,
+   * the benches, and the people of the street (finding F-132). Millimetres, for the simulation.
+   */
+  obstacles(): Obstacle[] {
+    this.benches ??= this.manifest.seats.map((seat): Obstacle => ({ kind: "box", x: Math.round(seat.pos[0] * 1000), z: Math.round(seat.pos[2] * 1000), halfWidthMm: BENCH_HALF_WIDTH_MM, halfLengthMm: BENCH_HALF_DEPTH_MM, yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) }));
+    const people = (this.crowd?.seen ?? []).map((person): Obstacle => ({ kind: "circle", x: Math.round(person.x * 1000), z: Math.round(person.z * 1000), radiusMm: PERSON_RADIUS_MM }));
+    return [...(this.traffic?.obstacles() ?? []), ...this.benches, ...people];
+  }
 
   private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null, crowd: Crowd | null, people: People | null) {
     this.people = people;
@@ -139,7 +160,9 @@ export class DistrictScene {
     this.chunks.update(this.x, this.z);
     const now = performance.now();
     const elapsed = this.lastUpdate === 0 ? 0 : now - this.lastUpdate;
-    this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z);
+    // The traffic gives way to whoever is on foot: the player, and the people of the street seen at the last update.
+    const onFoot = this.trafficAt !== null ? null : [...(this.afoot ? [{ x: this.x, z: this.z }] : []), ...(this.crowd?.seen ?? []).filter((person) => person.speed > 0)];
+    this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, onFoot);
     this.crowd?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, this.chunks.ground());
     this.lastUpdate = now;
   }

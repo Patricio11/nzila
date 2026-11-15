@@ -613,6 +613,28 @@ for n, ((lo, hi), text) in enumerate(zip(CROSS, CROSS_NAMES)):
     block(lo - 0.9, shore(lo) + AVENUE + 0.7, kb.passadeira(b, lo - 0.9, shore(lo) + AVENUE + 0.7, -math.pi / 2, G))
 plates(largo[0] + 3.0, largo[1] + 1.2, "largo", 180.0)
 
+# Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
+# a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
+def _flag_at(ix, iz):
+    if not (0 <= ix < ACROSS * CELLS and 0 <= iz < DOWN * CELLS):
+        return None
+    return flags[(ix // CELLS, iz // CELLS)][iz % CELLS][ix % CELLS]
+
+
+def _height_at(ix, iz):
+    return heights[(ix // CELLS, iz // CELLS)][iz % CELLS][ix % CELLS] / 100
+
+
+def _block_cell(ix, iz):
+    flags[(ix // CELLS, iz // CELLS)][iz % CELLS][ix % CELLS] = "#"
+
+
+_blocked = kit.block_solids(b, CELL, _flag_at, _height_at, _block_cell)
+print(f"nzila: {_blocked} cells blocked by what was built on them")
+# Kept beside the district, to be read after a build: a number that jumps says something new stands in a path.
+with open(os.path.join(out_dir, "solids.txt"), "w", encoding="utf-8") as _handle:
+    _handle.write(f"{_blocked} cells blocked by what was built on them, of {len(b.solids)} boxes")
+
 stray = sorted({chunk for (chunk, level) in b.groups if not (0 <= chunk[0] < ACROSS and 0 <= chunk[1] < DOWN)})
 if stray:
     raise SystemExit(f"nzila: something was built outside the district, in chunk(s) {stray}")

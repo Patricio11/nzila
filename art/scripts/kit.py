@@ -76,6 +76,12 @@ class Builder:
         self.objects = []
         # Where a person can sit: (x, seat height, z, the way they face, as a turn about the vertical).
         self.seats = []
+        # Every box built, as it stands on the ground: (x, z, half across, half deep, turn, bottom, top).
+        # A district reads these to mark what a person cannot walk through (block_solids), so that
+        # nothing built is ever forgotten on the walk grid. `soft` is set while building what is
+        # solid in another way (a bench is sat on: the game gives it its own body).
+        self.solids = []
+        self.soft = False
 
     def at(self, x, z):
         """Whatever is built next belongs to the chunk this point is in, however far it overhangs."""
@@ -110,6 +116,8 @@ class Builder:
     def box(self, centre, size, colour, yaw=0.0, top=None, skip_bottom=True):
         """A box. `size` is (across X, up, across Z) before turning. `top` gives the top its own colour."""
         hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
+        if not self.soft and self.part is None and self.piece is None:
+            self.solids.append((centre[0], centre[2], hx, hz, yaw, centre[1] - hy, centre[1] + hy))
         corners = {}
         for sx in (-1, 1):
             for sy in (-1, 1):
@@ -477,9 +485,47 @@ def lamp(b, x, z, toward, ground=0.14, pool=True):
     return 0.2
 
 
+def block_solids(b, cell, flag_at, height_at, set_flag, walked="._=^", knee=0.5, head=1.5):
+    """
+    Marks on a walk grid everything that was built and stands in a person's way.
+
+    A box stands in the way of a cell when it reaches above the knee of someone standing on that
+    cell and begins below their head: a wall, a counter, a pillar, a post. What is under foot (a
+    step, a kerb, the ground itself) and what is overhead (an awning, a roof, a bridge) is not.
+    `flag_at(ix, iz)` gives a cell's mark or None outside the district, `height_at` its height in
+    metres, `set_flag` blocks it. Returns how many cells it blocked that were open before.
+    """
+    blocked = 0
+    for (x, z, hx, hz, yaw, y0, y1) in b.solids:
+        if y1 - y0 < 0.25:
+            continue
+        # A thin thing (a railing, a fence, a post) must still catch the centre of the cells it crosses.
+        grow_x = max(0.12, cell / 2 - hx)
+        grow_z = max(0.12, cell / 2 - hz)
+        ex, ez = hx + grow_x, hz + grow_z
+        reach = math.hypot(ex, ez)
+        c, s = math.cos(yaw), math.sin(yaw)
+        for iz in range(math.floor((z - reach) / cell), math.ceil((z + reach) / cell)):
+            for ix in range(math.floor((x - reach) / cell), math.ceil((x + reach) / cell)):
+                flag = flag_at(ix, iz)
+                if flag is None or flag not in walked:
+                    continue
+                dx, dz = (ix + 0.5) * cell - x, (iz + 0.5) * cell - z
+                # Into the box's own axes (the turn is about the vertical, as _turn makes it).
+                local_x, local_z = dx * c - dz * s, dx * s + dz * c
+                if abs(local_x) > ex or abs(local_z) > ez:
+                    continue
+                ground = height_at(ix, iz)
+                if y1 > ground + knee and y0 < ground + head:
+                    set_flag(ix, iz)
+                    blocked += 1
+    return blocked
+
+
 def bench(b, x, z, yaw, ground=0.14):
     """A bench of wooden slats on metal legs."""
     b.at(x, z)
+    b.soft = True
     b.seats.append((x, ground + 0.46, z, yaw))
     b.level = FULL
     for i in range(3):
@@ -492,6 +538,7 @@ def bench(b, x, z, yaw, ground=0.14):
     b.box((x, ground + 0.43, z), (1.7, 0.1, 0.5), "wood", yaw=yaw, skip_bottom=False)
     b.box(_add((x, ground + 0.72, z), _turn((0.0, 0.0, -0.27), yaw)), (1.7, 0.34, 0.06), "wood", yaw=yaw)
     b.level = BOTH
+    b.soft = False
     return 0.9
 
 

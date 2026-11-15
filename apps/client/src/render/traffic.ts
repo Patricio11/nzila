@@ -134,6 +134,72 @@ interface Roamer {
 /** Whether a vehicle is down among people: one on a viaduct is over their heads and stops nobody. */
 const onTheGround = (roamer: Roamer): boolean => 1.5 > roamer.y;
 
+// Giving way (finding F-133). A vehicle's place comes from its timetable and the clock; a vehicle
+// that must wait falls behind its timetable (its `lag`), and makes the time up, a little faster
+// than it would drive, once the road is clear. It waits for a person in the road ahead of it and
+// for the vehicle in front. This is the phone's own traffic (LocalWorld): when the zone runs the
+// streets (Phase 3) the waiting is the zone's to decide, by the same rule.
+/** How far ahead a driver looks, how far short of a person and of a vehicle they stop, and how much faster they make up time. */
+const LOOK_M = 9;
+const STOP_SHORT_PERSON_M = 1.4;
+const STOP_SHORT_VEHICLE_M = 1.3;
+const CATCH_UP = 0.3;
+/** How far to the side of the vehicle's own width someone still counts as in its way. */
+const BESIDE_M = 0.45;
+/** A vehicle that has stood this long for other vehicles alone goes on for a while regardless: no knot of traffic lasts. */
+const PATIENCE_MS = 14_000;
+const PUSH_ON_MS = 4_000;
+
+/** Someone on foot the traffic must not run down. */
+export interface Afoot {
+  readonly x: number;
+  readonly z: number;
+}
+
+interface Moving {
+  readonly key: string;
+  readonly x: number;
+  readonly z: number;
+  readonly y: number;
+  /** Radians; forward is (sin, cos). */
+  readonly heading: number;
+  readonly halfWidth: number;
+  readonly halfLength: number;
+}
+
+/**
+ * How freely a vehicle may go, from 0 (it must stand) to 1 (the road is clear):
+ * less the nearer someone on foot or the vehicle in front is, ahead of it and in its lane.
+ */
+export function wayAhead(me: Moving, others: readonly Moving[], afoot: readonly Afoot[], heedVehicles = true): number {
+  const sin = Math.sin(me.heading);
+  const cos = Math.cos(me.heading);
+  let free = 1;
+  const ahead = (x: number, z: number): { forward: number; beside: number } => ({ forward: (x - me.x) * sin + (z - me.z) * cos, beside: Math.abs((x - me.x) * cos - (z - me.z) * sin) });
+  if (1.5 > me.y) {
+    for (const person of afoot) {
+      const { forward, beside } = ahead(person.x, person.z);
+      if (forward > 0 && beside < me.halfWidth + BESIDE_M) free = Math.min(free, (forward - me.halfLength - STOP_SHORT_PERSON_M) / (LOOK_M - STOP_SHORT_PERSON_M));
+    }
+  }
+  for (const other of heedVehicles ? others : []) {
+    if (other.key === me.key || Math.abs(other.y - me.y) > 1.5) continue;
+    const same = Math.sin(other.heading) * sin + Math.cos(other.heading) * cos;
+    const { forward, beside } = ahead(other.x, other.z);
+    if (same >= 0.5) {
+      // The one in front, going the same way: keep a gap behind it.
+      if (forward > 0.05 && beside < 1.4) free = Math.min(free, (forward - me.halfLength - other.halfLength - STOP_SHORT_VEHICLE_M) / 5);
+    } else if (same > -0.5 && other.key < me.key) {
+      // One that crosses the way ahead. Of two that meet at a crossing one must go first: the one
+      // whose name sorts first, always, so that they never both wait. (What comes the other way,
+      // in its own lane, is nobody's business.) A crossing vehicle lies across the lane, so it is
+      // in the way from further to the side.
+      if (forward > 0.05 && beside < other.halfLength + me.halfWidth + 0.3) free = Math.min(free, (forward - me.halfLength - other.halfWidth - STOP_SHORT_VEHICLE_M) / 5);
+    }
+  }
+  return Math.min(1, Math.max(0, free));
+}
+
 /** How near a moto or a kupapata must be for its rider to be drawn, in metres, and how many riders at once. */
 const RIDER_REACH_M = 55;
 const RIDERS = 2;
@@ -149,6 +215,13 @@ export class Traffic {
   seats: readonly VanSeat[] = [];
   /** The vans on the road at the last update. */
   seen: VanSeen[] = [];
+  /** How far behind its timetable each vehicle is, in milliseconds, for having given way. */
+  private readonly lag = new Map<string, number>();
+  /** How long each has stood for other vehicles alone; below zero, it is pushing on for that long yet. */
+  private readonly stood = new Map<string, number>();
+  private moving: Moving[] = [];
+  /** How many vehicles are slowing or standing for the viewer themself, at the last update: for the tests. */
+  heeding = 0;
 
   private constructor(renderer: WorldRenderer) {
     this.renderer = renderer;
@@ -255,12 +328,40 @@ export class Traffic {
     }
   }
 
-  /** Puts every van where the clock says it is. `elapsedMs` since the last call eases the turns. */
-  update(nowMs: number, elapsedMs: number, viewerX = 0, viewerZ = 0): void {
+  /**
+   * Puts every vehicle where the clock says it is, less what it has had to wait. `elapsedMs` since
+   * the last call eases the turns. `afoot` is who is on foot near the road: the traffic gives way
+   * to them and to the vehicle in front; null holds every vehicle to its timetable (a still).
+   */
+  update(nowMs: number, elapsedMs: number, viewerX = 0, viewerZ = 0, afoot: readonly Afoot[] | null = null): void {
+    // What each vehicle saw at the last update decides how much of this one's time it may use.
+    if (afoot && elapsedMs > 0) {
+      const step = Math.min(elapsedMs, 250);
+      const viewer = afoot.filter((person) => person.x === viewerX && person.z === viewerZ);
+      this.heeding = this.moving.filter((me) => 1 > wayAhead(me, [], viewer)).length;
+      for (const me of this.moving) {
+        const stood = this.stood.get(me.key) ?? 0;
+        const free = wayAhead(me, this.moving, afoot, stood >= 0);
+        // Standing for vehicles only (people are always waited for): patience runs out, then it pushes on, then it is patient again.
+        const held = free < 0.05 && wayAhead(me, [], afoot) > 0.05;
+        const next = stood < 0 ? Math.min(0, stood + step) : held ? stood + step : 0;
+        if (next > PATIENCE_MS) this.stood.set(me.key, -PUSH_ON_MS);
+        else if (next === 0) this.stood.delete(me.key);
+        else this.stood.set(me.key, next);
+        const lag = (this.lag.get(me.key) ?? 0) + step * (1 - free) - (free === 1 ? step * CATCH_UP : 0);
+        if (lag > 0) this.lag.set(me.key, lag);
+        else this.lag.delete(me.key);
+      }
+    } else if (!afoot) {
+      this.lag.clear();
+      this.stood.clear();
+    }
+    const moving: Moving[] = [];
     // The other traffic first: where each is, and a rider for the nearest few that have one.
     const near: { roamer: Roamer; far: number }[] = [];
-    for (const roamer of this.roamers) {
-      const at = actorAt({ role: "", offset: roamer.plan.offset, keys: roamer.plan.keys }, nowMs / 1000);
+    for (const [n, roamer] of this.roamers.entries()) {
+      const at = actorAt({ role: "", offset: roamer.plan.offset, keys: roamer.plan.keys }, (nowMs - (this.lag.get(`r${n}`) ?? 0)) / 1000);
+      moving.push({ key: `r${n}`, x: at.x, z: at.z, y: at.y, heading: at.yaw, halfWidth: roamer.halfWidthMm / 1000, halfLength: roamer.halfLengthMm / 1000 });
       const turn = Math.atan2(Math.sin(at.yaw - roamer.yaw), Math.cos(at.yaw - roamer.yaw));
       roamer.yaw = elapsedMs > 0 ? roamer.yaw + turn * Math.min(1, elapsedMs / 380) : at.yaw;
       roamer.x = at.x;
@@ -282,7 +383,18 @@ export class Traffic {
     const seen: VanSeen[] = [];
     for (const line of this.lines) {
       for (const van of line.vans) van.body.visible = false;
-      for (const at of routeVehiclesAt(line.route, clock, Math.round(nowMs))) {
+      // Each van at its own time: the clock's, less what it has waited. Most have waited nothing, and share one reading of the timetable.
+      const readings = new Map<number, ReturnType<typeof routeVehiclesAt>>();
+      const reading = (lagMs: number): ReturnType<typeof routeVehiclesAt> => {
+        const at = Math.round(nowMs - lagMs);
+        let read = readings.get(at);
+        if (!read) readings.set(at, (read = routeVehiclesAt(line.route, clock, at)));
+        return read;
+      };
+      for (const onTime of reading(0)) {
+        const key = `${line.id}/${onTime.index}`;
+        const at = reading(this.lag.get(key) ?? 0).find((late) => late.index === onTime.index) ?? onTime;
+        moving.push({ key, x: at.x / 1000, z: at.z / 1000, y: at.y / 1000, heading: (at.yaw / 18_000) * Math.PI, halfWidth: HALF_WIDTH_MM / 1000, halfLength: HALF_LENGTH_MM / 1000 });
         const van = line.vans[at.index]!;
         const target = (at.yaw / 18_000) * Math.PI;
         // A route turns at its points; a van turns over a second or so.
@@ -299,6 +411,19 @@ export class Traffic {
       for (const van of line.vans) if (!van.body.visible) van.shown = false;
     }
     this.seen = seen;
+    this.moving = moving;
+  }
+
+  /** How many pairs of vehicles on one level are on top of one another (their middles nearer than a car is wide): for the tests. */
+  get tangled(): number {
+    let pairs = 0;
+    for (const [n, a] of this.moving.entries()) for (const b of this.moving.slice(n + 1)) if (1.5 > Math.abs(a.y - b.y) && 1.5 > Math.hypot(a.x - b.x, a.z - b.z)) pairs++;
+    return pairs;
+  }
+
+  /** How far behind its timetable the vehicle that has waited longest is, in seconds: for the tests. */
+  get waited(): number {
+    return Math.max(0, ...this.lag.values()) / 1000;
   }
 
   /** The other traffic at the last update: what each is and where. */

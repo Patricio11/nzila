@@ -2,7 +2,7 @@ declare global {
   interface Window {
     __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; waited: number; nearestVehicle: number; tangled: number; heeding: number };
   }
 }
 
@@ -422,6 +422,76 @@ test.describe("the candongueiros", () => {
     expect(first.filter((car, n) => Math.hypot(car.x - cars[n]!.x, car.z - cars[n]!.z) > 20).length >= first.length - 1).toBe(true);
     // Traffic keeps to the right: on the avenue's town side the van has gone east.
     expect(later.some((van) => van.route === "linha-marginal" && !van.dwelling && van.x > atStop.x + 20)).toBe(true);
+    expect(seen.errors).toEqual([]);
+  });
+});
+
+test.describe("the street has a body", () => {
+  test("a bench is walked up to and not through; someone standing in the road is waited for, not driven through", async ({ page, request }, info) => {
+    const built = await request.get("/packs/l1/manifest.json");
+    if (!built.ok() || !(await request.get("/packs/dev-vehicles/veiculos.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa, the vehicles or the people are not built (they need Blender). Bodies were not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(240_000);
+    const seen = watch(page);
+    const manifest = (await built.json()) as { seats: { pos: [number, number, number]; facing: number }[]; routes: { id: string; spline: string; stopPoints: number[] }[] };
+
+    // Walking straight at a bench from in front of it, for long enough to be well through it.
+    const seat = manifest.seats[0]!;
+    const facing = (seat.facing * Math.PI) / 180;
+    const from = { x: seat.pos[0] + Math.sin(facing) * 2.4, z: seat.pos[2] + Math.cos(facing) * 2.4 };
+    const bearing = ((Math.atan2(seat.pos[0] - from.x, -(seat.pos[2] - from.z)) * 180) / Math.PI + 360) % 360;
+    await page.goto(`/andar?pack=l1&tier=poupanca&hour=12&em=${from.x.toFixed(2)},${from.z.toFixed(2)}&auto=${bearing.toFixed(1)}`);
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await page.waitForTimeout(5000);
+    const stopped = await page.evaluate(() => window.__andar!);
+    const reached = Math.hypot(stopped.x - seat.pos[0], stopped.z - seat.pos[2]);
+    // They got to the bench (they were not held back at the start) and stopped at its edge: half its depth and their own half-width.
+    expect(reached).toBeLessThan(1.2);
+    expect(reached).toBeGreaterThan(0.45);
+
+    // Standing in a van's lane, thirty metres past the paragem it is about to leave: it comes, slows, and stands. Nobody is driven through.
+    const line = manifest.routes.find((route) => route.id === "linha-marginal")!;
+    const spline = (await (await request.get(`/packs/l1/${line.spline}`)).json()) as { points: [number, number, number][] };
+    const first = line.stopPoints[0]!;
+    let along = 0;
+    let lane = spline.points[first]!;
+    for (let n = first; n + 1 < spline.points.length && along < 30; n++) {
+      along += Math.hypot(spline.points[n + 1]![0] - spline.points[n]![0], spline.points[n + 1]![2] - spline.points[n]![2]);
+      lane = spline.points[n + 1]!;
+    }
+    // (From the third second of the timetable a van stands at each line's first paragem, and leaves within a quarter of a minute.)
+    await page.goto(`/andar?pack=l1&tier=poupanca&hour=12&desde=3&em=${lane[0].toFixed(2)},${lane[2].toFixed(2)}`);
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    const stood = await page.evaluate(() => window.__andar!);
+    // Until a driver has seen them and is slowing for them...
+    await page.waitForFunction(() => window.__andar!.heeding > 0, undefined, { timeout: 120_000, polling: 100 });
+    // ...and then, for ten seconds, it is watched: it never reaches them, and it comes to a stand in front of them.
+    const gaps: number[] = [];
+    for (let n = 0; n < 40; n++) {
+      gaps.push(await page.evaluate(() => window.__andar!.nearestVehicle));
+      await page.waitForTimeout(250);
+    }
+    const after = await page.evaluate(() => window.__andar!);
+    // A van is 2.35 m from its middle to its bumper: it stopped short of them, and it is still there, still waiting.
+    expect(Math.min(...gaps)).toBeGreaterThan(2.9);
+    expect(after.heeding).toBeGreaterThan(0);
+    expect(after.waited).toBeGreaterThan(4);
+    // And they were not shoved along the road.
+    expect(Math.hypot(after.x - stood.x, after.z - stood.z)).toBeLessThan(0.3);
+
+    // And the traffic among itself: left to run for a while, no two vehicles are on top of one another.
+    await page.goto("/andar?pack=l1&tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await page.waitForTimeout(20_000);
+    let tangled = 0;
+    for (let n = 0; n < 60; n++) {
+      tangled += await page.evaluate(() => window.__andar!.tangled);
+      await page.waitForTimeout(250);
+    }
+    expect(tangled).toBe(0);
     expect(seen.errors).toEqual([]);
   });
 });
