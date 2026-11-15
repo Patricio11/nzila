@@ -20,7 +20,8 @@
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { CELL_DRIVE, CELL_LOW, CELL_WALK, bodyFits, groundHeight, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
-import { Arrival, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, WalletChip, type CompassMark } from "@nzila/ui";
+import { Arrival, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, SpeechBalloon, WalletChip, type CompassMark } from "@nzila/ui";
+import { PointLight, Vector3 } from "three";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { DEV_PACK } from "../render/bench-scene.ts";
 import { DistrictScene } from "../render/district-scene.ts";
@@ -61,7 +62,7 @@ interface Hud {
   marks: CompassMark[];
   action: Action | null;
   /** The van being ridden: its line, its paragens, the one ahead. */
-  ride: { line: string; stops: string[]; stopsAt: string[]; next: number; progress: number; waiting: boolean } | null;
+  ride: { line: string; stops: string[]; stopsAt: string[]; next: number; progress: number; waiting: boolean; said: string | null } | null;
   stick: { x: number; y: number; dx: number; dy: number; active: boolean };
 }
 
@@ -100,7 +101,10 @@ export function Andar() {
     let seat: { x: number; y: number; z: number; facing: number } | null = null;
     let sit = 0;
     // Riding a van: which one, and whether the cobrador has been asked for the next paragem.
-    let ride: { route: string; index: number; last: VanSeen; asked: boolean; left: boolean } | null = null;
+    let ride: { route: string; index: number; last: VanSeen; asked: boolean; left: boolean; camYaw: number; askedAt: number; arrivedAt: number; riders: { who: string; person: Person }[] } | null = null;
+    const eye = new Vector3();
+    // The lamp in a van's ceiling: lit for the one being ridden, after dark, so that everyone inside is seen.
+    const cabin = new PointLight(undefined, 0, 6, 1);
     let boardsItself = params.has("apanhar");
     let lastHud = 0;
     // The jump, as the picture needs it: how far through, and how high, before and after the last step.
@@ -180,7 +184,8 @@ export function Andar() {
       last = now;
       const seconds = (now - began) / 1000;
       const second = fixedHour ? fixedHour * 3600 : gameTimeAt(worldClock, Date.now()).secondOfDay;
-      renderer.setTime(fixedHour ? second : params.has("clock") ? second : 16.8 * 3600);
+      const shown = fixedHour ? second : params.has("clock") ? second : 16.8 * 3600;
+      renderer.setTime(shown);
       const ground = district?.chunks.ground() ?? null;
       if (district && person && ground) {
         const ask = wanted(seconds);
@@ -219,9 +224,20 @@ export function Andar() {
             state.y = groundHeight(ground, state.x, state.z, CELL_WALK, DEFAULT_CHARACTER.stepUpMm);
             Object.assign(before, state);
             facing = from.yaw - Math.PI / 2;
+            for (const rider of riding.riders) {
+              rider.person.root.removeFromParent();
+              rider.person.release();
+            }
+            // Out on the pavement the camera is behind the shoulder again, looking where the van was going.
+            camera.yaw = from.yaw + Math.PI;
+            cabin.removeFromParent();
             ride = null;
           } else {
-            if (asks.current.act) riding.asked = true;
+            if (asks.current.act && !riding.asked) {
+              riding.asked = true;
+              riding.askedAt = seconds;
+            }
+            if (now.dwelling && !riding.last.dwelling) riding.arrivedAt = seconds;
             riding.last = now;
             Object.assign(state, { x: Math.round(now.x * 1000), z: Math.round(now.z * 1000) });
             Object.assign(before, state);
@@ -231,7 +247,30 @@ export function Andar() {
         } else if (waiting && (asks.current.act || boardsItself) && !seat) {
           asks.current.act = false;
           // For a film: gets on by itself and asks for the next paragem.
-          ride = { route: waiting.route, index: waiting.index, last: waiting, asked: boardsItself, left: false };
+          const boarded = { route: waiting.route, index: waiting.index, last: waiting, asked: boardsItself, left: false, camYaw: camera.yaw, askedAt: boardsItself ? seconds : -99, arrivedAt: -99, riders: [] as { who: string; person: Person }[] };
+          ride = boarded;
+          // The others in the van: the driver, the cobrador by the door, a few passengers. They get in as their bodies arrive.
+          const van = district.traffic?.bodyOf(waiting.route, waiting.index);
+          const people = district.people;
+          if (van) {
+            cabin.position.set(0, 1.7, -0.3);
+            van.add(cabin);
+          }
+          if (van && people) {
+            for (const [n, seat] of (district.traffic?.seats ?? []).entries()) {
+              if (seat.who === "jogador") continue;
+              const who = people.pick(seat.who === "cobrador" ? "cobrador" : "any", n * 3 + waiting.index + 2);
+              if (!who) continue;
+              void people.make(who).then((rider) => {
+                if (!rider) return;
+                if (ride !== boarded) return rider.release();
+                rider.root.position.set(seat.pos[0], seat.pos[1] - 0.46 * (rider.height / 1.7), seat.pos[2]);
+                rider.shadow = false;
+                van.add(rider.root);
+                boarded.riders.push({ who: seat.who, person: rider });
+              });
+            }
+          }
           boardsItself = false;
           emote = null;
         }
@@ -307,6 +346,16 @@ export function Andar() {
         // Inside the van nobody is drawn yet: the body is put away for the ride.
         person.root.visible = !ride;
         person.root.rotation.y = facing;
+        if (ride) {
+          // Dark outside from about six in the evening to six in the morning: the lamp comes on as the day goes.
+          const hour = shown / 3600;
+          const dark = Math.min(1, Math.max(0, hour < 12 ? (6.4 - hour) / 0.8 : (hour - 17.4) / 0.9));
+          cabin.intensity = dark * 9;
+          // Everyone seated; the cobrador calls for passengers while the van stands.
+          for (const [n, rider] of ride.riders.entries()) {
+            rider.person.pose({ speed: 0, phase: 0, time: seconds + n * 1.7 }, { sit: 1, ...(rider.who === "cobrador" && ride.last.dwelling ? { emote: { kind: "chamar" as const, seconds: seconds % EMOTE_SECONDS.chamar } } : {}) });
+          }
+        }
         person.pose({ speed, phase, time: seconds }, { sit, jump, land: flying ? 0 : air.land, ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
 
         // The camera: behind and above the head, pulled in before it would pass into a building.
@@ -324,8 +373,22 @@ export function Andar() {
         }
         const flat = Math.cos(camera.pitch) * allowed;
         district.stand([x, z]);
-        renderer.camera.position.set(x + Math.sin(camera.yaw) * flat, eyeY + Math.sin(camera.pitch) * allowed + 0.25, z + Math.cos(camera.yaw) * flat);
-        renderer.camera.lookAt(x, eyeY + (upright ? 0.55 : 0.2), z);
+        const van = ride ? district.traffic?.bodyOf(ride.route, ride.index) : null;
+        const place = district.traffic?.seats.find((s) => s.who === "jogador");
+        if (ride && van && place) {
+          // From the seat: the eyes of someone sitting there, turned by the thumb.
+          van.updateMatrixWorld();
+          eye.set(place.pos[0], place.pos[1] + 0.7, place.pos[2] + 0.06);
+          van.localToWorld(eye);
+          // At first: ahead and a little to the left, down the van and out of the far windows.
+          const turn = ride.last.yaw + 0.3 + (camera.yaw - ride.camYaw);
+          const tilt = (0.2 - camera.pitch) * 0.9;
+          renderer.camera.position.copy(eye);
+          renderer.camera.lookAt(eye.x + Math.sin(turn) * Math.cos(tilt), eye.y + Math.sin(tilt), eye.z + Math.cos(turn) * Math.cos(tilt));
+        } else {
+          renderer.camera.position.set(x + Math.sin(camera.yaw) * flat, eyeY + Math.sin(camera.pitch) * allowed + 0.25, z + Math.cos(camera.yaw) * flat);
+          renderer.camera.lookAt(x, eyeY + (upright ? 0.55 : 0.2), z);
+        }
         renderer.setFocus(x, 0, z);
         district.update();
 
@@ -343,7 +406,13 @@ export function Andar() {
           const rect = element.getBoundingClientRect();
           const length = Math.max(1, Math.hypot(stick.x, stick.y) / 1.5);
           const word = (key: string): string => district!.word(key);
-          const band = ride ? { line: `${word(ride.last.stops[0]!)} · ${word(ride.last.stops[ride.last.stops.length - 1]!)}`, stops: ride.last.stops.map(word), stopsAt: ride.last.stops.map((key) => (word(`${key}.em`) === `${key}.em` ? word(key) : word(`${key}.em`))), next: ride.last.stop, progress: ride.last.progress, waiting: ride.last.dwelling } : null;
+          const band = ride ? { line: `${word(ride.last.stops[0]!)} · ${word(ride.last.stops[ride.last.stops.length - 1]!)}`, stops: ride.last.stops.map(word), stopsAt: ride.last.stops.map((key) => (word(`${key}.em`) === `${key}.em` ? word(key) : word(`${key}.em`))), next: ride.last.stop, progress: ride.last.progress, waiting: ride.last.dwelling, said: null as string | null } : null;
+          if (band && ride) {
+            // What the cobrador is saying: that the paragem was heard, where we are, or that there is room.
+            if (seconds - ride.askedAt < 3.5 && !ride.last.dwelling) band.said = tr.t("ride.cobrador.asked");
+            else if (ride.last.dwelling && ride.left && seconds - ride.arrivedAt < 5) band.said = tr.t("ride.cobrador.arrived", { paragem: band.stopsAt[band.next] ?? "" });
+            else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { linha: band.line });
+          }
           setHud({ ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
       }
@@ -412,6 +481,7 @@ export function Andar() {
       window.removeEventListener("keydown", keyDown);
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("resize", onResize);
+      cabin.dispose();
       person?.dispose();
       district?.close();
       renderer.dispose();
@@ -435,6 +505,11 @@ export function Andar() {
           {hud.ride ? (
             <div class="andar-route">
               <RouteBand line={hud.ride.line} stops={hud.ride.stops} stopsAt={hud.ride.stopsAt} next={hud.ride.next} progress={hud.ride.progress} waiting={hud.ride.waiting} />
+              {hud.ride.said ? (
+                <p class="andar-said">
+                  <SpeechBalloon text={hud.ride.said} />
+                </p>
+              ) : null}
             </div>
           ) : null}
           <Joystick {...hud.stick} />

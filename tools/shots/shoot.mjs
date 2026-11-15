@@ -60,12 +60,15 @@ const PAGES = [
   ["carrinha-tras", "/cena?hour=16.8&tier=normal&at=122,98.5,1.9&look=115,93.3,0.9"],
   ["carrinha-porta", "/cena?hour=12&tier=normal&at=110.5,88.6,1.7&look=115.5,93.3,1.0"],
   ["carrinha-cima", "/cena?hour=12&tier=normal&at=119,99,5.5&look=115,93.3,0.8"],
+  ["carrinha-vidro", "/cena?hour=15&tier=normal&at=121.2,95.2,1.5&look=115,93.3,1.3"],
   ["carrinha-noite", "/cena?hour=20.5&tier=normal&at=108,98,1.5&look=115,93.3,1.0"],
   // The vans on their linhas in Marginal e Baixa (transito=3: one stands at each line's first paragem).
   ["transito-paragem", "/cena?pack=l1&hour=16.5&tier=normal&transito=3&at=313,110.5,1.6&look=304,104.5,1.0"],
   ["transito-paragem-tras", "/cena?pack=l1&hour=12&tier=normal&transito=3&at=294,109.5,1.7&look=304,104.5,1.0"],
   ["transito-arranca", "/cena?pack=l1&hour=16.5&tier=normal&transito=22&at=300,97,3.2&look=325,105,1.0"],
   ["transito-mutamba", "/cena?pack=l1&hour=17.3&tier=normal&transito=3&at=227,161.5,1.7&look=237,156.5,1.0"],
+  ["transito-vidro", "/cena?pack=l1&hour=15&tier=normal&transito=3&at=294.5,105.6,1.5&look=301,104.9,1.3"],
+  ["transito-vidro-mutamba", "/cena?pack=l1&hour=16.5&tier=normal&transito=3&at=230.5,156.6,1.5&look=237,156,1.3"],
   ["transito-do-alto", "/cena?pack=l1&hour=15&tier=alta&transito=60&at=224,40,70&look=224,120,0"],
   ["transito-noite", "/cena?pack=l1&hour=20.5&tier=normal&transito=3&at=313,110.5,1.6&look=304,104.5,1.0"],
   // The people of the street in Marginal e Baixa, at fixed moments of their timetables.
@@ -150,6 +153,7 @@ const FILMS = [
   ["gente-andar", "/andar?pack=l1&em=352,54.5&cam=285&quem=1&hour=16.8&desde=76"],
   // Boarding at the Marginal paragem and riding to the next: the page boards by itself (&apanhar).
   ["viagem", "/andar?pack=l1&em=302.5,107.4&cam=200&quem=2&hour=16.8&desde=0&apanhar"],
+  ["viagem-noite", "/andar?pack=l1&em=302.5,107.4&cam=200&quem=2&hour=19.6&desde=0&apanhar"],
   ["transito-andar", "/andar?pack=l1&em=297,107.2&cam=250&quem=4&hour=16.8"],
   // Jumping: on the spot, at a run, and over the planted strip of the Marginal's avenue.
   ["salto-parado", "/andar?salto&cam=70&quem=1&hour=16.8"],

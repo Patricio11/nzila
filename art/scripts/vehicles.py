@@ -166,18 +166,38 @@ def carrinha(b, x, z, yaw, ground=0.0, lower="vanBlue", upper="vanWhite"):
     plate(0.0, 0.5, 2.44, 0.42, 0.11, "vanWhite", 1)
     plate(0.0, 0.6, -2.42, 0.42, 0.11, "vanWhite", -1)
     plate(0.0, 1.08, -2.345, 0.5, 0.05, "metal", -1)
-    # Where advertising goes (D-0.51): a board along the roof, read from either side, and a panel on the
-    # back under the window. They show the house's own colours until a slot is sold (VEHICLE_ADS).
-    block(0.0, ROOF + 0.05, -0.35, 0.1, 0.1, 2.5, "metal")
+    # The inside, for whoever rides: a floor, the lining under the windows and overhead, the pillars from
+    # within, seats in rows with an aisle by the sliding door, and the driver's place on the left.
+    FLOOR, SEAT = 0.44, 0.80
+    up, down = (0.0, 1.0, 0.0), (0.0, -1.0, 0.0)
+    b.face([at(-0.8, FLOOR, -2.22), at(0.8, FLOOR, -2.22), at(0.8, FLOOR, 2.1), at(-0.8, FLOOR, 2.1)], "tarShade", toward=up)
+    b.face([at(-0.62, ROOF - 0.07, -2.22), at(0.62, ROOF - 0.07, -2.22), at(0.62, ROOF - 0.07, 1.6), at(-0.62, ROOF - 0.07, 1.6)], "vanInside", toward=down)
+    # The lamp in the ceiling: after dark it is lit, and everyone inside can see everyone else.
+    b.face([at(-0.16, ROOF - 0.075, -0.75), at(0.16, ROOF - 0.075, -0.75), at(0.16, ROOF - 0.075, -0.25), at(-0.16, ROOF - 0.075, -0.25)], "lamp", toward=down)
     for side in (1, -1):
-        out = _sub_points(at(side, 0.0, 0.0), at(0.0, 0.0, 0.0))
-        px = side * 0.055
-        b.face([at(px, ROOF + 0.1, -1.55), at(px, ROOF + 0.1, 0.85), at(px, ROOF + 0.52, 0.85), at(px, ROOF + 0.52, -1.55)], "adBoard", toward=out)
-        b.face([at(px * 1.1, ROOF + 0.14, -1.5), at(px * 1.1, ROOF + 0.14, 0.8), at(px * 1.1, ROOF + 0.22, 0.8), at(px * 1.1, ROOF + 0.22, -1.5)], "adBoardBand", toward=out)
-    block(0.0, ROOF + 0.31, -1.57, 0.12, 0.44, 0.04, "metal")
-    block(0.0, ROOF + 0.31, 0.87, 0.12, 0.44, 0.04, "metal")
-    plate(0.0, 0.84, -2.347, 0.95, 0.3, "adBoard", -1)
-    plate(0.0, 0.73, -2.349, 0.95, 0.06, "adBoardBand", -1)
+        inward = _sub_points(at(-side, 0.0, 0.0), at(0.0, 0.0, 0.0))
+        px = side * 0.815
+        b.face([at(px, FLOOR, -2.22), at(px, FLOOR, 2.15), at(px, GLASS_LOW, 2.15), at(px, GLASS_LOW, -2.22)], "vanInside", toward=inward)
+        for z0, z1 in [(-2.26, -2.12), (-1.20, -1.12), (-0.16, -0.08), (0.84, 0.94)]:
+            b.face([at(px, GLASS_LOW, z0), at(px, GLASS_LOW, z1), at(px * 0.96, GLASS_TOP, z1), at(px * 0.96, GLASS_TOP, z0)], "vanInside", toward=inward)
+        # Over the windows: on the left, where everyone seated looks, a strip for advertising.
+        b.face([at(px * 0.95, GLASS_TOP, -2.2), at(px * 0.95, GLASS_TOP, 1.6), at(side * 0.64, ROOF - 0.08, 1.6), at(side * 0.64, ROOF - 0.08, -2.2)], "adBoard" if side > 0 else "vanInside", toward=inward)
+    b.face([at(-0.8, FLOOR, -2.24), at(0.8, FLOOR, -2.24), at(0.8, GLASS_LOW, -2.24), at(-0.8, GLASS_LOW, -2.24)], "vanInside", toward=ahead)
+    # Three rows for passengers and the long seat across the back; the aisle is on the right, by the door.
+    for lz, lx, wide in [(0.25, 0.22, 1.1), (-0.55, 0.22, 1.1), (-1.3, 0.22, 1.1), (-1.98, 0.0, 1.56)]:
+        block(lx, SEAT - 0.06, lz, wide, 0.12, 0.42, "vanSeat")
+        block(lx, SEAT + 0.24, lz - 0.24, wide, 0.44, 0.08, "vanSeat")
+        block(lx, (FLOOR + SEAT) / 2 - 0.06, lz, wide - 0.2, SEAT - FLOOR - 0.12, 0.3, "metal")
+    # The folding seat by the door, where the cobrador rides, and the two seats in front.
+    block(-0.55, SEAT - 0.06, -0.55, 0.36, 0.12, 0.4, "vanSeat")
+    block(-0.55, SEAT + 0.3, -0.79, 0.36, 0.56, 0.08, "vanSeat")
+    for lx in (0.42, -0.42):
+        block(lx, SEAT - 0.06, 1.18, 0.5, 0.12, 0.44, "vanSeat")
+        block(lx, SEAT + 0.34, 0.93, 0.5, 0.64, 0.08, "vanSeat")
+    block(0.0, 0.98, 1.92, 1.56, 0.2, 0.3, "tarShade")
+    block(0.42, 1.14, 1.7, 0.34, 0.04, 0.34, "tarShade")
+    block(0.42, 1.0, 1.82, 0.05, 0.3, 0.05, "metal")
+
     # The sliding door on the right: its two edges and the rail it runs on.
     right = _sub_points(at(-1.0, 0.0, 0.0), at(0.0, 0.0, 0.0))
     for lz in (-0.14, 0.9):
@@ -198,8 +218,23 @@ def _sub_points(a, c):
 
 
 # Where a vehicle carries advertising: the slot's name, and its size in metres (wide, high).
+# In Angola it is the back window: the van's own phrase is written across it, or an advert covers it.
+# The game letters it (render/traffic.ts); `pos` is the middle of the glass in the van's own axes.
 VEHICLE_ADS = {
-    "candongueiro": [{"id": "tejadilho-esquerda", "size": [2.4, 0.42]}, {"id": "tejadilho-direita", "size": [2.4, 0.42]}, {"id": "traseira", "size": [0.95, 0.3]}],
+    "candongueiro": [{"id": "vidro-traseiro", "size": [1.36, 0.5], "pos": [0.0, 1.42, -2.336]}],
+}
+
+# Where people sit in a vehicle, in its own axes: who, and x, the height of the seat, z.
+VEHICLE_SEATS = {
+    "candongueiro": [
+        {"who": "motorista", "pos": [0.42, 0.80, 1.18]},
+        {"who": "cobrador", "pos": [-0.55, 0.80, -0.55]},
+        {"who": "passageiro", "pos": [0.52, 0.80, 0.25]},
+        {"who": "passageiro", "pos": [0.05, 0.80, -1.3]},
+        {"who": "passageiro", "pos": [-0.5, 0.80, -1.98]},
+        {"who": "passageiro", "pos": [0.5, 0.80, -1.98]},
+        {"who": "jogador", "pos": [-0.1, 0.80, -0.55]},
+    ],
 }
 
 VEHICLES = {

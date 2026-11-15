@@ -40,6 +40,7 @@ STREET = [
     {"role": "zungueira", "name": "zungueira", "sex": "f", "skin": 3, "height": 1.64, "build": 1.06, "hair": "lenco", "lenco": "awningGold", "top": "blusa", "top_colour": "paintWhite", "bottom": "pano", "bottom_colour": "person2", "bands": "awningGold", "shoe": "chinelo", "bacia": "zincBlue"},
     {"role": "zungueira", "name": "zungueira-2", "sex": "f", "skin": 1, "height": 1.58, "hair": "lenco", "lenco": "awningRed", "top": "tshirt", "top_colour": "person4", "bottom": "pano", "bottom_colour": "awningTeal", "bands": "cloth", "shoe": "chinelo", "bacia": "awningRed", "goods": ["paintWhite", "paintWhite", "sand", "paintWhite", "sand", "paintWhite"]},
     {"role": "policia", "name": "polícia", "sex": "m", "skin": 2, "height": 1.80, "build": 1.08, "hair": "bone", "cap": "policeNavy", "top": "long", "top_colour": "policeNavy", "bottom": "trousers", "bottom_colour": "policeNavy", "shoe": "clothBlack", "belt": "clothBlack"},
+    {"role": "cobrador", "name": "cobrador", "sex": "m", "skin": 3, "height": 1.72, "build": 0.94, "hair": "bone", "cap": "awningRed", "top": "tshirt", "top_colour": "awningGold", "bottom": "trousers", "bottom_colour": "jeans", "shoe": "chinelo", "smile": True},
     {"role": "pescador", "name": "pescador", "sex": "m", "skin": 4, "height": 1.74, "build": 0.96, "hair": "bone", "cap": "khaki", "top": "alcas", "top_colour": "paintWhite", "bottom": "shorts", "bottom_colour": "khaki", "shoe": "chinelo", "cana": True},
 ]
 PLAYABLE = len(SPECS)

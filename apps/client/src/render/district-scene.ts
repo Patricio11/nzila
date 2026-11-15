@@ -8,6 +8,7 @@ import { type Mesh } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
 import { Crowd } from "./crowd.ts";
+import { People } from "./people.ts";
 import { Signs } from "./signs.ts";
 import { Traffic } from "./traffic.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
@@ -41,12 +42,15 @@ export class DistrictScene {
     this.shift = ms - Date.now();
   }
 
+  /** The bodies people are made from, when they are built. */
+  readonly people: People | null;
   /** The street name plates, when the district has any. */
   readonly signs: Signs | null;
   /** The people of the street, when the district has a timetable for them and they are built. */
   readonly crowd: Crowd | null;
 
-  private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null, crowd: Crowd | null) {
+  private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null, crowd: Crowd | null, people: People | null) {
+    this.people = people;
     this.traffic = traffic;
     this.crowd = crowd;
     this.signs = Signs.open(renderer, chunks.manifest, (key) => words[key] ?? key);
@@ -70,8 +74,10 @@ export class DistrictScene {
   static async open(renderer: WorldRenderer, base: string): Promise<DistrictScene> {
     const chunks = await ChunkStream.open(renderer, base);
     const words = JSON.parse(new TextDecoder().decode(await meteredFetch(base + chunks.manifest.strings))) as Record<string, string>;
-    const [traffic, crowd] = await Promise.all([Traffic.open(renderer, base, chunks.manifest), Crowd.open(renderer, base, chunks.manifest)]);
-    return new DistrictScene(renderer, chunks, words, traffic, crowd);
+    // The people's bodies, when they are built on this machine: the crowd and a van's passengers come from them.
+    const people = await People.open(renderer).catch(() => null);
+    const [traffic, crowd] = await Promise.all([Traffic.open(renderer, base, chunks.manifest), Crowd.open(renderer, base, chunks.manifest, people)]);
+    return new DistrictScene(renderer, chunks, words, traffic, crowd, people);
   }
 
   /** A word of the district, or the key itself when the pack does not have it. */
@@ -161,6 +167,7 @@ export class DistrictScene {
     this.traffic?.close();
     this.crowd?.close();
     this.signs?.close();
+    this.people?.close();
     for (const water of this.waters) {
       this.renderer.scene.remove(water);
       water.geometry.dispose();

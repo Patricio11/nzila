@@ -53,6 +53,8 @@ export const WORLD = {
   flagRed: hex("#CC092F"),
   flagBlack: hex("#16130F"),
   flagYellow: hex("#F9D616"),
+  vanInside: hex("#B9B2A4"), // the lining of a van
+  vanSeat: hex("#3B4558"),
   // An advertising board with nothing sold on it yet: the house's gold, and a dark band where a name goes
   adBoard: hex("#F2B544"),
   adBoardBand: hex("#1B2238"),

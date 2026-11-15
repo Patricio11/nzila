@@ -6,27 +6,17 @@
 
 import { type Ground } from "@nzila/sim";
 import { type Manifest } from "@nzila/world/client";
-import { Group, Mesh, SkinnedMesh, type BufferGeometry, type Material, type Object3D } from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { Group } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { actorAt, type ActorMoment, type CrowdActor, type CrowdFile } from "./crowd-plan.ts";
-import { EMOTES, EMOTE_SECONDS, Person, type Emote } from "./person.ts";
+import { type People } from "./people.ts";
+import { EMOTES, EMOTE_SECONDS, type Emote, type Person } from "./person.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
-const PEOPLE = "/packs/dev-people/";
 /** Nobody further than this from the viewer is given a body, in metres. */
 const REACH_M = 70;
 /** How many of them cast a real shadow. */
 const SHADOWS = 3;
-
-interface Listed {
-  readonly role?: string;
-  readonly model: string;
-  readonly height: number;
-  readonly skirt: boolean;
-  readonly female?: boolean;
-}
 
 interface Walker {
   readonly actor: CrowdActor;
@@ -48,7 +38,6 @@ export class Crowd {
   private readonly walkers: Walker[] = [];
   private readonly root = new Group();
   private readonly renderer: WorldRenderer;
-  private readonly geometries = new Set<BufferGeometry>();
   /** Those with a body at the last update. */
   seen: PersonSeen[] = [];
 
@@ -58,48 +47,21 @@ export class Crowd {
   }
 
   /** Opens the crowd of a district, or resolves to null when it has none or the people are not built. */
-  static async open(renderer: WorldRenderer, base: string, manifest: Manifest): Promise<Crowd | null> {
-    if (!manifest.npc.crowd) return null;
+  static async open(renderer: WorldRenderer, base: string, manifest: Manifest, people: People | null): Promise<Crowd | null> {
+    if (!manifest.npc.crowd || !people) return null;
     try {
-      const read = async <T>(url: string): Promise<T> => JSON.parse(new TextDecoder().decode(await meteredFetch(url))) as T;
-      const [file, list] = await Promise.all([read<CrowdFile>(base + manifest.npc.crowd), read<{ people: Listed[] }>(`${PEOPLE}pessoas.json`)]);
-      const playable = list.people.filter((p) => !p.role);
+      const file = JSON.parse(new TextDecoder().decode(await meteredFetch(base + manifest.npc.crowd))) as CrowdFile;
       const crowd = new Crowd(renderer);
-      const models = new Map<string, Promise<Object3D>>();
-      const model = (name: string): Promise<Object3D> => {
-        let loading = models.get(name);
-        if (!loading) {
-          loading = meteredFetch(PEOPLE + name).then(async (bytes) => (await new GLTFLoader().parseAsync(bytes, "")).scene);
-          models.set(name, loading);
-        }
-        return loading;
-      };
       await Promise.all(
         file.actors.map(async (actor, n) => {
-          const fitting = actor.role === "any" ? playable : list.people.filter((p) => p.role === actor.role);
-          const who = fitting[(actor.who ?? n) % Math.max(1, fitting.length)];
-          if (!who) return;
-          const scene = cloneSkinned(await model(who.model)) as Group;
-          const found: SkinnedMesh[] = [];
-          scene.traverse((node) => {
-            if (!(node instanceof Mesh)) return;
-            node.material = renderer.paletteMaterial;
-            node.castShadow = true;
-            node.receiveShadow = false;
-            if (node instanceof SkinnedMesh) found.push(node);
-          });
-          const body = found[0];
-          if (!body) return;
-          crowd.geometries.add(body.geometry);
-          const person = new Person(scene, body, who.height, who.skirt);
-          person.female = who.female === true;
+          const who = people.pick(actor.role, actor.who ?? n);
+          const person = who ? await people.make(who) : null;
+          if (!person) return;
           person.root.visible = false;
           crowd.root.add(person.root);
           crowd.walkers.push({ actor, person, yaw: 0, shown: false, sit: 0 });
         }),
       );
-      // The materials the files came with are not used: every body wears the world's one palette.
-      for (const loading of models.values()) (await loading).traverse((node) => node instanceof Mesh && (node.material as Material).dispose());
       return crowd;
     } catch {
       return null;
@@ -155,7 +117,6 @@ export class Crowd {
 
   close(): void {
     this.renderer.scene.remove(this.root);
-    for (const geometry of this.geometries) geometry.dispose();
-    for (const walker of this.walkers) walker.person.dispose();
+    for (const walker of this.walkers) walker.person.release();
   }
 }

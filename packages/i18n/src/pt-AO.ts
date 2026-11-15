@@ -64,6 +64,22 @@ export const ptAO = {
   "data.month": "{size} este mês",
   "data.label": "Dados usados",
   "route.next": "Próxima",
+  // What a candongueiro has written across its back window: each van its own. Invented, in the manner of the
+  // real ones; drafts for the founder to cross out and add to. None is the name of a brand, a film or a song.
+  "van.phrase.0": "Tá Cromado",
+  "van.phrase.1": "Sem Maka",
+  "van.phrase.2": "Calma, Mano",
+  "van.phrase.3": "Filho da Mutamba",
+  "van.phrase.4": "Kota do Volante",
+  "van.phrase.5": "Só na Paz",
+  "van.phrase.6": "Mamã Confia",
+  "van.phrase.7": "Rei da Marginal",
+  // The house's own advert, on the back window of a van whose slot nobody has bought.
+  "van.ad.house": "O teu anúncio aqui",
+  // What the cobrador says. Drafts for the founder: {linha} is the line, {paragem} the place with its own preposition.
+  "ride.cobrador.call": "{linha}. Há lugar, há lugar.",
+  "ride.cobrador.asked": "Paragem na próxima, motorista.",
+  "ride.cobrador.arrived": "Estamos {paragem}. Quem fica?",
   // Followed by the place with its own preposition, which the place brings: "na Marginal", "no Kilamba", "em Cazenga".
   "route.atStop": "Estamos",
 

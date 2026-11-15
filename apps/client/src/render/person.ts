@@ -341,6 +341,11 @@ export class Person {
     this.mesh.castShadow = on;
   }
 
+  /** Lets go of what is this body's alone; its shape is shared with others like it and stays. */
+  release(): void {
+    this.mesh.skeleton.dispose();
+  }
+
   dispose(): void {
     this.mesh.geometry.dispose();
     this.mesh.skeleton.dispose();
