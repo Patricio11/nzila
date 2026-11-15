@@ -76,15 +76,25 @@ Most of Angola lives in houses. A district's brief states its mix before a singl
 
 **The kit grows to match** (`art/scripts/kit.py`), each part made by us: casa de bloco (plastered and painted, or bare), casa de chapa, vivenda, the wall and gate of a plot, the quintal's furniture (the tank, the washing line, the brazier, plastic chairs), cantina, container shop, roulotte, sobrado, modernist block with galleries, Kilamba block; and the trees of the country beside the palm and the acácia rubra: imbondeiro, mulemba, mangueira.
 
+### 2c. What a paragem is, by district (founder 2026-11-15, D-0.48)
+
+| District | Its paragens |
+|---|---|
+| L1 Marginal e Baixa, L4 Talatona, L5 Kilamba | **Organised:** a shelter, a sign, a bay at the kerb, vans standing in line, one cobrador calling at a time. |
+| L2 Ilha de Luanda | Organised at the causeway end; further along, a known spot by the road. |
+| L6 Viana (and Zango), L7 Cazenga, Sambizanga e Rangel | **Not organised:** a corner, a tree or the mouth of a market that everyone knows. No shelter, no sign. Vans two and three abreast and half in the road, kupapatas and moto-táxis in their own knot beside them, cobradores calling over each other, zungueiras selling to the queue. Loud, crowded, slow to get away from. |
+
+Every district brief names each paragem and says which kind it is; the manifest carries it.
+
 ### L1 · Marginal e Baixa (the first slice)
 - **Researched detail:** `docs/reference/LUANDA_REFERENCE.md` holds what published sources say about each landmark, the candongueiros, the light and the seasons, and the decision each fact leads to. Read it before building this pack.
 - **Why first:** it is the image of Luanda every Angolan carries. If a Luandan recognises it on a cheap phone in ten seconds, the project works.
 - **Landmarks (art pass 2):** the Marginal promenade (Avenida 4 de Fevereiro) with its palms and the curve of the bay; the Fortaleza de São Miguel on its hill; the pink colonial bank building with the dome; the Largo da Mutamba; the Palácio de Ferro; one old church front; the skyline of towers behind.
 - **Layout:** a crescent. The bay to the north, the promenade along it, two streets of the Baixa behind, the fortress hill at the west end with a path up to a viewpoint, the causeway to the Ilha beside it (a closed gateway with a sign until L2).
 - **From the research:** two sports courts and a cycle lane on the promenade (the rented bicycle is a player's first vehicle); a kiosk row; a small stage; a police post; wedding parties posing against the bay at golden hour on game weekends.
-- **Things to do:** the four biscatos (zungueiro on the promenade, roboteiro at the small market, pescador on the pier, lavador de carros in a side street); the viewpoint at the fortress; benches at golden hour.
+- **Things to do:** the four biscatos (zungueiro on the promenade, roboteiro at the small market, lavador de carros in a side street; **no pescador here: fishing is not allowed on the Marginal and the police run off whoever tries (D-0.47), so that biscato is the Ilha's**); the viewpoint at the fortress; benches at golden hour.
 - **Size:** 24 commercial lots (most locked until Phase 8), 4 residential buildings of 100 units, 3 paragens, 2 candongueiro routes that loop.
-- **Positive points of interest (twelve, a line each in the catalog):** the sunset from the promenade, the fishermen's pier, the fortress viewpoint, the square's chess tables, the bookseller under the arcade, the old cinema front, the ice-cream corner, the mural, the palm avenue, the market's fruit row, the musicians on the steps, the candongueiro stop with the loudest cobrador in town.
+- **Positive points of interest (twelve, a line each in the catalog):** the sunset from the promenade, the pontão over the bay (not the fishermen's: D-0.47), the fortress viewpoint, the square's chess tables, the bookseller under the arcade, the old cinema front, the ice-cream corner, the mural, the palm avenue, the market's fruit row, the musicians on the steps, the candongueiro stop with the loudest cobrador in town.
 - **Heat inputs:** well lit along the promenade (low heat at night); the two alleys behind the market are dim (heat rises after dark and falls when players are present).
 - **Care:** the fortress houses a military museum and the bank building belongs to a state institution. Show the architecture; no emblems, flags of institutions or official names on signs (Rule 8). The memorial obelisk to the south appears on the skyline only.
 

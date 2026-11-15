@@ -379,7 +379,8 @@ places["police"].append([384.0, G, round(shore(384) + 26.0, 2)])
 poi("por-do-sol", 250.0, shore(250) + 5.0, "O pôr do sol na Marginal", "Senta-te no muro e espera. É todos os dias e nunca é igual.")
 poi("palmeiras", 170.0, shore(170) + 15.5, "A avenida das palmeiras", "Uma fila de palmeiras a perder de vista, de uma ponta à outra da baía.")
 
-# The fishermen's pier: a deck of wood on posts, out into the bay.
+# The pontão: a deck of wood on posts, out into the bay. Not the fishermen's: nobody may fish on the
+# Marginal (D-0.47), and the fishermen are the Ilha's.
 pier_z0, pier_z1 = shore(PIER_X) - 30.0, shore(PIER_X) + 0.5
 b.at(PIER_X, (pier_z0 + pier_z1) / 2)
 b.box((PIER_X, G + 0.1, (pier_z0 + pier_z1) / 2), (5.0, 0.2, pier_z1 - pier_z0), "wood", skip_bottom=False)
@@ -389,7 +390,7 @@ for k in range(6):
         b.tube([(PIER_X + sx, -1.4, pz), (PIER_X + sx, G + 1.1, pz)], [0.12, 0.12], 4, "pole", cap=False)
 mark(PIER_X - 2.2, pier_z0 + 0.5, PIER_X + 2.2, pier_z1 + 1.0, ".", round(G * 100) + 20)
 kit.bench(b, PIER_X, pier_z0 + 3.0, math.pi, G + 0.2)
-poi("pontao", PIER_X, pier_z0 + 8.0, "O pontão dos pescadores", "Quem pesca aqui conhece a baía pelo nome de cada pedra.", round(G + 0.2, 2))
+poi("pontao", PIER_X, pier_z0 + 8.0, "O pontão da baía", "Aqui não se pesca: a polícia dá corrida. Quem quer peixe vai à Ilha.", round(G + 0.2, 2))
 
 # ------------------------------------------------------- the buildings
 def front_z(x0, x1):

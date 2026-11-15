@@ -238,7 +238,7 @@ flowchart LR
 - Depends on: 0.6, 1.1, 1.2 · Unblocks: 1.6, 1.9.
 
 ### Task 1.6: Ambient life
-- [ ] NPC pedestrians from a seeded, clock-driven crowd (the same seed gives every player roughly the same street): zungueiras with bacias, people on the benches, fishermen, children playing.
+- [ ] NPC pedestrians from a seeded, clock-driven crowd (the same seed gives every player roughly the same street): zungueiras with bacias, people on the benches, children playing; **on the Marginal at most one person fishing, and a police officer who runs them off (D-0.47): the fishermen are the Ilha's**.
 - [ ] *(2026-11-15: the candongueiro is a real van made by us (`art/scripts/vehicles.py`, 858 triangles, 14 KB) and runs both linhas of L1 by the clock (`render/traffic.ts`), standing at each paragem. Not ticked: boarding and riding, other traffic, the cobrador's call; see F-87.)*
 - [ ] Traffic on splines; candongueiros on their routes from `route.ts`, stopping at paragens; the cobrador's call as the district's signature sound. The player can board, ride and get off.
 - [ ] Ambient sound beds per area (the sea, the square, traffic), streamed, off in Modo Poupança.
@@ -388,6 +388,7 @@ flowchart LR
 - Depends on: 0.2, 4.3 · Unblocks: 4.5, 8.3.
 
 ### Task 4.5: Biscatos (starter jobs)
+- [ ] *(D-0.47, 2026-11-15: fishing is not allowed on the Marginal. The pescador biscato waits for the Ilha (11.2); until then there are three, or a fourth the founder names.)*
 - [ ] Four jobs, each a 60 to 120 second minigame scored by `packages/sim` on the server: zungueiro or zungueira (sell from a bacia along the Marginal), roboteiro (carry loads at the market), pescador (fish from the pier), lavador de carros.
 - [ ] Pay from the system faucet by score; a daily soft cap that tapers, never a wall; the Biscatos app lists what is open nearby.
 - Depends on: 4.1, 4.4 · Unblocks: 4.7, 6.6, 9.2.
@@ -834,6 +835,7 @@ flowchart LR
 - Depends on: 3.2, 6.1 · Unblocks: 11.3, 16.1.
 
 ### Task 11.3: District L2, Ilha de Luanda
+- [ ] **The fishermen, their boats, the fish market and the pescador biscato live here, not on the Marginal (D-0.47).**
 - [ ] From the atlas brief: the long sandbar, beach on the ocean side, bay on the other, restaurants and esplanadas (lots for Phase 8), fishermen and their boats, the pier, nightlife at the far end. Art pass 2 on its landmarks.
 - [ ] New here: swimming at the shore, mufete on the beach, the fishing job from boats.
 - Depends on: 11.1, 11.2 · Unblocks: 11.4, 15.1.
