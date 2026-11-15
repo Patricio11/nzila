@@ -175,13 +175,65 @@ def edificio_rosa(b, x0, z0, x1, z1, rng, ground=0.14):
             lit = rng.random() < 0.3
             b.rect((wx, y, z0 - 0.04), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.5, 2.4, "windowLit" if lit else "window")
             b.rect((wx, y, z1 + 0.04), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.5, 2.4, "window")
+            # Pass 2, on the face the bay sees: each window in a white surround under a small pediment
+            # (round on the first floor, pointed on the second), with a sill.
+            b.level = FULL
+            front = (0.0, 0.0, -1.0)
+            b.face([(wx - 1.0, y - 1.35, z0 - 0.02), (wx + 1.0, y - 1.35, z0 - 0.02), (wx + 1.0, y + 1.4, z0 - 0.02), (wx - 1.0, y + 1.4, z0 - 0.02)], "bankWhite", toward=front)
+            if floor == 1:
+                head = [(wx + math.cos(math.pi * k / 5) * 1.05, y + 1.4 + math.sin(math.pi * k / 5) * 0.55, z0 - 0.03) for k in range(6)]
+            else:
+                head = [(wx + 1.15, y + 1.4, z0 - 0.03), (wx, y + 2.0, z0 - 0.03), (wx - 1.15, y + 1.4, z0 - 0.03)]
+            b.face(head, "bankWhite", toward=front)
+            b.box((wx, y - 1.42, z0 - 0.14), (2.3, 0.14, 0.3), "bankWhite", skip_bottom=False)
+            b.level = BOTH
         for i in range(int(depth // 4.2)):
             wz = z0 + 2.1 + i * 4.2
             b.rect((x0 - 0.04, y, wz), (0.0, 0.0, 1.0), (0.0, 1.0, 0.0), 1.5, 2.4, "window")
             b.rect((x1 + 0.04, y, wz), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0), 1.5, 2.4, "window")
-    # The dome, on the corner toward the middle of the bay.
+    # Pass 2: the arcade's bays are arches, not gaps: over each, the wall comes down in a round head.
+    b.level = FULL
+    front_spots = [s for s in spots if abs(s[1] - (z0 + 0.5)) < 0.01]
+    for (ax, az), (bx, _) in zip(front_spots, front_spots[1:]):
+        left, right, spring, top = ax + 0.4, bx - 0.4, ground + floor_h - 1.55, ground + floor_h - 0.25
+        mid, half = (left + right) / 2, (right - left) / 2
+        arc = [(mid + math.cos(math.pi * k / 6) * half, spring + math.sin(math.pi * k / 6) * (top - spring - 0.2), az - 0.36) for k in range(7)]
+        # The two spandrels, each a fan from its upper corner down to the arc.
+        b.face([(right, top, az - 0.36)] + arc[:4], "bankPink", toward=(0.0, 0.0, -1.0))
+        b.face([(left, top, az - 0.36)] + arc[3:], "bankPink", toward=(0.0, 0.0, -1.0))
+        b.box((ax, spring - 0.12, az), (1.0, 0.24, 1.0), "bankWhite")
+    # White pilasters up the corners, and a parapet round the roof with a raised piece over the middle.
+    for px in (x0, x1):
+        b.box((px, ground + floor_h + (height - floor_h) / 2, z0), (0.9, height - floor_h, 0.9), "bankWhite")
     b.level = BOTH
-    _cupula(b, x0 + 7.5, ground + height, z0 + 7.5, 6.2, "bankPink", "bankWhite")
+    b.box((cx, ground + height + 0.45, z0 + 0.25), (width, 0.9, 0.5), "bankWhite")
+    b.box((cx, ground + height + 1.25, z0 + 0.25), (9.0, 1.7, 0.5), "bankWhite")
+    b.level = FULL
+    crest = [(cx - 4.5, ground + height + 2.1, z0 + 0.25), (cx + 4.5, ground + height + 2.1, z0 + 0.25), (cx, ground + height + 3.3, z0 + 0.25)]
+    b.face(crest, "bankWhite", toward=(0.0, 0.0, -1.0), two_sided=True)
+    # The great door, under the arcade in the middle, in its white frame.
+    door_z = z0 + arcade - 0.04
+    b.face([(cx - 2.1, ground, door_z), (cx + 2.1, ground, door_z), (cx + 2.1, ground + 3.8, door_z), (cx - 2.1, ground + 3.8, door_z)], "bankWhite", toward=(0.0, 0.0, -1.0))
+    b.face([(cx - 1.6, ground, door_z - 0.02), (cx + 1.6, ground, door_z - 0.02), (cx + 1.6, ground + 3.4, door_z - 0.02), (cx - 1.6, ground + 3.4, door_z - 0.02)], "wood", toward=(0.0, 0.0, -1.0))
+    # The dome, on the corner toward the middle of the bay: on a drum with windows, ribbed in white.
+    b.level = BOTH
+    dome_x, dome_z, dome_r = x0 + 7.5, z0 + 7.5, 6.2
+    _cupula(b, dome_x, ground + height, dome_z, dome_r, "bankPink", "bankWhite")
+    b.level = FULL
+    base_y = ground + height + dome_r * 0.55
+    for k in range(12):
+        angle = 2 * math.pi * (k + 0.5) / 12
+        # A window in each face of the drum.
+        wx, wz = dome_x + math.cos(angle) * dome_r * 1.03, dome_z + math.sin(angle) * dome_r * 1.03
+        b.rect((wx, ground + height + dome_r * 0.28, wz), (-math.sin(angle), 0.0, math.cos(angle)), (0.0, 1.0, 0.0), 1.0, dome_r * 0.34, "window", two_sided=True)
+        # A rib up the dome at each corner of the drum.
+        rib_a = 2 * math.pi * k / 12
+        points = []
+        for i in range(5):
+            up = (math.pi / 2) * i / 4.6
+            points.append((dome_x + math.cos(rib_a) * dome_r * 1.02 * math.cos(up), base_y + dome_r * 0.95 * math.sin(up) + 0.04, dome_z + math.sin(rib_a) * dome_r * 1.02 * math.cos(up)))
+        b.tube(points, [0.13, 0.12, 0.11, 0.1, 0.08], 3, "bankWhite", cap=False)
+    b.level = BOTH
     # Benches under the arcade.
     for i in range(3):
         kit.bench(b, x0 + width * (0.25 + 0.25 * i), z0 + arcade - 0.5, math.pi, ground)
@@ -322,14 +374,49 @@ def fortaleza(b, cx, cz, top, rng):
     # The yard inside, and a low building in it.
     b.face([(cx - half, top + 0.4, cz - half), (cx + half, top + 0.4, cz - half), (cx + half, top + 0.4, cz + half), (cx - half, top + 0.4, cz + half)], "fortStoneDark", toward=(0.0, 1.0, 0.0))
     b.box((cx, top + 2.4, cz + 4), (16.0, 4.0, 9.0), "paintWhite", top="roofTile")
-    # The gate, closed, in the wall that faces the town.
-    b.rect((cx + half + thick / 2 + 0.04, top + 2.0, cz), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0), 3.4, 4.2, "wood")
     # Cannons on the wall that faces the bay.
     b.level = FULL
     for i in range(5):
         px = cx - half + 5 + i * 6
         b.tube([(px, top + wall_h + 0.5, cz - half + 0.4), (px, top + wall_h + 0.7, cz - half - 2.2)], [0.22, 0.16], 6, "metal")
         b.box((px, top + wall_h + 0.25, cz - half + 0.6), (0.9, 0.5, 1.2), "wood")
+    # Pass 2. A white cord of stone runs round the walls below the parapet, and the parapet is cut with
+    # embrasures; at each bastion's point stands a guarita, the round sentry box under its little dome.
+    crown = top + wall_h + 1.5
+    for sx, sz, w, d in [(0, -1, 2 * half, thick + 0.3), (0, 1, 2 * half, thick + 0.3), (-1, 0, thick + 0.3, 2 * half), (1, 0, thick + 0.3, 2 * half)]:
+        b.box((cx + sx * half, crown - 1.25, cz + sz * half), (w, 0.3, d), "bankWhite", skip_bottom=False)
+    for side in (-1, 1):
+        for i in range(7):
+            along = -half + 4.5 + i * (2 * half - 9.0) / 6
+            # Dark notches in the parapet: toward the bay and the land, and toward east and west.
+            b.rect((cx + along, crown - 0.5, cz + side * (half + thick / 2 + 0.03)), (-float(side), 0.0, 0.0), (0.0, 1.0, 0.0), 1.1, 0.9, "fortStoneDark")
+            b.rect((cx + side * (half + thick / 2 + 0.03), crown - 0.5, cz + along), (0.0, 0.0, float(side)), (0.0, 1.0, 0.0), 1.1, 0.9, "fortStoneDark")
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            gx, gz = cx + sx * (half + 4.6), cz + sz * (half + 4.6)
+            deck = top + wall_h / 2 - 1.5 + (wall_h + 3.6) / 2
+            b.tube([(gx, deck - 1.4, gz), (gx, deck + 2.3, gz)], [0.75, 1.0], 8, "fortStone", cap=False)
+            b.tube([(gx, deck + 2.3, gz), (gx, deck + 2.6, gz), (gx, deck + 3.3, gz)], [1.15, 0.9, 0.12], 8, "bankWhite")
+            outward = math.atan2(sz, sx)
+            b.rect((gx + math.cos(outward) * 1.0, deck + 1.4, gz + math.sin(outward) * 1.0), (-math.sin(outward), 0.0, math.cos(outward)), (0.0, 1.0, 0.0), 0.3, 0.8, "fortStoneDark", two_sided=True)
+    # The gate, in the wall that faces the town: an arch of white stone under a pediment, and its two leaves.
+    gate_x = cx + half + thick / 2 + 0.06
+    east = (1.0, 0.0, 0.0)
+    b.face([(gate_x, top - 0.2, cz - 3.0), (gate_x, top - 0.2, cz + 3.0), (gate_x, top + 5.2, cz + 3.0), (gate_x, top + 5.2, cz - 3.0)], "bankWhite", toward=east)
+    b.face([(gate_x, top + 5.2, cz - 3.4), (gate_x, top + 5.2, cz + 3.4), (gate_x, top + 6.6, cz)], "bankWhite", toward=east)
+    arch = [(gate_x + 0.02, top + 3.0 + math.sin(math.pi * k / 6) * 1.5, cz + math.cos(math.pi * k / 6) * 1.9) for k in range(7)]
+    b.face([(gate_x + 0.02, top - 0.2, cz + 1.9), (gate_x + 0.02, top - 0.2, cz - 1.9)] + list(reversed(arch)), "wood", toward=east)
+    b.face([(gate_x + 0.03, top - 0.2, cz - 0.05), (gate_x + 0.03, top - 0.2, cz + 0.05), (gate_x + 0.03, top + 4.5, cz + 0.05), (gate_x + 0.03, top + 4.5, cz - 0.05)], "fortStoneDark", toward=east)
+    # The house in the yard gets an arcade along its front and a door.
+    for i in range(6):
+        ax = cx - 7.0 + i * 2.8
+        b.box((ax, top + 1.7, cz - 0.9), (0.4, 2.6, 0.4), "bankWhite")
+    b.box((cx, top + 3.15, cz - 0.9), (16.0, 0.3, 0.6), "bankWhite", skip_bottom=False)
+    # Weather on the stone: a few darker courses low on the walls that face the bay and the town.
+    for i in range(6):
+        along = -half + 3.0 + i * 5.6 + rng.uniform(-0.8, 0.8)
+        b.rect((cx + along, top - 0.2 + rng.uniform(0.0, 1.6), cz - half - thick / 2 - 0.03), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), rng.uniform(2.0, 4.0), rng.uniform(0.5, 1.1), "fortStoneDark")
+        b.rect((cx + half + thick / 2 + 0.03, top - 0.2 + rng.uniform(0.0, 1.6), cz + along if abs(along) > 4.0 else cz + 9.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0), rng.uniform(2.0, 4.0), rng.uniform(0.5, 1.1), "fortStoneDark")
     b.level = BOTH
 
 

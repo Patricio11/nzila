@@ -132,6 +132,15 @@ const PAGES = [
   ["ferro-frente", "/cena?pack=l1&hour=16.6&tier=normal&transito=30&at=284,161.5,1.7&look=284,172,4.4"],
   ["ferro-perto", "/cena?pack=l1&hour=12&tier=normal&transito=30&at=279,169.2,1.7&look=283.5,172.4,3.0"],
   ["ferro-noite", "/cena?pack=l1&hour=20.2&tier=normal&transito=30&at=270,160.5,1.7&look=284,179,4.2"],
+  // The pink building and the fortress, after their second pass.
+  ["rosa2", "/cena?pack=l1&hour=16.5&tier=normal&transito=30&at=196,96,1.8&look=214,118,8"],
+  ["rosa2-frente", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=224,98,1.8&look=224,118,7"],
+  ["rosa2-arcada", "/cena?pack=l1&hour=12&tier=normal&transito=30&at=208,112.5,1.7&look=226,117.5,3.2"],
+  ["rosa2-baia", "/cena?pack=l1&hour=17.2&tier=normal&transito=30&at=226,56,1.8&look=215,118,9"],
+  ["forte2", "/cena?pack=l1&hour=16.5&tier=normal&transito=30&at=84,140,16&look=58,132,20"],
+  ["forte2-baia", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=120,66,2&look=45,125,18"],
+  ["forte2-miradouro", "/cena?pack=l1&hour=17.2&tier=normal&transito=30&at=52,99,14.6&look=42,118,19"],
+  ["forte2-do-alto", "/cena?pack=l1&hour=12&tier=alta&transito=30&at=92,96,44&look=42,130,14"],
   // The mural.
   ["mural", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=207,164.5,1.7&look=207,173,2.0"],
   ["mural-lado", "/cena?pack=l1&hour=16.8&tier=normal&transito=30&at=190,166,1.7&look=205,172.6,2.0"],
