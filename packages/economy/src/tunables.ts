@@ -47,6 +47,9 @@ const SPEC = {
     /** Points of a 10 000 point bar lost per real hour of play. */
     fomePerHour: range(0, 100_000),
     energiaPerHour: range(0, 100_000),
+    /** More Energia lost per real hour of going fast (running, jogging, a fast walk), and what one jump costs (D-0.46). */
+    energiaPerRunHour: range(0, 100_000),
+    energiaPerJump: range(0, 1000),
   },
   crime: {
     /** A player is shielded until they have played this many hours and the account is this many days old (Rule 6). */

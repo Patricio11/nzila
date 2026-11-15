@@ -4,7 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { HEAT_MAX, heatBand, heatValue, type HeatWeights } from "./heat.ts";
 import { SCORE_MAX, scoreTiming } from "./minigame/index.ts";
-import { NEED_FULL, decayNeeds } from "./needs.ts";
+import { NEED_FULL, decayNeeds, spendEffort } from "./needs.ts";
 import { assaltoLossCap, isShielded, type OffenceKind } from "./offence.ts";
 
 describe("needs", () => {
@@ -19,6 +19,17 @@ describe("needs", () => {
     const start = { fome: 100, energia: NEED_FULL + 5000 };
     expect(decayNeeds(start, 72_000, rates)).toEqual({ fome: 0, energia: NEED_FULL });
     expect(start).toEqual({ fome: 100, energia: NEED_FULL + 5000 });
+  });
+
+  test("golden: going fast and jumping cost Energia, walking does not, and Fome is untouched", () => {
+    const effort = { energiaPerRunHour: 6000, energiaPerJump: 15 };
+    const rested = { fome: 7000, energia: NEED_FULL };
+    expect(spendEffort(rested, 0, 0, effort)).toEqual(rested);
+    expect(spendEffort(rested, 20 * 60 * 10, 0, effort)).toEqual({ fome: 7000, energia: 9000 });
+    expect(spendEffort(rested, 0, 4, effort)).toEqual({ fome: 7000, energia: 9940 });
+    expect(spendEffort({ fome: 7000, energia: 20 }, 72_000, 3, effort)).toEqual({ fome: 7000, energia: 0 });
+    // Numbers that make no sense take nothing and give nothing.
+    expect(spendEffort(rested, -500, -2, effort)).toEqual(rested);
   });
 });
 
