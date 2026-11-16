@@ -71,6 +71,10 @@ Built first on a room library and rebuilt the same day without one (D-3.6, as re
 
 Two things learnt the hard way, both now held by tests: a zone must never walk a step it was not sent a frame for (F-158), and "where you arrive" must be said once (F-159). What is left is in F-157: the largest is that vans and the people of the street are still each phone's own, so a rider steps out of the channel and a person of the street stops a player dead.
 
+**3.7, 2026-11-16.** `tools/swarm`: headless players, their accounts made and taken away, and the budgets a run is held to. The first numbers (the development machine, Marginal e Baixa, 80 in one channel): **1,15 KB a second down per phone, 1,33 at the most, of a budget of 2; a step of the zone 2,7 ms on the mean, 10 at the worst, of 50.** A slowed browser among 24 players: 45 frames a second, no corrections. Looking at that crowd found two things, both fixed: everyone who had not chosen a look was the same woman (the zone now gives each newcomer a look of their own, `arrivalLook`), and the names of people standing together were written over each other (the nearer keeps theirs). And a whole channel can now arrive at one door: there was room for thirty-three.
+
+So the channel holds its eighty with room to spare on both budgets, before chat, before the far ones as dots, before vehicles. Those must each be weighed the same way when they arrive.
+
 ## What "done" means for this phase
 
 From the roadmap: two real phones in the same street see each other move smoothly at 250 ms and 5% loss; a channel holds 80 with the zone's tick inside its budget and a phone on foot under 2 KB/s down; chat is visible as speech in the street, filtered, with block, mute and report working; a moderator can act on a report from the Estúdio.

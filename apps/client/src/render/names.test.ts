@@ -1,7 +1,7 @@
 // Whose name is shown: whoever is standing still and near, the nearest first, a few at once.
 
 import { describe, expect, test } from "vitest";
-import { NAMES_AT_ONCE, NAME_FAR_M, named, type Named } from "./names.ts";
+import { NAMES_AT_ONCE, NAME_FAR_M, named, uncrowded, type Named } from "./names.ts";
 
 const who = (name: string, x: number, z: number, still = true): Named => ({ name, x, y: 1.7, z, still });
 
@@ -26,5 +26,20 @@ describe("names over heads", () => {
   test("it is measured from where the viewer stands", () => {
     expect(named([who("Mingota", 30, 30)], 0, 0)).toEqual([]);
     expect(named([who("Mingota", 30, 30)], 28, 30).map((one) => one.who.name)).toEqual(["Mingota"]);
+  });
+});
+
+describe("labels that would cover each other", () => {
+  const box = (x: number, y: number) => ({ x, y, halfWide: 0.2, halfHigh: 0.05 });
+
+  test("the nearest keeps theirs, one that would touch it is not shown, and one clear of both is", () => {
+    // Nearest first: the second is beside the first and touching, the third well to the side, the fourth above.
+    expect(uncrowded([box(0, 0), box(0.3, 0.02), box(0.9, 0), box(0, 0.2)])).toEqual([true, false, true, true]);
+  });
+
+  test("a label is hidden only by one that is shown: behind a hidden one there is room again", () => {
+    // The second is hidden by the first; the third touches the second but not the first, and is shown.
+    expect(uncrowded([box(0, 0), box(0.35, 0), box(0.7, 0)])).toEqual([true, false, true]);
+    expect(uncrowded([])).toEqual([]);
   });
 });

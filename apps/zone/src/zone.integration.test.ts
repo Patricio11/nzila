@@ -208,7 +208,12 @@ describe("two phones in the same street", () => {
     const ofA = b.state.who.find((who) => who.entityId === aId)!;
     expect(ofA.name).toBe(dressed.name);
     expect(JSON.parse(ofA.look)).toMatchObject({ sex: "f", hair: "trancas", bottom: "pano" });
-    expect(a.state.who.find((who) => who.entityId === bId)).toMatchObject({ name: tampered.name, look: "" });
+    // The other's stored look is not one the game knows: it is not passed on. They are shown in a look of their own
+    // all the same, made by the zone and good for the wardrobe.
+    const ofB = a.state.who.find((who) => who.entityId === bId)!;
+    expect(ofB.name).toBe(tampered.name);
+    expect(ofB.look).not.toContain("script");
+    expect(checkLook(JSON.parse(ofB.look))).not.toBeNull();
     // Nobody is told who they are themselves, and nobody is told twice.
     await a.walk(10, { dx: 0, dz: 0, run: false, brake: false });
     expect(a.state.who.filter((who) => who.entityId === bId)).toHaveLength(1);

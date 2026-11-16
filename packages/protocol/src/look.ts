@@ -89,3 +89,32 @@ export function checkLook(input: unknown): Look | null {
   if (!step(tall) || !step(broad)) return null;
   return { sex: given.sex, skin: given.skin as number, hair: given.hair, hairColour: given.hairColour, top: given.top as string, topColour: given.topColour, bottom: given.bottom, bottomColour: given.bottomColour, bands: given.bands, shoe: given.shoe, extras: extras as string[], tall, broad };
 }
+
+/**
+ * A look for someone who has not chosen one yet, so that a street of newcomers is a street of different
+ * people and not of one person many times. Made from the catalogue by a number (the same number, the same
+ * person, on every phone), and always one the wardrobe can dress. The hair is its natural dark, mostly.
+ */
+export function arrivalLook(seed: number): Look {
+  let s = seed >>> 0;
+  const pick = <T>(list: readonly T[]): T => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return list[(s >>> 8) % list.length]!;
+  };
+  const sex = pick(["f", "m"] as const);
+  const has = CATALOGUE[sex];
+  const top = pick(Object.keys(has.tops));
+  const hair = pick(has.hair);
+  return {
+    sex,
+    skin: pick([0, 1, 2, 3, 4]),
+    hair,
+    hairColour: COVERS.includes(hair) ? pick(COLOURS.cloth) : pick(["hairBlack", "hairBlack", "hairBlack", "hairBrown"]),
+    top,
+    topColour: pick(COLOURS.cloth),
+    bottom: pick(has.tops[top]!),
+    bottomColour: pick(COLOURS.bottom),
+    bands: pick(COLOURS.bands),
+    shoe: pick(COLOURS.shoe),
+  };
+}

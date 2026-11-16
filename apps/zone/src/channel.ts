@@ -30,9 +30,13 @@ export const FRAMES_A_STEP_AT_MOST = 2;
 const STOOD_STEPS = 3;
 /** Snapshots a client may still name as the one they have: about three seconds of them. */
 const REMEMBERED = 32;
-/** Where someone arriving is tried, round the place they asked for, until a spot is free: metres out, and how many round. */
-const ARRIVAL_RINGS_MM = [0, 1200, 2000, 2800, 3600];
-const ARRIVAL_ROUND = 8;
+/**
+ * Where someone arriving is tried, round the place they asked for, until a spot is free: rings a pace apart out to
+ * sixteen metres, with a body's width between the places on each. Room for a whole channel to arrive at one door.
+ */
+const ARRIVAL_RING_MM = 1200;
+const ARRIVAL_RINGS = 14;
+const ARRIVAL_APART_MM = 1000;
 
 export interface Place {
   readonly x: number;
@@ -98,9 +102,11 @@ export class Channel {
    * the number they are known by here, or null when there is no room anywhere round that place.
    */
   join(playerId: string, at: Place): number | null {
-    for (const ring of ARRIVAL_RINGS_MM) {
-      for (let k = 0; k < (ring === 0 ? 1 : ARRIVAL_ROUND); k++) {
-        const angle = (k / ARRIVAL_ROUND) * Math.PI * 2;
+    for (let n = 0; n <= ARRIVAL_RINGS; n++) {
+      const ring = n * ARRIVAL_RING_MM;
+      const round = n === 0 ? 1 : Math.floor((2 * Math.PI * ring) / ARRIVAL_APART_MM);
+      for (let k = 0; k < round; k++) {
+        const angle = (k / round) * Math.PI * 2;
         const x = Math.round(at.x + Math.sin(angle) * ring);
         const z = Math.round(at.z + Math.cos(angle) * ring);
         if (!this.free(x, z)) continue;

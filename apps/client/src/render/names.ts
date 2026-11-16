@@ -39,6 +39,20 @@ export function named(people: readonly Named[], viewerX: number, viewerZ: number
     .slice(0, NAMES_AT_ONCE);
 }
 
+/**
+ * Which of several labels are shown when some would cover others on the screen: given nearest first, each as a
+ * box on the screen (its middle and half its size, in any one unit), a label is kept unless it would touch one
+ * already kept. The nearest person always keeps theirs.
+ */
+export function uncrowded(boxes: readonly { readonly x: number; readonly y: number; readonly halfWide: number; readonly halfHigh: number }[]): boolean[] {
+  const kept: (typeof boxes)[number][] = [];
+  return boxes.map((box) => {
+    if (kept.some((other) => Math.abs(other.x - box.x) < other.halfWide + box.halfWide && Math.abs(other.y - box.y) < other.halfHigh + box.halfHigh)) return false;
+    kept.push(box);
+    return true;
+  });
+}
+
 /** A label's size in metres and on the picture, and how many different labels the picture holds. */
 const WIDE_M = 1.9;
 const HIGH_M = 0.53;
@@ -56,6 +70,8 @@ export class NameTags {
   private readonly rows = new Map<string, number>();
   private readonly right = new Vector3();
   private readonly up = new Vector3();
+  private readonly middle = new Vector3();
+  private readonly edge = new Vector3();
   /** How many names were shown at the last update: for the tests. */
   shown = 0;
 
@@ -129,7 +145,18 @@ export class NameTags {
     this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
     const position = this.mesh.geometry.getAttribute("position") as BufferAttribute;
     const uv = this.mesh.geometry.getAttribute("uv") as BufferAttribute;
-    const list = named(people, viewerX, viewerZ);
+    const near = named(people, viewerX, viewerZ);
+    // Where each label would be on the screen, and how big: two people standing together do not get two labels
+    // written over each other; the nearer keeps theirs.
+    const boxes = near.map((one) => {
+      const size = Math.min(1, Math.max(0, (NAME_FAR_M - one.far) / (NAME_FAR_M - NAME_NEAR_M)));
+      const y = one.who.y + OVER_HEAD_M + (HIGH_M / 2) * size;
+      this.middle.set(one.who.x, y, one.who.z).project(camera);
+      this.edge.set(one.who.x + (this.right.x * WIDE_M * size) / 2 + (this.up.x * HIGH_M * size) / 2, y + (this.right.y * WIDE_M * size) / 2 + (this.up.y * HIGH_M * size) / 2, one.who.z + (this.right.z * WIDE_M * size) / 2 + (this.up.z * HIGH_M * size) / 2).project(camera);
+      return { x: this.middle.x, y: this.middle.y, halfWide: Math.abs(this.edge.x - this.middle.x), halfHigh: Math.abs(this.edge.y - this.middle.y) };
+    });
+    const clear = uncrowded(boxes);
+    const list = near.filter((_, n) => clear[n]);
     for (let n = 0; n < NAMES_AT_ONCE; n++) {
       const one = list[n];
       if (!one) {

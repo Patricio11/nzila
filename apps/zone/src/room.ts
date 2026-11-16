@@ -8,7 +8,7 @@
 // make them from nothing). Every byte is ours (packages/protocol).
 
 import { faceOf, keepWhereabouts, whereaboutsOf } from "@nzila/db";
-import { PROTOCOL_VERSION, ZONE_CLOSE, checkLook, decodeClientMessage, encodeJoinAccepted, encodeWho } from "@nzila/protocol";
+import { PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeJoinAccepted, encodeWho } from "@nzila/protocol";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
 import { type District } from "./district.ts";
@@ -60,6 +60,13 @@ export interface Pace {
   lastMs: number;
   worstMs: number;
   totalMs: number;
+}
+
+/** A number from a player's id: the same player, the same number, in every channel. */
+function seedOf(playerId: string): number {
+  let seed = 2166136261;
+  for (let i = 0; i < playerId.length; i++) seed = Math.imul(seed ^ playerId.charCodeAt(i), 16777619);
+  return seed >>> 0;
 }
 
 export class ChannelRoom {
@@ -147,8 +154,9 @@ export class ChannelRoom {
     const entityId = this.channel.join(playerId, at) ?? this.channel.join(playerId, district.arrival);
     if (entityId === null) return false;
     // The look is sent as it would be accepted today: what was stored under an older catalogue is not passed on blind.
-    const look = checkLook(face.look);
-    this.faces.set(entityId, encodeWho({ entityId, name: face.name, look: look ? JSON.stringify(look) : "" }));
+    // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
+    const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
+    this.faces.set(entityId, encodeWho({ entityId, name: face.name, look: JSON.stringify(look) }));
     this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0 });
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     return true;

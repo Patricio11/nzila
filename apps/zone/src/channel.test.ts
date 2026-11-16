@@ -45,6 +45,17 @@ describe("coming in and going out", () => {
     expect(Math.hypot(beside.x, beside.z)).toBeLessThan(1700);
   });
 
+  test("a whole channel can arrive at one door: eighty people, nobody on top of anybody, nobody far from it", () => {
+    const channel = new Channel(ground);
+    const ids = Array.from({ length: 80 }, (_, n) => channel.join(`player-${n}`, here));
+    expect(ids.every((id) => id !== null)).toBe(true);
+    const places = ids.map((id) => channel.placeOf(id!)!);
+    for (const [n, a] of places.entries()) {
+      expect(Math.hypot(a.x, a.z)).toBeLessThan(12_000);
+      for (const b of places.slice(n + 1)) expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThanOrEqual(450);
+    }
+  });
+
   test("nobody arrives inside a wall, and where there is no room at all nobody arrives", () => {
     const channel = new Channel(ground);
     // Asked for the middle of the wall: put on the ground beside it.

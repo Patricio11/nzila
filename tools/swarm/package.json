@@ -1,0 +1,20 @@
+{
+  "name": "@nzila/swarm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless players that fill a channel, to measure what a zone and a phone must carry.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@nzila/db": "workspace:*",
+    "@nzila/protocol": "workspace:*",
+    "@nzila/sim": "workspace:*",
+    "postgres": "^4.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3"
+  }
+}

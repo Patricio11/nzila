@@ -10,6 +10,7 @@
     "dev": "pnpm services && turbo run dev",
     "dev:client": "pnpm --filter @nzila/client dev",
     "dev:zone": "pnpm --filter @nzila/zone dev",
+    "swarm": "node --env-file-if-exists=.env.example --env-file-if-exists=.env tools/swarm/src/run.ts",
     "dev:down": "docker compose -f infra/docker-compose.yml down",
     "services": "docker compose -f infra/docker-compose.yml up -d --wait",
     "db:migrate": "node packages/db/src/cli.ts migrate",

@@ -351,8 +351,8 @@ flowchart LR
 - Depends on: 0.10, 3.5 · Unblocks: 3.8, 13.3.
 
 ### Task 3.7: The bot swarm
-- [ ] `tools/swarm`: headless clients that walk, ride and chat from recorded behaviour; `pnpm swarm --district l1 --players 80`.
-- [ ] Recorded per run: zone tick time, bandwidth per client (target under 2 KB/s down on foot), memory, the frame rate of one real phone in the same channel.
+- [ ] `tools/swarm`: headless clients that walk, ride and chat from recorded behaviour; `pnpm swarm --district l1 --players 80`. *(2026-11-16: built for walking: each bot opens a line as a phone does and walks, turns, stands and sometimes runs, by a seeded generator so that two runs ask the same of the zone. `pnpm swarm --district l1 --players 80` against a running zone; a test fills a channel with eighty in the gate. Not ticked: they do not ride (the vans are not the zone's yet) or chat (3.5), and what they do is generated, not recorded from players, of whom there are none yet.)*
+- [ ] Recorded per run: zone tick time, bandwidth per client (target under 2 KB/s down on foot), memory, the frame rate of one real phone in the same channel. *(2026-11-16, 80 in a channel of Marginal e Baixa: a step of the zone 2,7 ms on the mean and 10 ms at the worst of 50; **1,15 KB a second down per client on the mean, 1,33 the most**; 200 players fill three channels by themselves with the same numbers. A browser slowed four times, standing among 24 other players, drew 45 frames a second and was never corrected by the zone. Not ticked: memory is not recorded, the phone was a slowed browser and not a real one, and all of it was on the development machine. `docs/BUDGETS.md` has the rows.)*
 - Depends on: 3.1 · Unblocks: 3.9, 13.5.
 
 ### Task 3.8: Estúdio v1
