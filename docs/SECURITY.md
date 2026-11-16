@@ -32,6 +32,7 @@
 - **A client sends its stick and never a place** (D-3.1). The zone walks only frames it was sent, in order, one a step and never faster than time, with three steps of slack: a client that sends more gains nothing. Walls, benches and other people stop a walk in the zone as on the phone.
 - The one thing a phone says about where it is: the paragem it got off a van at, by its id. The zone believes a paragem of its own district and nothing else. It is a free hop between paragens until the vans are the zone's (F-157).
 - What the zone tells a phone about another player is their name and their look, each checked as it leaves the zone and again as it arrives; a look is twelve numbers, not text.
+- A line that falls without a word keeps its player's body in the channel for sixty seconds, and only its own player can come back to it (by a ticket from the API, which knows who is asking). A body kept is a place taken: at the most one a player, for a minute.
 - The zone's `/health` says how many are in each channel and how long its steps take. It names nobody. It should not be reachable from outside where that count is thought private.
 
 **2b. Age (Task 2.6).** The year of birth is typed on the phone and never sent: the client works out the band with the rule it shares with the API and sends the band. It is self-declared either way; what is gained is that the server never holds a year of birth. Nobody under 15 is given an account, and nothing of them is stored on the phone or the server.

@@ -335,8 +335,8 @@ flowchart LR
 - Depends on: 0.4, 1.7, 3.1 · Unblocks: 3.4, every later world feature.
 
 ### Task 3.4: Weak network and reconnect
-- [ ] Reconnect with the seat held for 60 seconds; the world keeps drawing; queued actions replay by idempotency key; a calm banner ("A ligar de novo").
-- [ ] A network conditioner in development (latency, loss, drop) and tests at 250 ms with 5% loss.
+- [ ] Reconnect with the seat held for 60 seconds; the world keeps drawing; queued actions replay by idempotency key; a calm banner ("A ligar de novo"). *(2026-11-17: built for everything there is to reconnect. A line that falls without a word (found by the close it did not send, or by not answering "are you there?" within ten seconds) leaves its player's body standing in the street for sixty seconds; the zone says in Redis which channel is keeping the place and the matchmaker sends them back to it; they return as the same body in the same place, and to the others they never left. On the phone the world goes on being drawn, the others stay where they were last seen and stay solid, tries are quick at first and then steady; nothing is said for the first second, then "A ligar de novo…", and after a minute "Sem rede. Guardámos onde estavas." with "Tentar de novo". Tested in the zone with sockets cut and sockets gone quiet, and in two browsers with the network taken away and given back. Not ticked: there are no actions to queue yet, only walking; idempotency keys arrive with the first one (4.1). F-168.)*
+- [x] A network conditioner in development (latency, loss, drop) and tests at 250 ms with 5% loss. *(2026-11-17: `&rede=250,5` in the address is a round trip of 250 ms with 5% lost, as a WebSocket feels loss: the line stalls a moment and everything behind arrives together (`net/conditioner.ts`). `window.__andar.fall()` drops the line. In both browsers at 250 ms and 5%: the other player walks smoothly (never a jump) and the walker is put right fewer than four times in five seconds; the arithmetic is also tested against the real channel with delay, loss and bunching.)*
 - Depends on: 3.2, 3.3 · Unblocks: 13.1.
 
 ### Task 3.5: Chat and emotes

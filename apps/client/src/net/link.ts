@@ -10,6 +10,7 @@
 
 import { PROTOCOL_VERSION, ZONE_CLOSE, decodeSnapshot, decodeZoneMessage, encodeInput, encodeJoin, type JoinAccepted, type Snapshot, type Who } from "@nzila/protocol";
 import { type PlaySeat } from "../world/account.ts";
+import { Conditioner, askedLine } from "./conditioner.ts";
 import { dataMeter } from "./data-meter.ts";
 import { type Sent } from "./predict.ts";
 
@@ -29,7 +30,10 @@ export interface Link {
   readonly accepted: JoinAccepted;
   /** Sends the stick: the frames just walked. */
   send(sent: Sent): void;
+  /** Leaves on purpose, and says so. */
   close(): void;
+  /** For the tests and a developer: the line goes without a word, as in a tunnel. The zone keeps the place. */
+  fall(): void;
 }
 
 /** Where a zone is reached: the address the matchmaker gave, or `/zone` on the game's own when it gave none. */
@@ -52,6 +56,10 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
       return done(null);
     }
     socket.binaryType = "arraybuffer";
+    // `&rede=250,5` in the address: a weak line on purpose, half its round trip each way (conditioner.ts).
+    const weak = askedLine(location.search);
+    const up = weak ? new Conditioner(weak.roundTripMs / 2, weak.lossPercent) : null;
+    const down = weak ? new Conditioner(weak.roundTripMs / 2, weak.lossPercent) : null;
     const had = new Map<number, Snapshot>();
     let ackTick = 0;
     let accepted: JoinAccepted | null = null;
@@ -63,7 +71,12 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
 
     socket.onopen = () => socket.send(encodeJoin({ protocolVersion: PROTOCOL_VERSION, token }) as BufferSource);
     socket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-      const bytes = new Uint8Array(event.data);
+      if (!down) return heard(event.data);
+      const now = performance.now();
+      setTimeout(() => heard(event.data), down.due(now) - now);
+    };
+    const heard = (data: ArrayBuffer): void => {
+      const bytes = new Uint8Array(data);
       // Megabytes are money: what the zone says is counted like everything else that comes down.
       dataMeter.add(bytes.length);
       try {
@@ -74,12 +87,21 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
           done({
             accepted,
             send: (sent) => {
-              if (socket.readyState === WebSocket.OPEN) socket.send(encodeInput({ seq: sent.seq, ackTick, frames: sent.frames }) as BufferSource);
+              const bytes = encodeInput({ seq: sent.seq, ackTick, frames: sent.frames }) as BufferSource;
+              const go = (): void => {
+                if (socket.readyState === WebSocket.OPEN) socket.send(bytes);
+              };
+              if (!up) return go();
+              const now = performance.now();
+              setTimeout(go, up.due(now) - now);
             },
             close: () => {
               let_go = true;
-              socket.close();
+              // Leaving on purpose is said: a line that closes without a word is taken for one that fell, and its place is kept.
+              socket.close(1000);
             },
+            // Closed with no reason given, which is how the zone knows a fallen line from a goodbye.
+            fall: () => socket.close(),
           });
         } else if (message.type === "who") {
           events.who(message);

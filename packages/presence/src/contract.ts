@@ -2,7 +2,7 @@
 // presence.integration.test.ts: one list of questions, so that the two cannot drift apart.
 
 import { expect } from "vitest";
-import { SEAT_TTL_S, ZONE_TTL_S, type Presence, type ZoneCard } from "./presence.ts";
+import { HELD_TTL_S, SEAT_TTL_S, ZONE_TTL_S, type Presence, type ZoneCard } from "./presence.ts";
 
 /** `pass` lets that many seconds go by, however the keeper of this presence counts time. */
 export async function behavesAsPresence(presence: Presence, pass: (seconds: number) => Promise<void>): Promise<void> {
@@ -33,6 +33,17 @@ export async function behavesAsPresence(presence: Presence, pass: (seconds: numb
   const late = await presence.reserve(seat);
   await pass(SEAT_TTL_S + 1);
   expect(await presence.claim(late)).toBeNull();
+
+  // A place held for someone whose line dropped: read back for a minute, let go when asked, and gone by itself after.
+  expect(await presence.held("player-1")).toBeNull();
+  await presence.hold(seat);
+  expect(await presence.held("player-1")).toEqual(seat);
+  await presence.unhold("player-1");
+  expect(await presence.held("player-1")).toBeNull();
+  await presence.hold({ ...seat, channel: 5 });
+  expect((await presence.held("player-1"))!.channel).toBe(5);
+  await pass(HELD_TTL_S + 1);
+  expect(await presence.held("player-1")).toBeNull();
 
   // Places: the newest is the one read; forgotten when asked; and not kept for ever.
   expect(await presence.standing("player-1")).toBeNull();

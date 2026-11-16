@@ -130,6 +130,24 @@ export class Channel {
     return { playerId: seat.playerId, at: { x: body.state.x, y: body.state.y, z: body.state.z, yaw: body.state.yaw } };
   }
 
+  /**
+   * Someone comes back on a new line to the body they left standing: what the channel remembers of their old
+   * line (frames waiting, their numbering, the snapshots they had) is forgotten, because the new line starts
+   * its count again. False for a number nobody has.
+   */
+  resume(id: number): boolean {
+    const seat = this.seats.get(id);
+    if (!seat) return false;
+    seat.waiting.length = 0;
+    seat.lastInputSeq = 0;
+    seat.newestSeq = 0;
+    seat.owed = 0;
+    seat.ackTick = 0;
+    seat.sent.clear();
+    seat.seen = [];
+    return true;
+  }
+
   /** Where someone is now. */
   placeOf(id: number): Place | null {
     const body = this.world.characters.find((one) => one.id === id);

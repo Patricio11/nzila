@@ -30,6 +30,8 @@ export const STEPS_A_CHECKPOINT = 600;
 export const MESSAGES_A_SECOND = 60;
 /** How many times a client may send what cannot be read, or flood, before it is put out. */
 export const STRIKES = 5;
+/** A player whose line dropped keeps their body in the street, standing, this long: they may be in a tunnel (Task 3.4). */
+export const HOLD_MS = 60_000;
 /** How far behind the loop may fall and still catch up, in steps; beyond it time is let go, not made up in a rush. */
 const CATCH_UP_STEPS = 3;
 
@@ -42,6 +44,8 @@ export interface ZoneDeps {
   readonly presence?: Presence;
   /** How many people a channel holds. */
   readonly holds?: number;
+  /** How long a dropped line's place is kept (HOLD_MS; a test brings a shorter one). */
+  readonly holdMs?: number;
   /** Where the zone says what went wrong. */
   readonly log?: (line: string) => void;
 }
@@ -89,6 +93,11 @@ export class ChannelRoom {
   private readonly holds: number;
   private readonly log: (line: string) => void;
   private readonly held = new Map<Line, Held>();
+  /** Players whose line dropped: their bodies stand in the street until they come back or their time runs out. */
+  private readonly away = new Map<string, { held: Held; timer: ReturnType<typeof setTimeout> }>();
+  private readonly holdMs: number;
+  /** Told when someone has gone for good: the zone then closes a channel nobody is in, and says who is left. */
+  private readonly changed: () => void;
   /** Who each body is, as the bytes every client near them is sent once. */
   private readonly faces = new Map<number, Uint8Array>();
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -97,7 +106,9 @@ export class ChannelRoom {
   /** People whose coming in is under way: they hold a place, and keep the channel from being closed as empty under them. */
   private arriving = 0;
 
-  constructor(deps: ZoneDeps, number: number) {
+  constructor(deps: ZoneDeps, number: number, changed: () => void = () => {}) {
+    this.changed = changed;
+    this.holdMs = deps.holdMs ?? HOLD_MS;
     this.sql = deps.sql;
     this.district = deps.district;
     this.remember = deps.remember ?? true;
@@ -110,7 +121,7 @@ export class ChannelRoom {
 
   /** How many people are in or on their way in (the database is being asked about them), and how many more would fit. */
   get count(): number {
-    return this.held.size + this.arriving;
+    return this.held.size + this.away.size + this.arriving;
   }
   get room(): number {
     return this.holds - this.count;
@@ -149,6 +160,47 @@ export class ChannelRoom {
     return null;
   }
 
+  /** Whether this player has a body here: on a line, or left standing by a line that dropped. */
+  has(playerId: string): boolean {
+    return this.away.has(playerId) || this.lineOf(playerId) !== null;
+  }
+
+  /**
+   * A line went without a word (no network, a tunnel, a phone put to sleep): the body stays, standing, and the
+   * place is kept for a while. Gives back whose it was, or null for a line that held nobody.
+   */
+  drop(line: Line): string | null {
+    const held = this.held.get(line);
+    if (!held) return null;
+    this.held.delete(line);
+    const timer = setTimeout(() => void this.expire(held.playerId), this.holdMs);
+    this.away.set(held.playerId, { held, timer });
+    return held.playerId;
+  }
+
+  /** The time kept for someone to come back has run out: they leave the street, and where they stood is written down. */
+  private async expire(playerId: string): Promise<void> {
+    const kept = this.away.get(playerId);
+    if (!kept) return;
+    this.away.delete(playerId);
+    await this.depart(kept.held);
+    this.changed();
+  }
+
+  /** A player is put out of this channel because they have come in somewhere else. Gives back their line, if they had one, to be closed. */
+  async putOut(playerId: string): Promise<Line | null> {
+    const kept = this.away.get(playerId);
+    if (kept) {
+      clearTimeout(kept.timer);
+      this.away.delete(playerId);
+      await this.depart(kept.held);
+      return null;
+    }
+    const line = this.lineOf(playerId);
+    if (line) await this.leave(line);
+    return line;
+  }
+
   /**
    * A player comes in: where they last stood in this district, beside a paragem they have just got off at, at
    * `standing` when they were already here on another line, or at the district's door. False when there is no room
@@ -156,6 +208,23 @@ export class ChannelRoom {
    */
   async enter(line: Line, playerId: string, paragem?: string, standing?: Place): Promise<boolean> {
     const district = this.district;
+    // Back to a body they left here: on a line that dropped, or on one the zone has not yet noticed is dead.
+    // The same body, the same number, the same place: to everyone else they never left.
+    const kept = this.away.get(playerId);
+    const old = kept ? null : this.lineOf(playerId);
+    const back = kept?.held ?? (old ? this.held.get(old) : undefined);
+    if (back) {
+      if (kept) clearTimeout(kept.timer);
+      this.away.delete(playerId);
+      if (old) {
+        this.held.delete(old);
+        old.close(ZONE_CLOSE.ELSEWHERE);
+      }
+      this.channel.resume(back.entityId);
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0 });
+      line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
+      return true;
+    }
     this.arriving++;
     const [last, face] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId)]).finally(() => this.arriving--);
     let at: Place = last ?? district.arrival;
@@ -180,6 +249,11 @@ export class ChannelRoom {
     const held = this.held.get(line);
     if (!held) return null;
     this.held.delete(line);
+    return this.depart(held);
+  }
+
+  /** A body leaves the street for good: nobody need remember who it was, and where it stood is written down. */
+  private async depart(held: Held): Promise<Place | null> {
     const left = this.channel.leave(held.entityId);
     this.faces.delete(held.entityId);
     for (const other of this.held.values()) other.told.delete(held.entityId);
@@ -251,7 +325,10 @@ export class ChannelRoom {
   async empty(code: number): Promise<void> {
     this.stop();
     const lines = [...this.held.keys()];
-    await Promise.all(lines.map((line) => this.leave(line)));
+    for (const kept of this.away.values()) clearTimeout(kept.timer);
+    const waited = [...this.away.values()];
+    this.away.clear();
+    await Promise.all([...lines.map((line) => this.leave(line)), ...waited.map((kept) => this.depart(kept.held))]);
     for (const line of lines) line.close(code);
   }
 

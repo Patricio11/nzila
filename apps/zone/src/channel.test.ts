@@ -168,6 +168,30 @@ describe("the channel decides where everyone is", () => {
   });
 });
 
+describe("coming back to a body left standing", () => {
+  test("a new line starts its count again: its first frames are walked, not taken for repeats, and it is sent everything whole", () => {
+    const channel = new Channel(ground);
+    const a = channel.join("player-a", here)!;
+    const read = reader();
+    walking(channel, a, 1, 30);
+    const first = read(channel.snapshotFor(a)!);
+    channel.input(a, { seq: 31, ackTick: first.tick, frames: [still] });
+    channel.tick();
+    const stood = channel.placeOf(a)!;
+    expect(channel.resume(a)).toBe(true);
+    expect(channel.resume(999)).toBe(false);
+    // The same body, the same place, the same number.
+    expect(channel.placeOf(a)).toEqual(stood);
+    // A phone with no memory reads the next snapshot: it is whole, and says none of the new frames are used yet.
+    const whole = decodeSnapshot(channel.snapshotFor(a)!, () => undefined);
+    expect(whole.lastInputSeq).toBe(0);
+    expect(whole.entities).toHaveLength(1);
+    // Frames numbered from one again are walked.
+    walking(channel, a, 1, 10);
+    expect(channel.placeOf(a)!.z).toBeGreaterThan(stood.z + 400);
+  });
+});
+
 describe("what stands in the district", () => {
   test("a bench stops a walk in the zone as it does on the phone", () => {
     const channel = new Channel(ground, [{ kind: "box", x: 0, z: 3000, halfWidthMm: 850, halfLengthMm: 270, yaw: 0 }]);

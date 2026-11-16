@@ -35,6 +35,14 @@ const JOIN_WITHIN_MS = 10_000;
 const MESSAGE_AT_MOST_BYTES = 1024;
 /** The line was closed because the zone is closing: the phone may come back in a moment. */
 const GOING_AWAY = 1001;
+/** Every line is asked "are you there?" this often; one that has not answered by the next asking is dead, whatever the network says. */
+const ASK_EVERY_MS = 5000;
+/**
+ * Whether a line was closed on purpose. A phone that leaves says so (1000), a page that is closed says so (1001),
+ * and the zone's own closings have their codes (4000 and up). Anything else is a line that fell: no network, a
+ * tunnel, a phone put to sleep. The place of whoever was on it is kept a while (Task 3.4).
+ */
+const onPurpose = (code: number): boolean => code === 1000 || code === 1001 || code >= 4000;
 
 export interface ZoneOptions {
   readonly sql: Sql;
@@ -48,6 +56,9 @@ export interface ZoneOptions {
   readonly sessions?: boolean;
   /** How many people a channel holds (the tunable `channels.cap`). */
   readonly holds?: number;
+  /** How long a dropped line's place is kept, and how often lines are asked whether they are there: the defaults unless a test brings shorter ones. */
+  readonly holdMs?: number;
+  readonly askEveryMs?: number;
   readonly log?: (line: string) => void;
 }
 
@@ -72,7 +83,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
   const running = new Map<string, Running>();
   for (const { district, remember } of options.districts) {
     running.set(roomNameOf(district.id), {
-      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.log ? { log: options.log } : {}) },
+      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.holdMs ? { holdMs: options.holdMs } : {}), ...(options.log ? { log: options.log } : {}) },
       channels: [],
     });
   }
@@ -87,11 +98,22 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
     if (open) return open.room > 0 ? open : null;
     let number = named ?? 1;
     while (named === undefined && district.channels.some((room) => room.number === number)) number++;
-    const made = new ChannelRoom(district.deps, number);
+    const made = new ChannelRoom(district.deps, number, () => tidy(district));
     district.channels.push(made);
     district.channels.sort((a, b) => a.number - b.number);
     made.start();
     return made;
+  };
+
+  /** A channel nobody is in stops its clock and is forgotten, its number free for the next; and the zone says who is left. */
+  const tidy = (district: Running): void => {
+    if (closing) return;
+    for (const room of [...district.channels]) {
+      if (room.count > 0) continue;
+      room.stop();
+      district.channels.splice(district.channels.indexOf(room), 1);
+    }
+    say();
   };
 
   /** What this zone says of itself: where it is reached and who is in each channel. */
@@ -113,6 +135,18 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
     response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify({ ok: true, rooms }));
   });
   const sockets = new WebSocketServer({ server: http, maxPayload: MESSAGE_AT_MOST_BYTES });
+  // "Are you there?": a line that fell without a word (the usual way on a phone) is found here, within ten seconds.
+  const answered = new WeakSet<WebSocket>();
+  const asking = setInterval(() => {
+    for (const socket of sockets.clients) {
+      if (!answered.has(socket)) {
+        socket.terminate();
+        continue;
+      }
+      answered.delete(socket);
+      socket.ping();
+    }
+  }, options.askEveryMs ?? ASK_EVERY_MS);
 
   sockets.on("connection", (socket: WebSocket, request) => {
     const asked = new URL(request.url ?? "/", "http://zone");
@@ -152,39 +186,38 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
       if (seat && (seat.zoneId !== id || running.get(seat.room) !== district)) return refuse(JOIN_REFUSAL.BAD_SEAT);
       const player = seat ? { id: seat.playerId } : options.sessions && said.token.length > 0 ? await playerOfSession(sql, said.token) : null;
       if (!player) return refuse(JOIN_REFUSAL.BAD_SEAT);
-      // The same player on another line, in any channel of any district: that line is put out, and when it was
-      // in this district the newcomer stands where it stood. A player is in one place.
-      let standing;
+      // Someone whose line dropped comes back to the channel their body is standing in, whatever the seat says:
+      // to everyone else they never left.
+      const waiting = district.channels.find((channel) => channel.has(player.id));
+      const into = waiting ?? channelFor(district, seat?.channel);
+      // A player is in one place: any body of theirs in another channel, of any district, leaves it.
       for (const other of running.values()) {
-        for (const channel of other.channels) {
-          const old = channel.lineOf(player.id);
-          if (!old) continue;
-          const stood = await channel.leave(old);
-          if (other === district && stood) standing = stood;
-          old.close(ZONE_CLOSE.ELSEWHERE);
+        for (const channel of [...other.channels]) {
+          if (channel === into || !channel.has(player.id)) continue;
+          (await channel.putOut(player.id))?.close(ZONE_CLOSE.ELSEWHERE);
+          tidy(other);
         }
       }
-      const into = channelFor(district, seat?.channel);
-      if (!into || !(await into.enter(line, player.id, paragem, standing))) return refuse(JOIN_REFUSAL.FULL);
+      if (!into || !(await into.enter(line, player.id, paragem))) return refuse(JOIN_REFUSAL.FULL);
       room = into;
+      void presence?.unhold(player.id).catch(() => {});
       say();
       // Gone while the database was being asked: they were never really here.
       if (socket.readyState !== socket.OPEN) void leave();
     };
 
-    const leave = async (): Promise<void> => {
+    const leave = async (code = 1000): Promise<void> => {
       clearTimeout(patience);
       const was = room;
       room = null;
       if (!was || !district) return;
-      await was.leave(line);
-      // A channel nobody is in stops its clock and is forgotten; its number is free for the next.
-      if (was.count === 0 && !closing) {
-        was.stop();
-        const at = district.channels.indexOf(was);
-        if (at >= 0) district.channels.splice(at, 1);
+      if (onPurpose(code) || closing) {
+        await was.leave(line);
+        return tidy(district);
       }
-      say();
+      // The line fell. The body stays where it is, and the API is told which channel is keeping the place.
+      const playerId = was.drop(line);
+      if (playerId) void presence?.hold({ playerId, zoneId: id, room: roomNameOf(district.deps.district.id), channel: was.number }).catch((error: unknown) => log(`zone: could not say a place is held: ${String(error)}`));
     };
 
     socket.on("message", (data: Buffer, isBinary: boolean) => {
@@ -203,12 +236,16 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
           joining = false;
         });
     });
-    socket.on("close", () => void leave());
+    socket.on("close", (code: number) => void leave(code));
     socket.on("error", () => socket.terminate());
+    answered.add(socket);
+    socket.on("pong", () => void answered.add(socket));
   });
 
   await new Promise<void>((ready, failed) => {
+    // A port that is taken is said once and plainly, by whoever started the zone: nothing is announced from a zone that is not listening.
     http.once("error", failed);
+    sockets.once("error", failed);
     http.listen(port, "0.0.0.0", ready);
   });
 
@@ -223,6 +260,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
     close: async () => {
       closing = true;
       clearInterval(saying);
+      clearInterval(asking);
       // Struck off first, so that nobody is sent here while it empties.
       await presence?.retire(id).catch((error: unknown) => log(`zone: could not retire itself: ${String(error)}`));
       // Everyone still in is written down on the way out, then the port is given back.

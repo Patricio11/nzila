@@ -706,6 +706,25 @@ describe("where to play", () => {
     expect((await join(guest.token, { districtId: "ao-lua/l1" })).statusCode).toBe(503);
   });
 
+  test("someone whose line dropped is sent back to the channel keeping their place, not to wherever is emptiest; unless the zone keeping it has died", async () => {
+    const guest = await newGuest(904);
+    await zone("zone-a", [[1, 10], [4, 30]], "wss://a.exemplo");
+    await presence.hold({ playerId: guest.playerId, zoneId: "zone-a", room: "ao-lua.l1", channel: 1 });
+    // Left to itself the matchmaker would say channel 4, the fullest with room.
+    const back = (await join(guest.token, { districtId: "ao-lua/l1" })).json() as { seat: string; channel: number };
+    expect(back.channel).toBe(1);
+    expect(await presence.claim(back.seat)).toMatchObject({ zoneId: "zone-a", channel: 1 });
+    // The place is theirs alone: another player is put where the matchmaker thinks best.
+    expect((await join((await newGuest(905)).token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 4 });
+    // A place kept by a zone that no longer speaks is no place: they are put somewhere that is alive.
+    later += (ZONE_TTL_S + 1) * 1000;
+    await zone("zone-b", [[2, 5]], "wss://b.exemplo");
+    await presence.hold({ playerId: guest.playerId, zoneId: "zone-a", room: "ao-lua.l1", channel: 1 });
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ address: "wss://b.exemplo", channel: 2 });
+    await presence.unhold(guest.playerId);
+    await presence.retire("zone-b");
+  });
+
   test("a zone that dies stops being sent anyone: its players, asking again, are put in one that is alive", async () => {
     const guest = await newGuest(903);
     await zone("zone-dying", [[1, 20]], "wss://a-morrer.exemplo");

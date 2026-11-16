@@ -5,11 +5,12 @@
 //   nzila:zone:<id>     a zone's card, as JSON; lives ten seconds from when it was last said
 //   nzila:zones         the ids of zones that have ever spoken (the cards say which still do)
 //   nzila:seat:<ticket> a reserved seat; taken with GETDEL, so once
+//   nzila:held:<player> the channel keeping a place for a player whose line dropped; lives a minute
 //   nzila:at:<player>   where a player stands
 
 import { randomBytes } from "node:crypto";
 import { createClient } from "redis";
-import { PLACE_TTL_S, SEAT_TTL_S, ZONE_TTL_S, type Presence, type Seat, type Standing, type ZoneCard } from "./presence.ts";
+import { HELD_TTL_S, PLACE_TTL_S, SEAT_TTL_S, ZONE_TTL_S, type Presence, type Seat, type Standing, type ZoneCard } from "./presence.ts";
 
 export const DEFAULT_REDIS_URL = "redis://localhost:6380";
 
@@ -64,6 +65,9 @@ export async function redisPresence(url = redisUrl(), prefix = "nzila", log: (li
     },
     // Only a ticket of ours is looked up: nothing else a phone sends becomes a key.
     claim: async (ticket) => (/^[A-Za-z0-9_-]{16,64}$/.test(ticket) ? read<Seat>(await client.getDel(key("seat", ticket))) : null),
+    hold: async (seat) => void (await client.set(key("held", seat.playerId), JSON.stringify(seat), { expiration: { type: "EX", value: HELD_TTL_S } })),
+    held: async (playerId) => read<Seat>(await client.get(key("held", playerId))),
+    unhold: async (playerId) => void (await client.del(key("held", playerId))),
     stand: async (playerId, at) => void (await client.set(key("at", playerId), JSON.stringify(at), { expiration: { type: "EX", value: PLACE_TTL_S } })),
     standing: async (playerId) => read<Standing>(await client.get(key("at", playerId))),
     forget: async (playerId) => void (await client.del(key("at", playerId))),

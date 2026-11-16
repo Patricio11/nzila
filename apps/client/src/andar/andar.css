@@ -28,3 +28,7 @@
   .andar-chat { right: 45%; }
   .andar-left .andar-chat { right: max(var(--s-3), env(safe-area-inset-right)); left: 45%; }
 }
+
+/* The word on the network, under the wallet, the compass and the clock, and in the middle: a line being picked up, or no network after a minute of trying. */
+.andar-net { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 128px); left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: var(--s-2); pointer-events: none; }
+.andar-net .n-button { pointer-events: auto; }

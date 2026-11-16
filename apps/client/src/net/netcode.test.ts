@@ -5,8 +5,10 @@ import { DOING, decodeSnapshot, type EntityState, type InputFrame, type Snapshot
 import { DEFAULT_CHARACTER, stepCharacter, type CharacterState, type Ground, type Obstacle } from "@nzila/sim";
 import { describe, expect, test } from "vitest";
 import { Channel } from "../../../zone/src/channel.ts";
+import { Conditioner, RESEND_MS, askedLine } from "./conditioner.ts";
 import { DELAY_LEAST_MS, DELAY_MOST_MS, Others } from "./others.ts";
 import { AGREE_MM, FRAMES_REPEATED, PENDING_AT_MOST, Prediction, SNAP_MM } from "./predict.ts";
+import { SAY_AFTER_MS, TRY_AFTER_MS, TRY_FOR_MS, nextTry } from "./retry.ts";
 
 const ground: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz === 20 || Math.abs(cx) > 400 ? 0 : 1), heightAt: () => 0 };
 const north: InputFrame = { dx: 0, dz: 127, run: false, brake: false };
@@ -242,5 +244,63 @@ describe("everyone else, a moment ago", () => {
     others.take({ tick: 6, lastInputSeq: 0, entities: [] }, 1, 300);
     expect(others.at(300)).toEqual([]);
     expect(others.latest()).toEqual([]);
+  });
+});
+
+describe("a weak line, on purpose", () => {
+  test("every message is late by the delay, and nothing overtakes what was sent before it", () => {
+    const line = new Conditioner(125, 0);
+    expect(line.due(1000)).toBe(1125);
+    expect(line.due(1010)).toBe(1135);
+    // Handed over out of step with the clock: still not before the one ahead.
+    expect(line.due(1005)).toBe(1135);
+  });
+
+  test("a lost packet holds the line up for a moment, and everything behind it waits and then arrives together", () => {
+    const rolls = [0.5, 0.01, 0.5, 0.5, 0.5];
+    const line = new Conditioner(100, 5, () => rolls.shift() ?? 0.9);
+    expect(line.due(0)).toBe(100);
+    // Lost once, sent again.
+    expect(line.due(50)).toBe(150 + RESEND_MS);
+    // The ones behind it were not lost, and still cannot arrive before it.
+    expect(line.due(100)).toBe(150 + RESEND_MS);
+    expect(line.due(150)).toBe(150 + RESEND_MS);
+    // Then the line runs again.
+    expect(line.due(600)).toBe(700);
+  });
+
+  test("over many messages the loss asked for is the loss given, and a line that loses everything still delivers, late", () => {
+    let seed = 1;
+    const random = (): number => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x1_0000_0000;
+    const line = new Conditioner(0, 5, random);
+    let stalls = 0;
+    for (let n = 0; n < 20_000; n++) if (line.due(n * 1000) > n * 1000) stalls++;
+    expect(stalls / 20_000).toBeGreaterThan(0.04);
+    expect(stalls / 20_000).toBeLessThan(0.06);
+    expect(new Conditioner(10, 100).due(0)).toBe(10 + RESEND_MS);
+    expect(new Conditioner(-5, -5).due(7)).toBe(7);
+  });
+
+  test("the address asks for it: a round trip and a loss, or nothing", () => {
+    expect(askedLine("?rede=250,5")).toEqual({ roundTripMs: 250, lossPercent: 5 });
+    expect(askedLine("?hour=12&rede=120")).toEqual({ roundTripMs: 120, lossPercent: 0 });
+    expect(askedLine("?rede=99999,400")).toEqual({ roundTripMs: 5000, lossPercent: 100 });
+    for (const nonsense of ["", "?rede=", "?rede=depressa", "?rede=-4", "?rede=100,-1", "?rede=100,muito"]) expect(askedLine(nonsense), nonsense).toBeNull();
+  });
+});
+
+describe("a fallen line is tried again", () => {
+  test("quickly at first, then steadily, for a minute and no longer", () => {
+    expect(nextTry(0, 0)).toBe(TRY_AFTER_MS[0]);
+    expect(nextTry(500, 1)).toBe(TRY_AFTER_MS[1]);
+    expect(nextTry(20_000, 50)).toBe(TRY_AFTER_MS[TRY_AFTER_MS.length - 1]);
+    expect(nextTry(TRY_FOR_MS, 3)).toBeNull();
+    // Most falls are a blink: the first two tries are over before anything is said.
+    expect(TRY_AFTER_MS[0]! + TRY_AFTER_MS[1]!).toBeLessThanOrEqual(SAY_AFTER_MS + 200);
+    // And the tries are never so close together that a dead network is hammered.
+    let total = 0;
+    let tries = 0;
+    while (nextTry(total, tries) !== null) total += nextTry(total, tries++)!;
+    expect(tries).toBeLessThan(20);
   });
 });

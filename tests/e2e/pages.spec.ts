@@ -2,7 +2,7 @@ declare global {
   interface Window {
     __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -961,5 +961,94 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__andar!.players === 0, undefined, { timeout: 15_000 });
     expect(seen.errors).toEqual([]);
     expect(otherSeen.errors).toEqual([]);
+  });
+
+  test("a line falls: the player is told calmly, walks on, and is the same person in the same place when it comes back; the other never sees them vanish", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). A falling line was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 11);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    await comeIn(other, 12);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    await other.goto("/andar?tier=poupanca&hour=12");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1, undefined, { timeout: 20_000 });
+    const before = await other.evaluate(() => window.__andar!.others[0]!);
+
+    // The network goes, and the line with it.
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.__andar!.fall());
+    // Nothing is said for a blink; then, calmly, that it is being picked up. The world is still drawn.
+    await expect(page.getByRole("status").filter({ hasText: "A ligar de novo" })).toBeVisible({ timeout: 10_000 });
+    expect(await page.evaluate(() => window.__andar!.net)).toBe("reconnecting");
+    await page.screenshot({ path: info.outputPath("a-ligar-de-novo.png") });
+    // The others are where they were last seen: they have not vanished.
+    expect(await page.evaluate(() => window.__andar!.players)).toBe(1);
+    // And to the other, this player is standing where they stood.
+    await other.waitForTimeout(1500);
+    const during = await other.evaluate(() => window.__andar!);
+    expect(during.players).toBe(1);
+    expect(Math.hypot(during.others[0]!.x - before.x, during.others[0]!.z - before.z)).toBeLessThan(0.2);
+
+    // The network comes back: so does the line, by itself, and nothing more is said.
+    await page.context().setOffline(false);
+    await page.waitForFunction(() => window.__andar!.linked && window.__andar!.reconnections === 1, undefined, { timeout: 20_000 });
+    await expect(page.getByRole("status").filter({ hasText: "A ligar de novo" })).toHaveCount(0);
+    expect(await page.evaluate(() => window.__andar!.channel)).toBe(1);
+    // The same body, to the other: one player throughout, and now they walk again.
+    await page.keyboard.down("d");
+    await other.waitForFunction((was) => Math.hypot(window.__andar!.others[0]!.x - was.x, window.__andar!.others[0]!.z - was.z) > 1, before, { timeout: 15_000 });
+    await page.keyboard.up("d");
+    expect(await other.evaluate(() => window.__andar!.players)).toBe(1);
+    await other.close();
+    // Offline, the browser itself complains of what it could not fetch: that is the test's doing, not the game's.
+    expect(seen.errors.filter((error) => !/ERR_INTERNET_DISCONNECTED|Failed to load resource|WebSocket|offline|network/i.test(error))).toEqual([]);
+  });
+
+  test("on a weak line (250 ms there and back, 5% lost) the other still walks smoothly, and the walker is hardly ever put right", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). A weak line was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 21);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    await comeIn(other, 22);
+    await page.goto("/andar?tier=poupanca&hour=12&rede=250,5");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    await other.goto("/andar?tier=poupanca&hour=12&rede=250,5");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1, undefined, { timeout: 20_000 });
+
+    const from = await other.evaluate(() => window.__andar!.others[0]!);
+    const watched: { x: number; z: number }[] = [];
+    await page.keyboard.down("d");
+    for (let n = 0; n < 50; n++) {
+      watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN })));
+      await other.waitForTimeout(100);
+    }
+    await page.keyboard.up("d");
+    await page.waitForTimeout(1500);
+    const walker = await page.evaluate(() => window.__andar!);
+    const sight = await other.evaluate(() => window.__andar!.others[0]!);
+    const steps = watched.slice(1).map((at, n) => Math.hypot(at.x - watched[n]!.x, at.z - watched[n]!.z));
+    const went = Math.hypot(sight.x - from.x, sight.z - from.z);
+    info.annotations.push({ type: "weak line", description: `walked ${went.toFixed(1)} m in 5 s; biggest step seen in a tenth of a second ${Math.max(...steps).toFixed(2)} m; corrections ${walker.corrections}` });
+    // They walked about as far as five seconds of walking goes, late line or not.
+    expect(went).toBeGreaterThan(4);
+    // Never a jump: no more than a few strides between two looks a tenth of a second apart, even after a stall.
+    expect(Math.max(...steps)).toBeLessThan(1.2);
+    // When all is quiet the two agree on where the walker is.
+    expect(Math.hypot(sight.x - walker.x, sight.z - walker.z)).toBeLessThan(0.3);
+    // And the walker's own body was almost never put right: a late line is not a wrong one.
+    expect(walker.corrections).toBeLessThan(4);
+    await other.close();
+    expect(seen.errors).toEqual([]);
   });
 });

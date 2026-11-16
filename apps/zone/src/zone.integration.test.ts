@@ -21,6 +21,7 @@ import {
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
 import postgres, { type Sql } from "postgres";
+import { WebSocket as Cuttable } from "ws";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { type District } from "./district.ts";
 import { STEP_MS, STRIKES } from "./room.ts";
@@ -78,6 +79,14 @@ const until = async (what: () => boolean, ms = 4000): Promise<void> => {
   }
 };
 const pause = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
+/** For `until`: whether a place is being kept for a player, asked of the presence and remembered between askings. */
+const async_held = (playerId: string): (() => boolean) => {
+  let found = false;
+  return () => {
+    void presence.held(playerId).then((seat) => void (found ||= seat !== null));
+    return found;
+  };
+};
 
 const north: InputFrame = { dx: 0, dz: 127, run: false, brake: false };
 const east: InputFrame = { dx: 127, dz: 0, run: false, brake: false };
@@ -128,7 +137,8 @@ async function phone(token: string, protocolVersion = PROTOCOL_VERSION, paragem?
       }
     },
     leave: async (): Promise<void> => {
-      socket.close();
+      // Said aloud: a line that closes without a word is one that fell, and its place is kept.
+      socket.close(1000);
       await until(() => state.closed !== null);
     },
   };
@@ -367,8 +377,125 @@ describe("seats and the matchmaker", () => {
     // The channel holds one: a second seat in it is refused as full, and the phone goes back to the matchmaker.
     expect(await ask(await presence.reserve({ playerId: two.id, zoneId: strict.id, room: "ao-lua.l1", channel: 1 }))).toBe(JOIN_REFUSAL.FULL);
     await strict.close();
-    for (const socket of lines) socket.close();
+    for (const socket of lines) socket.close(1000);
     expect((await presence.zones()).some((card) => card.id === strict.id)).toBe(false);
+  });
+});
+
+describe("a line that falls", () => {
+  // A zone that keeps a place for a little over a second and asks its lines if they are there five times a second:
+  // a minute and five seconds, in miniature.
+  let quick: Zone;
+  const at = port + 2;
+  beforeAll(async () => {
+    quick = await startZone({ sql, districts: [{ district }], presence, sessions: true, holdMs: 1200, askEveryMs: 200, log: (line) => void said.push(line) }, at);
+  });
+  afterAll(async () => {
+    await quick.close();
+  });
+
+  /** A phone on a socket that can be cut without a word, or made to stop listening: what a tunnel does. */
+  function cuttable(token: string) {
+    const socket = new Cuttable(`ws://127.0.0.1:${at}/ao-lua.l1`);
+    const had = new Map<number, Snapshot>();
+    const state = { accepted: null as JoinAccepted | null, latest: null as Snapshot | null, closed: false, seq: 0 };
+    socket.on("open", () => socket.send(encodeJoin({ protocolVersion: PROTOCOL_VERSION, token })));
+    socket.on("close", () => void (state.closed = true));
+    socket.on("error", () => {});
+    socket.on("message", (data: Buffer) => {
+      const bytes = new Uint8Array(data);
+      const message = decodeZoneMessage(bytes);
+      if (message.type === "join_accepted") state.accepted = message;
+      if (message.type !== "snapshot") return;
+      const snapshot = decodeSnapshot(bytes, (tick) => had.get(tick));
+      had.set(snapshot.tick, snapshot);
+      state.latest = snapshot;
+    });
+    return {
+      socket,
+      state,
+      me: () => state.latest!.entities.find((entity) => entity.id === state.accepted!.entityId)!,
+      seen: (id: number) => state.latest?.entities.find((entity) => entity.id === id),
+      ready: () => until(() => state.accepted !== null && state.latest !== null),
+      walk: async (steps: number, frame: InputFrame): Promise<void> => {
+        for (let n = 0; n < steps; n++) {
+          state.seq++;
+          socket.send(encodeInput({ seq: state.seq, ackTick: state.latest!.tick, frames: [frame] }));
+          await pause(STEP_MS);
+        }
+      },
+    };
+  }
+
+  test("their body stays in the street, standing; they come back to it on a new line, the same person in the same place, and walk on", async () => {
+    const one = await player();
+    const watcher = cuttable((await player()).token);
+    await watcher.ready();
+    const first = cuttable(one.token);
+    await first.ready();
+    const body = first.state.accepted!.entityId;
+    await first.walk(20, east);
+    await until(() => first.me().x > 800 && first.me().anim === DOING.idle);
+    const stood = first.me();
+
+    // The line is cut, without a word.
+    first.socket.terminate();
+    await until(() => first.state.closed);
+    await pause(300);
+    // To the other they are still there, standing.
+    expect(watcher.seen(body)).toMatchObject({ x: stood.x, z: stood.z, anim: DOING.idle });
+    // And the API can read which channel is keeping the place.
+    expect(await presence.held(one.id)).toEqual({ playerId: one.id, zoneId: quick.id, room: "ao-lua.l1", channel: 1 });
+
+    // Back, on a new line whose count starts again.
+    const again = cuttable(one.token);
+    await again.ready();
+    expect(again.state.accepted!.entityId).toBe(body);
+    expect(again.me()).toMatchObject({ x: stood.x, z: stood.z });
+    expect(await presence.held(one.id)).toBeNull();
+    await again.walk(20, east);
+    await until(() => again.me().x > stood.x + 800);
+    // The other saw one body throughout, never two and never none.
+    expect(watcher.state.latest!.entities).toHaveLength(2);
+    // Well past the time a place is kept: they came back, so nothing takes them away.
+    await pause(1400);
+    expect(watcher.seen(body)).toBeDefined();
+    again.socket.close(1000);
+    watcher.socket.close(1000);
+    await until(() => again.state.closed && watcher.state.closed);
+  });
+
+  test("a line that simply stops answering is found dead by asking, and its place is kept the same way", async () => {
+    const one = await player();
+    const quiet = cuttable(one.token);
+    await quiet.ready();
+    // The phone goes into a tunnel: nothing is closed, nothing more is heard from it.
+    quiet.socket.pause();
+    await until(async_held(one.id), 3000);
+    expect((await presence.held(one.id))!.channel).toBe(1);
+    quiet.socket.terminate();
+  });
+
+  test("someone who does not come back leaves the street when their time is up, and where they stood is written down", async () => {
+    const one = await player();
+    const watcher = cuttable((await player()).token);
+    await watcher.ready();
+    const gone = cuttable(one.token);
+    await gone.ready();
+    const body = gone.state.accepted!.entityId;
+    await gone.walk(20, north);
+    await until(() => gone.me().z > 800 && gone.me().anim === DOING.idle);
+    const stood = gone.me();
+    gone.socket.terminate();
+    await until(() => watcher.seen(body) === undefined, 4000);
+    await pause(100);
+    const [kept] = await sql<{ district_id: string; x: number; z: number }[]>`SELECT district_id, x, z FROM players WHERE id = ${one.id}`;
+    expect(kept).toMatchObject({ district_id: "ao-lua/l1", x: stood.x, z: stood.z });
+    watcher.socket.close(1000);
+    await until(() => watcher.state.closed);
+    // The channel, with nobody in it and nobody awaited, is closed.
+    await pause(100);
+    expect(((await (await fetch(`http://127.0.0.1:${at}/health`)).json()) as { rooms: unknown[] }).rooms).toEqual([]);
   });
 });
 

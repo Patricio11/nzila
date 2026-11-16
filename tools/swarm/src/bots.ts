@@ -143,7 +143,7 @@ export async function runSwarm(options: SwarmOptions): Promise<SwarmReport> {
   const stayed = bots.filter((bot) => bot.accepted && bot.open).length;
   await options.whileFull?.();
   clearInterval(sticks);
-  for (const bot of bots) bot.socket.close();
+  for (const bot of bots) bot.socket.close(1000);
   await pause(200);
 
   const counted = bots.filter((bot) => bot.accepted);

@@ -43,6 +43,7 @@ const run = async (): Promise<boolean> => {
       health = (await (await fetch(`${zone}/health`)).json()) as ZoneHealth;
     },
   });
+  if (report.joined === 0) console.log(`swarm: nobody was let in. Is "${room}" a room this zone runs (it prints them when it starts), and does it let sessions in (ZONE_SESSIONS=on)?`);
   const said = verdict(report, health, room);
   for (const line of said.lines) console.log(line);
   const failed = !said.ok;

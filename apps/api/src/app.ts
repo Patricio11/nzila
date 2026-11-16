@@ -367,7 +367,11 @@ export function buildApp(deps: Deps): FastifyInstance {
       const room = zoneRoomOf(body.districtId);
       const zones = await presence.zones();
       if (!zones.some((zone) => zone.rooms.some((one) => one.name === room))) throw new Refusal(503, "no_zone");
-      const picked = pickChannel(zones, room, channels, body.channel);
+      // Someone whose line dropped has a body standing in a channel, kept for a minute: they go back to it, and to
+      // everyone there they never left (Task 3.4). Only while that zone still speaks, and only for that district.
+      const kept = await presence.held(caller.player.id);
+      const keeper = kept && kept.room === room ? zones.find((zone) => zone.id === kept.zoneId) : undefined;
+      const picked = kept && keeper ? { zoneId: keeper.id, address: keeper.address, channel: kept.channel } : pickChannel(zones, room, channels, body.channel);
       // Only an invitation can find its channel full: anyone else is given another.
       if (!picked) throw new Refusal(409, "full");
       const seat = await presence.reserve({ playerId: caller.player.id, zoneId: picked.zoneId, room, channel: picked.channel });

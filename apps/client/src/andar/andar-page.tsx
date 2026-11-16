@@ -21,7 +21,7 @@
 
 import { ptAO, ptAOTranslator as tr } from "@nzila/i18n";
 import { CELL_DRIVE, CELL_LOW, CELL_WALK, bodyFits, groundHeight, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
-import { Arrival, Button, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, SpeechBalloon, WalletChip, type CompassMark } from "@nzila/ui";
+import { Arrival, Banner, Button, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, SpeechBalloon, WalletChip, type CompassMark } from "@nzila/ui";
 import { PointLight, Vector3 } from "three";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DEV_PACK } from "../render/bench-scene.ts";
@@ -35,6 +35,7 @@ import { Sound } from "../sound/sound.ts";
 import { Telemovel, type Marked } from "../telemovel/telemovel.tsx";
 import { Arriving } from "../frontdoor/arriving.tsx";
 import { LocalWorld } from "../world/provider.ts";
+import { type NetState } from "../net/retry.ts";
 import { STILL, Session } from "../net/session.ts";
 import { toMoveInput, type InputFrame } from "@nzila/protocol";
 import { WorldRenderer } from "../render/world-renderer.ts";
@@ -48,7 +49,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -77,6 +78,8 @@ interface InstallOffer extends Event {
 type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked";
 
 interface Hud {
+  /** How it stands with the zone: the player is told when a line is being picked up, and when it could not be. */
+  net: NetState;
   ready: boolean;
   place: string;
   second: number;
@@ -116,8 +119,10 @@ export function Andar() {
   };
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
-  const [hud, setHud] = useState<Hud>({ ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
+  const [hud, setHud] = useState<Hud>({ net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
   const [missing, setMissing] = useState(false);
+  /** "Tentar de novo": asks the session for another try. */
+  const retryNet = useRef<() => void>(() => {});
   const [running, setRunning] = useState(false);
   const [wheel, setWheel] = useState(false);
   const [arrived, setArrived] = useState(false);
@@ -212,6 +217,7 @@ export function Andar() {
         // A player with a session comes into a channel of this district. A place asked for in the address, or
         // `&sozinho`, keeps the street the phone's own: for stills, films and the bench.
         const token = account()?.token;
+        retryNet.current = () => session?.retry();
         if (token && !asked && !params.has("sozinho")) {
           // `&canal=3` is a friend's invitation: the matchmaker is asked for that channel and no other.
           const canal = Number(params.get("canal"));
@@ -469,7 +475,8 @@ export function Andar() {
                 session.walked(STILL);
               }
             } else {
-              stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, district.obstacles(), DEFAULT_CHARACTER);
+              // Alone, or while a fallen line is picked up: the phone's own street, with the others solid where they were last seen.
+              stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, session ? [...district.obstacles(), ...session.bodies()] : district.obstacles(), DEFAULT_CHARACTER);
             }
             if (jumped) {
               air.count += 1;
@@ -583,7 +590,7 @@ export function Andar() {
         district.update();
 
         const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -617,7 +624,8 @@ export function Andar() {
             else if (ride.last.dwelling && ride.left && seconds - ride.arrivedAt < 5) band.said = tr.t("ride.cobrador.arrived", { paragem: band.stops[band.next] ?? "" });
             else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { proxima: ahead });
           }
-          setHud({ ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
+          // `&semrede` shows what a minute without a network looks like, for a still.
+          setHud({ net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
       }
       renderer.render(elapsed);
@@ -727,6 +735,19 @@ export function Andar() {
               <ClockChip secondOfDay={hud.second} />
             </span>
           </div>
+          {hud.net === "reconnecting" ? (
+            <div class="andar-net">
+              <Banner>{tr.t("state.reconnecting")}</Banner>
+            </div>
+          ) : null}
+          {hud.net === "lost" ? (
+            <div class="andar-net">
+              <Banner state="stopped">{tr.t("state.offline")}</Banner>
+              <Button kind="quiet" onPress={() => retryNet.current()}>
+                {tr.t("state.retry")}
+              </Button>
+            </div>
+          ) : null}
           {arrived && !hud.ride ? <Arrival place={hud.place} /> : null}
           {hud.ride ? (
             <div class="andar-route">

@@ -9,6 +9,9 @@
 //   seats   The API reserves a seat for a player in a channel and gives the
 //           phone a ticket. The zone takes the ticket, once. A ticket is the
 //           only thing a phone shows a zone: its session never leaves the API.
+//   held    A player whose line dropped keeps their place in their channel for a
+//           minute (Task 3.4). The zone says so here, so that the API sends
+//           them back to that very channel and not to another.
 //   places  Where each player stands, written every few seconds while they
 //           play, so that a zone that falls loses a few steps and not a walk.
 
@@ -49,6 +52,8 @@ export const ZONE_TTL_S = 10;
 export const ZONE_SAYS_EVERY_S = 3;
 /** A seat is held this long for the phone to take it. */
 export const SEAT_TTL_S = 30;
+/** A player whose line dropped keeps their place this long. */
+export const HELD_TTL_S = 60;
 /** Where a player stood is kept this long after it was last written: a day. */
 export const PLACE_TTL_S = 86_400;
 
@@ -63,6 +68,10 @@ export interface Presence {
   reserve(seat: Seat): Promise<string>;
   /** Takes a ticket: the seat it was for, once; null for one that is unknown, spent or too old. */
   claim(ticket: string): Promise<Seat | null>;
+  /** A zone says it is keeping a player's place in a channel; `held` reads it for a minute; `unhold` when they are back, or gone. */
+  hold(seat: Seat): Promise<void>;
+  held(playerId: string): Promise<Seat | null>;
+  unhold(playerId: string): Promise<void>;
   /** Writes down where a player stands, and reads it back; `forget` when it has been written somewhere that lasts. */
   stand(playerId: string, at: Standing): Promise<void>;
   standing(playerId: string): Promise<Standing | null>;
