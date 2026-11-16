@@ -85,6 +85,10 @@ class Builder:
         self.soft = False
         # What was planted where: (kind, x, z). Written beside the district, to find a tree by.
         self.planted = []
+        # Every face of the world that could stand in a person's way, as its corners: a district
+        # reads these to mark what cannot be walked through (block_built). Not the faces of a body
+        # or a piece of wardrobe, not what is soft, and each thing once (its full form, not its light one).
+        self.built = []
 
     def at(self, x, z):
         """Whatever is built next belongs to the chunk this point is in, however far it overhangs."""
@@ -104,6 +108,8 @@ class Builder:
             points.reverse()
         group = self.groups.setdefault((self.chunk, self.level), [])
         group.append((points, colour, self.part))
+        if not self.soft and self.part is None and self.piece is None and self.level != LIGHT:
+            self.built.append(points)
         if two_sided:
             group.append((list(reversed(points)), colour, self.part))
 
@@ -636,6 +642,81 @@ def lamp(b, x, z, toward, ground=0.14, pool=True):
         # By day this is the colour of the pavement and cannot be seen; at night it glows.
         b.disc((x + out[0] * 0.9, ground + 0.015, z + out[2] * 0.9), 3.4, 12, "lampPool")
     return 0.2
+
+
+def block_built(b, cell, flag_at, height_at, set_flag, walked=".=", knee=0.3, head=1.7):
+    """
+    Marks on a walk grid every surface that was built and stands in a person's way: whatever it
+    was made of. A wall drawn as one face, the trunk of a tree, a counter, a post, a fence.
+
+    Every face of the world is looked at. One that stands upright (a wall) is in the way of the
+    cells it passes over when it reaches above the knee of someone standing there and begins
+    below their head. One that lies or slopes (a table top, a low roof) is in the way of the cells
+    under it when, over that cell, it is between knee and head; the ground itself is at the
+    ground, and is in nobody's way. A step, a kerb, an awning, a bridge overhead: not in the way.
+
+    What is low enough to jump ("^") is left as it is. Returns how many cells it blocked that were open.
+    """
+    blocked = 0
+    reach = cell * 0.5
+    for points in b.built:
+        normal = _cross(_sub(points[1], points[0]), _sub(points[2], points[0]))
+        size = math.sqrt(_dot(normal, normal))
+        if size < 1e-9:
+            continue
+        up = abs(normal[1]) / size
+        xs = [p[0] for p in points]
+        zs = [p[2] for p in points]
+        ys = [p[1] for p in points]
+        upright = up < 0.5
+        pad = reach if upright else 0.0
+        count = len(points)
+        for iz in range(math.floor((min(zs) - pad) / cell), math.floor((max(zs) + pad) / cell) + 1):
+            for ix in range(math.floor((min(xs) - pad) / cell), math.floor((max(xs) + pad) / cell) + 1):
+                flag = flag_at(ix, iz)
+                if flag is None or flag not in walked:
+                    continue
+                cx, cz = (ix + 0.5) * cell, (iz + 0.5) * cell
+                ground = height_at(ix, iz)
+                if upright:
+                    if not (max(ys) > ground + knee and min(ys) < ground + head):
+                        continue
+                    # How near the middle of the cell is to the wall's line on the ground: to any of its edges.
+                    near = 1e9
+                    for k in range(count):
+                        ax, az = points[k][0], points[k][2]
+                        bx, bz = points[(k + 1) % count][0], points[(k + 1) % count][2]
+                        ex, ez = bx - ax, bz - az
+                        length2 = ex * ex + ez * ez
+                        t = 0.0 if length2 < 1e-12 else max(0.0, min(1.0, ((cx - ax) * ex + (cz - az) * ez) / length2))
+                        near = min(near, math.hypot(cx - (ax + ex * t), cz - (az + ez * t)))
+                    if near > reach:
+                        continue
+                else:
+                    # Is the middle of the cell under the face? (The face is flat and convex, as every face of the kit is.)
+                    sign = 0
+                    inside = True
+                    for k in range(count):
+                        ax, az = points[k][0], points[k][2]
+                        bx, bz = points[(k + 1) % count][0], points[(k + 1) % count][2]
+                        cross = (bx - ax) * (cz - az) - (bz - az) * (cx - ax)
+                        if abs(cross) < 1e-9:
+                            continue
+                        side = 1 if cross > 0 else -1
+                        if sign == 0:
+                            sign = side
+                        elif side != sign:
+                            inside = False
+                            break
+                    if not inside or sign == 0:
+                        continue
+                    # How high the face is over the middle of the cell, from its plane.
+                    y = points[0][1] - (normal[0] * (cx - points[0][0]) + normal[2] * (cz - points[0][2])) / normal[1]
+                    if not (ground + knee < y < ground + head):
+                        continue
+                set_flag(ix, iz)
+                blocked += 1
+    return blocked
 
 
 def block_solids(b, cell, flag_at, height_at, set_flag, walked="._=^", knee=0.5, head=1.5):

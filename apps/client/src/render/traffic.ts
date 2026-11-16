@@ -149,6 +149,9 @@ const BESIDE_M = 0.45;
 /** A vehicle that has stood this long for other vehicles alone goes on for a while regardless: no knot of traffic lasts. */
 const PATIENCE_MS = 14_000;
 const PUSH_ON_MS = 4_000;
+/** A roamer taken off the road comes back when its place is clear and the viewer is at least this far from it; and where "off the road" is. */
+const RETURN_UNSEEN_M = 45;
+const OFF_THE_ROAD_M = 1000;
 
 /** Someone on foot the traffic must not run down. */
 export interface Afoot {
@@ -165,6 +168,28 @@ interface Moving {
   readonly heading: number;
   readonly halfWidth: number;
   readonly halfLength: number;
+}
+
+/** How much room two vehicles keep between their bodies at the least, in metres: they never touch. */
+const CLEAR_M = 0.3;
+
+/**
+ * Whether the bodies of two vehicles overlap, each grown by `margin` all round. Two rectangles on
+ * the ground, at any angle: they are apart when some edge of one has the whole of the other beyond it.
+ */
+export function touching(a: Moving, b: Moving, margin = 0): boolean {
+  if (Math.abs(a.y - b.y) > 1.5) return false;
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  for (const [first, second] of [[a, b], [b, a]] as const) {
+    // The two axes of `first`: along it and across it. `second`'s reach along each is the sum of its own halves, turned.
+    const axes = [[Math.sin(first.heading), Math.cos(first.heading), first.halfLength], [Math.cos(first.heading), -Math.sin(first.heading), first.halfWidth]] as const;
+    for (const [ax, az, mine] of axes) {
+      const theirs = Math.abs(Math.sin(second.heading) * ax + Math.cos(second.heading) * az) * second.halfLength + Math.abs(Math.cos(second.heading) * ax - Math.sin(second.heading) * az) * second.halfWidth;
+      if (Math.abs(dx * ax + dz * az) > mine + theirs + margin * 2) return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -219,6 +244,8 @@ export class Traffic {
   private readonly lag = new Map<string, number>();
   /** How long each has stood for other vehicles alone; below zero, it is pushing on for that long yet. */
   private readonly stood = new Map<string, number>();
+  /** Vehicles taken off the road for a while because they were in a knot that would not come undone (roamers only, by their key). */
+  private readonly away = new Set<string>();
   private moving: Moving[] = [];
   /** How many vehicles are slowing or standing for the viewer themself, at the last update: for the tests. */
   heeding = 0;
@@ -339,7 +366,8 @@ export class Traffic {
       const step = Math.min(elapsedMs, 250);
       const viewer = afoot.filter((person) => person.x === viewerX && person.z === viewerZ);
       this.heeding = this.moving.filter((me) => 1 > wayAhead(me, [], viewer)).length;
-      for (const me of this.moving) {
+      const placed = new Map<string, Moving>();
+      for (const me of [...this.moving].sort((a, b) => (a.key < b.key ? -1 : 1))) {
         const stood = this.stood.get(me.key) ?? 0;
         const free = wayAhead(me, this.moving, afoot, stood >= 0);
         // Standing for vehicles only (people are always waited for): patience runs out, then it pushes on, then it is patient again.
@@ -348,18 +376,46 @@ export class Traffic {
         if (next > PATIENCE_MS) this.stood.set(me.key, -PUSH_ON_MS);
         else if (next === 0) this.stood.delete(me.key);
         else this.stood.set(me.key, next);
-        const lag = (this.lag.get(me.key) ?? 0) + step * (1 - free) - (free === 1 ? step * CATCH_UP : 0);
+        const before = this.lag.get(me.key) ?? 0;
+        let lag = Math.max(0, before + step * (1 - free) - (free === 1 ? step * CATCH_UP : 0));
+        // And whatever the driver judged, a body does not go where another body is (founder, 2026-11-16: "cars should
+        // not brush each other: if they do it is an accident"). Where it would be is tried against where every other
+        // vehicle is: those already moved this turn, and the rest where they stood. If it would touch one, it stays
+        // exactly where it is. (Two that timetables put on top of one another may still move apart.)
+        const there = this.poseOf(me.key, nowMs, lag) ?? me;
+        const others = this.moving.map((other) => placed.get(other.key) ?? other);
+        const stopped = others.some((other) => other.key !== me.key && touching(there, other, CLEAR_M) && !(touching(me, other, CLEAR_M) && Math.hypot(there.x - other.x, there.z - other.z) > Math.hypot(me.x - other.x, me.z - other.z)));
+        if (stopped) lag = before + elapsedMs;
+        placed.set(me.key, stopped ? me : there);
         if (lag > 0) this.lag.set(me.key, lag);
         else this.lag.delete(me.key);
+        // A knot that will not come undone: after its patience a roamer leaves the road, and comes back to its
+        // timetable when its place there is clear and nobody is near enough to see it arrive.
+        if (stopped && me.key.startsWith("r") && (this.stood.get(me.key) ?? 0) < 0) {
+          this.away.add(me.key);
+          this.lag.delete(me.key);
+          this.stood.delete(me.key);
+        }
+      }
+      for (const key of this.away) {
+        const back = this.poseOf(key, nowMs, 0);
+        if (back && Math.hypot(back.x - viewerX, back.z - viewerZ) > RETURN_UNSEEN_M && ![...placed.values()].some((other) => touching(back, other, 2))) this.away.delete(key);
       }
     } else if (!afoot) {
       this.lag.clear();
       this.stood.clear();
+      this.away.clear();
     }
     const moving: Moving[] = [];
     // The other traffic first: where each is, and a rider for the nearest few that have one.
     const near: { roamer: Roamer; far: number }[] = [];
     for (const [n, roamer] of this.roamers.entries()) {
+      roamer.body.visible = !this.away.has(`r${n}`);
+      if (!roamer.body.visible) {
+        // Off the road: nowhere anybody could walk into it or see it.
+        roamer.y = OFF_THE_ROAD_M;
+        continue;
+      }
       const at = actorAt({ role: "", offset: roamer.plan.offset, keys: roamer.plan.keys }, (nowMs - (this.lag.get(`r${n}`) ?? 0)) / 1000);
       moving.push({ key: `r${n}`, x: at.x, z: at.z, y: at.y, heading: at.yaw, halfWidth: roamer.halfWidthMm / 1000, halfLength: roamer.halfLengthMm / 1000 });
       const turn = Math.atan2(Math.sin(at.yaw - roamer.yaw), Math.cos(at.yaw - roamer.yaw));
@@ -414,10 +470,24 @@ export class Traffic {
     this.moving = moving;
   }
 
-  /** How many pairs of vehicles on one level are on top of one another (their middles nearer than a car is wide): for the tests. */
+  /** Where a vehicle is when it is `lagMs` behind its timetable, or null for one that is not on the road. */
+  private poseOf(key: string, nowMs: number, lagMs: number): Moving | null {
+    if (key.startsWith("r")) {
+      const roamer = this.roamers[Number(key.slice(1))];
+      if (!roamer) return null;
+      const at = actorAt({ role: "", offset: roamer.plan.offset, keys: roamer.plan.keys }, (nowMs - lagMs) / 1000);
+      return { key, x: at.x, z: at.z, y: at.y, heading: at.yaw, halfWidth: roamer.halfWidthMm / 1000, halfLength: roamer.halfLengthMm / 1000 };
+    }
+    const cut = key.lastIndexOf("/");
+    const line = this.lines.find((one) => one.id === key.slice(0, cut));
+    const at = line ? routeVehiclesAt(line.route, clock, Math.round(nowMs - lagMs)).find((van) => van.index === Number(key.slice(cut + 1))) : undefined;
+    return at ? { key, x: at.x / 1000, z: at.z / 1000, y: at.y / 1000, heading: (at.yaw / 18_000) * Math.PI, halfWidth: HALF_WIDTH_MM / 1000, halfLength: HALF_LENGTH_MM / 1000 } : null;
+  }
+
+  /** How many pairs of vehicles have their bodies overlapping: for the tests. Vehicles never touch, so this is nothing. */
   get tangled(): number {
     let pairs = 0;
-    for (const [n, a] of this.moving.entries()) for (const b of this.moving.slice(n + 1)) if (1.5 > Math.abs(a.y - b.y) && 1.5 > Math.hypot(a.x - b.x, a.z - b.z)) pairs++;
+    for (const [n, a] of this.moving.entries()) for (const b of this.moving.slice(n + 1)) if (touching(a, b)) pairs++;
     return pairs;
   }
 

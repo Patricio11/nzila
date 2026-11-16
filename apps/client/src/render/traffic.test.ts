@@ -1,7 +1,7 @@
 // Giving way: how freely a vehicle may go, from what is ahead of it.
 
 import { describe, expect, test } from "vitest";
-import { wayAhead } from "./traffic.ts";
+import { touching, wayAhead } from "./traffic.ts";
 
 // A van at the origin, driving toward +z (heading 0: forward is (sin, cos)).
 const van = { key: "a", x: 0, z: 0, y: 0, heading: 0, halfWidth: 0.85, halfLength: 2.35 };
@@ -73,5 +73,27 @@ describe("a driver and the vehicle in front", () => {
     expect(wayAhead(van, [van, car("b", 0.5, 5, Math.PI)], [])).toBe(1);
     expect(wayAhead(van, [van, car("b", 3.2, 5)], [])).toBe(1);
     expect(wayAhead(van, [van, car("b", 0, 5, 0, 6.4)], [])).toBe(1);
+  });
+});
+
+describe("two bodies", () => {
+  test("touch when their rectangles overlap, whatever way each is turned", () => {
+    expect(touching(van, car("b", 0, 4.3))).toBe(true);
+    expect(touching(van, car("b", 0, 4.4))).toBe(false);
+    expect(touching(van, car("b", 1.6, 0))).toBe(true);
+    expect(touching(van, car("b", 1.7, 0))).toBe(false);
+    // One lying across the other's nose: its length now reaches sideways.
+    expect(touching(van, car("b", 2.8, 0, Math.PI / 2))).toBe(true);
+    expect(touching(van, car("b", 2.9, 0, Math.PI / 2))).toBe(false);
+    // Corner to corner at an angle: near, and still apart.
+    expect(touching(van, car("b", 2.2, 3.9, Math.PI / 4))).toBe(false);
+    expect(touching(van, car("b", 1.4, 3.0, Math.PI / 4))).toBe(true);
+    expect(touching(car("b", 1.4, 3.0, Math.PI / 4), van)).toBe(true);
+  });
+
+  test("keep the room they are asked to keep, and one on the viaduct touches nothing under it", () => {
+    expect(touching(van, car("b", 0, 4.6), 0.3)).toBe(true);
+    expect(touching(van, car("b", 0, 5.0), 0.3)).toBe(false);
+    expect(touching(van, car("b", 0, 0, 0, 6.4))).toBe(false);
   });
 });

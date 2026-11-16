@@ -425,10 +425,12 @@ def _block_cell(ix, iz):
 
 
 _blocked = kit.block_solids(b, CELL, _flag_at, _height_at, _block_cell)
+# And then from every face, whatever shape it is part of: walls drawn as single faces, trunks, posts, fences (finding F-142).
+_blocked_faces = kit.block_built(b, CELL, _flag_at, _height_at, _block_cell)
 print(f"nzila: {_blocked} cells blocked by what was built on them")
 # Kept beside the district, to be read after a build: a number that jumps says something new stands in a path.
 with open(os.path.join(out_dir, "solids.txt"), "w", encoding="utf-8") as _handle:
-    _handle.write(f"{_blocked} cells blocked by what was built on them, of {len(b.solids)} boxes")
+    _handle.write(f"{_blocked} cells blocked by what was built on them, of {len(b.solids)} boxes; {_blocked_faces} more by the {len(b.built)} faces themselves")
 with open(os.path.join(out_dir, "planted.txt"), "w", encoding="utf-8") as _handle:
     _handle.write("".join(f"{kind} {x} {z}" + chr(10) for kind, x, z in b.planted))
 

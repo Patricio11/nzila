@@ -547,7 +547,7 @@ test.describe("the street has a body", () => {
     // And they were not shoved along the road.
     expect(Math.hypot(after.x - stood.x, after.z - stood.z)).toBeLessThan(0.3);
 
-    // And the traffic among itself: left to run for a while, vehicles are not left sitting on top of one another.
+    // And the traffic among itself: left to run for a while, no two vehicles touch.
     await page.goto("/andar?pack=l1&tier=poupanca&hour=12");
     await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
     await page.waitForTimeout(20_000);
@@ -556,9 +556,8 @@ test.describe("the street has a body", () => {
       tangled += await page.evaluate(() => window.__andar!.tangled);
       await page.waitForTimeout(250);
     }
-    // Of sixty looks a quarter of a second apart, at most two may catch a brush (two meeting at a crossing still touch now and then:
-    // finding F-139). Before traffic gave way, vehicles sat on one another for as long as their timetables crossed.
-    expect(tangled).toBeLessThanOrEqual(2);
+    // Not once in sixty looks: a body does not go where another body is.
+    expect(tangled).toBe(0);
     expect(seen.errors).toEqual([]);
   });
 });
