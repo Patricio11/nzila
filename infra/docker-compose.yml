@@ -21,7 +21,11 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 10
+  # The file store. Nothing keeps a file yet, and this image can no longer be pulled from Docker Hub
+  # (finding F-139): it is left out of `pnpm services` until something needs it and an image that
+  # exists is named here. `docker compose --profile files up` asks for it.
   minio:
+    profiles: ["files"]
     image: minio/minio
     command: server /data --console-address ":9001"
     environment:

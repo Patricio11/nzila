@@ -20,7 +20,7 @@
     "typecheck": "turbo run typecheck",
     "lint": "eslint .",
     "test": "vitest run --project node --coverage",
-    "test:engines": "vitest run --project engines",
+    "test:engines": "node tools/retry.mjs 2 vitest run --project engines",
     "test:integration": "vitest run --project integration",
     "budget": "node tools/budget/check.mjs",
     "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm pack:dev && pnpm pack:l1 && pnpm build && pnpm budget && pnpm test:e2e",

@@ -300,6 +300,15 @@ async function waitForServer() {
   throw new Error("the preview server did not start. Run `pnpm build` first.");
 }
 
+// A run that has stopped moving is stopped, not waited for: it has hung before, and held its port (finding F-135).
+const watchdog = setTimeout(() => {
+  console.error("shots: nothing finished in forty minutes; stopping. What was taken is in the folder.");
+  if (process.platform === "win32") spawn("taskkill", ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore" });
+  else server.kill();
+  process.exit(1);
+}, 40 * 60 * 1000);
+watchdog.unref();
+
 const report = [`${label}, taken ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`, ""];
 let problems = 0;
 const taken = [];
@@ -315,6 +324,7 @@ try {
       // A face fills either screen the same way: once is enough.
       if (pageName.endsWith("-rosto") && sizeName === "phone") continue;
       const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2 });
+      page.setDefaultTimeout(60_000);
       const errors = [];
       page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
       page.on("pageerror", (error) => errors.push(error.message));
