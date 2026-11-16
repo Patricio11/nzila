@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { CELL_DRIVE, CELL_WALK, createWalkGrid, fillCells, gridGround } from "./grid.ts";
 import { type MoveInput } from "./movement.ts";
 import { type DriveInput } from "./vehicle.ts";
-import { addCharacter, addVehicle, cloneWorld, createWorld, hashWorld, removeEntity, stepWorld, type SimMap } from "./world.ts";
+import { addCharacter, addVehicle, cloneWorld, createWorld, hashWorld, removeEntity, stepPerson, stepWorld, type SimMap } from "./world.ts";
 
 const grid = createWalkGrid(500, 0, 0, 120, 120);
 fillCells(grid, 0, 0, 119, 119, CELL_WALK | CELL_DRIVE, 0);
@@ -178,5 +178,38 @@ describe("people who are solid to each other (D-0.53)", () => {
     const round = new Map([[1, { dx: 60, dz: 127, run: false }]]);
     for (let n = 0; n < 80; n++) stepWorld(world, open, { moves: round }, undefined, { solidPeople: true });
     expect(world.characters[0]!.state.z).toBeGreaterThan(2500);
+  });
+});
+
+describe("one more step for one person", () => {
+  const open: SimMap = { ground: { cellMm: 500, flagsAt: () => 1, heightAt: () => 0 }, obstacles: [] };
+  const north = { dx: 0, dz: 127, run: false };
+
+  test("moves that person as a step of the world would, and nobody else, and the clock stands", () => {
+    const stepped = createWorld(1);
+    addCharacter(stepped, 1, { x: 0, y: 0, z: 0, yaw: 0 });
+    addCharacter(stepped, 2, { x: 5000, y: 0, z: 0, yaw: 0 });
+    const alone = cloneWorld(stepped);
+    stepWorld(stepped, open, { moves: new Map([[1, north]]) });
+    stepPerson(alone, open, 1, north);
+    expect(alone.characters[0]!.state).toEqual(stepped.characters[0]!.state);
+    expect(alone.characters[1]!.state).toMatchObject({ x: 5000, z: 0 });
+    expect(alone.tick).toBe(0);
+    // An id that is nobody's moves nothing.
+    stepPerson(alone, open, 99, north);
+    expect(alone.characters[0]!.state).toEqual(stepped.characters[0]!.state);
+  });
+
+  test("keeps to the rules of the world: a vehicle and, when people are solid, a person stop it", () => {
+    const world = createWorld(1);
+    addCharacter(world, 1, { x: 0, y: 0, z: 0, yaw: 0 });
+    addCharacter(world, 2, { x: 0, y: 0, z: 1200, yaw: 0 });
+    for (let n = 0; n < 60; n++) stepPerson(world, open, 1, north, undefined, { solidPeople: true });
+    expect(world.characters[0]!.state.z).toBeLessThan(1200 - 400);
+    const road = createWorld(1);
+    addCharacter(road, 1, { x: 0, y: 0, z: 0, yaw: 0 });
+    addVehicle(road, 2, "van", van(0, 4000));
+    for (let n = 0; n < 120; n++) stepPerson(road, open, 1, north);
+    expect(road.characters[0]!.state.z).toBeLessThan(4000);
   });
 });

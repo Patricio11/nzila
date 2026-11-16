@@ -36,6 +36,8 @@ describe("a district read from its pack", () => {
       id: "ao-lua/l1",
       province: "ao-lua",
       chunks: [{ walkGrid: "west.walkz" }, { walkGrid: "east.walkz" }, {}],
+      seats: [{ id: "banco", pos: [4, 0.4, 6], facing: 450 }],
+      paragens: [{ id: "mutamba", pos: [8, 0.1, 3.5] }],
       spawns: [
         { id: "other", pos: [1, 0, 1], facing: 0, kind: "return" },
         { id: "arrival", pos: [2.5, 0.14, 7.49], facing: 270, kind: "first_arrival" },
@@ -43,6 +45,9 @@ describe("a district read from its pack", () => {
     });
     const district = await loadDistrict(pack());
     expect(district).toMatchObject({ id: "ao-lua/l1", provinceId: "ao-lua", arrival: { x: 2500, y: 140, z: 7490, yaw: 27_000 } });
+    // The benches, as the phones have them: a box, turned the way the sitter faces.
+    expect(district.obstacles).toEqual([{ kind: "box", x: 4000, z: 6000, halfWidthMm: 850, halfLengthMm: 270, yaw: 9000 }]);
+    expect([...district.paragens]).toEqual([["mutamba", { x: 8000, y: 100, z: 3500, yaw: 0 }]]);
     expect(district.ground.cellMm).toBe(500);
     expect(district.ground.flagsAt(3, 3) & CELL_WALK).toBe(CELL_WALK);
     // The wall in the east chunk, the height of its floor, and nothing at all beyond the pack.

@@ -3,6 +3,7 @@
 
 export * from "./manifest.ts";
 export * from "./walkgrid.ts";
+export * from "./solids.ts";
 export * from "./budgets.ts";
 export * from "./streaming.ts";
 export * from "./palette.ts";

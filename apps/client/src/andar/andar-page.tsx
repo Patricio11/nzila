@@ -35,6 +35,8 @@ import { Sound } from "../sound/sound.ts";
 import { Telemovel, type Marked } from "../telemovel/telemovel.tsx";
 import { Arriving } from "../frontdoor/arriving.tsx";
 import { LocalWorld } from "../world/provider.ts";
+import { STILL, Session } from "../net/session.ts";
+import { toMoveInput, type InputFrame } from "@nzila/protocol";
 import { WorldRenderer } from "../render/world-renderer.ts";
 import "../shell.css";
 import "./andar.css";
@@ -46,7 +48,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -144,6 +146,11 @@ export function Andar() {
     let closed = false;
     let district: DistrictScene | null = null;
     let person: Person | null = null;
+    // The zone, when there is one: it says where the player is and who else is in the street (Task 3.3).
+    let session: Session | null = null;
+    // How far the picture is from the body after the zone put it right: it slides there and does not jump.
+    const nudge = { x: 0, y: 0, z: 0 };
+    let pressed = 0;
     const state: CharacterState = { x: 0, y: 0, z: 0, yaw: 0 };
     const before = { x: 0, y: 0, z: 0 };
     const stick = { x: 0, y: 0, originX: 0, originY: 0, active: false };
@@ -202,6 +209,13 @@ export function Andar() {
           ...(`npc.role.${one.role}` in ptAO ? { role: tr.t(`npc.role.${one.role}` as "npc.role.zungueira") } : {}),
         });
         person = loaded;
+        // A player with a session comes into a channel of this district. A place asked for in the address, or
+        // `&sozinho`, keeps the street the phone's own: for stills, films and the bench.
+        const token = account()?.token;
+        if (token && !asked && !params.has("sozinho")) {
+          session = new Session(renderer, opened.manifest.id, token);
+          session.join();
+        }
         setArrived(true);
         setTimeout(() => setArrived(false), 2600);
       } catch {
@@ -314,6 +328,9 @@ export function Andar() {
             cabin.removeFromParent();
             if (riding.left) rode.current();
             ride = null;
+            // Back into the street the others are in, beside the nearest paragem to where the van put them down.
+            const stop = [...district.manifest.paragens].sort((a, b) => Math.hypot(a.pos[0] - spot[0], a.pos[2] - spot[1]) - Math.hypot(b.pos[0] - spot[0], b.pos[2] - spot[1]))[0];
+            session?.join(stop?.id);
           } else {
             if (asks.current.act && !riding.asked) {
               riding.asked = true;
@@ -331,6 +348,8 @@ export function Andar() {
           // For a film: gets on by itself and asks for the next paragem.
           const boarded = { route: waiting.route, index: waiting.index, last: waiting, asked: boardsItself, left: false, camYaw: camera.yaw, boardedAt: seconds, askedAt: boardsItself ? seconds + 3 : -99, arrivedAt: -99, riders: [] as { who: string; person: Person }[] };
           ride = boarded;
+          // The vans are each phone's own for now: whoever rides one is out of the street the others see until they get off.
+          session?.leave();
           // The others in the van: the driver, the cobrador by the door, a few passengers. They get in as their bodies arrive.
           const van = district.traffic?.bodyOf(waiting.route, waiting.index);
           const people = district.people;
@@ -384,6 +403,33 @@ export function Andar() {
         if (emote && (seconds - emote.began > EMOTE_SECONDS[emote.kind] || (moving && asks.current.run))) emote = null;
         sit += ((seat ? 1 : 0) - sit) * Math.min(1, elapsed / 220);
 
+        // The zone's word on where the player is: on coming in, and whenever it disagrees with the phone.
+        if (session && !ride) {
+          const bodies = session.bodies();
+          const zoneSolids = [...district.shared(), ...bodies];
+          const came = session.arrival();
+          const slide = came ? { x: state.x - came.x, y: state.y - came.y, z: state.z - came.z } : session.settle(state, (body, frame) => stepCharacter(body, toMoveInput(frame), ground, zoneSolids, DEFAULT_CHARACTER));
+          if (came) {
+            delete state.air;
+            Object.assign(state, came);
+            seat = null;
+          }
+          if (slide && Math.hypot(slide.x, slide.z) < 6000) {
+            // The body is where the zone says; the picture starts where it was and slides there.
+            Object.assign(before, { x: before.x - slide.x, y: before.y - slide.y, z: before.z - slide.z });
+            nudge.x += slide.x / 1000;
+            nudge.y += slide.y / 1000;
+            nudge.z += slide.z / 1000;
+          } else if (slide) {
+            Object.assign(before, state);
+            Object.assign(nudge, { x: 0, y: 0, z: 0 });
+          }
+        }
+        const fade = Math.exp(-elapsed / 90);
+        nudge.x *= fade;
+        nudge.y *= fade;
+        nudge.z *= fade;
+
         // The simulation steps twenty times a second, whatever the frame rate; the picture glides between steps.
         carried += elapsed;
         while (carried >= SIM_STEP_MS) {
@@ -393,11 +439,42 @@ export function Andar() {
           air.liftBefore = air.liftAfter;
           if (!seat && !ride) {
             const leaving = asks.current.jump && !state.air;
-            stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, district.obstacles(), DEFAULT_CHARACTER);
-            if (leaving) {
+            let jumped = leaving;
+            if (session?.walking) {
+              // With the zone: the step is taken twice, once against what the zone knows of (walls, benches, the other
+              // players) and once against everything the phone sees (its vans and its people of the street too). When
+              // the two agree, that is the step, and the zone is sent the stick. When something only the phone sees is
+              // in the way, the player stands, and the zone is told a stick at rest: so that the two always agree, and
+              // nobody is pulled through a van by a zone that cannot see it (F-152).
+              const frame: InputFrame = { dx: ask.dx, dz: ask.dz, run: ask.run, brake: false, ...(leaving ? { jump: true } : {}) };
+              const bodies = session.bodies();
+              const zone = { ...state };
+              stepCharacter(zone, toMoveInput(frame), ground, [...district.shared(), ...bodies], DEFAULT_CHARACTER);
+              const full = { ...state };
+              stepCharacter(full, toMoveInput(frame), ground, [...district.obstacles(), ...bodies], DEFAULT_CHARACTER);
+              // In the air the jump is already decided; and someone pressed against a body for a second walks on,
+              // so that a person of the street who stopped on top of them is not a prison.
+              const agreed = (full.x === zone.x && full.z === zone.z) || (state.air ?? 0) > 0 || pressed > 20;
+              pressed = agreed ? 0 : pressed + 1;
+              if (agreed) {
+                delete state.air;
+                delete state.airX;
+                delete state.airZ;
+                Object.assign(state, zone);
+                session.walked(frame);
+              } else {
+                jumped = false;
+                session.walked(STILL);
+              }
+            } else {
+              stepCharacter(state, leaving ? { ...ask, jump: true } : ask, ground, district.obstacles(), DEFAULT_CHARACTER);
+            }
+            if (jumped) {
               air.count += 1;
               sound.jump();
             }
+          } else {
+            session?.walked(STILL);
           }
           asks.current.jump = false;
           air.after = state.air ? (DEFAULT_CHARACTER.jumpSteps - state.air) / DEFAULT_CHARACTER.jumpSteps : air.before > 0 ? 1 : 0;
@@ -409,12 +486,12 @@ export function Andar() {
         }
         air.land = Math.max(0, air.land - elapsed / 260);
         const blend = carried / SIM_STEP_MS;
-        let x = (before.x + (state.x - before.x) * blend) / 1000;
-        let y = (before.y + (state.y - before.y) * blend) / 1000;
+        let x = (before.x + (state.x - before.x) * blend) / 1000 + nudge.x;
+        let y = (before.y + (state.y - before.y) * blend) / 1000 + nudge.y;
         const jump = jumpHeld || air.before + (air.after - air.before) * blend;
         const lift = jumpHeld ? (4 * DEFAULT_CHARACTER.jumpHeightMm * jumpHeld * (1 - jumpHeld)) / 1000 : air.liftBefore + (air.liftAfter - air.liftBefore) * blend;
         const flying = jump > 0 && jump < 1;
-        let z = (before.z + (state.z - before.z) * blend) / 1000;
+        let z = (before.z + (state.z - before.z) * blend) / 1000 + nudge.z;
         // How fast the body is really going, which is not always what was asked: a wall stops the legs too.
         const travelled = Math.hypot(state.x - before.x, state.z - before.z) / 1000 / (SIM_STEP_MS / 1000);
         speed += (travelled - speed) * Math.min(1, elapsed / 110);
@@ -498,10 +575,12 @@ export function Andar() {
           renderer.camera.lookAt(x, eyeY + (upright ? 0.55 : 0.2), z);
         }
         renderer.setFocus(x, 0, z);
+        // The other players: drawn a moment in the past, named when they stand still, given way to by the vans.
+        district.others = session ? session.draw(elapsed, seconds) : [];
         district.update();
 
         const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -613,6 +692,7 @@ export function Andar() {
       unwatch();
       sound.close();
       cabin.dispose();
+      session?.close();
       person?.dispose();
       district?.close();
       renderer.dispose();

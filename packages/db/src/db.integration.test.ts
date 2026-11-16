@@ -34,13 +34,14 @@ beforeAll(async () => {
   const url = new URL(databaseUrl());
   url.pathname = `/${name}`;
   sql = connect(url.toString(), 30);
-});
+}, 60_000);
 
 afterAll(async () => {
   await sql?.end();
   await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
   await admin.end();
-});
+  // Three suites drop their databases at the same moment: more than the ten seconds a hook is given.
+}, 60_000);
 
 const refusal = async (query: Promise<unknown>): Promise<string> => {
   try {

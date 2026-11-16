@@ -82,6 +82,25 @@ export interface StepRules {
   readonly solidPeople?: boolean;
 }
 
+/** What one person cannot walk into: what is given, and, when the rules say so, everyone else where they stand now. */
+function solidFor(world: SimWorld, person: SimWorld["characters"][number], solid: Obstacle[], rules: StepRules): Obstacle[] {
+  return rules.solidPeople
+    ? solid.concat(world.characters.filter((other) => other !== person).map((other): Obstacle => ({ kind: "circle", x: other.state.x, z: other.state.z, radiusMm: PERSON_BODY_MM })))
+    : solid;
+}
+
+/**
+ * One more step for one person, and for nobody else: the world's clock does not move. A zone uses it to
+ * walk a frame of someone's stick that arrived late, so that what it has walked is always exactly the
+ * frames it was sent, in order. Does nothing for an id that is nobody's.
+ */
+export function stepPerson(world: SimWorld, map: SimMap, id: number, move: MoveInput, character: CharacterParams = DEFAULT_CHARACTER, rules: StepRules = {}): void {
+  const person = world.characters.find((one) => one.id === id);
+  if (!person) return;
+  const solid = map.obstacles.concat(world.vehicles.map((vehicle) => vehicleObstacle(vehicle.state, VEHICLES[vehicle.kind])));
+  stepCharacter(person.state, move, map.ground, solidFor(world, person, solid, rules), character);
+}
+
 /**
  * Advances the world by one step. Vehicles move first, each against the map
  * and the other vehicles; then people move against the map and the vehicles,
@@ -106,10 +125,7 @@ export function stepWorld(
   }
   const solid = map.obstacles.concat(bodies);
   for (const person of world.characters) {
-    const others = rules.solidPeople
-      ? solid.concat(world.characters.filter((other) => other !== person).map((other): Obstacle => ({ kind: "circle", x: other.state.x, z: other.state.z, radiusMm: PERSON_BODY_MM })))
-      : solid;
-    stepCharacter(person.state, inputs.moves?.get(person.id) ?? NO_MOVE, map.ground, others, character);
+    stepCharacter(person.state, inputs.moves?.get(person.id) ?? NO_MOVE, map.ground, solidFor(world, person, solid, rules), character);
   }
 }
 

@@ -10,6 +10,7 @@ import {
   encodeChatHeard,
   encodeChatSend,
   encodeChatTyping,
+  encodeWho,
   encodeEvent,
   encodeHandoff,
   encodeInput,
@@ -66,6 +67,17 @@ describe("round trips", () => {
   test("Handoff", () => {
     const m = { reason: HANDOFF_REASON.TRAVEL, provinceId: "ao-lua", districtId: "ao-lua/l2", channel: 1, address: "wss://z3.example/l2", token: "seat.xyz", arriveAt: "causeway" };
     expect(decodeZoneMessage(encodeHandoff(m))).toEqual({ type: "handoff", ...m });
+  });
+});
+
+describe("who someone is", () => {
+  test("Who: the entity, the name on their BI, and their look as it is kept", () => {
+    const who = { entityId: 412, name: "Dona Xepa", look: JSON.stringify({ sex: "f", skin: 2, hair: "trancas" }) };
+    expect(decodeZoneMessage(encodeWho(who))).toEqual({ type: "who", ...who });
+    // One who never chose a look has none to send.
+    expect(decodeZoneMessage(encodeWho({ entityId: 1, name: "Caluanda 7", look: "" }))).toEqual({ type: "who", entityId: 1, name: "Caluanda 7", look: "" });
+    // A client never says who anyone is.
+    expect(() => decodeClientMessage(encodeWho(who))).toThrow(ProtocolError);
   });
 });
 

@@ -4,7 +4,7 @@
 // character controller and the real camera are Task 1.3.
 
 import { type Obstacle } from "@nzila/sim";
-import { type Manifest } from "@nzila/world/client";
+import { seatObstacles, type Manifest } from "@nzila/world/client";
 import { type Mesh } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
@@ -21,8 +21,6 @@ import { type WorldRenderer } from "./world-renderer.ts";
 const EYE = 1.8;
 
 /** A bench on the ground (art/scripts/kit.py: 1.7 m of slats, half a metre deep), and the room a standing person takes. */
-const BENCH_HALF_WIDTH_MM = 850;
-const BENCH_HALF_DEPTH_MM = 270;
 const PERSON_RADIUS_MM = 230;
 
 export class DistrictScene {
@@ -62,6 +60,8 @@ export class DistrictScene {
   private readonly outdoors: Outdoors | null;
   /** The names over whoever is standing still and near. */
   readonly names: NameTags | null;
+  /** The other players, given by the page each frame: named like anyone else when they stand still, and given way to by the traffic. */
+  others: Named[] = [];
   /** Says what someone of the street is called and what they do, from who they are. Given by the page, which has the words. */
   nameOf: ((person: { id: number; female: boolean; role: string }) => { name: string; role?: string }) | null = null;
   /** The people of the street, when the district has a timetable for them and they are built. */
@@ -75,9 +75,13 @@ export class DistrictScene {
    * the benches, and the people of the street (finding F-132). Millimetres, for the simulation.
    */
   obstacles(): Obstacle[] {
-    this.benches ??= this.manifest.seats.map((seat): Obstacle => ({ kind: "box", x: Math.round(seat.pos[0] * 1000), z: Math.round(seat.pos[2] * 1000), halfWidthMm: BENCH_HALF_WIDTH_MM, halfLengthMm: BENCH_HALF_DEPTH_MM, yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) }));
     const people = (this.crowd?.seen ?? []).map((person): Obstacle => ({ kind: "circle", x: Math.round(person.x * 1000), z: Math.round(person.z * 1000), radiusMm: PERSON_RADIUS_MM }));
-    return [...(this.traffic?.obstacles() ?? []), ...this.benches, ...people];
+    return [...(this.traffic?.obstacles() ?? []), ...this.shared(), ...people];
+  }
+
+  /** The part of that which the zone knows too, and decides by (packages/world: seatObstacles). */
+  shared(): Obstacle[] {
+    return (this.benches ??= seatObstacles(this.manifest.seats));
   }
 
   private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null, crowd: Crowd | null, people: People | null) {
@@ -175,12 +179,12 @@ export class DistrictScene {
     const elapsed = this.lastUpdate === 0 ? 0 : now - this.lastUpdate;
     this.markers?.update(this.renderer.camera, this.x, this.z, performance.now() / 1000);
     // The traffic gives way to whoever is on foot: the player, and the people of the street seen at the last update.
-    const onFoot = this.trafficAt !== null ? null : [...(this.afoot ? [{ x: this.x, z: this.z }] : []), ...(this.crowd?.seen ?? []).filter((person) => person.speed > 0)];
+    const onFoot = this.trafficAt !== null ? null : [...(this.afoot ? [{ x: this.x, z: this.z }] : []), ...(this.crowd?.seen ?? []).filter((person) => person.speed > 0), ...this.others];
     this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, onFoot);
     this.crowd?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, this.chunks.ground());
     const say = this.nameOf;
     const people: Named[] = say ? (this.crowd?.seen ?? []).map((person) => ({ ...say(person), x: person.x, y: person.top, z: person.z, still: person.speed === 0 })) : [];
-    this.names?.update(this.renderer.camera, people, this.x, this.z);
+    this.names?.update(this.renderer.camera, [...people, ...this.others], this.x, this.z);
     this.lastUpdate = now;
   }
 

@@ -3,7 +3,11 @@ import { defineConfig } from "vite";
 
 // (By number, not by name: "localhost" may be tried as IPv6 first, where the API does not listen, and a request is lost now and then.)
 // The API is asked at /api on the game's own address, in development as in production, so the token never crosses to another origin.
-const api = { "/api": { target: `http://127.0.0.1:${process.env.API_PORT ?? 4000}`, rewrite: (path: string) => path.replace(/^\/api/, "") } };
+// The zone is asked at /zone the same way: a WebSocket.
+const api = {
+  "/api": { target: `http://127.0.0.1:${process.env.API_PORT ?? 4000}`, rewrite: (path: string) => path.replace(/^\/api/, "") },
+  "/zone": { target: `http://127.0.0.1:${process.env.ZONE_PORT ?? 2567}`, ws: true, rewrite: (path: string) => path.replace(/^\/zone/, "") },
+};
 
 export default defineConfig({
   plugins: [preact()],

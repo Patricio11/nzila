@@ -41,7 +41,8 @@ afterAll(async () => {
   await sql?.end();
   await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
   await admin.end();
-});
+  // Three suites drop their databases at the same moment: more than the ten seconds a hook is given.
+}, 60_000);
 
 const device = (n: number): string => `device-${String(n).padStart(4, "0")}-abcdefghij`;
 const newGuest = async (n: number, ageBand = "18_plus") => {

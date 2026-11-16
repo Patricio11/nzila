@@ -3,7 +3,7 @@
 import { DOING, decodeSnapshot, type Input, type InputFrame, type Snapshot } from "@nzila/protocol";
 import { type Ground } from "@nzila/sim";
 import { describe, expect, test } from "vitest";
-import { Channel, FRAMES_WAITING_AT_MOST, HELD_STEPS, SEEN_AT_MOST, SIGHT_MM } from "./channel.ts";
+import { Channel, FRAMES_A_STEP_AT_MOST, FRAMES_WAITING_AT_MOST, SEEN_AT_MOST, SIGHT_MM, STEPS_KEPT_AT_MOST } from "./channel.ts";
 
 // Open ground everywhere, but for a wall along z = 10 m (and nothing beyond x = ±200 m).
 const ground: Ground = {
@@ -41,7 +41,7 @@ describe("coming in and going out", () => {
     expect(channel.count).toBe(2);
     expect(channel.placeOf(a)).toEqual(here);
     const beside = channel.placeOf(b)!;
-    expect(Math.hypot(beside.x, beside.z)).toBeGreaterThanOrEqual(600);
+    expect(Math.hypot(beside.x, beside.z)).toBeGreaterThanOrEqual(1000);
     expect(Math.hypot(beside.x, beside.z)).toBeLessThan(1700);
   });
 
@@ -101,31 +101,50 @@ describe("the channel decides where everyone is", () => {
     }
     expect(greedy.placeOf(b)!.z).toBeLessThanOrEqual(honest.placeOf(a)!.z);
     // And what was waiting when they stop is short: they do not walk on for seconds.
-    for (let n = 0; n < FRAMES_WAITING_AT_MOST + HELD_STEPS + 2; n++) greedy.tick();
+    for (let n = 0; n < FRAMES_WAITING_AT_MOST + 2; n++) greedy.tick();
     const rest = greedy.placeOf(b)!.z;
     greedy.tick();
     expect(greedy.placeOf(b)!.z).toBe(rest);
   });
 
-  test("a lost packet does not stop a walk, and repeats of frames already had are not walked twice", () => {
+  test("a lost packet loses nothing, and the zone never walks a frame it was not sent: with no word they stand, then catch up", () => {
+    const whole = new Channel(ground);
+    const w = whole.join("player-w", here)!;
+    walking(whole, w, 1, 13);
+
     const channel = new Channel(ground);
     const a = channel.join("player-a", here)!;
     walking(channel, a, 1, 10);
     const before = channel.placeOf(a)!.z;
-    // Two steps with no word at all: they go on.
+    // Two steps with no word at all: they stand where they are, and nothing is said to have been used.
     channel.tick();
     channel.tick();
-    const during = channel.placeOf(a)!.z;
-    expect(during).toBeGreaterThan(before + 50);
-    // Then a message arrives that repeats frames 9 and 10 with the new 11: only 11 is new.
-    channel.input(a, { seq: 11, ackTick: 0, frames: [north, north, north] });
+    expect(channel.placeOf(a)!.z).toBe(before);
+    expect(decodeSnapshot(channel.snapshotFor(a)!, () => undefined).lastInputSeq).toBe(10);
+    // Then frame 13 arrives carrying 12 and 11 with it: all three are walked, with the time that was not used.
+    channel.input(a, { seq: 13, ackTick: 0, frames: [north, north, north] });
     channel.tick();
     channel.tick();
-    // And with nothing more, after a moment they stand.
-    for (let n = 0; n < HELD_STEPS + 2; n++) channel.tick();
-    const stopped = channel.placeOf(a)!.z;
+    // Exactly where thirteen frames take anyone, no more and no less.
+    expect(channel.placeOf(a)).toEqual(whole.placeOf(w));
+    // A frame already had, arriving again, is not walked twice.
+    channel.input(a, { seq: 13, ackTick: 0, frames: [north, north, north] });
     channel.tick();
-    expect(channel.placeOf(a)!.z).toBe(stopped);
+    expect(channel.placeOf(a)).toEqual(whole.placeOf(w));
+  });
+
+  test("time not used is kept only a little: after a long silence a burst is walked at the pace of time, not all at once", () => {
+    const channel = new Channel(ground);
+    const a = channel.join("player-a", here)!;
+    for (let n = 0; n < 100; n++) channel.tick();
+    channel.input(a, { seq: 6, ackTick: 0, frames: Array.from({ length: 6 }, () => north) });
+    channel.tick();
+    const one = channel.placeOf(a)!.z;
+    // Two frames in the first step, at the most; and after the little that was kept, one a step.
+    expect(one).toBeLessThan(200);
+    for (let n = 0; n < STEPS_KEPT_AT_MOST + 1; n++) channel.tick();
+    expect(decodeSnapshot(channel.snapshotFor(a)!, () => undefined).lastInputSeq).toBe(6);
+    expect(FRAMES_A_STEP_AT_MOST).toBe(2);
   });
 
   test("two people cannot stand in the same place: one walking at another stops before them", () => {
@@ -135,6 +154,16 @@ describe("the channel decides where everyone is", () => {
     walking(channel, a, 1, 100);
     expect(channel.placeOf(b)!.z - channel.placeOf(a)!.z).toBeGreaterThan(400);
     expect(channel.placeOf(b)).toMatchObject({ x: 0, z: 3000 });
+  });
+});
+
+describe("what stands in the district", () => {
+  test("a bench stops a walk in the zone as it does on the phone", () => {
+    const channel = new Channel(ground, [{ kind: "box", x: 0, z: 3000, halfWidthMm: 850, halfLengthMm: 270, yaw: 0 }]);
+    const a = channel.join("player-a", here)!;
+    walking(channel, a, 1, 100);
+    expect(channel.placeOf(a)!.z).toBeLessThan(3000 - 270);
+    expect(channel.placeOf(a)!.z).toBeGreaterThan(2000);
   });
 });
 
@@ -148,6 +177,9 @@ describe("what a client is told", () => {
     const whole = channel.snapshotFor(a)!;
     const first = read(whole);
     expect(first.entities.map((entity) => entity.id)).toEqual([a, b]);
+    // The channel remembers who it told them of, so that the room can say who each is.
+    expect(channel.seenBy(a)).toEqual([a, b]);
+    expect(channel.seenBy(999)).toEqual([]);
     expect(first.entities.every((entity) => entity.kind === "player" && entity.anim === DOING.idle)).toBe(true);
 
     // Nobody moves, and the client says it has that snapshot: the next is a few bytes.

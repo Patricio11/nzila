@@ -19,13 +19,8 @@ export const MSG = {
   CHAT_HEARD: 8,
   CHAT_TYPING: 9,
   HANDOFF: 10,
+  WHO: 11,
 } as const;
-
-/**
- * The one message type every one of our messages travels under in a room (D-3.6): the room
- * library carries bytes and knows nothing of what is in them; the first byte of ours says what they are.
- */
-export const CARRIER = 1;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
 export const ZONE_CLOSE = {
@@ -34,9 +29,6 @@ export const ZONE_CLOSE = {
   /** The client kept sending what no client of ours sends. */
   MISBEHAVED: 4101,
 } as const;
-
-/** A join that is refused before there is a connection fails with this number plus the refusal's code (JOIN_REFUSAL). */
-export const JOIN_REFUSED_AT = 4200;
 
 const TOKEN_BYTES = 512;
 const ID_BYTES = 64;
@@ -54,7 +46,7 @@ export const INPUT_MAX_FRAMES = 8;
 /** Client to zone, first message on a connection. FROZEN LAYOUT: see version.ts. */
 export interface Join {
   readonly protocolVersion: number;
-  /** The seat reserved by the matchmaker. Opaque to the client. */
+  /** What lets them in: the session token today, the seat reserved by the matchmaker from Task 3.2. Opaque to the zone's own code beyond checking it. */
   readonly token: string;
 }
 
@@ -283,6 +275,32 @@ function readChatTyping(r: Reader): ChatTyping {
   return { from: r.uint(), typing: r.bool() };
 }
 
+// ---------------------------------------------------------------- Who
+
+const NAME_BYTES = 96;
+const LOOK_BYTES = 512;
+
+/**
+ * Zone to client: who an entity is. Sent once for each player a client comes to see, before or with the
+ * first snapshot that has them, so that a body can be drawn as its owner chose it and named when it stands
+ * still (D-3.5). A snapshot says only where; this says who, and is not repeated.
+ */
+export interface Who {
+  readonly entityId: number;
+  /** The name on their BI. */
+  readonly name: string;
+  /** Their look, as the look chooser keeps it (JSON), or empty for one who never chose. Read with checkLook: it came over a wire. */
+  readonly look: string;
+}
+
+export function encodeWho(m: Who): Uint8Array {
+  return new Writer().u8(MSG.WHO).uint(m.entityId).text(m.name).text(m.look).finish();
+}
+
+function readWho(r: Reader): Who {
+  return { entityId: r.uint(), name: r.text(NAME_BYTES), look: r.text(LOOK_BYTES) };
+}
+
 // ---------------------------------------------------------------- Handoff
 
 export const HANDOFF_REASON = {
@@ -365,6 +383,7 @@ export type ZoneMessage =
   | ({ readonly type: "chat_heard" } & ChatHeard)
   | ({ readonly type: "chat_typing" } & ChatTyping)
   | ({ readonly type: "handoff" } & Handoff)
+  | ({ readonly type: "who" } & Who)
   | { readonly type: "snapshot" }
   | { readonly type: "unknown"; readonly code: number };
 
@@ -384,5 +403,6 @@ export function decodeZoneMessage(bytes: Uint8Array): ZoneMessage {
   if (type === MSG.CHAT_HEARD) return { type: "chat_heard", ...readChatHeard(r) };
   if (type === MSG.CHAT_TYPING) return { type: "chat_typing", ...readChatTyping(r) };
   if (type === MSG.HANDOFF) return { type: "handoff", ...readHandoff(r) };
+  if (type === MSG.WHO) return { type: "who", ...readWho(r) };
   return { type: "unknown", code: type };
 }

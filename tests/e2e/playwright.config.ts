@@ -15,6 +15,8 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = 4174;
 // The API the game asks at /api: the real one, on a database of its own (apps/api/src/e2e-server.ts). It needs `pnpm services`.
 const API_PORT = "4010";
+// The zone the game asks at /zone: the real one too, on the same database (apps/zone/src/e2e-server.ts).
+const ZONE_PORT = "2577";
 
 export default defineConfig({
   testDir: ".",
@@ -35,10 +37,18 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      command: "node apps/zone/src/e2e-server.ts",
+      port: Number(ZONE_PORT),
+      cwd: "../..",
+      env: { ZONE_PORT },
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
       command: `pnpm --filter @nzila/client exec vite preview --port ${PORT} --strictPort`,
       url: `http://localhost:${PORT}`,
       cwd: "../..",
-      env: { API_PORT },
+      env: { API_PORT, ZONE_PORT },
       reuseExistingServer: false,
       timeout: 60_000,
     },

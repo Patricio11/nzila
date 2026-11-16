@@ -2,7 +2,3 @@ packages:
   - "apps/*"
   - "packages/*"
   - "tools/*"
-# Install scripts of dependencies do not run unless they are named here and allowed. msgpackr-extract (under
-# Colyseus) only builds a faster native reader that the pure JavaScript one stands in for: it is not run.
-allowBuilds:
-  msgpackr-extract: false

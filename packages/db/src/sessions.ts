@@ -28,6 +28,13 @@ export async function playerOfSession(sql: Sql, token: string): Promise<SessionP
   return row ? { id: row.id, kind: row.kind, sessionId: row.session_id } : null;
 }
 
+/** What others are shown of a player: the name on the BI and the look they chose (as it was stored: whoever reads it checks it). */
+export async function faceOf(sql: Sql, playerId: string): Promise<{ name: string; look: unknown }> {
+  const [row] = await sql<{ name: string | null; spec: unknown }[]>`
+    SELECT p.name, a.spec FROM players p LEFT JOIN avatars a ON a.player_id = p.id WHERE p.id = ${playerId}`;
+  return { name: row?.name ?? "", look: row?.spec ?? null };
+}
+
 /** A place in a district: millimetres. */
 export interface Whereabouts {
   readonly districtId: string;

@@ -11,16 +11,15 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@colyseus/core": "^0.18.28",
-    "@colyseus/sdk": "^0.18.10",
-    "@colyseus/ws-transport": "^0.18.5",
     "@nzila/db": "workspace:*",
     "@nzila/protocol": "workspace:*",
     "@nzila/sim": "workspace:*",
     "@nzila/world": "workspace:*",
-    "postgres": "^4.1.1"
+    "postgres": "^4.1.1",
+    "ws": "^8.23.0"
   }
 }
