@@ -1,0 +1,52 @@
+// Who a session token belongs to, and where a player was last. Both the API
+// and the zone need these, and there must be one answer to each: a token the
+// API would refuse, the zone refuses.
+
+import { createHash } from "node:crypto";
+import { type Sql } from "postgres";
+
+/** A session lasts this long from when it was last used. */
+export const SESSION_DAYS = 90;
+
+/** What the database keeps of a token: its hash, so that the database alone lets nobody in. */
+export const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
+
+export interface SessionPlayer {
+  readonly id: string;
+  readonly kind: "guest" | "linked";
+  readonly sessionId: string;
+}
+
+/** The player a token belongs to, or null: unknown, revoked, expired, or a player who may not play. Using a session keeps it alive. */
+export async function playerOfSession(sql: Sql, token: string): Promise<SessionPlayer | null> {
+  const [row] = await sql<{ id: string; kind: "guest" | "linked"; session_id: string }[]>`
+    UPDATE player_sessions s SET last_seen_at = now(), expires_at = now() + make_interval(days => ${SESSION_DAYS})
+    FROM players p
+    WHERE s.token_hash = ${hashToken(token)} AND s.revoked_at IS NULL AND s.expires_at > now()
+      AND p.id = s.player_id AND p.status = 'active'
+    RETURNING p.id, p.kind, s.id AS session_id`;
+  return row ? { id: row.id, kind: row.kind, sessionId: row.session_id } : null;
+}
+
+/** A place in a district: millimetres. */
+export interface Whereabouts {
+  readonly districtId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+/** Where a player last stood, or null for one who has not been anywhere yet. */
+export async function whereaboutsOf(sql: Sql, playerId: string): Promise<Whereabouts | null> {
+  const [row] = await sql<{ district_id: string | null; x: number | null; y: number | null; z: number | null }[]>`
+    SELECT district_id, x, y, z FROM players WHERE id = ${playerId} AND status = 'active'`;
+  if (!row || row.district_id === null || row.x === null || row.y === null || row.z === null) return null;
+  return { districtId: row.district_id, x: row.x, y: row.y, z: row.z };
+}
+
+/** Keeps where a player stands, for their return. Written by the zone and by nothing else (D-3.1). */
+export async function keepWhereabouts(sql: Sql, playerId: string, provinceId: string, at: Whereabouts): Promise<void> {
+  await sql`
+    UPDATE players SET province_id = ${provinceId}, district_id = ${at.districtId}, x = ${at.x}, y = ${at.y}, z = ${at.z}
+    WHERE id = ${playerId} AND status = 'active'`;
+}

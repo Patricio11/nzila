@@ -3,17 +3,14 @@
 // 16). What the device keeps is a token; what the database keeps is the hash
 // of the token, so that the database alone lets nobody in.
 
-import { createHash, randomBytes } from "node:crypto";
-import { hashDeviceId } from "@nzila/db";
+import { randomBytes } from "node:crypto";
+import { SESSION_DAYS, hashDeviceId, hashToken, playerOfSession } from "@nzila/db";
 import { type Sql } from "postgres";
 import { type AgeBand } from "@nzila/protocol";
 import { arrivalIdentity } from "./names.ts";
 import { type Player } from "./routes.ts";
 
-/** A session lasts this long from when it was last used. */
-export const SESSION_DAYS = 90;
-
-const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
+export { SESSION_DAYS };
 
 export interface NewGuest {
   readonly playerId: string;
@@ -60,13 +57,8 @@ export async function createGuest(sql: Sql, pepper: Uint8Array, deviceId: string
 
 /** The player a token belongs to, or null: unknown, revoked, expired, or a player who may not play. */
 export async function playerOfToken(sql: Sql, token: string): Promise<Player | null> {
-  const [row] = await sql<{ id: string; kind: "guest" | "linked"; session_id: string }[]>`
-    UPDATE player_sessions s SET last_seen_at = now(), expires_at = now() + make_interval(days => ${SESSION_DAYS})
-    FROM players p
-    WHERE s.token_hash = ${hashToken(token)} AND s.revoked_at IS NULL AND s.expires_at > now()
-      AND p.id = s.player_id AND p.status = 'active'
-    RETURNING p.id, p.kind, s.id AS session_id`;
-  return row ? { id: row.id, kind: row.kind, sessionId: row.session_id } : null;
+  // One lookup for the API and the zone (packages/db): a token one refuses, the other refuses.
+  return playerOfSession(sql, token);
 }
 
 /** Ends one session: the device it was on must ask to come in again. */

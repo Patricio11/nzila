@@ -6,11 +6,21 @@
   "description": "Zone servers. One room is one channel of one district.",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dev": "node --watch src/index.ts",
+    "dev": "node --env-file-if-exists=../../.env.example --env-file-if-exists=../../.env --watch src/index.ts",
     "start": "node src/index.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.18.28",
+    "@colyseus/sdk": "^0.18.10",
+    "@colyseus/ws-transport": "^0.18.5",
+    "@nzila/db": "workspace:*",
+    "@nzila/protocol": "workspace:*",
+    "@nzila/sim": "workspace:*",
+    "@nzila/world": "workspace:*",
+    "postgres": "^4.1.1"
   }
 }

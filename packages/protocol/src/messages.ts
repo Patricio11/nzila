@@ -21,6 +21,23 @@ export const MSG = {
   HANDOFF: 10,
 } as const;
 
+/**
+ * The one message type every one of our messages travels under in a room (D-3.6): the room
+ * library carries bytes and knows nothing of what is in them; the first byte of ours says what they are.
+ */
+export const CARRIER = 1;
+
+/** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
+export const ZONE_CLOSE = {
+  /** The same player came in from somewhere else: this one is put out, and must not come straight back. */
+  ELSEWHERE: 4100,
+  /** The client kept sending what no client of ours sends. */
+  MISBEHAVED: 4101,
+} as const;
+
+/** A join that is refused before there is a connection fails with this number plus the refusal's code (JOIN_REFUSAL). */
+export const JOIN_REFUSED_AT = 4200;
+
 const TOKEN_BYTES = 512;
 const ID_BYTES = 64;
 const ADDRESS_BYTES = 256;

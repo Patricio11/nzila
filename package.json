@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "pnpm services && turbo run dev",
     "dev:client": "pnpm --filter @nzila/client dev",
+    "dev:zone": "pnpm --filter @nzila/zone dev",
     "dev:down": "docker compose -f infra/docker-compose.yml down",
     "services": "docker compose -f infra/docker-compose.yml up -d --wait",
     "db:migrate": "node packages/db/src/cli.ts migrate",

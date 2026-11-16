@@ -71,16 +71,30 @@ export function removeEntity(world: SimWorld, id: number): boolean {
   return false;
 }
 
+/** How much of a standing person another person cannot step into: with the walker's own radius, two bodies stay about an arm apart. */
+export const PERSON_BODY_MM = 160;
+
+export interface StepRules {
+  /**
+   * Whether people are solid to each other (D-0.53: "the user cannot overlap another object").
+   * The zone says yes. Left out, people pass through each other, as the first worlds did.
+   */
+  readonly solidPeople?: boolean;
+}
+
 /**
  * Advances the world by one step. Vehicles move first, each against the map
- * and the other vehicles; then people move against the map and the vehicles.
- * People do not block each other: nobody can be walled into a doorway.
+ * and the other vehicles; then people move against the map and the vehicles,
+ * and, when the rules say so, against each other: in order of id, each
+ * against where the others stand at that moment, so that every machine
+ * agrees who gave way.
  */
 export function stepWorld(
   world: SimWorld,
   map: SimMap,
   inputs: StepInputs = {},
   character: CharacterParams = DEFAULT_CHARACTER,
+  rules: StepRules = {},
 ): void {
   world.tick++;
   const bodies = world.vehicles.map((vehicle) => vehicleObstacle(vehicle.state, VEHICLES[vehicle.kind]));
@@ -92,7 +106,10 @@ export function stepWorld(
   }
   const solid = map.obstacles.concat(bodies);
   for (const person of world.characters) {
-    stepCharacter(person.state, inputs.moves?.get(person.id) ?? NO_MOVE, map.ground, solid, character);
+    const others = rules.solidPeople
+      ? solid.concat(world.characters.filter((other) => other !== person).map((other): Obstacle => ({ kind: "circle", x: other.state.x, z: other.state.z, radiusMm: PERSON_BODY_MM })))
+      : solid;
+    stepCharacter(person.state, inputs.moves?.get(person.id) ?? NO_MOVE, map.ground, others, character);
   }
 }
 

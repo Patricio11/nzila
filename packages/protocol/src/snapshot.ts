@@ -12,6 +12,9 @@
 import { MSG } from "./messages.ts";
 import { ProtocolError, Reader, Writer } from "./wire.ts";
 
+/** What a body is doing, as a snapshot says it (`anim`). Numbers are never reused; a client draws one it does not know as standing. */
+export const DOING = { idle: 0, walk: 1, run: 2, air: 3, sit: 4 } as const;
+
 export const ENTITY_KINDS = ["player", "npc", "vehicle"] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 

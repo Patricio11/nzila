@@ -318,9 +318,9 @@ flowchart LR
 **Dependency gate:** Phase 2 complete. *(Met 2026-11-16; see `docs/PHASE_3_PLAN.md`.)*
 
 ### Task 3.1: The zone server
-- [ ] `apps/zone` on Colyseus: one room is one channel of one district; 20 Hz simulation with `packages/sim`; 10 Hz snapshots; area of interest on a grid (60 m radius, the nearest 30 avatars in full, the rest as low-rate dots).
-- [ ] Authoritative movement: inputs validated, speed and collision enforced, impossible moves corrected.
-- [ ] Position checkpoint to Redis every 5 seconds and to Postgres on leave.
+- [ ] `apps/zone` on Colyseus: one room is one channel of one district; 20 Hz simulation with `packages/sim`; 10 Hz snapshots; area of interest on a grid (60 m radius, the nearest 30 avatars in full, the rest as low-rate dots). *(2026-11-16: built on Colyseus 0.18 (D-3.6): `apps/zone/src/channel.ts` is the channel with no network in it, `room.ts` the room round it, `district.ts` reads the ground from the pack the phones download. A session token the API would accept lets a player in; the bytes are `packages/protocol`'s. Tested with a real server, a real database and two clients on real sockets. Not ticked: the far ones as dots are not sent, and the street's own rules are not the zone's yet (F-152).)*
+- [x] Authoritative movement: inputs validated, speed and collision enforced, impossible moves corrected. *(2026-11-16: a client sends its stick and never a place (D-3.1); one frame is walked a step however many are sent; walls and other people stop a walk (D-0.53); a client that floods or sends what cannot be read is put out. The correction as a phone feels it is 3.3.)*
+- [ ] Position checkpoint to Redis every 5 seconds and to Postgres on leave. *(2026-11-16: to PostgreSQL on leaving and every thirty seconds, and a player comes back where they stood; the same player from a second place puts the first out. Not ticked: Redis, which the zone first uses in 3.2 (F-152).)*
 - Depends on: 0.2, 0.4, 2.5 · Unblocks: 3.2, 3.3, 3.7.
 
 ### Task 3.2: Matchmaker and channels

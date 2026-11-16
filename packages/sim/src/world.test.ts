@@ -133,3 +133,50 @@ describe("copies and hashes", () => {
     expect(checkpoint).toEqual(world);
   });
 });
+
+describe("people who are solid to each other (D-0.53)", () => {
+  const open: SimMap = { ground: { cellMm: 500, flagsAt: () => 1, heightAt: () => 0 }, obstacles: [] };
+  const towards = new Map([[1, { dx: 0, dz: 127, run: false }]]);
+
+  test("someone walking at a person standing in their way stops before them, and without the rule walks through", () => {
+    const run = (solidPeople: boolean): number => {
+      const world = createWorld(1);
+      addCharacter(world, 1, { x: 0, y: 0, z: 0, yaw: 0 });
+      addCharacter(world, 2, { x: 0, y: 0, z: 2000, yaw: 0 });
+      for (let n = 0; n < 60; n++) stepWorld(world, open, { moves: towards }, undefined, { solidPeople });
+      // The one standing has not been moved.
+      expect(world.characters[1]!.state).toMatchObject({ x: 0, z: 2000 });
+      return world.characters[0]!.state.z;
+    };
+    expect(run(false)).toBeGreaterThan(2500);
+    const stopped = run(true);
+    expect(stopped).toBeLessThan(2000 - 400);
+    expect(stopped).toBeGreaterThan(1000);
+  });
+
+  test("two who walk at each other meet and neither passes; who gives way is the same on every machine", () => {
+    const meet = (): number => {
+      const world = createWorld(1);
+      addCharacter(world, 1, { x: 0, y: 0, z: 0, yaw: 0 });
+      addCharacter(world, 2, { x: 0, y: 0, z: 3000, yaw: 18000 });
+      const moves = new Map([
+        [1, { dx: 0, dz: 127, run: false }],
+        [2, { dx: 0, dz: -127, run: false }],
+      ]);
+      for (let n = 0; n < 80; n++) stepWorld(world, open, { moves }, undefined, { solidPeople: true });
+      const [a, b] = world.characters;
+      expect(b!.state.z - a!.state.z).toBeGreaterThan(400);
+      return hashWorld(world);
+    };
+    expect(meet()).toBe(meet());
+  });
+
+  test("someone is walked round, not stuck to: a step to the side goes past", () => {
+    const world = createWorld(1);
+    addCharacter(world, 1, { x: 0, y: 0, z: 0, yaw: 0 });
+    addCharacter(world, 2, { x: 0, y: 0, z: 1500, yaw: 0 });
+    const round = new Map([[1, { dx: 60, dz: 127, run: false }]]);
+    for (let n = 0; n < 80; n++) stepWorld(world, open, { moves: round }, undefined, { solidPeople: true });
+    expect(world.characters[0]!.state.z).toBeGreaterThan(2500);
+  });
+});
