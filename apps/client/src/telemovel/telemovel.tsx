@@ -156,7 +156,10 @@ function Mapa({ world, marked, onMark }: { world: WorldProvider; marked: Marked 
   const isMarked = chosen !== null && marked !== null && marked.x === chosen.x && marked.z === chosen.z;
   return (
     <div class="tm-map">
-      <p class="tm-map-name">{world.word(manifest.nameKey)}</p>
+      <p class="tm-map-name">
+        {world.word(manifest.nameKey)}
+        {world.channel() !== null ? <span class="tm-map-canal">{tr.t("map.channel", { n: world.channel()! })}</span> : null}
+      </p>
       <div class="tm-map-frame">
         <canvas ref={canvas} class="tm-map-canvas" role="img" aria-label={tr.t("app.mapa")} onClick={choose} />
       </div>

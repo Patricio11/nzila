@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@nzila/db": "workspace:*",
+    "@nzila/economy": "workspace:*",
+    "@nzila/presence": "workspace:*",
     "@nzila/protocol": "workspace:*",
     "@nzila/sim": "workspace:*",
     "@nzila/world": "workspace:*",

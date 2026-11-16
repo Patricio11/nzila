@@ -1,14 +1,15 @@
 // The line to the zone (Task 3.3): a plain WebSocket carrying our own bytes
-// (packages/protocol), with nothing else between. The first thing said on it
-// is who the player is and what this client speaks; the zone answers with a
-// place in a channel, or with why not.
+// (packages/protocol), with nothing else between. The matchmaker (the API)
+// has said which zone and given a ticket for a seat; the first thing said on
+// the line is that ticket and what this client speaks, and the zone answers
+// with a place in the channel, or with why not.
 //
 // A line that cannot be opened, or that drops, leaves the player in their own
 // street, alone: the game never stops for want of a network (Rule 2). Coming
 // back by itself is Task 3.4.
 
 import { PROTOCOL_VERSION, ZONE_CLOSE, decodeSnapshot, decodeZoneMessage, encodeInput, encodeJoin, type JoinAccepted, type Snapshot, type Who } from "@nzila/protocol";
-import { zoneRoomOf } from "@nzila/world/client";
+import { type PlaySeat } from "../world/account.ts";
 import { dataMeter } from "./data-meter.ts";
 import { type Sent } from "./predict.ts";
 
@@ -31,22 +32,22 @@ export interface Link {
   close(): void;
 }
 
-/** Where the zone is asked: the address given at build time, or `/zone` on the game's own. */
-function endpoint(): string {
-  const given = import.meta.env.VITE_ZONE_URL as string | undefined;
-  return given && given.length > 0 ? given.replace(/\/$/, "") : `${location.origin.replace(/^http/, "ws")}/zone`;
+/** Where a zone is reached: the address the matchmaker gave, or `/zone` on the game's own when it gave none. */
+function endpoint(address: string): string {
+  return address.length > 0 ? address.replace(/\/$/, "") : `${location.origin.replace(/^http/, "ws")}/zone`;
 }
 
 /**
- * Opens the line for one district; `paragem` when the player has just got off a van there, and arrives beside it.
- * Resolves to null when there is no zone to be had: no network, no zone running, a session the zone does not
- * accept, a client too old.
+ * Opens the line to the seat the matchmaker reserved; `paragem` when the player has just got off a van there, and
+ * arrives beside it. Resolves to null when the zone cannot be had: no network, the zone gone, the seat too old or
+ * the channel full by now, a client too old.
  */
-export function openLink(districtId: string, token: string, paragem: string | undefined, events: LinkEvents): Promise<Link | null> {
+export function openLink(seat: PlaySeat, paragem: string | undefined, events: LinkEvents): Promise<Link | null> {
+  const token = seat.seat;
   return new Promise((done) => {
     let socket: WebSocket;
     try {
-      socket = new WebSocket(`${endpoint()}/${encodeURIComponent(zoneRoomOf(districtId))}${paragem ? `?paragem=${encodeURIComponent(paragem)}` : ""}`);
+      socket = new WebSocket(`${endpoint(seat.address)}/${encodeURIComponent(seat.room)}${paragem ? `?paragem=${encodeURIComponent(paragem)}` : ""}`);
     } catch {
       return done(null);
     }

@@ -11,6 +11,7 @@ import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
 import { Players } from "../render/players.ts";
 import { type WorldRenderer } from "../render/world-renderer.ts";
+import { playSeat, type PlaySeat } from "../world/account.ts";
 import { openLink, type Link } from "./link.ts";
 import { Others } from "./others.ts";
 import { Prediction, type Said } from "./predict.ts";
@@ -23,7 +24,8 @@ export const STILL: InputFrame = { dx: 0, dz: 0, run: false, brake: false };
 
 export class Session {
   private readonly districtId: string;
-  private readonly token: string;
+  /** The channel a friend's link asked for, if any: the matchmaker is asked for that one. */
+  private readonly invited: number | undefined;
   private readonly players: Players;
   private link: Link | null = null;
   private prediction = new Prediction();
@@ -40,9 +42,9 @@ export class Session {
   /** Why the line was last lost, until the page has read it. */
   lost: "dropped" | "elsewhere" | null = null;
 
-  constructor(renderer: WorldRenderer, districtId: string, token: string) {
+  constructor(renderer: WorldRenderer, districtId: string, invited?: number) {
     this.districtId = districtId;
-    this.token = token;
+    this.invited = invited;
     this.players = new Players(renderer);
   }
 
@@ -63,7 +65,16 @@ export class Session {
   /** Comes into a channel: where the player last stood, or beside a paragem when they have just got off there. */
   join(paragem?: string): void {
     const attempt = ++this.attempt;
-    void openLink(this.districtId, this.token, paragem, {
+    // First the matchmaker: which channel, in which zone, and a ticket for the seat. Then the line itself.
+    void playSeat(this.districtId, this.invited).then((seat) => {
+      if (attempt !== this.attempt || this.closed) return null;
+      if (!seat) return this.again(attempt);
+      return this.open(seat, paragem, attempt);
+    });
+  }
+
+  private open(seat: PlaySeat, paragem: string | undefined, attempt: number): Promise<void> {
+    return openLink(seat, paragem, {
       snapshot: (snapshot) => attempt === this.attempt && this.hear(snapshot),
       who: (who) => attempt === this.attempt && this.players.know(who),
       closed: (why) => {

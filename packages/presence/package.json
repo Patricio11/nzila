@@ -1,0 +1,20 @@
+{
+  "name": "@nzila/presence",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "What is running and who is on their way in: zones announce themselves, the API reserves seats. Redis, or memory for tests.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "redis": "^6.3.1"
+  }
+}

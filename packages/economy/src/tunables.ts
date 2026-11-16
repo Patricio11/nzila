@@ -75,6 +75,12 @@ const SPEC = {
     police: PERMILLE,
     recentOffences: PERMILLE,
   },
+  channels: {
+    /** People are put together in a channel until it holds this many; then another is opened. */
+    fillTo: range(1, 500),
+    /** A channel never holds more than this: a friend's invitation may fill it past "comfortable", to here. */
+    cap: range(1, 500),
+  },
 } satisfies Spec;
 
 export type Tunables = Shape<typeof SPEC>;
@@ -118,6 +124,9 @@ export function validateTunables(input: unknown): TunablesResult {
   }
   if (tunables.stakes.perGameCap > tunables.transfers.dailyCap) {
     errors.push("stakes.perGameCap: one stake may not be larger than the daily cap it counts against");
+  }
+  if (tunables.channels.fillTo > tunables.channels.cap) {
+    errors.push("channels.fillTo: a channel cannot be filled past what it holds");
   }
   return errors.length > 0 ? { ok: false, errors } : { ok: true, tunables };
 }

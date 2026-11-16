@@ -276,6 +276,7 @@ export const ptAO = {
   "app.definicoes.soon": "As definições estão a chegar.",
   // Mapa
   "map.none": "Ainda não chegaste a lado nenhum.",
+  "map.channel": "Canal {n}",
   "map.you": "Tu",
   "map.paragens": "Paragens",
   "map.pontos": "Lugares",

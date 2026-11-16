@@ -6,6 +6,7 @@
 
 import { existsSync } from "node:fs";
 import { connect, databaseUrl } from "@nzila/db";
+import { redisPresence, redisUrl } from "@nzila/presence";
 import { loadDistrict } from "./district.ts";
 import { startZone } from "./server.ts";
 
@@ -22,5 +23,7 @@ for (const pack of ["dev", "l1"]) {
   districts.push({ district, remember: known !== undefined });
 }
 const port = Number(process.env.ZONE_PORT ?? 2577);
-const zone = await startZone({ sql, districts }, port);
+// The same keys as the API of the tests (apps/api/src/e2e-server.ts), and nobody else's.
+const presence = await redisPresence(redisUrl(), "nzila-e2e");
+const zone = await startZone({ sql, districts, presence }, port);
 console.log(`zone for the browser tests: ${zone.roomNames.join(", ")} on ${port}`);

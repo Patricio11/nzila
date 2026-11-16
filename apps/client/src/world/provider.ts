@@ -66,6 +66,8 @@ export interface WorldProvider {
   word(key: string): string;
   /** The district drawn as a map and the lines its vans run, fetched the first time they are asked for. */
   map(): Promise<{ map: DistrictMap | null; lines: MapLine[] }>;
+  /** The channel of the district the player is in with others, or null when they walk alone. */
+  channel(): number | null;
   /** Where the player is, in metres, and the way they face, in degrees clockwise from north. */
   you(): { x: number; z: number; heading: number } | null;
   /** The vans on the road now. */
@@ -112,6 +114,7 @@ export class LocalWorld implements WorldProvider {
   private scene: DistrictScene | null = null;
   private base = "";
   private player: { x: number; z: number; heading: number } | null = null;
+  private among: number | null = null;
   private drawn: Promise<{ map: DistrictMap | null; lines: MapLine[] }> | null = null;
 
   /** `asked` is what the address of the page asked for, which wins over what was stored. */
@@ -156,6 +159,15 @@ export class LocalWorld implements WorldProvider {
   /** The page tells the world where the player is, every frame. */
   place(x: number, z: number, heading: number): void {
     this.player = { x, z, heading };
+  }
+
+  /** Said by the walking page: which channel the zone has put the player in, or none. */
+  inChannel(channel: number | null): void {
+    this.among = channel;
+  }
+
+  channel(): number | null {
+    return this.among;
   }
 
   district(): Manifest | null {

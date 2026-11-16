@@ -26,6 +26,14 @@
 - A session lasts 90 days from last use, can be revoked, and dies with a player who is suspended, banned or deleted.
 - The token travels in the `Authorization` header, never in an address, and is kept by the client in local storage. A script injected into the page could read it: the defence is that the game loads no third-party script and writes no player's words into the page as markup (chat, Phase 3, must keep to that).
 
+**2c. Client to zone (Phase 3).**
+- The line is a plain WebSocket carrying `packages/protocol` and nothing else. A message is at most 1 KB or is not read; text is not read; sixty messages a second are read and the rest are not; five that cannot be read, or five floods, and the line is closed (`ZONE_CLOSE.MISBEHAVED`). A line that does not say who it is within ten seconds is closed.
+- **A phone never shows a zone its session.** It asks the API where to play (`POST /v1/play/join`, a player's route), and is given a **ticket**: a random name for a seat reserved in one channel of one zone, kept in Redis for thirty seconds and taken once (`GETDEL`). The zone learns who the player is from the seat, not from the phone. A ticket for another zone, another district or a spent one lets nobody in. A zone takes a session in place of a ticket only with `ZONE_SESSIONS=on`, which is for the swarm and a developer's machine and must be off wherever players reach.
+- **A client sends its stick and never a place** (D-3.1). The zone walks only frames it was sent, in order, one a step and never faster than time, with three steps of slack: a client that sends more gains nothing. Walls, benches and other people stop a walk in the zone as on the phone.
+- The one thing a phone says about where it is: the paragem it got off a van at, by its id. The zone believes a paragem of its own district and nothing else. It is a free hop between paragens until the vans are the zone's (F-157).
+- What the zone tells a phone about another player is their name and their look, each checked as it leaves the zone and again as it arrives; a look is twelve numbers, not text.
+- The zone's `/health` says how many are in each channel and how long its steps take. It names nobody. It should not be reachable from outside where that count is thought private.
+
 **2b. Age (Task 2.6).** The year of birth is typed on the phone and never sent: the client works out the band with the rule it shares with the API and sends the band. It is self-declared either way; what is gained is that the server never holds a year of birth. Nobody under 15 is given an account, and nothing of them is stored on the phone or the server.
 
 **2c. What the server decides for a player (Task 2.3).**

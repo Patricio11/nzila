@@ -33,7 +33,7 @@ beforeAll(async () => {
   sql = connect(url.toString(), 10);
   await migrate(sql, await loadMigrations());
   await seed(sql, await loadWorldSeed());
-  zone = await startZone({ sql, districts: [{ district }], log: (line) => void said.push(line) }, port);
+  zone = await startZone({ sql, districts: [{ district }], sessions: true, log: (line) => void said.push(line) }, port);
   guests = await makeGuests(sql, CHANNEL_HOLDS + 5);
 }, 60_000);
 

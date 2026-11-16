@@ -6,7 +6,7 @@
 // (the Who message). A body is made when both are known, and let go when the
 // zone stops speaking of them.
 
-import { DOING, checkLook, type Look, type Who } from "@nzila/protocol";
+import { DOING, type Who } from "@nzila/protocol";
 import { type Seen } from "../net/others.ts";
 import { type Named } from "./names.ts";
 import { type Person } from "./person.ts";
@@ -15,15 +15,6 @@ import { type WorldRenderer } from "./world-renderer.ts";
 
 /** A body appears and goes over this long, so that nobody pops into the street. */
 const ARRIVE_MS = 260;
-
-/** The look in a Who message, or null when there is none or it is not one the game knows. */
-function lookOf(who: Who): Look | null {
-  try {
-    return who.look ? checkLook(JSON.parse(who.look)) : null;
-  } catch {
-    return null;
-  }
-}
 
 interface Body {
   person: Person | null;
@@ -65,7 +56,8 @@ export class Players {
   private make(id: number, who: Who): Body {
     const body: Body = { person: null, phase: 0, speed: 0, facing: null, shown: 0, air: 0, x: 0, y: 0, z: 0 };
     // What came over the wire is checked again here; one who never chose is dressed in the first look.
-    void dress(this.renderer, lookOf(who) ?? FIRST_LOOK)
+    // The look was checked as it came off the wire; one whose look is not known is dressed in the first look.
+    void dress(this.renderer, who.look ?? FIRST_LOOK)
       .then((person) => {
         if (this.closed || this.bodies.get(id) !== body) return person.release();
         person.root.visible = false;

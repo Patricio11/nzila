@@ -29,6 +29,3 @@ export function seatObstacles(seats: readonly SeatPlace[]): Obstacle[] {
     }),
   );
 }
-
-/** The name a district's rooms go by in the zone: its id, without the stroke a web address would trip on. */
-export const zoneRoomOf = (districtId: string): string => districtId.replaceAll("/", ".");

@@ -153,6 +153,25 @@ function forget(mine: Account): void {
   }
 }
 
+/** A seat in a channel of a district, and where the zone that holds it is reached ("" for the game's own address, at /zone). */
+export interface PlaySeat {
+  readonly address: string;
+  readonly room: string;
+  readonly seat: string;
+  readonly channel: number;
+}
+
+/**
+ * Asks the matchmaker where to play: a channel of the district, or the one a friend invited to. Null when there is
+ * nowhere (no network, no zone running, the invited channel full): the player then walks alone.
+ */
+export async function playSeat(districtId: string, channel?: number): Promise<PlaySeat | null> {
+  const mine = account();
+  if (!mine?.token) return null;
+  const { answer } = await ask<PlaySeat>("POST", "/v1/play/join", { districtId, ...(channel ? { channel } : {}) }, mine.token);
+  return answer;
+}
+
 /** Proposes the look to the server. True when it was recorded. */
 export async function pushLook(look: Look): Promise<boolean> {
   const mine = await ensureGuest();

@@ -914,6 +914,17 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__andar!.others[0]!.still && window.__andar!.names >= 1, undefined, { timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("dois-parados.png") });
 
+    // The matchmaker put them in the same channel, and the Mapa says which.
+    expect(mine.channel).toBe(1);
+    expect(theirs.channel).toBe(1);
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    const telemovel = page.getByRole("dialog", { name: "Telemóvel" });
+    await telemovel.getByRole("button", { name: "Mapa" }).click();
+    await expect(telemovel.locator(".tm-map-canal")).toHaveText("Canal 1");
+    await page.screenshot({ path: info.outputPath("dois-mapa-canal.png") });
+    await telemovel.getByRole("button", { name: "Fechar" }).click();
+    await expect(telemovel).toHaveCount(0);
+
     // The first walks away for three seconds; the second watches them go, smoothly.
     const before = theirs.others[0]!;
     const watched: { x: number; z: number }[] = [];

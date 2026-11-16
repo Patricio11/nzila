@@ -5,13 +5,24 @@
 // (D-3.6, as revised): a library's client cost the phone 52 KB of a 300 KB
 // budget for things our own messages already say. A client opens
 // `/<district room>` (optionally `?paragem=<id>`), and its first message is a
-// Join carrying the protocol it speaks and its session token. It is answered
+// Join carrying the protocol it speaks and a ticket: the seat the API
+// reserved for it in one of this zone's channels (Task 3.2). It is answered
 // with JoinAccepted and then snapshots, or with JoinRefused and a closed line.
 //
-// `GET /health` says what is running and how long the steps are taking.
+// The zone says every few seconds, where the API can read it, that it is
+// alive and who is in each channel; a zone that stops saying so is sent
+// nobody. `GET /health` says the same to a person, with how long the steps
+// are taking.
+//
+// A session token is taken in place of a ticket only where that is switched
+// on (`sessions`): for the swarm, the tests and a developer with no API. A
+// zone that players reach must have it off: a session should never leave the
+// API's own address.
 
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { playerOfSession } from "@nzila/db";
+import { ZONE_SAYS_EVERY_S, type Presence, type ZoneCard } from "@nzila/presence";
 import { JOIN_REFUSAL, PROTOCOL_VERSION, ZONE_CLOSE, decodeClientMessage, encodeJoinRefused, negotiate, type JoinRefusalCode } from "@nzila/protocol";
 import { type Sql } from "postgres";
 import { WebSocketServer, type WebSocket } from "ws";
@@ -29,10 +40,20 @@ export interface ZoneOptions {
   readonly sql: Sql;
   /** The districts this process runs, and for each whether a player's place in it is kept. */
   readonly districts: readonly { readonly district: District; readonly remember?: boolean }[];
+  /** Where the zone announces itself, takes seats from, and notes places. Without it there is no matchmaker: only sessions. */
+  readonly presence?: Presence;
+  /** Where a phone reaches this zone (wss://…), as the API will hand it out; "" for "the game's own address, at /zone". */
+  readonly address?: string;
+  /** Whether a session token is taken in place of a ticket. Off unless said: see the top of this file. */
+  readonly sessions?: boolean;
+  /** How many people a channel holds (the tunable `channels.cap`). */
+  readonly holds?: number;
   readonly log?: (line: string) => void;
 }
 
 export interface Zone {
+  /** The name this process goes by in the presence: new each time it starts. */
+  readonly id: string;
   /** The names a client asks for to be put in a channel of each district. */
   readonly roomNames: readonly string[];
   readonly port: number;
@@ -45,24 +66,42 @@ interface Running {
 }
 
 export async function startZone(options: ZoneOptions, port: number): Promise<Zone> {
-  const { sql } = options;
+  const { sql, presence } = options;
+  const id = `zone-${randomBytes(6).toString("hex")}`;
+  const log = options.log ?? ((line: string) => console.error(line));
   const running = new Map<string, Running>();
   for (const { district, remember } of options.districts) {
-    running.set(roomNameOf(district.id), { deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(options.log ? { log: options.log } : {}) }, channels: [] });
+    running.set(roomNameOf(district.id), {
+      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.log ? { log: options.log } : {}) },
+      channels: [],
+    });
   }
   let closing = false;
 
-  /** The first channel with room, or a new one: numbered with the lowest number nobody has. */
-  const channelFor = (district: Running): ChannelRoom => {
-    const open = district.channels.find((room) => room.room > 0);
-    if (open) return open;
-    let number = 1;
-    while (district.channels.some((room) => room.number === number)) number++;
+  /**
+   * The channel someone is put in: the one their seat names (opened if it is not open), or, for
+   * someone who came with a session and no seat, the first with room. Null when the one named is full.
+   */
+  const channelFor = (district: Running, named?: number): ChannelRoom | null => {
+    const open = named === undefined ? district.channels.find((room) => room.room > 0) : district.channels.find((room) => room.number === named);
+    if (open) return open.room > 0 ? open : null;
+    let number = named ?? 1;
+    while (named === undefined && district.channels.some((room) => room.number === number)) number++;
     const made = new ChannelRoom(district.deps, number);
     district.channels.push(made);
     district.channels.sort((a, b) => a.number - b.number);
     made.start();
     return made;
+  };
+
+  /** What this zone says of itself: where it is reached and who is in each channel. */
+  const card = (): ZoneCard => ({
+    id,
+    address: options.address ?? "",
+    rooms: [...running].map(([name, district]) => ({ name, channels: district.channels.map((room) => ({ number: room.number, players: room.count })) })),
+  });
+  const say = (): void => {
+    if (!closing) void presence?.announce(card()).catch((error: unknown) => log(`zone: could not announce itself: ${String(error)}`));
   };
 
   const http = createServer((request, response) => {
@@ -108,7 +147,10 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
       if (verdict === "client_too_old") return refuse(JOIN_REFUSAL.REFRESH);
       if (verdict === "client_too_new") return refuse(JOIN_REFUSAL.RETRY);
       if (!district || closing) return refuse(JOIN_REFUSAL.RETRY);
-      const player = said.token.length > 0 ? await playerOfSession(sql, said.token) : null;
+      // A ticket for a seat here, taken once; or, where that is allowed, a session.
+      const seat = presence && said.token.length > 0 ? await presence.claim(said.token) : null;
+      if (seat && (seat.zoneId !== id || running.get(seat.room) !== district)) return refuse(JOIN_REFUSAL.BAD_SEAT);
+      const player = seat ? { id: seat.playerId } : options.sessions && said.token.length > 0 ? await playerOfSession(sql, said.token) : null;
       if (!player) return refuse(JOIN_REFUSAL.BAD_SEAT);
       // The same player on another line, in any channel of any district: that line is put out, and when it was
       // in this district the newcomer stands where it stood. A player is in one place.
@@ -122,9 +164,10 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
           old.close(ZONE_CLOSE.ELSEWHERE);
         }
       }
-      const into = channelFor(district);
-      if (!(await into.enter(line, player.id, paragem, standing))) return refuse(JOIN_REFUSAL.FULL);
+      const into = channelFor(district, seat?.channel);
+      if (!into || !(await into.enter(line, player.id, paragem, standing))) return refuse(JOIN_REFUSAL.FULL);
       room = into;
+      say();
       // Gone while the database was being asked: they were never really here.
       if (socket.readyState !== socket.OPEN) void leave();
     };
@@ -141,6 +184,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
         const at = district.channels.indexOf(was);
         if (at >= 0) district.channels.splice(at, 1);
       }
+      say();
     };
 
     socket.on("message", (data: Buffer, isBinary: boolean) => {
@@ -152,7 +196,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
       joining = true;
       void join(bytes)
         .catch((error: unknown) => {
-          options.log?.(`zone: a join failed: ${String(error)}`);
+          log(`zone: a join failed: ${String(error)}`);
           socket.close(GOING_AWAY);
         })
         .finally(() => {
@@ -168,11 +212,19 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
     http.listen(port, "0.0.0.0", ready);
   });
 
+  // Alive, and saying so: at once, and every few seconds after.
+  say();
+  const saying = setInterval(say, ZONE_SAYS_EVERY_S * 1000);
+
   return {
+    id,
     roomNames: [...running.keys()],
     port,
     close: async () => {
       closing = true;
+      clearInterval(saying);
+      // Struck off first, so that nobody is sent here while it empties.
+      await presence?.retire(id).catch((error: unknown) => log(`zone: could not retire itself: ${String(error)}`));
       // Everyone still in is written down on the way out, then the port is given back.
       await Promise.all([...running.values()].flatMap((district) => district.channels.map((room) => room.empty(GOING_AWAY))));
       for (const socket of sockets.clients) socket.terminate();

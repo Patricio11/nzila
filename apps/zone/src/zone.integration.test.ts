@@ -18,6 +18,7 @@ import {
   type Snapshot,
   type Who,
 } from "@nzila/protocol";
+import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -32,6 +33,7 @@ const ground: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz === 60 || Math.ab
 const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obstacles: [], paragens: new Map([["mutamba", { x: 40_000, y: 0, z: -20_000, yaw: 0 }]]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 } };
 // A town the database has never heard of: played in, and nobody's place in it is kept.
 const rehearsal: District = { ...district, id: "zz-dev/d1", provinceId: "zz-dev" };
+const presence = memoryPresence();
 const said: string[] = [];
 let admin: Sql;
 let sql: Sql;
@@ -45,7 +47,7 @@ beforeAll(async () => {
   sql = connect(url.toString(), 10);
   await migrate(sql, await loadMigrations());
   await seed(sql, await loadWorldSeed());
-  zone = await startZone({ sql, districts: [{ district }, { district: rehearsal, remember: false }], log: (line) => void said.push(line) }, port);
+  zone = await startZone({ sql, districts: [{ district }, { district: rehearsal, remember: false }], presence, sessions: true, log: (line) => void said.push(line) }, port);
 }, 60_000);
 
 afterAll(async () => {
@@ -207,13 +209,13 @@ describe("two phones in the same street", () => {
     await until(() => b.state.who.some((who) => who.entityId === aId) && a.state.who.some((who) => who.entityId === bId));
     const ofA = b.state.who.find((who) => who.entityId === aId)!;
     expect(ofA.name).toBe(dressed.name);
-    expect(JSON.parse(ofA.look)).toMatchObject({ sex: "f", hair: "trancas", bottom: "pano" });
+    expect(ofA.look).toMatchObject({ sex: "f", hair: "trancas", bottom: "pano" });
     // The other's stored look is not one the game knows: it is not passed on. They are shown in a look of their own
     // all the same, made by the zone and good for the wardrobe.
     const ofB = a.state.who.find((who) => who.entityId === bId)!;
     expect(ofB.name).toBe(tampered.name);
-    expect(ofB.look).not.toContain("script");
-    expect(checkLook(JSON.parse(ofB.look))).not.toBeNull();
+    expect(JSON.stringify(ofB.look)).not.toContain("script");
+    expect(checkLook(ofB.look)).not.toBeNull();
     // Nobody is told who they are themselves, and nobody is told twice.
     await a.walk(10, { dx: 0, dz: 0, run: false, brake: false });
     expect(a.state.who.filter((who) => who.entityId === bId)).toHaveLength(1);
@@ -292,6 +294,81 @@ describe("where a player was", () => {
     // One body, not two.
     expect(second.state.latest!.entities.filter((entity) => entity.id !== second.state.accepted!.entityId)).toHaveLength(0);
     await second.leave();
+  });
+});
+
+describe("seats and the matchmaker", () => {
+  const seat = (playerId: string, channel: number, room = "ao-lua.l1", zoneId = zone.id) => presence.reserve({ playerId, zoneId, room, channel });
+
+  test("a ticket for a seat lets its player into the channel it names, once; and a ticket for somewhere else lets nobody in", async () => {
+    const one = await player();
+    const ticket = await seat(one.id, 3);
+    const there = await phone(ticket);
+    expect(there.state.accepted).toMatchObject({ districtId: "ao-lua/l1", channel: 3 });
+    // Spent: shown again, it is nobody's.
+    expect(await refusedWith(phone(ticket))).toBe(JOIN_REFUSAL.BAD_SEAT);
+    // A seat in another zone, and a seat in another district's room, are not seats here.
+    expect(await refusedWith(phone(await seat(one.id, 1, "ao-lua.l1", "zone-of-someone-else")))).toBe(JOIN_REFUSAL.BAD_SEAT);
+    expect(await refusedWith(phone(await seat(one.id, 1, "zz-dev.d1")))).toBe(JOIN_REFUSAL.BAD_SEAT);
+    await there.leave();
+  });
+
+  test("the zone says who is in each channel where the API reads it, and what it says sends the next player to meet the first", async () => {
+    const one = await phone(await seat((await player()).id, 2));
+    await until(() => false, 150).catch(() => {});
+    const cards = await presence.zones();
+    const mine = cards.find((card) => card.id === zone.id)!;
+    expect(mine.address).toBe("");
+    expect(mine.rooms.map((room) => room.name).sort()).toEqual(["ao-lua.l1", "zz-dev.d1"]);
+    expect(mine.rooms.find((room) => room.name === "ao-lua.l1")!.channels).toEqual([{ number: 2, players: 1 }]);
+    expect(pickChannel(cards, "ao-lua.l1", { fillTo: 60, cap: 80 })).toMatchObject({ zoneId: zone.id, channel: 2 });
+    await one.leave();
+    // The channel nobody is in is closed, and the zone says so at once.
+    await until(() => false, 150).catch(() => {});
+    expect((await presence.zones()).find((card) => card.id === zone.id)!.rooms.find((room) => room.name === "ao-lua.l1")!.channels).toEqual([]);
+  });
+
+  test("the way someone faced is kept with where they stood", async () => {
+    const one = await player();
+    const first = await phone(one.token);
+    await first.walk(30, east);
+    await until(() => first.me().yaw === 9000 && first.me().anim === DOING.idle);
+    const stood = first.me();
+    await first.leave();
+    await until(() => false, 150).catch(() => {});
+    expect(await presence.standing(one.id)).toMatchObject({ districtId: "ao-lua/l1", x: stood.x, z: stood.z, yaw: 9000 });
+    const again = await phone(one.token);
+    expect(again.me()).toMatchObject({ yaw: 9000 });
+    expect(Math.hypot(again.me().x - stood.x, again.me().z - stood.z)).toBeLessThan(100);
+    await again.leave();
+  });
+
+  test("a zone that players reach takes tickets and nothing else, holds no more than it is told, and is struck off when it closes", async () => {
+    const strict = await startZone({ sql, districts: [{ district }], presence, address: "wss://zona.exemplo/z", holds: 1, log: (line) => void said.push(line) }, port + 1);
+    const lines: WebSocket[] = [];
+    const ask = (token: string): Promise<number> =>
+      new Promise((done) => {
+        const socket = new WebSocket(`ws://127.0.0.1:${port + 1}/ao-lua.l1`);
+        socket.binaryType = "arraybuffer";
+        lines.push(socket);
+        socket.onopen = () => socket.send(encodeJoin({ protocolVersion: PROTOCOL_VERSION, token }));
+        socket.onmessage = (event: MessageEvent) => {
+          const message = decodeZoneMessage(new Uint8Array(event.data as ArrayBuffer));
+          if (message.type === "join_accepted") done(0);
+          if (message.type === "join_refused") done(message.reason);
+        };
+      });
+    const one = await player();
+    const two = await player();
+    // A session is not a ticket here.
+    expect(await ask(one.token)).toBe(JOIN_REFUSAL.BAD_SEAT);
+    expect((await presence.zones()).find((card) => card.id === strict.id)).toMatchObject({ address: "wss://zona.exemplo/z" });
+    expect(await ask(await presence.reserve({ playerId: one.id, zoneId: strict.id, room: "ao-lua.l1", channel: 1 }))).toBe(0);
+    // The channel holds one: a second seat in it is refused as full, and the phone goes back to the matchmaker.
+    expect(await ask(await presence.reserve({ playerId: two.id, zoneId: strict.id, room: "ao-lua.l1", channel: 1 }))).toBe(JOIN_REFUSAL.FULL);
+    await strict.close();
+    for (const socket of lines) socket.close();
+    expect((await presence.zones()).some((card) => card.id === strict.id)).toBe(false);
   });
 });
 

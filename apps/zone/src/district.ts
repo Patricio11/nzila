@@ -6,7 +6,8 @@
 import { readFile } from "node:fs/promises";
 import { inflateRawSync } from "node:zlib";
 import { type Ground, type Obstacle } from "@nzila/sim";
-import { decodeWalkGrid, groundOf, seatObstacles, zoneRoomOf, type SeatPlace } from "@nzila/world";
+import { zoneRoomOf } from "@nzila/protocol";
+import { decodeWalkGrid, groundOf, seatObstacles, type SeatPlace } from "@nzila/world";
 import { type Place } from "./channel.ts";
 
 export interface District {

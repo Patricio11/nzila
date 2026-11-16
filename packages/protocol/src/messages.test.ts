@@ -11,6 +11,7 @@ import {
   encodeChatSend,
   encodeChatTyping,
   encodeWho,
+  zoneRoomOf,
   encodeEvent,
   encodeHandoff,
   encodeInput,
@@ -22,6 +23,7 @@ import {
   type InputFrame,
 } from "./messages.ts";
 import { MIN_CLIENT_VERSION, PROTOCOL_VERSION, negotiate } from "./version.ts";
+import { arrivalLook, checkLook } from "./look.ts";
 import { ProtocolError, Writer } from "./wire.ts";
 
 const frame = (dx: number, dz: number, run = false, brake = false): InputFrame => ({ dx, dz, run, brake });
@@ -70,12 +72,22 @@ describe("round trips", () => {
   });
 });
 
+describe("where a district is asked for", () => {
+  test("a district's room is its id made fit for a web address", () => {
+    expect(zoneRoomOf("ao-lua/l1")).toBe("ao-lua.l1");
+  });
+});
+
 describe("who someone is", () => {
   test("Who: the entity, the name on their BI, and their look as it is kept", () => {
-    const who = { entityId: 412, name: "Dona Xepa", look: JSON.stringify({ sex: "f", skin: 2, hair: "trancas" }) };
+    const who = { entityId: 412, name: "Dona Xepa", look: checkLook(arrivalLook(5))! };
     expect(decodeZoneMessage(encodeWho(who))).toEqual({ type: "who", ...who });
-    // One who never chose a look has none to send.
-    expect(decodeZoneMessage(encodeWho({ entityId: 1, name: "Caluanda 7", look: "" }))).toEqual({ type: "who", entityId: 1, name: "Caluanda 7", look: "" });
+    // Small: the entity, the name, and twelve bytes of look.
+    expect(encodeWho(who).length).toBeLessThanOrEqual(3 + 1 + 9 + 1 + 12);
+    // One whose look is not known has none to send.
+    expect(decodeZoneMessage(encodeWho({ entityId: 1, name: "Caluanda 7", look: null }))).toEqual({ type: "who", entityId: 1, name: "Caluanda 7", look: null });
+    // A look that could not be dressed arrives as no look, never as something to draw.
+    expect(decodeZoneMessage(encodeWho({ ...who, look: { ...who.look, hair: "moicano" } }))).toEqual({ type: "who", entityId: 412, name: "Dona Xepa", look: null });
     // A client never says who anyone is.
     expect(() => decodeClientMessage(encodeWho(who))).toThrow(ProtocolError);
   });

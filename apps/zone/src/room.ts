@@ -9,17 +9,22 @@
 
 import { faceOf, keepWhereabouts, whereaboutsOf } from "@nzila/db";
 import { PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeJoinAccepted, encodeWho } from "@nzila/protocol";
+import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
 import { type District } from "./district.ts";
 
-/** How many people one channel holds (the roadmap's number, proved or changed by the load test of 3.7). */
+/** How many people one channel holds when nobody says otherwise (the tunable `channels.cap`; held by the swarm of 3.7). */
 export const CHANNEL_HOLDS = 80;
 /** One step of the world, in milliseconds: twenty a second. */
 export const STEP_MS = 50;
 /** A snapshot goes out every this many steps: ten a second. */
 export const STEPS_A_SNAPSHOT = 2;
-/** Everyone's place is written down this often while they play, so that a zone that falls loses little: every thirty seconds. */
+/**
+ * Everyone's place is written down while they play, so that a zone that falls loses little: every five seconds
+ * where it is cheap to write (presence: Redis), every thirty where it lasts (PostgreSQL).
+ */
+export const STEPS_A_NOTE = 100;
 export const STEPS_A_CHECKPOINT = 600;
 /** Messages a client may send in a second. A game sends twenty; the rest is noise and is not read. */
 export const MESSAGES_A_SECOND = 60;
@@ -33,6 +38,10 @@ export interface ZoneDeps {
   readonly district: District;
   /** Whether where a player stands here is written down for their return. Not for a rehearsal town the database has never heard of. */
   readonly remember?: boolean;
+  /** Where places are noted every few seconds, and read first when someone comes back. Without it, PostgreSQL alone. */
+  readonly presence?: Presence;
+  /** How many people a channel holds. */
+  readonly holds?: number;
   /** Where the zone says what went wrong. */
   readonly log?: (line: string) => void;
 }
@@ -76,6 +85,8 @@ export class ChannelRoom {
   private readonly sql: Sql;
   private readonly district: District;
   private readonly remember: boolean;
+  private readonly presence: Presence | null;
+  private readonly holds: number;
   private readonly log: (line: string) => void;
   private readonly held = new Map<Line, Held>();
   /** Who each body is, as the bytes every client near them is sent once. */
@@ -90,6 +101,8 @@ export class ChannelRoom {
     this.sql = deps.sql;
     this.district = deps.district;
     this.remember = deps.remember ?? true;
+    this.presence = deps.presence ?? null;
+    this.holds = deps.holds ?? CHANNEL_HOLDS;
     this.log = deps.log ?? ((line: string) => console.error(line));
     this.number = number;
     this.channel = new Channel(deps.district.ground, deps.district.obstacles);
@@ -100,7 +113,7 @@ export class ChannelRoom {
     return this.held.size + this.arriving;
   }
   get room(): number {
-    return CHANNEL_HOLDS - this.count;
+    return this.holds - this.count;
   }
 
   /** Starts the world's clock: a timer wakes the room, the room measures the time itself, and every step is the same length. */
@@ -144,8 +157,8 @@ export class ChannelRoom {
   async enter(line: Line, playerId: string, paragem?: string, standing?: Place): Promise<boolean> {
     const district = this.district;
     this.arriving++;
-    const [last, face] = await Promise.all([this.remember ? whereaboutsOf(this.sql, playerId) : null, faceOf(this.sql, playerId)]).finally(() => this.arriving--);
-    let at: Place = last && last.districtId === district.id ? { x: last.x, y: last.y, z: last.z, yaw: district.arrival.yaw } : district.arrival;
+    const [last, face] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId)]).finally(() => this.arriving--);
+    let at: Place = last ?? district.arrival;
     // Off a van at a paragem: the vans are each phone's own until the zone runs them (F-152), so the phone says
     // which paragem and the zone puts them beside it. It is believed that far and no farther: a paragem, never a place.
     const stop = paragem === undefined ? undefined : district.paragens.get(paragem);
@@ -156,7 +169,7 @@ export class ChannelRoom {
     // The look is sent as it would be accepted today: what was stored under an older catalogue is not passed on blind.
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
-    this.faces.set(entityId, encodeWho({ entityId, name: face.name, look: JSON.stringify(look) }));
+    this.faces.set(entityId, encodeWho({ entityId, name: face.name, look }));
     this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0 });
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     return true;
@@ -220,10 +233,11 @@ export class ChannelRoom {
       }
     }
     if (tick % (1000 / STEP_MS) === 0) for (const held of this.held.values()) held.heard = 0;
-    if (tick % STEPS_A_CHECKPOINT === 0) {
+    if (tick % STEPS_A_NOTE === 0) {
+      const lasting = tick % STEPS_A_CHECKPOINT === 0;
       for (const held of this.held.values()) {
         const at = this.channel.placeOf(held.entityId);
-        if (at) void this.keep(held.playerId, at);
+        if (at) void this.keep(held.playerId, at, lasting);
       }
     }
     const took = performance.now() - began;
@@ -241,11 +255,29 @@ export class ChannelRoom {
     for (const line of lines) line.close(code);
   }
 
-  /** Writes down where a player stands. A failure is said and survived: the player goes on playing. */
-  private async keep(playerId: string, at: Place): Promise<void> {
-    if (!this.remember) return;
+  /** Where a player last stood in this district: the note of a few seconds ago when there is one, else what PostgreSQL has. */
+  private async lastPlace(playerId: string): Promise<Place | null> {
+    const district = this.district;
     try {
-      await keepWhereabouts(this.sql, playerId, this.district.provinceId, { districtId: this.district.id, x: at.x, y: at.y, z: at.z });
+      const noted = await this.presence?.standing(playerId);
+      if (noted && noted.districtId === district.id) return { x: noted.x, y: noted.y, z: noted.z, yaw: noted.yaw };
+    } catch (error) {
+      this.log(`zone: could not read where ${playerId} stood: ${String(error)}`);
+    }
+    const last = await whereaboutsOf(this.sql, playerId);
+    return last && last.districtId === district.id ? { x: last.x, y: last.y, z: last.z, yaw: district.arrival.yaw } : null;
+  }
+
+  /**
+   * Writes down where a player stands: always in the note, and where it lasts when `lasting`.
+   * A failure is said and survived: the player goes on playing.
+   */
+  private async keep(playerId: string, at: Place, lasting = true): Promise<void> {
+    if (!this.remember) return;
+    const where = { districtId: this.district.id, x: at.x, y: at.y, z: at.z };
+    try {
+      await this.presence?.stand(playerId, { ...where, yaw: at.yaw });
+      if (lasting) await keepWhereabouts(this.sql, playerId, this.district.provinceId, where);
     } catch (error) {
       this.log(`zone: could not keep where ${playerId} stands: ${String(error)}`);
     }

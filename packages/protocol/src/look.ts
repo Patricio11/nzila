@@ -118,3 +118,68 @@ export function arrivalLook(seed: number): Look {
     shoe: pick(COLOURS.shoe),
   };
 }
+
+// ---------------------------------------------------------------- A look on the wire
+
+/** Everything that can be worn below, in one list: what a look's `bottom` is counted in on the wire. */
+const BOTTOMS = ["trousers", "shorts", "skirt", "pano", "none"];
+const NOT_THERE = 255;
+const at = (list: readonly string[], value: string): number => {
+  const index = list.indexOf(value);
+  return index < 0 ? NOT_THERE : index;
+};
+
+/**
+ * A look as twelve bytes: each choice is its place in the catalogue's lists, not its name. A player's look is
+ * sent to everyone who comes to see them, and as text it was two hundred bytes each time (finding F-165).
+ *
+ * THE LISTS ABOVE ARE THEREFORE WIRE FORMAT: new things to wear are added at the end of a list, never in the
+ * middle, and nothing is taken out. A test holds the lists as they are today.
+ */
+export function packLook(look: Look): Uint8Array {
+  const has = CATALOGUE[look.sex];
+  const extras = (look.extras ?? []).reduce((bits, extra) => bits | (has.extras.includes(extra) ? 1 << has.extras.indexOf(extra) : 0), 0);
+  return Uint8Array.from([
+    look.sex === "f" ? 0 : 1,
+    look.skin & 0xff,
+    at(has.hair, look.hair),
+    at(COVERS.includes(look.hair) ? COLOURS.cloth : COLOURS.hair, look.hairColour),
+    at(Object.keys(has.tops), look.top),
+    at(COLOURS.cloth, look.topColour),
+    at(BOTTOMS, look.bottom),
+    at(COLOURS.bottom, look.bottomColour),
+    at(COLOURS.bands, look.bands),
+    at(COLOURS.shoe, look.shoe),
+    extras,
+    ((look.tall ?? 0) + 1) * 3 + ((look.broad ?? 0) + 1),
+  ]);
+}
+
+export const LOOK_BYTES = 12;
+
+/** The look twelve bytes describe, when it is one the wardrobe can dress; null for anything else. They came over a wire. */
+export function unpackLook(bytes: Uint8Array): Look | null {
+  if (bytes.length !== LOOK_BYTES) return null;
+  const [sexAt, skin, hairAt, hairColourAt, topAt, topColourAt, bottomAt, bottomColourAt, bandsAt, shoeAt, extraBits, build] = bytes as unknown as number[];
+  if (sexAt! > 1 || build! > 8) return null;
+  const sex = sexAt === 0 ? "f" : "m";
+  const has = CATALOGUE[sex];
+  const hair = has.hair[hairAt!];
+  if (hair === undefined || extraBits! >= 1 << has.extras.length) return null;
+  // Whatever is out of a list is undefined here, and a look with anything undefined is refused whole below.
+  return checkLook({
+    sex,
+    skin,
+    hair,
+    hairColour: (COVERS.includes(hair) ? COLOURS.cloth : COLOURS.hair)[hairColourAt!],
+    top: Object.keys(has.tops)[topAt!],
+    topColour: COLOURS.cloth[topColourAt!],
+    bottom: BOTTOMS[bottomAt!],
+    bottomColour: COLOURS.bottom[bottomColourAt!],
+    bands: COLOURS.bands[bandsAt!],
+    shoe: COLOURS.shoe[shoeAt!],
+    extras: has.extras.filter((_, n) => (extraBits! & (1 << n)) !== 0),
+    tall: Math.floor(build! / 3) - 1,
+    broad: (build! % 3) - 1,
+  });
+}

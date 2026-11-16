@@ -2,7 +2,8 @@
 // makes its own database and drops it afterwards.
 
 import { connect, databaseUrl, decryptField, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
-import { BASE_ORIGINS } from "@nzila/economy";
+import { BASE_ORIGINS, BASE_TUNABLES } from "@nzila/economy";
+import { ZONE_TTL_S, memoryPresence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -19,6 +20,10 @@ const sender = { send: async (phone: string, code: string) => void sent.set(phon
 const letters = new Map<string, { subject: string; text: string }[]>();
 const mailer = { send: async (letter: { to: string; subject: string; text: string }) => void letters.set(letter.to, [...(letters.get(letter.to) ?? []), letter]) };
 const mailedCode = (email: string): string => /\d{6}/.exec(letters.get(email)!.at(-1)!.subject)![0];
+// Where zones say they are: this test plays the zone and says what it likes.
+// Its clock can be put forward, to let a zone fall silent.
+let later = 0;
+const presence = memoryPresence(() => Date.now() + later);
 let admin: Sql;
 let sql: Sql;
 let app: FastifyInstance;
@@ -32,7 +37,7 @@ beforeAll(async () => {
   await migrate(sql, await loadMigrations());
   await seed(sql, await loadWorldSeed());
   // Limits wide open here: they have their own test, and these tests make many guests from one address.
-  app = buildApp({ sql, pepper, keyring, sender, mailer, phoneCodes: true, limiter: { allow: () => true } });
+  app = buildApp({ sql, pepper, keyring, sender, mailer, phoneCodes: true, limiter: { allow: () => true }, presence });
   // A database made, migrated and seeded, while the other suites make theirs: more than the ten seconds a hook is given.
 }, 60_000);
 
@@ -651,4 +656,68 @@ test("deleting an account keeps the books: the ledger's rows stay, still add up,
   expect(await total()).toBe(before);
   // And whoever they point at has no name, no number, no way in: the rows are anonymous.
   expect((await sql`SELECT status, name, bi_number, email_hash, phone_hash FROM players WHERE id = ${guest.playerId}`)[0]).toEqual({ status: "deleted", name: null, bi_number: null, email_hash: null, phone_hash: null });
+});
+
+describe("where to play", () => {
+  const join = (token: string, payload: object) => app.inject({ method: "POST", url: "/v1/play/join", headers: as(token), payload });
+  const zone = (id: string, channels: [number, number][], address = "") => presence.announce({ id, address, rooms: [{ name: "ao-lua.l1", channels: channels.map(([number, players]) => ({ number, players })) }] });
+
+  test("only a player is told, only about a district, and with no zone running it there is nowhere to send them", async () => {
+    const guest = await newGuest(900);
+    expect((await app.inject({ method: "POST", url: "/v1/play/join", payload: { districtId: "ao-lua/l1" } })).statusCode).toBe(401);
+    for (const districtId of ["ao-lua", "../../etc", "AO-LUA/L1", "ao-lua/l1/extra", ""]) expect((await join(guest.token, { districtId })).statusCode, districtId).toBe(400);
+    expect((await join(guest.token, { districtId: "ao-lua/l1", channel: 0 })).statusCode).toBe(400);
+    const none = await join(guest.token, { districtId: "ao-lua/l1" });
+    expect(none.statusCode).toBe(503);
+    expect(none.json()).toEqual({ error: "no_zone" });
+  });
+
+  test("a player is given a channel, the zone that holds it and a ticket; the ticket is a seat for that player there, taken once", async () => {
+    const guest = await newGuest(901);
+    await zone("zone-a", [], "wss://zona-a.exemplo/z");
+    const res = await join(guest.token, { districtId: "ao-lua/l1" });
+    expect(res.statusCode).toBe(200);
+    const told = res.json() as { address: string; room: string; seat: string; channel: number };
+    expect(told).toMatchObject({ address: "wss://zona-a.exemplo/z", room: "ao-lua.l1", channel: 1 });
+    // The ticket says nothing of who it is for, and is not their session.
+    expect(told.seat).not.toBe(guest.token);
+    expect(told.seat).not.toContain(guest.playerId);
+    expect(await presence.claim(told.seat)).toEqual({ playerId: guest.playerId, zoneId: "zone-a", room: "ao-lua.l1", channel: 1 });
+    expect(await presence.claim(told.seat)).toBeNull();
+    // A district no zone here runs is still nowhere.
+    expect((await join(guest.token, { districtId: "ao-ben/b1" })).json()).toEqual({ error: "no_zone" });
+  });
+
+  test("people are put together until a channel is comfortably full, then another is opened; a friend's invitation goes past that, until the channel is truly full", async () => {
+    const guest = await newGuest(902);
+    await zone("zone-a", [[1, BASE_TUNABLES.channels.fillTo - 1], [2, 3]]);
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 1, address: "" });
+    await zone("zone-a", [[1, BASE_TUNABLES.channels.fillTo], [2, 3]]);
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 2 });
+    await zone("zone-a", [[1, BASE_TUNABLES.channels.fillTo], [2, BASE_TUNABLES.channels.cap]]);
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 3 });
+    // Invited to the first, which is comfortably full and not truly: let in.
+    expect((await join(guest.token, { districtId: "ao-lua/l1", channel: 1 })).json()).toMatchObject({ channel: 1 });
+    // Invited to the second, which holds all it can: told so, and the phone may ask for anywhere.
+    const full = await join(guest.token, { districtId: "ao-lua/l1", channel: 2 });
+    expect(full.statusCode).toBe(409);
+    expect(full.json()).toEqual({ error: "full" });
+    await presence.retire("zone-a");
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).statusCode).toBe(503);
+  });
+
+  test("a zone that dies stops being sent anyone: its players, asking again, are put in one that is alive", async () => {
+    const guest = await newGuest(903);
+    await zone("zone-dying", [[1, 20]], "wss://a-morrer.exemplo");
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ address: "wss://a-morrer.exemplo", channel: 1 });
+    // It says nothing more. A little later another zone is up, and says so.
+    later += (ZONE_TTL_S + 1) * 1000;
+    await zone("zone-alive", [], "wss://viva.exemplo");
+    const moved = (await join(guest.token, { districtId: "ao-lua/l1" })).json() as { address: string; seat: string; channel: number };
+    expect(moved).toMatchObject({ address: "wss://viva.exemplo", channel: 1 });
+    expect(await presence.claim(moved.seat)).toMatchObject({ zoneId: "zone-alive" });
+    // And with every zone silent there is nowhere, said plainly: the phone lets the player walk alone.
+    later += (ZONE_TTL_S + 1) * 1000;
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toEqual({ error: "no_zone" });
+  });
 });

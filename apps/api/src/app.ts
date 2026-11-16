@@ -5,8 +5,9 @@
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { recordConsent } from "@nzila/db";
-import { BASE_ORIGINS, type OriginTable } from "@nzila/economy";
-import { checkLook } from "@nzila/protocol";
+import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
+import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
+import { checkLook, zoneRoomOf } from "@nzila/protocol";
 import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
@@ -39,6 +40,10 @@ export interface Deps {
   /** The table a card of origin is drawn from, and the dice: the game's own unless a test brings others. */
   readonly origins?: OriginTable;
   readonly roll?: () => number;
+  /** Where the zones say they are and seats are reserved: Redis (index.ts), or this process's memory when none is given. */
+  readonly presence?: Presence;
+  /** How full a channel is filled and what it holds: the tunables unless a test brings others. */
+  readonly channels?: ChannelRules;
 }
 
 const DICE = 2 ** 32;
@@ -54,6 +59,8 @@ export function buildApp(deps: Deps): FastifyInstance {
   const origins = deps.origins ?? BASE_ORIGINS;
   const roll = deps.roll ?? (() => randomInt(DICE) / DICE);
   const names = loadNameFilter();
+  const presence = deps.presence ?? memoryPresence();
+  const channels = deps.channels ?? BASE_TUNABLES.channels;
   const sender = deps.sender ?? consoleSender;
   const mailer = deps.mailer ?? consoleMailer;
   const byPhone = (): void => {
@@ -344,6 +351,27 @@ export function buildApp(deps: Deps): FastifyInstance {
     handler: async (body, caller) => {
       await deleteAccount(deps.sql, caller.player.id, body.biNumber);
       return { ok: true };
+    },
+  });
+
+  // The matchmaker (Task 3.2): which channel of a district this player is put in, and a ticket for a seat there.
+  // The phone shows the ticket to the zone and nothing else: its session never leaves this address. People are put
+  // together until a channel is comfortably full; `channel` is a friend's invitation to one in particular.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/play/join",
+    guard: "player",
+    body: z.strictObject({ districtId: z.string().regex(/^[a-z0-9-]{1,24}\/[a-z0-9-]{1,24}$/), channel: z.number().int().min(1).max(999).optional() }),
+    perMinute: 30,
+    handler: async (body, caller) => {
+      const room = zoneRoomOf(body.districtId);
+      const zones = await presence.zones();
+      if (!zones.some((zone) => zone.rooms.some((one) => one.name === room))) throw new Refusal(503, "no_zone");
+      const picked = pickChannel(zones, room, channels, body.channel);
+      // Only an invitation can find its channel full: anyone else is given another.
+      if (!picked) throw new Refusal(409, "full");
+      const seat = await presence.reserve({ playerId: caller.player.id, zoneId: picked.zoneId, room, channel: picked.channel });
+      return { address: picked.address, room, seat, channel: picked.channel };
     },
   });
 

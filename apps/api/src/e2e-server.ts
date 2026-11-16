@@ -7,6 +7,7 @@
 // It needs PostgreSQL (`pnpm services`), like the integration tests.
 
 import { connect, databaseUrl, loadMigrations, loadWorldSeed, migrate, parseKeyring, seed } from "@nzila/db";
+import { redisPresence, redisUrl } from "@nzila/presence";
 import postgres from "postgres";
 import { buildApp } from "./app.ts";
 
@@ -25,7 +26,9 @@ await seed(sql, await loadWorldSeed());
 // A fixed key, for a database that lives as long as one run of the tests. Limits are wide open: every test comes from one address.
 // Every code sent is the same one, and goes nowhere: the tests type it.
 const keyring = parseKeyring(`1:${Buffer.alloc(32, 6).toString("base64")}`);
-const app = buildApp({ sql, pepper: new Uint8Array(32).fill(5), keyring, limiter: { allow: () => true }, sender: { send: async () => {} }, mailer: { send: async () => {} }, phoneCodes: true, newCode: () => "246810" });
+// The zone of the tests (apps/zone/src/e2e-server.ts) says where it is under the same keys, and nobody else's.
+const presence = await redisPresence(redisUrl(), "nzila-e2e");
+const app = buildApp({ presence, sql, pepper: new Uint8Array(32).fill(5), keyring, limiter: { allow: () => true }, sender: { send: async () => {} }, mailer: { send: async () => {} }, phoneCodes: true, newCode: () => "246810" });
 const port = Number(process.env.API_PORT ?? 4010);
 await app.listen({ port, host: "127.0.0.1" });
 console.log(`api for the browser tests: listening on ${port}`);

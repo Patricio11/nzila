@@ -213,7 +213,9 @@ export function Andar() {
         // `&sozinho`, keeps the street the phone's own: for stills, films and the bench.
         const token = account()?.token;
         if (token && !asked && !params.has("sozinho")) {
-          session = new Session(renderer, opened.manifest.id, token);
+          // `&canal=3` is a friend's invitation: the matchmaker is asked for that channel and no other.
+          const canal = Number(params.get("canal"));
+          session = new Session(renderer, opened.manifest.id, Number.isInteger(canal) && canal > 0 ? canal : undefined);
           session.join();
         }
         setArrived(true);
@@ -556,6 +558,7 @@ export function Andar() {
         district.stand([x, z]);
         // North is the world's -Z; a heading is degrees clockwise from it.
         world.place(x, z, ((Math.atan2(Math.sin(facing), -Math.cos(facing)) * 180) / Math.PI + 360) % 360);
+        world.inChannel(session?.walking ? session.channel : null);
         const van = ride ? district.traffic?.bodyOf(ride.route, ride.index) : null;
         const place = district.traffic?.seats.find((s) => s.who === "jogador");
         if (ride && van && place) {

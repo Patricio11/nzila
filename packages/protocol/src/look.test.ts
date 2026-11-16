@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { CATALOGUE, COLOURS, arrivalLook, checkLook, type Look } from "./look.ts";
+import { CATALOGUE, COLOURS, COVERS, LOOK_BYTES, arrivalLook, checkLook, packLook, unpackLook, type Look } from "./look.ts";
 
 const her: Look = { sex: "f", skin: 2, hair: "trancas", hairColour: "hairBlack", top: "blusa", topColour: "awningGold", bottom: "pano", bottomColour: "awningTeal", bands: "awningGold", shoe: "shoeTan" };
 const him: Look = { sex: "m", skin: 3, hair: "galo", hairColour: "hairBlond", top: "tshirt", topColour: "paintWhite", bottom: "trousers", bottomColour: "jeansDark", bands: "awningGold", shoe: "shoeWhite", extras: ["oculos", "bigode"], tall: 1, broad: -1 };
@@ -81,5 +81,55 @@ describe("a look for someone who has not chosen one", () => {
     // A number that is not a small whole one is still a number.
     expect(checkLook(arrivalLook(-7.5))).not.toBeNull();
     expect(Object.keys(CATALOGUE)).toContain(arrivalLook(4_000_000_000).sex);
+  });
+});
+
+describe("a look on the wire", () => {
+  test("every look the wardrobe can dress goes into twelve bytes and comes back the same", () => {
+    for (let seed = 0; seed < 400; seed++) {
+      const look = checkLook(arrivalLook(seed))!;
+      const bytes = packLook(look);
+      expect(bytes).toHaveLength(LOOK_BYTES);
+      expect(unpackLook(bytes), `seed ${seed}`).toEqual(look);
+    }
+    // What is worn on the face, and the build, travel too.
+    const him = checkLook({ ...arrivalLook(3), sex: "m", top: "tshirt", bottom: "shorts", hair: "dreads", hairColour: "hairCopper", extras: ["barba", "oculos"], tall: 1, broad: -1 })!;
+    expect(unpackLook(packLook(him))).toEqual(him);
+    const her = checkLook({ ...arrivalLook(3), sex: "f", top: "vestido", bottom: "none", hair: "lenco", hairColour: "awningRed", extras: ["brincos"], tall: -1, broad: 1 })!;
+    expect(unpackLook(packLook(her))).toEqual(her);
+  });
+
+  test("bytes that are not a look are nobody's look", () => {
+    const good = packLook(checkLook(arrivalLook(1))!);
+    expect(unpackLook(good.slice(0, 11))).toBeNull();
+    expect(unpackLook(new Uint8Array(13))).toBeNull();
+    for (let n = 0; n < LOOK_BYTES; n++) {
+      const bad = good.slice();
+      bad[n] = 250;
+      expect(unpackLook(bad), `byte ${n}`).toBeNull();
+    }
+    // A look that could not be dressed is packed without complaint and unpacks to nothing: nothing invented travels.
+    const invented = { ...arrivalLook(1), hair: "moicano", extras: ["monoculo"] };
+    expect(unpackLook(packLook(invented))).toBeNull();
+    expect(unpackLook(packLook({ ...arrivalLook(1), topColour: "ultravioleta" }))).toBeNull();
+  });
+
+  test("THE LISTS ARE WIRE FORMAT: things are added at the end, never moved and never removed", () => {
+    // If this fails because something was added at the end of a list, add it here. If it fails for any other
+    // reason, every player's look would change on every phone that has not reloaded: do not do it.
+    expect(CATALOGUE.f.hair).toEqual(["baixo", "careca", "afro", "cachos", "trancas", "bob", "puxinho", "dreads", "lenco", "bone"]);
+    expect(CATALOGUE.m.hair).toEqual(["baixo", "careca", "afro", "galo", "dreads", "trancas", "bone"]);
+    expect(Object.keys(CATALOGUE.f.tops)).toEqual(["tshirt", "blusa", "alcas", "vestido"]);
+    expect(Object.keys(CATALOGUE.m.tops)).toEqual(["tshirt", "long", "alcas"]);
+    expect(CATALOGUE.f.extras).toEqual(["brincos", "oculos"]);
+    expect(CATALOGUE.m.extras).toEqual(["barba", "bigode", "oculos", "brincos"]);
+    expect(COVERS).toEqual(["lenco", "bone"]);
+    expect(COLOURS).toEqual({
+      hair: ["hairBlack", "hairBrown", "hairCopper", "hairRed", "hairBlond", "hairGrey"],
+      cloth: ["paintWhite", "clothBlack", "awningRed", "awningGold", "awningTeal", "zincBlue", "vanBlue", "person1", "person3", "person4", "khaki", "jeans"],
+      bottom: ["jeans", "jeansDark", "clothBlack", "khaki", "paintWhite", "awningRed", "awningTeal", "zincBlue", "person2", "awningGold"],
+      bands: ["awningGold", "paintWhite", "clothBlack", "cloth", "awningRed"],
+      shoe: ["shoe", "shoeWhite", "shoeTan", "clothBlack"],
+    });
   });
 });

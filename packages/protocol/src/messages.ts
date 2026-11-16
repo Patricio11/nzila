@@ -5,6 +5,7 @@
 // carries a position, an amount, a price or a result.
 
 import { type DriveInput, type MoveInput } from "@nzila/sim";
+import { LOOK_BYTES, packLook, unpackLook, type Look } from "./look.ts";
 import { ProtocolError, Reader, Writer } from "./wire.ts";
 
 /** The first byte of every message. Numbers are never reused. */
@@ -42,6 +43,9 @@ const EVENT_ARGS = 16;
 export const INPUT_MAX_FRAMES = 8;
 
 // ---------------------------------------------------------------- Join
+
+/** The name a district's rooms go by in a zone: its id, without the stroke a web address would trip on. */
+export const zoneRoomOf = (districtId: string): string => districtId.replaceAll("/", ".");
 
 /** Client to zone, first message on a connection. FROZEN LAYOUT: see version.ts. */
 export interface Join {
@@ -278,7 +282,6 @@ function readChatTyping(r: Reader): ChatTyping {
 // ---------------------------------------------------------------- Who
 
 const NAME_BYTES = 96;
-const LOOK_BYTES = 512;
 
 /**
  * Zone to client: who an entity is. Sent once for each player a client comes to see, before or with the
@@ -289,16 +292,24 @@ export interface Who {
   readonly entityId: number;
   /** The name on their BI. */
   readonly name: string;
-  /** Their look, as the look chooser keeps it (JSON), or empty for one who never chose. Read with checkLook: it came over a wire. */
-  readonly look: string;
+  /** Their look, or null for one that is not known. Twelve bytes on the wire (look.ts: packLook). */
+  readonly look: Look | null;
 }
 
 export function encodeWho(m: Who): Uint8Array {
-  return new Writer().u8(MSG.WHO).uint(m.entityId).text(m.name).text(m.look).finish();
+  const w = new Writer().u8(MSG.WHO).uint(m.entityId).text(m.name).bool(m.look !== null);
+  if (m.look) for (const byte of packLook(m.look)) w.u8(byte);
+  return w.finish();
 }
 
 function readWho(r: Reader): Who {
-  return { entityId: r.uint(), name: r.text(NAME_BYTES), look: r.text(LOOK_BYTES) };
+  const entityId = r.uint();
+  const name = r.text(NAME_BYTES);
+  if (!r.bool()) return { entityId, name, look: null };
+  const bytes = new Uint8Array(LOOK_BYTES);
+  for (let n = 0; n < LOOK_BYTES; n++) bytes[n] = r.u8();
+  // Bytes that are no look the wardrobe knows come out as no look: what the phone draws is always checked.
+  return { entityId, name, look: unpackLook(bytes) };
 }
 
 // ---------------------------------------------------------------- Handoff
