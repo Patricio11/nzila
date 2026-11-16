@@ -52,7 +52,8 @@ const gateway = z.strictObject({
   openFlag: key,
 });
 
-const poi = z.strictObject({ id, pos, nameKey: key, lineKey: key, positive: z.boolean(), stamp: z.boolean() });
+/** `glyph` says what kind of place it is, by the name of a house glyph: the sign that floats over it. */
+const poi = z.strictObject({ id, pos, nameKey: key, lineKey: key, positive: z.boolean(), stamp: z.boolean(), glyph: id.optional() });
 
 const route = z.strictObject({
   id,
@@ -95,6 +96,8 @@ const adSlot = z.strictObject({
   kind: z.enum(["outdoor", "poster", "table", "radio"]),
   pos,
   size: z.tuple([z.number().positive(), z.number().positive()]),
+  /** The way the surface looks, in degrees clockwise from the game's +Z. */
+  facing: z.number().optional(),
 });
 
 export const manifestSchema = z.strictObject({

@@ -188,10 +188,15 @@ def riser(xa, xb, d, y0, y1, colour):
     b.face([(xa, y0, shore(xa) + d), (xb, y0, shore(xb) + d), (xb, y1, shore(xb) + d), (xa, y1, shore(xa) + d)], colour, two_sided=True)
 
 
+# What kind of place each point of interest is: the house glyph on the sign that floats over it.
+POI_GLYPHS = {"miradouro": "vista", "musicos": "musica", "gelados": "gelado", "por-do-sol": "sol", "palmeiras": "palmeira", "pontao": "pontao", "livreiro": "livro",
+              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura"}
+
+
 def poi(key, x, z, name, line, y=G):
     words[f"l1.poi.{key}.name"] = name
     words[f"l1.poi.{key}.line"] = line
-    places["pois"].append({"id": key, "pos": [round(x, 2), y, round(z, 2)], "nameKey": f"l1.poi.{key}.name", "lineKey": f"l1.poi.{key}.line", "positive": True, "stamp": False})
+    places["pois"].append({"id": key, "pos": [round(x, 2), y, round(z, 2)], "nameKey": f"l1.poi.{key}.name", "lineKey": f"l1.poi.{key}.line", "positive": True, "stamp": False, "glyph": POI_GLYPHS.get(key, "ponto")})
 
 
 def paragem(key, x, z, name, van_z, at):
@@ -429,7 +434,7 @@ def row(x0, x1, z0, z1, face, kinds, gap_chance=0.12):
             place(kind, at + width / 2, cz, width - 0.4, depth, face)
         else:
             tx = at + width / 2
-            block(tx, cz, kit.acacia(b, tx, cz, rng, G))
+            block(tx, cz, kit.tree(b, tx, cz, rng, G, mix=("mangueira", "acacia")))
         at += width
 
 
@@ -495,7 +500,8 @@ for i in range(4):
     block(px_, pz_, kit.parasol(b, px_, pz_, rng, G))
 for i in range(11):
     tx, tz = lx0 + rng.uniform(6, lx1 - lx0 - 6), z0 + rng.uniform(18, z1 - z0 - 4)
-    block(tx, tz, kit.acacia(b, tx, tz, rng, G))
+    # The largo's trees: acácias and mangueiras, and here and there an imbondeiro older than the square.
+    block(tx, tz, kit.tree(b, tx, tz, rng, G, mix=("acacia", "acacia", "mangueira", "mangueira", "imbondeiro")))
     kit.bench(b, tx + 2.5, tz + 0.8, rng.uniform(0, math.pi), G)
     block(tx + 2.5, tz + 0.8, 0.5)
 poi("xadrez", lx0 + 21.0, z0 + 14.0, "As mesas de xadrez do Largo", "Os kotas jogam aqui desde manhã. Quem perde paga o café.")
@@ -572,7 +578,7 @@ for street in (STREET_A, STREET_B):
             block(at, street[1] + 0.9, kit.lamp(b, at, street[1] + 0.9, (0.0, -1.0), G))
             tx = at + 7
             if not any(lo - 3 < tx < hi + 3 for lo, hi in CROSS) and tx < WIDE - 3:
-                block(tx, street[0] - 1.4, kit.acacia(b, tx, street[0] - 1.4, rng, G, shade_reach=1.3))
+                block(tx, street[0] - 1.4, kit.tree(b, tx, street[0] - 1.4, rng, G, shade_reach=1.3))
         at += rng.uniform(16, 22)
 
 # ------------------------------------------------------------------ the signs
@@ -613,6 +619,26 @@ for n, ((lo, hi), text) in enumerate(zip(CROSS, CROSS_NAMES)):
     block(lo - 0.9, shore(lo) + AVENUE + 0.7, kb.passadeira(b, lo - 0.9, shore(lo) + AVENUE + 0.7, -math.pi / 2, G))
 plates(largo[0] + 3.0, largo[1] + 1.2, "largo", 180.0)
 
+# Outdoors: the big boards for advertising, by the avenue, facing the traffic. Each stands where
+# there is open pavement for it, found on the walk grid, so that none is built into a wall. Every
+# one is a named ad slot of the district (the manifest lists them).
+outdoors = []
+for n, want_x in enumerate((148.0, 232.0, 318.0, 396.0)):
+    spot = None
+    for step in range(0, 60):
+        for side in (1, -1):
+            ox_ = want_x + side * step * 0.5
+            oz_ = shore(ox_) + AVENUE + 2.2
+            cells = [(math.floor((ox_ + dx) / CELL), math.floor((oz_ + dz) / CELL)) for dx in (-2.4, -1.2, 0.0, 1.2, 2.4) for dz in (-0.6, 0.0, 0.6)]
+            if all(0 <= ix < ACROSS * CELLS and 0 <= iz < DOWN * CELLS and flags[(ix // CELLS, iz // CELLS)][iz % CELLS][ix % CELLS] == "." for ix, iz in cells):
+                spot = (ox_, oz_)
+                break
+        if spot:
+            break
+    if spot:
+        board = kit.outdoor(b, spot[0], spot[1], 0.0, G, wide=5.0, high=2.6)
+        outdoors.append({"id": f"outdoor-{n + 1}", "kind": "outdoor", "pos": board["pos"], "size": board["size"]})
+
 # Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
 # a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
 def _flag_at(ix, iz):
@@ -634,6 +660,8 @@ print(f"nzila: {_blocked} cells blocked by what was built on them")
 # Kept beside the district, to be read after a build: a number that jumps says something new stands in a path.
 with open(os.path.join(out_dir, "solids.txt"), "w", encoding="utf-8") as _handle:
     _handle.write(f"{_blocked} cells blocked by what was built on them, of {len(b.solids)} boxes")
+with open(os.path.join(out_dir, "planted.txt"), "w", encoding="utf-8") as _handle:
+    _handle.write("".join(f"{kind} {x} {z}" + chr(10) for kind, x, z in b.planted))
 
 stray = sorted({chunk for (chunk, level) in b.groups if not (0 <= chunk[0] < ACROSS and 0 <= chunk[1] < DOWN)})
 if stray:
@@ -929,7 +957,7 @@ partial = {
     "interiors": [],
     "npc": {"crowd": "npc/crowd.json", "vendors": None, "police": None},
     "heat": {"lighting": None, "policePosts": places["police"], "override": None},
-    "adSlots": [],
+    "adSlots": outdoors,
     "signs": signs,
     "map": "mapa.json",
     "seats": [{"id": f"seat-{n + 1}", "pos": [round(sx, 2), round(sy, 2), round(sz, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for n, (sx, sy, sz, yaw) in enumerate(b.seats)],

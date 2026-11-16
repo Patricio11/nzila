@@ -9,6 +9,8 @@ import { type Mesh } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
 import { Crowd } from "./crowd.ts";
+import { Markers } from "./markers.ts";
+import { Outdoors } from "./outdoors.ts";
 import { People } from "./people.ts";
 import { Signs } from "./signs.ts";
 import { Traffic } from "./traffic.ts";
@@ -54,6 +56,9 @@ export class DistrictScene {
   readonly people: People | null;
   /** The street name plates, when the district has any. */
   readonly signs: Signs | null;
+  /** The signs that float over places and say what each is, and the paper on the outdoors. */
+  readonly markers: Markers | null;
+  private readonly outdoors: Outdoors | null;
   /** The people of the street, when the district has a timetable for them and they are built. */
   readonly crowd: Crowd | null;
 
@@ -75,6 +80,8 @@ export class DistrictScene {
     this.traffic = traffic;
     this.crowd = crowd;
     this.signs = Signs.open(renderer, chunks.manifest, (key) => words[key] ?? key);
+    this.markers = Markers.open(renderer, chunks.manifest);
+    this.outdoors = Outdoors.open(renderer, chunks.manifest);
     this.words = words;
     this.renderer = renderer;
     this.chunks = chunks;
@@ -160,6 +167,7 @@ export class DistrictScene {
     this.chunks.update(this.x, this.z);
     const now = performance.now();
     const elapsed = this.lastUpdate === 0 ? 0 : now - this.lastUpdate;
+    this.markers?.update(this.renderer.camera, this.x, this.z, performance.now() / 1000);
     // The traffic gives way to whoever is on foot: the player, and the people of the street seen at the last update.
     const onFoot = this.trafficAt !== null ? null : [...(this.afoot ? [{ x: this.x, z: this.z }] : []), ...(this.crowd?.seen ?? []).filter((person) => person.speed > 0)];
     this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, onFoot);
@@ -190,6 +198,8 @@ export class DistrictScene {
     this.traffic?.close();
     this.crowd?.close();
     this.signs?.close();
+    this.markers?.close();
+    this.outdoors?.close();
     this.people?.close();
     for (const water of this.waters) {
       this.renderer.scene.remove(water);

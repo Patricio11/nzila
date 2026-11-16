@@ -17,6 +17,7 @@
 # Coordinates in this file are the game's: X east, Y up, Z south, in metres.
 
 import math
+import random
 
 import bpy
 
@@ -82,6 +83,8 @@ class Builder:
         # solid in another way (a bench is sat on: the game gives it its own body).
         self.solids = []
         self.soft = False
+        # What was planted where: (kind, x, z). Written beside the district, to find a tree by.
+        self.planted = []
 
     def at(self, x, z):
         """Whatever is built next belongs to the chunk this point is in, however far it overhangs."""
@@ -357,6 +360,156 @@ def acacia(b, x, z, rng, ground=0.0, shade="pavementShade", shade_reach=None):
     b.disc((x, ground + 0.024, z), min(spread * 0.95, shade_reach or 99.0), 9, shade, squash=0.85 if shade_reach is None else 1.0)
     b.level = BOTH
     return 0.4
+
+
+def imbondeiro(b, x, z, rng, ground=0.0, shade="sandDark"):
+    """
+    An imbondeiro (baobab): the tree of Angola. A trunk like a bottle, wider than a man is tall,
+    grey and smooth; a few thick arms at the top that end soon, like roots in the air; little
+    leaf, high up; and the múcuas hanging on their long stalks.
+    """
+    b.at(x, z)
+    height = rng.uniform(6.5, 8.5)
+    girth = rng.uniform(1.25, 1.6)
+    top = (x, ground + height * 0.62, z)
+    arms = []
+    count = rng.randint(4, 6)
+    start = rng.uniform(0, 2 * math.pi)
+    for i in range(count):
+        a = start + 2 * math.pi * i / count + rng.uniform(-0.3, 0.3)
+        reach = rng.uniform(1.9, 2.9)
+        elbow = (x + math.cos(a) * reach * 0.55, ground + height * rng.uniform(0.74, 0.82), z + math.sin(a) * reach * 0.55)
+        tip = (x + math.cos(a) * reach, ground + height * rng.uniform(0.9, 1.05), z + math.sin(a) * reach)
+        arms.append((a, elbow, tip))
+    state = rng.getstate()
+
+    def crown(full):
+        for (a, elbow, tip) in arms:
+            if full:
+                # A twig or two off each arm, and the leaf at their ends.
+                for k in range(2):
+                    t = a + rng.uniform(-0.8, 0.8)
+                    twig = (tip[0] + math.cos(t) * 0.8, tip[1] + rng.uniform(0.3, 0.7), tip[2] + math.sin(t) * 0.8)
+                    b.tube([tip, twig], [0.12, 0.05], 4, "imbondeiroBarkDark", cap=False)
+                    b.gem(_add(twig, (0.0, 0.15, 0.0)), (rng.uniform(0.6, 0.9), 0.38, rng.uniform(0.6, 0.9)), 5, "imbondeiroLeaf", rng)
+                if rng.random() < 0.6:
+                    # A múcua on its stalk.
+                    hang = (tip[0] + rng.uniform(-0.4, 0.4), tip[1] - rng.uniform(0.9, 1.4), tip[2] + rng.uniform(-0.4, 0.4))
+                    b.tube([_add(tip, (0.0, -0.05, 0.0)), hang], [0.025, 0.025], 3, "imbondeiroBarkDark", cap=False)
+                    b.gem(_add(hang, (0.0, -0.16, 0.0)), (0.13, 0.2, 0.13), 5, "mucua", rng, rough=0.08)
+            else:
+                b.gem(_add(tip, (0.0, 0.45, 0.0)), (0.95, 0.42, 0.95), 4, "imbondeiroLeaf", rng)
+
+    b.level = FULL
+    b.tube([(x, ground, z), (x, ground + height * 0.12, z), (x, ground + height * 0.4, z), top, _add(top, (0.0, height * 0.08, 0.0))], [girth * 1.12, girth, girth * 0.9, girth * 0.62, girth * 0.42], 9, "imbondeiroBark")
+    for (a, elbow, tip) in arms:
+        root = (x + math.cos(a) * girth * 0.3, top[1] - 0.2, z + math.sin(a) * girth * 0.3)
+        b.tube([root, elbow, tip], [0.42, 0.3, 0.13], 5, "imbondeiroBark")
+    crown(True)
+
+    b.level = LIGHT
+    rng.setstate(state)
+    b.tube([(x, ground, z), (x, ground + height * 0.4, z), top], [girth * 1.1, girth * 0.9, girth * 0.55], 6, "imbondeiroBark")
+    for (a, elbow, tip) in arms:
+        b.tube([top, tip], [0.36, 0.12], 3, "imbondeiroBark", cap=False)
+    crown(False)
+    b.disc((x, ground + 0.024, z), girth * 2.3, 9, shade, squash=0.8)
+    b.level = BOTH
+    return girth * 1.1
+
+
+def mangueira(b, x, z, rng, ground=0.0, shade="sandDark", shade_reach=None):
+    """A mangueira: a short stout trunk and a crown as round and dark as a hill, mangos in it. The tree a yard is built round."""
+    b.at(x, z)
+    height = rng.uniform(2.4, 3.2)
+    spread = rng.uniform(3.6, 4.8)
+    crown_y = ground + height + spread * 0.42
+    in_fruit = rng.random() < 0.7
+    state = rng.getstate()
+
+    def crown(lumps, sides, fruit):
+        b.gem((x, crown_y, z), (spread * 0.62, spread * 0.5, spread * 0.62), sides, "mangueiraLeaf", rng, colour_low="mangueiraLeafDark")
+        for i in range(lumps):
+            a = rng.uniform(0, 2 * math.pi)
+            r = spread * rng.uniform(0.3, 0.52)
+            b.gem((x + math.cos(a) * r, crown_y + rng.uniform(-0.7, 0.5), z + math.sin(a) * r), (spread * rng.uniform(0.32, 0.44), spread * rng.uniform(0.28, 0.38), spread * rng.uniform(0.32, 0.44)), sides, "mangueiraLeaf", rng, colour_low="mangueiraLeafDark")
+        if in_fruit:
+            for i in range(fruit):
+                a = rng.uniform(0, 2 * math.pi)
+                r = spread * rng.uniform(0.45, 0.66)
+                b.gem((x + math.cos(a) * r, crown_y - spread * rng.uniform(0.22, 0.36), z + math.sin(a) * r), (0.1, 0.14, 0.1), 4, "manga", rng, rough=0.05)
+
+    b.level = FULL
+    b.tube([(x, ground, z), (x, ground + height * 0.6, z), (x, ground + height + 0.4, z)], [0.42, 0.34, 0.3], 7, "acaciaTrunk")
+    for i in range(3):
+        a = rng.uniform(0, 2 * math.pi)
+        b.tube([(x, ground + height * 0.8, z), (x + math.cos(a) * spread * 0.3, crown_y - 0.4, z + math.sin(a) * spread * 0.3)], [0.2, 0.1], 4, "acaciaTrunk", cap=False)
+    crown(5, 7, 9)
+
+    b.level = LIGHT
+    rng.setstate(state)
+    b.tube([(x, ground, z), (x, ground + height + 0.4, z)], [0.4, 0.3], 4, "acaciaTrunk")
+    for i in range(3):
+        rng.uniform(0, 2 * math.pi)
+    crown(2, 5, 0)
+    b.disc((x, ground + 0.024, z), min(spread * 0.9, shade_reach or 99.0), 9, shade, squash=0.9 if shade_reach is None else 1.0)
+    b.level = BOTH
+    return 0.5
+
+
+class _Nothing:
+    """Takes everything a tree would build and builds none of it."""
+    level = BOTH
+    soft = False
+
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: None
+
+
+def tree(b, x, z, rng, ground=0.0, shade="pavementShade", shade_reach=None, mix=("acacia", "acacia", "mangueira"), paved=True):
+    """
+    One of the trees of a street or a yard. Which one is the luck of the place itself (the same
+    spot always grows the same tree), and it takes from `rng` exactly what an acácia would, so
+    that planting something else moves nothing that is built after it.
+    Returns how much ground its trunk takes.
+    """
+    planted = random.Random(f"{x:.2f},{z:.2f}")
+    kind = planted.choice(mix)
+    b.planted.append((kind, round(x, 1), round(z, 1)))
+    if kind == "acacia":
+        return acacia(b, x, z, rng, ground, shade=shade, shade_reach=shade_reach)
+    acacia(_Nothing(), x, z, rng, ground, shade=shade, shade_reach=shade_reach)
+    if paved:
+        pit(b, x, z, ground, size=3.4 if kind == "imbondeiro" else 1.8)
+    if kind == "imbondeiro":
+        return imbondeiro(b, x, z, planted, ground, shade=shade)
+    return mangueira(b, x, z, planted, ground, shade=shade, shade_reach=shade_reach)
+
+
+def outdoor(b, x, z, yaw, ground=0.0, wide=6.0, high=3.0):
+    """
+    An outdoor: the big board for advertising that stands by a road on two legs. The board is a
+    named ad slot (the manifest lists it): until someone takes it, it carries the house's own colours.
+    Returns the middle of the board's face and its size, for the manifest.
+    """
+    b.at(x, z)
+    foot = ground + 3.2
+    middle = (x, foot + high / 2, z)
+    b.level = FULL
+    for side in (-1, 1):
+        b.box(_add((x, ground + (foot + high) / 2 - ground / 2, z), _turn((side * wide * 0.3, 0.0, 0.18), yaw)), (0.22, foot + high - ground, 0.22), "metal", yaw=yaw)
+    # The frame and the board. What is on the board is paper: the game pastes it (render/outdoors.ts).
+    b.box(middle, (wide + 0.24, high + 0.24, 0.12), "metal", yaw=yaw, skip_bottom=False)
+    front = _turn((0.0, 0.0, -0.08), yaw)
+    b.box(_add(middle, front), (wide, high, 0.04), "adBoard", yaw=yaw, skip_bottom=False)
+    # A walkway under it for whoever pastes the paper, and two lamps to light it at night.
+    b.box(_add((x, foot - 0.12, z), _turn((0.0, 0.0, -0.5), yaw)), (wide, 0.06, 0.7), "metal", yaw=yaw, skip_bottom=False)
+    b.level = LIGHT
+    for side in (-1, 1):
+        b.box(_add((x, ground + (foot + high) / 2 - ground / 2, z), _turn((side * wide * 0.3, 0.0, 0.18), yaw)), (0.22, foot + high - ground, 0.22), "metal", yaw=yaw)
+    b.box(middle, (wide, high, 0.12), "adBoard", yaw=yaw, skip_bottom=False)
+    b.level = BOTH
+    return {"pos": [round(middle[0] + front[0], 2), round(middle[1], 2), round(middle[2] + front[2], 2)], "size": [wide, high]}
 
 
 # ================================================================== buildings

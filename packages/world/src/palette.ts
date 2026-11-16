@@ -43,6 +43,15 @@ export const WORLD = {
   acaciaLeaf: hex("#5A9A3C"),
   acaciaLeafDark: hex("#3C7A32"),
   acaciaFlower: hex("#E2452E"), // the acácia rubra in flower
+  // The imbondeiro (baobab): a bottle of grey bark, thin leaves high up, the múcua hanging.
+  imbondeiroBark: hex("#9A8878"),
+  imbondeiroBarkDark: hex("#7B6A5C"),
+  imbondeiroLeaf: hex("#7FA046"),
+  mucua: hex("#B9A46A"),
+  // The mangueira: a dark, dense crown that keeps a yard in shade, mangos ripening in it.
+  mangueiraLeaf: hex("#2F6B34"),
+  mangueiraLeafDark: hex("#1F4F2A"),
+  manga: hex("#E8A02C"),
   // The blue and white
   vanWhite: hex("#F6F3EA"),
   vanBlue: hex("#2E97E6"), // the blue of the candongueiro, from the founder's photograph
@@ -90,8 +99,8 @@ export const WORLD = {
   awningGold: hex("#F2A93B"),
   awningTeal: hex("#17877F"),
   // The bairro (from the founder's photographs, LUANDA_REFERENCE.md §6d)
-  sand: hex("#C9B79A"), // an earth street: pale and grey-brown, not red
-  sandDark: hex("#B5A286"), // ruts, and the damp line of a drain
+  sand: hex("#BC6A45"), // an earth street: the red earth of the musseque (founder, 2026-11-16: "the way the land is")
+  sandDark: hex("#9F5233"), // ruts, the damp line of a drain, shade on the earth
   concrete: hex("#B8B1A3"),
   blockGrey: hex("#9C978E"), // bare cement block
   zincRust: hex("#8E4F33"),
@@ -102,7 +111,7 @@ export const WORLD = {
   pole: hex("#5A4A3B"), // a wooden post, and the wires it carries
   drum: hex("#2F6FB5"), // the blue plastic drum that holds the water
   cloth: hex("#E8C23A"), // washing on the line, a shop's board
-  lampPoolSand: hex("#C9B79A"), // the earth under a bairro's lamp: earth by day, a pool of light at night
+  lampPoolSand: hex("#BC6A45"), // the earth under a bairro's lamp: earth by day, a pool of light at night
   // The Marginal and the Baixa (art/scripts/kit_baixa.py; from the founder's photographs)
   calcadaLight: hex("#E6DCC6"),
   calcadaDark: hex("#B9AE9A"),

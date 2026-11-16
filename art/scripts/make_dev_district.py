@@ -232,7 +232,7 @@ def bairro(cx, cz):
             drops.append(((hx, 3.2, hz), (cx, cz)))
         # The open corner: a big tree, and a bench under it.
         tx, tz = (far_x[0] + far_x[1]) / 2 + rng.uniform(-2, 2), (far_z[0] + far_z[1]) / 2 + rng.uniform(-2, 2)
-        block(tx, tz, kit.acacia(b, tx, tz, rng, 0.0, shade="sandDark"))
+        block(tx, tz, kit.tree(b, tx, tz, rng, 0.0, shade="sandDark", mix=("imbondeiro", "mangueira", "mangueira", "acacia"), paved=False))
         block(tx + 2.4, tz + 1.2, kit.bench(b, tx + 2.4, tz + 1.2, rng.uniform(0, math.pi), 0.0))
 
     # Poles down the street, off its edge, the wires between them, and a wire to every house.
@@ -325,7 +325,7 @@ for cx in range(ACROSS):
                 # A small square: shade, benches, a seller or two.
                 for i in range(rng.randint(3, 4)):
                     tx, tz = centre_x + rng.uniform(-8, 8), centre_z + rng.uniform(-8, 8)
-                    block(tx, tz, kit.acacia(b, tx, tz, rng, KERB))
+                    block(tx, tz, kit.tree(b, tx, tz, rng, KERB, mix=("acacia", "mangueira")))
                 for i in range(3):
                     bx, bz = centre_x + rng.uniform(-9, 9), centre_z + rng.uniform(-9, 9)
                     block(bx, bz, kit.bench(b, bx, bz, rng.uniform(0, math.pi), KERB))
@@ -346,14 +346,14 @@ for cx in range(ACROSS):
             at = x0 + rng.uniform(3, 6)
             while at < x1 - 3:
                 if abs(at - corner_x) > 4.5:
-                    block(at, edge_z, kit.acacia(b, at, edge_z, rng, KERB, shade_reach=1.4))
+                    block(at, edge_z, kit.tree(b, at, edge_z, rng, KERB, shade_reach=1.4))
                     if rng.random() < 0.35 and at + 3.2 < x1 - 1.0:
                         block(at + 3.2, edge_z - south * 0.6, kit.bench(b, at + 3.2, edge_z - south * 0.6, 0.0, KERB))
                 at += rng.uniform(8.5, 13.5)
             at = z0 + rng.uniform(4, 8)
             while at < z1 - 3:
                 if abs(at - corner_z) > 4.5 and abs(at - edge_z) > 4:
-                    block(edge_x, at, kit.acacia(b, edge_x, at, rng, KERB, shade_reach=1.4))
+                    block(edge_x, at, kit.tree(b, edge_x, at, rng, KERB, shade_reach=1.4))
                 at += rng.uniform(9.5, 15.0)
             if rng.random() < 0.3:
                 px = corner_x + east * rng.uniform(1.5, 3.0)
@@ -429,6 +429,8 @@ print(f"nzila: {_blocked} cells blocked by what was built on them")
 # Kept beside the district, to be read after a build: a number that jumps says something new stands in a path.
 with open(os.path.join(out_dir, "solids.txt"), "w", encoding="utf-8") as _handle:
     _handle.write(f"{_blocked} cells blocked by what was built on them, of {len(b.solids)} boxes")
+with open(os.path.join(out_dir, "planted.txt"), "w", encoding="utf-8") as _handle:
+    _handle.write("".join(f"{kind} {x} {z}" + chr(10) for kind, x, z in b.planted))
 
 # Everything must belong to a chunk that exists: a bench one step over the edge once made a thirteenth.
 stray = sorted({chunk for (chunk, level) in b.groups if not (0 <= chunk[0] < ACROSS and 0 <= chunk[1] < DOWN)})
