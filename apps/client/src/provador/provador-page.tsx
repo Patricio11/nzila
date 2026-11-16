@@ -13,6 +13,7 @@ import { ptAOTranslator as tr } from "@nzila/i18n";
 import { Button, Choice, Swatches, Toggle } from "@nzila/ui";
 import { WORLD } from "@nzila/world/client";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { DirectionalLight } from "three";
 import { type Person } from "../render/person.ts";
 import { ground } from "../render/test-scene.ts";
 import { type TierName } from "../render/tiers.ts";
@@ -37,6 +38,8 @@ const skinTone = (n: number): string => `#${WORLD.skin[n]!.map((part) => part.to
 /** The photograph for the BI: how far the camera stands from the face, and the hour whose light it is taken in. */
 const PORTRAIT_M = 0.46;
 const PORTRAIT_HOUR = 15.5;
+/** How strong the photographer's light is, beside a sun of about 3. */
+const PORTRAIT_FLASH = 2.2;
 
 export function Provador() {
   const params = new URLSearchParams(location.search);
@@ -114,8 +117,16 @@ export function Provador() {
           renderer.setTime(PORTRAIT_HOUR * 3600);
           renderer.camera.position.set(Math.sin(0.35) * PORTRAIT_M, tall * 0.94, Math.cos(0.35) * PORTRAIT_M);
           renderer.camera.lookAt(0, tall * 0.925, 0);
+          // A photographer's light, from where the camera stands, for this one picture: without it a face
+          // is lit only from above and behind and sits in its own shade, the darker skins most of all (finding F-119).
+          const flash = new DirectionalLight(undefined, PORTRAIT_FLASH);
+          flash.position.copy(renderer.camera.position);
+          flash.target.position.set(0, tall * 0.925, 0);
+          renderer.scene.add(flash, flash.target);
           renderer.render(0);
           takePhoto(canvas.current);
+          renderer.scene.remove(flash, flash.target);
+          flash.dispose();
         }
         taken();
       }
