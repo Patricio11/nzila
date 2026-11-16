@@ -35,7 +35,7 @@
 
 **2d. What a player may ask of their own data (Task 2.6).** Their consents (analytics and notifications, off until a yes; playing itself is agreed to by coming in and ended by deleting), everything kept of them as a file, and deletion. Deletion needs the player's own BI number in the request, so that a request sent by mistake or by another page deletes nobody; it runs in one transaction, ends every session, and is written to the audit log, as an export is. The row stays, emptied, so the ledger stays whole and becomes anonymous.
 
-**2e. Saving the BI with a phone number (Task 2.2).**
+**2e. Saving the BI with a phone number (Task 2.2). Switched off (`PHONE_CODES`, D-2.11): nobody pays a provider to send the codes, the three routes refuse, and the game does not offer it.**
 - A one-time code: six digits from the server's dice, kept only as a keyed hash bound to the number, alive ten minutes, used once, dead after five tries. Every try is counted in a statement of its own, so a refusal later in the request cannot give the try back.
 - A number is sent at most three codes in a quarter of an hour, wherever they are asked from, on top of the limit by address: each code costs money and rings a stranger's phone.
 - Asking for a code answers the same for every number. Whether a number has an account is said only to someone who has given a right code for it.
@@ -47,7 +47,11 @@
 - A wrong password and an unknown address get the same answer, `wrong_login`.
 - Five wrong guesses close the account to guessing for fifteen minutes, counted on the account itself, whatever address they come from; the limit by address is on top.
 - The address is kept encrypted and as a keyed hash, never in the clear; neither it nor the password stays on the phone.
-- **Not done, and it matters:** the address is not verified (no email is sent yet), so someone can save a BI with an address that is not theirs, and nothing can be sent to a player who forgets their password. A password cannot yet be changed. Saving with an address that already has an account says so (there is no way to hide that without sending mail).
+- **The address is proved** by a six-digit code sent to it and typed back (hashed, ten minutes, five tries, three letters a quarter of an hour an address, as codes to a number are). Until it is, the BI says so; an unproved address still opens the account with its password.
+- **A forgotten password:** a code to the address, then a new password with it. Asking answers the same for any address, and does not wait for the letter, so neither the answer nor its timing says whether the address has a BI. Whoever has the code has the mailbox: the reset proves the address, ends every session and opens one here.
+- **A password changed** needs the old one (wrong tries count toward the same lock); every other session ends.
+- **Mail** goes through Resend with a key that is read from the environment, sent in one header, and never logged; without a key letters are printed on the API's console, which is right for development only. A letter that cannot be sent never undoes what was asked for and is never the player's to hear about.
+- **Still true:** saving with an address that already has a BI says so. Hiding that would mean accepting the save and saying so only by mail; it is a small leak of who plays, accepted for now.
 
 **3. Personal data (Task 0.10).** Fields that identify a person are encrypted with AES-256-GCM under a rotating keyring, bound to their column; phone numbers and device ids are matched by keyed hash. A guest has none.
 

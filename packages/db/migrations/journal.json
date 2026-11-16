@@ -22,5 +22,9 @@
   {
     "id": "0006_player_email",
     "sha256": "b815aa9f1152964501196a09e442e97b8efcabea80cc7b6e21bd0d5c91c7d7aa"
+  },
+  {
+    "id": "0007_email_verified",
+    "sha256": "e94169ac7ae63881da6c0807b17572922d9cd2707ae121257e07cc9227637be1"
   }
 ]

@@ -11,7 +11,8 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
 import { memoryLimiter, type Limiter } from "./limiter.ts";
-import { consoleSender, linkEmail, linkPhone, sendCode, signIn, signInEmail, type CodeSender } from "./linking.ts";
+import { changePassword, consoleSender, forgotPassword, linkEmail, linkPhone, mailCode, mailVerifyCode, resetPassword, sendCode, signIn, signInEmail, verifyEmail, type CodeSender } from "./linking.ts";
+import { consoleMailer, type Mailer } from "./mail.ts";
 import { choicesOf, deleteAccount, exportOf } from "./mydata.ts";
 import { askName, FREE_NAME_CHANGES, loadNameFilter, rename } from "./names.ts";
 import { dealOrigin, originOfPlayer } from "./origins.ts";
@@ -28,6 +29,13 @@ export interface Deps {
   /** Who sends one-time codes, and how a code is made: the console and the server's dice unless a test brings others. */
   readonly sender?: CodeSender;
   readonly newCode?: () => string;
+  /** Who sends mail: the console unless Resend is given a key (index.ts). */
+  readonly mailer?: Mailer;
+  /**
+   * Whether a BI may be saved with a phone number. Off unless asked for: nobody is paying a
+   * provider to send the codes (founder, 2026-11-16), so the routes refuse and the game does not offer it.
+   */
+  readonly phoneCodes?: boolean;
   /** The table a card of origin is drawn from, and the dice: the game's own unless a test brings others. */
   readonly origins?: OriginTable;
   readonly roll?: () => number;
@@ -38,12 +46,19 @@ const DICE = 2 ** 32;
 const nothing = z.strictObject({});
 
 export function buildApp(deps: Deps): FastifyInstance {
-  const app = Fastify({ logger: false, bodyLimit: 16 * 1024 });
+  // An idle connection is kept longer than any proxy in front of the API keeps its own (a minute is the usual), so that
+  // it is always the proxy that lets go first. The other way round, a proxy now and then sends a request down a
+  // connection the API is closing at that instant, and the player is told there is no network (finding F-148).
+  const app = Fastify({ logger: false, bodyLimit: 16 * 1024, keepAliveTimeout: 75_000 });
   const limiter = deps.limiter ?? memoryLimiter();
   const origins = deps.origins ?? BASE_ORIGINS;
   const roll = deps.roll ?? (() => randomInt(DICE) / DICE);
   const names = loadNameFilter();
   const sender = deps.sender ?? consoleSender;
+  const mailer = deps.mailer ?? consoleMailer;
+  const byPhone = (): void => {
+    if (deps.phoneCodes !== true) throw new Refusal(403, "forbidden");
+  };
   const newCode = deps.newCode ?? (() => String(randomInt(1_000_000)).padStart(6, "0"));
   const phoneShape = z.string().min(7).max(24);
   const codeShape = z.string().regex(/^\d{6}$/);
@@ -104,8 +119,9 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: nothing,
     perMinute: 120,
     handler: async (_body, caller) => {
-      const [me] = await deps.sql<{ id: string; kind: string; name: string | null; bi_number: string | null; name_changes: number; age_band: string | null; arrived_at: Date }[]>`
-        SELECT id, kind, name, bi_number, name_changes, age_band, arrived_at FROM players WHERE id = ${caller.player.id}`;
+      const [me] = await deps.sql<{ id: string; kind: string; name: string | null; bi_number: string | null; name_changes: number; age_band: string | null; arrived_at: Date; by_email: boolean; email_verified: boolean; by_phone: boolean }[]>`
+        SELECT id, kind, name, bi_number, name_changes, age_band, arrived_at, email_hash IS NOT NULL AS by_email, email_verified_at IS NOT NULL AS email_verified, phone_hash IS NOT NULL AS by_phone
+        FROM players WHERE id = ${caller.player.id}`;
       const [avatar] = await deps.sql<{ spec: unknown }[]>`SELECT spec FROM avatars WHERE player_id = ${caller.player.id}`;
       return {
         id: me!.id,
@@ -114,6 +130,8 @@ export function buildApp(deps: Deps): FastifyInstance {
         // Whether the name can still be changed for nothing.
         nameFree: me!.name_changes < FREE_NAME_CHANGES,
         biNumber: me!.bi_number,
+        // How the BI was saved, and whether the address was proved. Never the address or the number themselves.
+        savedWith: { email: me!.by_email, emailVerified: me!.email_verified, phoneNumber: me!.by_phone },
         ageBand: me!.age_band,
         arrivedAt: me!.arrived_at.toISOString(),
         // Read back through the catalogue: a look the wardrobe no longer has is no look, and the player chooses again.
@@ -178,6 +196,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     // Few, by address; and few by number, wherever they are asked from (linking.ts).
     perMinute: 5,
     handler: async (body) => {
+      byPhone();
       await sendCode(deps.sql, deps.pepper, sender, newCode, body.phone);
       return { ok: true };
     },
@@ -189,6 +208,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: z.strictObject({ phone: phoneShape, code: codeShape }),
     perMinute: 10,
     handler: async (body, caller) => {
+      byPhone();
       await linkPhone(deps.sql, deps.keyring, deps.pepper, caller.player.id, body.phone, body.code);
       return { kind: "linked" };
     },
@@ -199,7 +219,10 @@ export function buildApp(deps: Deps): FastifyInstance {
     guard: "public",
     body: z.strictObject({ phone: phoneShape, code: codeShape, deviceId: deviceShape, platform: platformShape }),
     perMinute: 10,
-    handler: async (body) => signIn(deps.sql, deps.pepper, body.phone, body.code, body.deviceId, body.platform ?? null),
+    handler: async (body) => {
+      byPhone();
+      return signIn(deps.sql, deps.pepper, body.phone, body.code, body.deviceId, body.platform ?? null);
+    },
   });
 
   // The ordinary way: an email address and a password. The same player, linked; and the way back in on another phone.
@@ -210,9 +233,66 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: z.strictObject({ email: z.string().max(254), password: z.string().max(512) }),
     perMinute: 6,
     handler: async (body, caller) => {
-      await linkEmail(deps.sql, deps.keyring, deps.pepper, caller.player.id, body.email, body.password);
+      const email = await linkEmail(deps.sql, deps.keyring, deps.pepper, caller.player.id, body.email, body.password);
+      // The BI is saved whether or not the letter goes: the code to prove the address can be asked for again.
+      await mailCode(deps.sql, deps.pepper, mailer, newCode, email, "verify").catch(() => undefined);
       return { kind: "linked" };
     },
+  });
+  // Proving the address is the player's own: the code sent to it, typed back; and the letter sent again.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/me/email/code",
+    guard: "player",
+    body: nothing,
+    perMinute: 5,
+    handler: async (_body, caller) => {
+      await mailVerifyCode(deps.sql, deps.keyring, deps.pepper, mailer, newCode, caller.player.id);
+      return { ok: true };
+    },
+  });
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/me/email/verify",
+    guard: "player",
+    body: z.strictObject({ code: codeShape }),
+    perMinute: 10,
+    handler: async (body, caller) => {
+      await verifyEmail(deps.sql, deps.keyring, deps.pepper, caller.player.id, body.code);
+      return { verified: true };
+    },
+  });
+  // A player who knows their password chooses another.
+  declare(app, gate, {
+    method: "PUT",
+    url: "/v1/me/password",
+    guard: "player",
+    body: z.strictObject({ current: z.string().max(512), next: z.string().max(512) }),
+    perMinute: 6,
+    handler: async (body, caller) => {
+      await changePassword(deps.sql, deps.keyring, caller.player.id, caller.player.sessionId, body.current, body.next);
+      return { ok: true };
+    },
+  });
+  // "Esqueci-me": a code to the address, then a new password with it. Asking tells nothing about the address.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/password/forgot",
+    guard: "public",
+    body: z.strictObject({ email: z.string().max(254) }),
+    perMinute: 5,
+    handler: async (body) => {
+      await forgotPassword(deps.sql, deps.pepper, mailer, newCode, body.email);
+      return { ok: true };
+    },
+  });
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/password/reset",
+    guard: "public",
+    body: z.strictObject({ email: z.string().max(254), code: codeShape, password: z.string().max(512), deviceId: deviceShape, platform: platformShape }),
+    perMinute: 10,
+    handler: async (body) => resetPassword(deps.sql, deps.pepper, body.email, body.code, body.password, body.deviceId, body.platform ?? null),
   });
   declare(app, gate, {
     method: "POST",

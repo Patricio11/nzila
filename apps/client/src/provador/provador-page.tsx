@@ -40,6 +40,10 @@ const PORTRAIT_M = 0.46;
 const PORTRAIT_HOUR = 15.5;
 /** How strong the photographer's light is, beside a sun of about 3. */
 const PORTRAIT_FLASH = 2.2;
+/** The light that goes round with the camera in the chooser, beside a sun of about 3. */
+const MIRROR_LIGHT = 2.1;
+/** The five skins from the lightest to the darkest: the order they are offered in (their numbers are the wardrobe's and do not change). */
+const SKINS_IN_ORDER = [...WORLD.skin.keys()].sort((a, b) => WORLD.skin[b]!.reduce((sum, part) => sum + part, 0) - WORLD.skin[a]!.reduce((sum, part) => sum + part, 0));
 
 export function Provador() {
   const params = new URLSearchParams(location.search);
@@ -58,7 +62,20 @@ export function Provador() {
     if (!canvas.current) return;
     const renderer = new WorldRenderer(canvas.current, (params.get("tier") ?? "normal") as TierName);
     renderer.setTime((Number(params.get("hour")) || 16.6) * 3600);
-    renderer.scene.add(ground(renderer, [{ colour: WORLD.pavement, width: 40, depth: 40, x: 0, y: 0, z: 0 }]));
+    // The ground, and a mat in the cloth's colours to stand on: black, yellow, red, and a square of black in the middle.
+    renderer.scene.add(
+      ground(renderer, [
+        { colour: WORLD.pavement, width: 40, depth: 40, x: 0, y: 0, z: 0 },
+        { colour: WORLD.clothBlack, width: 2.6, depth: 2.6, x: 0, y: 0.004, z: 0 },
+        { colour: WORLD.adBoard, width: 2.34, depth: 2.34, x: 0, y: 0.008, z: 0 },
+        { colour: WORLD.awningRed, width: 2.08, depth: 2.08, x: 0, y: 0.012, z: 0 },
+        { colour: WORLD.clothBlack, width: 1.1, depth: 1.1, x: 0, y: 0.016, z: 0 },
+      ]),
+    );
+    // A light that goes round with the camera, as in a tailor's mirror: whichever way the person is turned,
+    // what is being chosen is seen, and a face is never in its own shade (as the portrait learnt, F-119).
+    const mirror = new DirectionalLight(undefined, MIRROR_LIGHT);
+    renderer.scene.add(mirror, mirror.target);
     let closed = false;
     let person: Person | null = null;
     let worn: Look | null = null;
@@ -107,6 +124,8 @@ export function Provador() {
       person?.pose({ speed: 0, phase: 0, time: now / 1000 });
       renderer.camera.position.set(Math.sin(angle) * distance, near ? tall * 0.96 : 1.25, Math.cos(angle) * distance);
       renderer.camera.lookAt(0, near ? tall * 0.94 : tall * 0.53, 0);
+      mirror.position.copy(renderer.camera.position);
+      mirror.target.position.set(0, tall * 0.6, 0);
       renderer.setFocus(0, 0, 0);
       renderer.render(elapsed);
       if (portrait.current && !busy) {
@@ -119,12 +138,14 @@ export function Provador() {
           renderer.camera.lookAt(0, tall * 0.925, 0);
           // A photographer's light, from where the camera stands, for this one picture: without it a face
           // is lit only from above and behind and sits in its own shade, the darker skins most of all (finding F-119).
+          mirror.visible = false;
           const flash = new DirectionalLight(undefined, PORTRAIT_FLASH);
           flash.position.copy(renderer.camera.position);
           flash.target.position.set(0, tall * 0.925, 0);
           renderer.scene.add(flash, flash.target);
           renderer.render(0);
           takePhoto(canvas.current);
+          mirror.visible = true;
           renderer.scene.remove(flash, flash.target);
           flash.dispose();
         }
@@ -140,6 +161,7 @@ export function Provador() {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
       person?.dispose();
+      mirror.dispose();
       renderer.dispose();
     };
   }, []);
@@ -181,12 +203,13 @@ export function Provador() {
     <main class="provador n-on-dark">
       <canvas ref={canvas} class="provador-canvas" style="touch-action: none" {...drag} />
       <section class="provador-panel">
+        <i class="n-pano-faixa n-pano-faixa-vermelha provador-edge" aria-hidden="true" />
         <h1 class="provador-title">{tr.t("look.title")}</h1>
         {missing ? <p class="provador-note">{tr.t("frontdoor.building")}</p> : null}
         {mine ? (
           <>
             <Choice label={tr.t("look.sex")} options={named("sex", ["f", "m"])} value={look.sex} onChange={(sex) => change({ sex: sex as Look["sex"] })} />
-            <Swatches label={tr.t("look.skin")} options={[0, 1, 2, 3, 4].map((n) => ({ id: String(n), label: tr.t("look.colour", { n: n + 1 }), colour: skinTone(n) }))} value={String(look.skin)} onChange={(skin) => change({ skin: Number(skin) })} />
+            <Swatches label={tr.t("look.skin")} options={SKINS_IN_ORDER.map((skin, n) => ({ id: String(skin), label: tr.t("look.colour", { n: n + 1 }), colour: skinTone(skin) }))} value={String(look.skin)} onChange={(skin) => change({ skin: Number(skin) })} />
             <Choice label={tr.t("look.hair")} options={named("hair", Object.keys(mine.hair))} value={look.hair} onChange={(hair) => change({ hair })} />
             {look.hair === "careca" ? null : <Swatches label={tr.t(covered ? "look.lencoColour" : "look.hairColour")} options={swatches(covered ? COLOURS.cloth : COLOURS.hair)} value={look.hairColour} onChange={(hairColour) => change({ hairColour })} />}
             <div class="provador-extras" role="group" aria-label={tr.t("look.extras")}>

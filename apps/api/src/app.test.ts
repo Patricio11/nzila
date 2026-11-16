@@ -23,7 +23,7 @@ describe("every route is guarded", () => {
     expect(routes.length).toBeGreaterThan(2);
     for (const route of routes) expect(["public", "player", "staff"], `${route.method} ${route.url}`).toContain(route.guard);
     // The list of what anyone may call without being a player. A new public route is added here on purpose or not at all.
-    expect(routes.filter((route) => route.guard === "public").map((route) => `${route.method} ${route.url}`).sort()).toEqual(["GET /health", "POST /v1/codes", "POST /v1/guests", "POST /v1/signin/email", "POST /v1/signin/phone"]);
+    expect(routes.filter((route) => route.guard === "public").map((route) => `${route.method} ${route.url}`).sort()).toEqual(["GET /health", "POST /v1/codes", "POST /v1/guests", "POST /v1/password/forgot", "POST /v1/password/reset", "POST /v1/signin/email", "POST /v1/signin/phone"]);
     // And nothing reached Fastify by another door: what it prints is what was declared.
     const printed = built.printRoutes({ commonPrefix: false });
     for (const route of routes) expect(printed).toContain(route.url.split("/").pop()!);

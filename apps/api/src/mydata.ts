@@ -59,7 +59,7 @@ export async function deleteAccount(sql: Sql, playerId: string, biNumber: string
     await tx`
       UPDATE players SET status = 'deleted', deleted_at = now(), name = NULL, name_key = NULL, bi_number = NULL, age_band = NULL,
         home_district_id = NULL, province_id = NULL, district_id = NULL, x = NULL, y = NULL, z = NULL, phone_enc = NULL, phone_hash = NULL,
-        email_enc = NULL, email_hash = NULL, password_hash = NULL, signin_failures = 0, signin_locked_until = NULL
+        email_enc = NULL, email_hash = NULL, password_hash = NULL, email_verified_at = NULL, signin_failures = 0, signin_locked_until = NULL
       WHERE id = ${playerId}`;
     await audit.log(tx as unknown as Sql, { actorKind: "player", actorId: playerId, kind: "player.delete", subjectKind: "player", subjectId: playerId, reason: "the player deleted their account" });
   });

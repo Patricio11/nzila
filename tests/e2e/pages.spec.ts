@@ -234,6 +234,9 @@ test.describe("saving the BI", () => {
     }
     test.setTimeout(150_000);
     const seen = watch(page);
+    // Saving with a number is switched off for players (nobody pays a provider to send the codes): this test switches
+    // it on, for its own two phones, against the browser tests' API, which has it on too.
+    await page.addInitScript(() => localStorage.setItem("nzila.numero", "1"));
     // One number a browser. The browser tests' API sends every number the same code, to nobody.
     const phone = info.project.name === "phone" ? "923 000 101" : "923 000 102";
     const code = "246810";
@@ -252,6 +255,7 @@ test.describe("saving the BI", () => {
     // The honest line, then the number, then the code.
     await expect(page.getByText("Sem isto, o teu progresso fica só neste telemóvel.")).toBeVisible();
     await page.getByRole("button", { name: "Guardar o meu BI" }).click();
+    await page.getByRole("radio", { name: "Número" }).click();
     await page.getByLabel("O teu número de telemóvel").fill("12");
     await expect(page.getByRole("button", { name: "Enviar código" })).toBeDisabled();
     await page.getByLabel("O teu número de telemóvel").fill(phone);
@@ -268,9 +272,11 @@ test.describe("saving the BI", () => {
 
     // A second phone: nothing on it. The number and a code bring the player whole: no age asked, no look to choose, no card to turn.
     const other = await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" });
+    await other.addInitScript(() => localStorage.setItem("nzila.numero", "1"));
     const second = await other.newPage();
     await second.goto("/");
     await second.getByRole("link", { name: "Já tenho um BI guardado" }).click();
+    await second.getByRole("radio", { name: "Número" }).click();
     await second.getByLabel("O teu número de telemóvel").fill(phone);
     await second.getByRole("button", { name: "Enviar código" }).click();
     await second.getByLabel("O código de 6 algarismos que recebeste").fill(code);
@@ -289,23 +295,25 @@ test.describe("saving the BI", () => {
     await page.waitForFunction(() => localStorage.getItem("nzila.conta") === null, undefined, { timeout: 30_000 });
     await page.goto("/");
     await expect(page.getByText("O teu BI foi aberto noutro telemóvel. Para jogar neste, entra outra vez.")).toBeVisible();
-    await expect(page.getByLabel("O teu número de telemóvel")).toBeVisible();
+    await expect(page.getByLabel("O teu e-mail")).toBeVisible();
     await expectNoSidewaysScroll(page);
     expect(seen.errors.filter((error) => !/40[01]/.test(error))).toEqual([]);
   });
 });
 
 test.describe("saving the BI with an email", () => {
-  test("a guest saves the BI with an email address and a password, and a second phone comes in with them; a wrong password is told nothing more", async ({ page, browser, request }, info) => {
+  test("a guest saves the BI with an email and a password and proves the address with the code sent to it; on a second phone a forgotten password is chosen anew, and the old one is dead", async ({ page, browser, request }, info) => {
     if (!(await request.get("/packs/front.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). Saving the BI by email was not checked here." });
       test.skip();
       return;
     }
-    test.setTimeout(150_000);
+    test.setTimeout(180_000);
     const seen = watch(page);
     const email = `kamba.${info.project.name}@exemplo.ao`;
     const password = "funje com peixe grelhado";
+    // The browser tests' API puts the same code in every letter, and sends the letter nowhere.
+    const code = "246810";
     await page.goto("/");
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
     await bornIn(page, "1995");
@@ -318,7 +326,8 @@ test.describe("saving the BI with an email", () => {
     const born = (await page.locator(".n-bi-name").textContent()) ?? "";
 
     await page.getByRole("button", { name: "Guardar o meu BI" }).click();
-    await page.getByRole("radio", { name: "E-mail" }).click();
+    // A player is offered the e-mail and nothing else: the number is not there to choose.
+    await expect(page.getByRole("radio", { name: "Número" })).toHaveCount(0);
     const said = page.locator(".tm-save-said");
     await expect(said).toHaveText("Pelo menos 8 letras. Uma frase que só tu sabes é melhor do que uma palavra difícil.");
     // What is wrong is said at once, before anything is asked of the server.
@@ -332,29 +341,50 @@ test.describe("saving the BI with an email", () => {
     await expect(said).toHaveText("Essa adivinha-se logo. Escolhe outra.");
     await page.getByLabel("Escolhe uma palavra-passe").fill(password);
     await page.getByRole("button", { name: "Guardar", exact: true }).click();
+
+    // Saved; and a letter has gone with a code. "Depois" leaves the address unproved, and the BI says so.
+    await expect(page.getByRole("heading", { name: "Confirmar o meu e-mail" })).toBeVisible();
+    await expect(said).toHaveText("Enviámos um código para o teu e-mail. Vale por 10 minutos.");
+    await page.getByRole("button", { name: "Depois" }).click();
+    await expect(page.getByText("BI guardado. Agora entras em qualquer telemóvel.")).toBeVisible();
+    await page.getByRole("button", { name: "Confirmar o meu e-mail" }).click();
+    await page.getByLabel("O código de 6 algarismos que recebeste").fill("111111");
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+    await expect(said).toHaveText("O código não está certo. Vê outra vez.");
+    await page.getByLabel("O código de 6 algarismos que recebeste").fill(code);
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Confirmar o meu e-mail" })).toHaveCount(0);
     await expect(page.getByText("BI guardado. Agora entras em qualquer telemóvel.")).toBeVisible();
     // Neither the address nor the password stays on the phone.
     const kept = JSON.stringify(await page.evaluate(() => ({ ...localStorage })));
     expect(kept).not.toContain("exemplo.ao");
     expect(kept).not.toContain("funje");
 
-    // A second phone: a wrong password is told one thing only; the right one brings the player whole.
+    // A second phone, and the password forgotten: a wrong one is told one thing only; then a code to the address and a new password bring the player whole.
     const other = await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" });
     const second = await other.newPage();
     await second.goto("/");
     await second.getByRole("link", { name: "Já tenho um BI guardado" }).click();
-    await second.getByRole("radio", { name: "E-mail" }).click();
     await second.getByLabel("O teu e-mail").fill(email.toUpperCase());
     await second.getByLabel("A tua palavra-passe").fill("outra coisa qualquer");
     await second.getByRole("button", { name: "Entrar", exact: true }).click();
-    await expect(second.locator(".tm-save-said")).toHaveText("O e-mail ou a palavra-passe não estão certos.");
-    await second.getByLabel("A tua palavra-passe").fill(password);
-    await second.getByRole("button", { name: "Entrar", exact: true }).click();
+    const told = second.locator(".tm-save-said");
+    await expect(told).toHaveText("O e-mail ou a palavra-passe não estão certos.");
+    await second.getByRole("button", { name: "Esqueci-me da palavra-passe" }).click();
+    await second.getByRole("button", { name: "Enviar código" }).click();
+    await expect(told).toHaveText("Enviámos um código para o teu e-mail. Vale por 10 minutos.");
+    await second.getByLabel("O código de 6 algarismos que recebeste").fill(code);
+    await second.getByLabel("Escolhe uma palavra-passe").fill("uma palavra-passe nova");
+    await second.getByRole("button", { name: "Guardar e entrar" }).click();
     await second.waitForURL(/\/andar\?pack=l1/);
     await second.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
     await second.getByRole("button", { name: "Telemóvel" }).click();
     await second.getByRole("button", { name: "BI", exact: true }).click();
     await expect(second.locator(".n-bi-name")).toHaveText(born);
+    // The old password opens nothing now, and the new one does.
+    const signIn = (word: string) => second.request.post("/api/v1/signin/email", { data: { email, password: word, deviceId: "e2e-device-0000-abcdefgh" } });
+    expect((await signIn(password)).status()).toBe(400);
+    expect((await signIn("uma palavra-passe nova")).status()).toBe(200);
     await other.close();
     expect(seen.errors.filter((error) => !/40[01]/.test(error))).toEqual([]);
   });
@@ -823,7 +853,10 @@ test.describe("the bench", () => {
     // any browser on a machine without one (CI), draw with the processor; there the bench must
     // run cleanly and its frame rate is recorded, not judged. Real phones are measured by hand
     // on this same page (Task 1.9).
-    if (slowed && !software) expect(result.fpsSustained).toBeGreaterThanOrEqual(FPS_BUDGET);
+    // Thirty frames a second on a 60 Hz screen is a frame every two refreshes: 33,33 ms, which the browser's clock
+    // reports as 33,3 or 33,4. The second reads as 29,94 frames a second and is the same picture: half a frame of
+    // allowance is for the clock, not for the renderer.
+    if (slowed && !software) expect(result.fpsSustained).toBeGreaterThanOrEqual(FPS_BUDGET - 0.5);
     // A step of the simulation must leave most of its 50 ms for everything else.
     expect(result.simStepMs).toBeLessThan(25);
     expect(seen.errors).toEqual([]);

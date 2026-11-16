@@ -66,6 +66,7 @@ export const players = pgTable("players", {
   passwordHash: text("password_hash"),
   signinFailures: integer("signin_failures").notNull().default(0),
   signinLockedUntil: at("signin_locked_until"),
+  emailVerifiedAt: at("email_verified_at"),
   arrivedAt: at("arrived_at").notNull().defaultNow(),
   createdAt: at("created_at").notNull().defaultNow(),
   deletedAt: at("deleted_at"),

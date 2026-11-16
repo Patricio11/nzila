@@ -15,6 +15,10 @@ const keyring = parseKeyring(`1:${Buffer.alloc(32, 3).toString("base64")}`);
 // The codes "sent" to each number, newest last: what a phone would have received.
 const sent = new Map<string, string[]>();
 const sender = { send: async (phone: string, code: string) => void sent.set(phone, [...(sent.get(phone) ?? []), code]) };
+// The letters "sent", newest last, by address: what a mailbox would have received.
+const letters = new Map<string, { subject: string; text: string }[]>();
+const mailer = { send: async (letter: { to: string; subject: string; text: string }) => void letters.set(letter.to, [...(letters.get(letter.to) ?? []), letter]) };
+const mailedCode = (email: string): string => /\d{6}/.exec(letters.get(email)!.at(-1)!.subject)![0];
 let admin: Sql;
 let sql: Sql;
 let app: FastifyInstance;
@@ -28,7 +32,7 @@ beforeAll(async () => {
   await migrate(sql, await loadMigrations());
   await seed(sql, await loadWorldSeed());
   // Limits wide open here: they have their own test, and these tests make many guests from one address.
-  app = buildApp({ sql, pepper, keyring, sender, limiter: { allow: () => true } });
+  app = buildApp({ sql, pepper, keyring, sender, mailer, phoneCodes: true, limiter: { allow: () => true } });
   // A database made, migrated and seeded, while the other suites make theirs: more than the ten seconds a hook is given.
 }, 60_000);
 
@@ -114,7 +118,7 @@ describe("a guest", () => {
 });
 
 test("an address that makes guests by the dozen is told to slow down", async () => {
-  const limited = buildApp({ sql, pepper, keyring, limiter: memoryLimiter() });
+  const limited = buildApp({ sql, pepper, keyring, mailer, limiter: memoryLimiter() });
   const codes: number[] = [];
   for (let n = 100; n < 108; n++) codes.push((await limited.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(n), ageBand: "15_17" } })).statusCode);
   expect(codes).toEqual([201, 201, 201, 201, 201, 201, 429, 429]);
@@ -183,7 +187,7 @@ describe("a lotaria da vida", () => {
   test("no rerolls: a second guest on the same device is dealt the first one's card", async () => {
     // Dice that would deal the poorest family first and the richest ever after.
     let rolls = 0;
-    const loaded = buildApp({ sql, pepper, keyring, limiter: { allow: () => true }, roll: () => (rolls++ < 4 ? 0 : 0.9999) });
+    const loaded = buildApp({ sql, pepper, keyring, mailer, limiter: { allow: () => true }, roll: () => (rolls++ < 4 ? 0 : 0.9999) });
     const guestOn = async (n: number) => (await loaded.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(n), ageBand: "18_plus" } })).json() as { token: string };
     const dealt = async (token: string) => ((await loaded.inject({ method: "POST", url: "/v1/me/origin", headers: as(token) })).json() as { origin: { family: string; makuta: number } }).origin;
     const first = await dealt((await guestOn(32)).token);
@@ -512,4 +516,138 @@ describe("saving the BI with an email address and a password", () => {
     expect((await sql`SELECT email_enc, email_hash, password_hash FROM players WHERE id = ${guest.playerId}`)[0]).toEqual({ email_enc: null, email_hash: null, password_hash: null });
     expect((await signIn("adeus@exemplo.ao", "ate a proxima vez", 79)).json()).toEqual({ error: "wrong_login" });
   });
+});
+
+describe("an email address proved, a password forgotten, a password changed", () => {
+  const post = (url: string, token: string | null, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: token ? as(token) : {}, payload });
+  const saved = async (n: number, email: string, password: string) => {
+    const guest = await newGuest(n);
+    expect((await post("/v1/me/email", guest.token, { email, password })).statusCode).toBe(200);
+    return guest;
+  };
+  const me = async (token: string) => (await app.inject({ method: "GET", url: "/v1/me", headers: as(token) })).json() as { savedWith: { email: boolean; emailVerified: boolean; phoneNumber: boolean } };
+
+  test("saving sends a letter with a code; typed back, the address is proved; a wrong code proves nothing", async () => {
+    const guest = await saved(80, "prova@exemplo.ao", "funje com peixe");
+    expect(letters.get("prova@exemplo.ao")).toHaveLength(1);
+    expect(letters.get("prova@exemplo.ao")![0]!.subject).toMatch(/^\d{6} é o teu código do Nzila$/);
+    expect(await me(guest.token)).toMatchObject({ savedWith: { email: true, emailVerified: false, phoneNumber: false } });
+    const code = mailedCode("prova@exemplo.ao");
+    const wrong = await post("/v1/me/email/verify", guest.token, { code: code === "000000" ? "111111" : "000000" });
+    expect([wrong.statusCode, wrong.json()]).toEqual([400, { error: "wrong_code" }]);
+    expect((await post("/v1/me/email/verify", guest.token, { code })).json()).toEqual({ verified: true });
+    expect(await me(guest.token)).toMatchObject({ savedWith: { emailVerified: true } });
+    // Used once.
+    expect((await post("/v1/me/email/verify", guest.token, { code })).statusCode).toBe(400);
+    // Neither the address nor the code is anywhere in the clear.
+    const everything = JSON.stringify(await sql`SELECT * FROM login_codes`) + JSON.stringify(await sql`SELECT * FROM players WHERE id = ${guest.playerId}`);
+    expect(everything).not.toContain("prova@");
+    expect(everything).not.toContain(code);
+  });
+
+  test("the letter can be asked for again, a few times; and only by someone who saved an address", async () => {
+    const guest = await saved(81, "outra.vez@exemplo.ao", "funje com peixe");
+    expect((await post("/v1/me/email/code", guest.token)).statusCode).toBe(200);
+    expect((await post("/v1/me/email/code", guest.token)).statusCode).toBe(200);
+    expect(letters.get("outra.vez@exemplo.ao")).toHaveLength(3);
+    const refused = await post("/v1/me/email/code", guest.token);
+    expect([refused.statusCode, refused.json()]).toEqual([429, { error: "slow_down" }]);
+    // The newest code is the one that counts.
+    expect((await post("/v1/me/email/verify", guest.token, { code: mailedCode("outra.vez@exemplo.ao") })).statusCode).toBe(200);
+    const plain = await newGuest(82);
+    expect((await post("/v1/me/email/code", plain.token)).json()).toEqual({ error: "not_saved" });
+    expect((await post("/v1/me/email/verify", plain.token, { code: "123456" })).json()).toEqual({ error: "not_saved" });
+  });
+
+  test("a forgotten password: asking says the same for any address; the code and a new password bring the player in, and the old password is dead", async () => {
+    const guest = await saved(83, "esqueci@exemplo.ao", "a palavra antiga");
+    const before = letters.get("esqueci@exemplo.ao")!.length;
+    const known = await post("/v1/password/forgot", null, { email: "Esqueci@exemplo.ao" });
+    const unknown = await post("/v1/password/forgot", null, { email: "ninguem.aqui@exemplo.ao" });
+    const nonsense = await post("/v1/password/forgot", null, { email: "isto não é" });
+    for (const answer of [known, unknown, nonsense]) expect([answer.statusCode, answer.json()]).toEqual([200, { ok: true }]);
+    // The letter goes without the answer waiting for it.
+    await expect.poll(() => letters.get("esqueci@exemplo.ao")!.length).toBe(before + 1);
+    expect(letters.has("ninguem.aqui@exemplo.ao")).toBe(false);
+    expect(letters.get("esqueci@exemplo.ao")!.at(-1)!.subject).toContain("palavra-passe");
+    const code = mailedCode("esqueci@exemplo.ao");
+    const reset = (password: string, withCode = code, email = "esqueci@exemplo.ao") => post("/v1/password/reset", null, { email, code: withCode, password, deviceId: device(84) });
+    expect((await reset("curta")).json()).toEqual({ error: "invalid" });
+    expect((await reset("a palavra nova", code === "000000" ? "111111" : "000000")).json()).toEqual({ error: "wrong_code" });
+    const done = await reset("a palavra nova");
+    expect(done.statusCode).toBe(200);
+    const { playerId, token } = done.json() as { playerId: string; token: string };
+    expect(playerId).toBe(guest.playerId);
+    // Whoever has the code has the mailbox: the address counts as proved, and every older session is ended.
+    expect(await me(token)).toMatchObject({ savedWith: { email: true, emailVerified: true } });
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(guest.token) })).statusCode).toBe(401);
+    const signIn = (password: string) => post("/v1/signin/email", null, { email: "esqueci@exemplo.ao", password, deviceId: device(85) });
+    expect((await signIn("a palavra antiga")).json()).toEqual({ error: "wrong_login" });
+    expect((await signIn("a palavra nova")).statusCode).toBe(200);
+    // The code is spent, and a code for an address with no account opens nothing.
+    expect((await reset("mais uma palavra")).json()).toEqual({ error: "wrong_code" });
+    expect((await reset("mais uma palavra", "123456", "ninguem.aqui@exemplo.ao")).json()).toEqual({ error: "wrong_code" });
+  }, 30_000);
+
+  test("a player who knows their password chooses another: other phones are put out, this one stays", async () => {
+    const guest = await saved(86, "mudar@exemplo.ao", "a primeira palavra");
+    const elsewhere = (await post("/v1/signin/email", null, { email: "mudar@exemplo.ao", password: "a primeira palavra", deviceId: device(87) })).json() as { token: string };
+    const change = (token: string, current: string, next: string) => app.inject({ method: "PUT", url: "/v1/me/password", headers: as(token), payload: { current, next } });
+    expect((await change(elsewhere.token, "não é esta", "a segunda palavra")).json()).toEqual({ error: "wrong_login" });
+    expect((await change(elsewhere.token, "a primeira palavra", "curta")).json()).toEqual({ error: "invalid" });
+    expect((await change(elsewhere.token, "a primeira palavra", "a segunda palavra")).statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(elsewhere.token) })).statusCode).toBe(200);
+    expect((await post("/v1/signin/email", null, { email: "mudar@exemplo.ao", password: "a primeira palavra", deviceId: device(88) })).json()).toEqual({ error: "wrong_login" });
+    const again = (await post("/v1/signin/email", null, { email: "mudar@exemplo.ao", password: "a segunda palavra", deviceId: device(88) })).json() as { token: string };
+    expect(again.token).toBeTruthy();
+    // Someone with no saved address has no password to change; and nobody without a session changes anything.
+    const plain = await newGuest(89);
+    expect((await change(plain.token, "x", "a segunda palavra")).json()).toEqual({ error: "not_saved" });
+    expect((await app.inject({ method: "PUT", url: "/v1/me/password", payload: { current: "a", next: "b" } })).statusCode).toBe(401);
+    expect(guest.playerId).toBeTruthy();
+  }, 30_000);
+
+  test("a letter that cannot be sent does not undo the saving, and is not the player's problem", async () => {
+    const broken = buildApp({ sql, pepper, keyring, mailer: { send: async () => Promise.reject(new Error("the post office is shut")) }, limiter: { allow: () => true } });
+    const guest = (await broken.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(90), ageBand: "18_plus" } })).json() as { token: string };
+    const res = await broken.inject({ method: "POST", url: "/v1/me/email", headers: as(guest.token), payload: { email: "sem.correio@exemplo.ao", password: "funje com peixe" } });
+    expect(res.statusCode).toBe(200);
+    expect((await broken.inject({ method: "GET", url: "/v1/me", headers: as(guest.token) })).json()).toMatchObject({ kind: "linked" });
+    await broken.close();
+  });
+});
+
+test("with no provider paid to send codes, a BI is not saved with a phone number: the routes refuse", async () => {
+  const off = buildApp({ sql, pepper, keyring, mailer, limiter: { allow: () => true } });
+  const guest = (await off.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(91), ageBand: "18_plus" } })).json() as { token: string };
+  for (const res of [
+    await off.inject({ method: "POST", url: "/v1/codes", payload: { phone: "923456091" } }),
+    await off.inject({ method: "POST", url: "/v1/me/phone", headers: as(guest.token), payload: { phone: "923456091", code: "123456" } }),
+    await off.inject({ method: "POST", url: "/v1/signin/phone", payload: { phone: "923456091", code: "123456", deviceId: device(91) } }),
+  ]) expect([res.statusCode, res.json()]).toEqual([403, { error: "forbidden" }]);
+  expect(sent.has("+244923456091")).toBe(false);
+  await off.close();
+});
+
+test("deleting an account keeps the books: the ledger's rows stay, still add up, and point at a player who is nobody now (Task 2.7)", async () => {
+  const guest = await newGuest(95);
+  await app.inject({ method: "PUT", url: "/v1/me/name", headers: as(guest.token), payload: { name: "Sai de Cena" } });
+  // Makuta that reached this player and was partly spent, written straight into the ledger as Phase 4's routes will.
+  const cash = `player_cash:${guest.playerId}`;
+  await sql`INSERT INTO ledger_accounts (id, kind, ref) VALUES (${cash}, 'player_cash', ${guest.playerId})`;
+  const [faucet] = await sql<{ id: string }[]>`SELECT id FROM ledger_accounts WHERE kind = 'system_faucet' LIMIT 1`;
+  const [sink] = await sql<{ id: string }[]>`SELECT id FROM ledger_accounts WHERE kind = 'system_sink' LIMIT 1`;
+  await sql`INSERT INTO ledger_transfers (debit_account, credit_account, amount, reason, action_id) VALUES (${faucet!.id}, ${cash}, 2500, 'starting_grant', ${`del-test-in-${guest.playerId}`})`;
+  await sql`INSERT INTO ledger_transfers (debit_account, credit_account, amount, reason, action_id) VALUES (${cash}, ${sink!.id}, 200, 'fare', ${`del-test-out-${guest.playerId}`})`;
+  const total = async () => (await sql<{ sum: string }[]>`SELECT coalesce(sum(balance), 0)::text AS sum FROM balances`)[0]!.sum;
+  const before = await total();
+
+  expect((await app.inject({ method: "DELETE", url: "/v1/me", headers: as(guest.token), payload: { biNumber: guest.biNumber } })).statusCode).toBe(200);
+
+  // Both rows are there, untouched; the player's balance is what it was; the whole still adds up to what it did.
+  expect((await sql`SELECT amount::int AS amount, reason FROM ledger_transfers WHERE debit_account = ${cash} OR credit_account = ${cash} ORDER BY created_at`).map((row) => `${row.reason}:${row.amount}`)).toEqual(["starting_grant:2500", "fare:200"]);
+  expect((await sql`SELECT balance::int AS balance FROM balances WHERE account_id = ${cash}`)[0]).toEqual({ balance: 2300 });
+  expect(await total()).toBe(before);
+  // And whoever they point at has no name, no number, no way in: the rows are anonymous.
+  expect((await sql`SELECT status, name, bi_number, email_hash, phone_hash FROM players WHERE id = ${guest.playerId}`)[0]).toEqual({ status: "deleted", name: null, bi_number: null, email_hash: null, phone_hash: null });
 });

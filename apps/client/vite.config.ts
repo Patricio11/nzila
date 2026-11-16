@@ -1,12 +1,15 @@
 import preact from "@preact/preset-vite";
 import { defineConfig } from "vite";
 
+// (By number, not by name: "localhost" may be tried as IPv6 first, where the API does not listen, and a request is lost now and then.)
 // The API is asked at /api on the game's own address, in development as in production, so the token never crosses to another origin.
-const api = { "/api": { target: `http://localhost:${process.env.API_PORT ?? 4000}`, rewrite: (path: string) => path.replace(/^\/api/, "") } };
+const api = { "/api": { target: `http://127.0.0.1:${process.env.API_PORT ?? 4000}`, rewrite: (path: string) => path.replace(/^\/api/, "") } };
 
 export default defineConfig({
   plugins: [preact()],
-  server: { host: true, port: 5173, proxy: api },
+  // The packs are thousands of files rewritten by every build of a district, and the screenshots hundreds more: watching
+  // them kept the dev server busy with a whole processor core, which the frame-rate bench then measured (finding F-146).
+  server: { host: true, port: 5173, proxy: api, watch: { ignored: ["**/public/packs/**", "**/screenshots/**", "**/dist/**"] } },
   preview: { proxy: api },
   build: {
     target: "es2022",

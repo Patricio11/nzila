@@ -57,6 +57,11 @@ const OPEN = CELL_WALK | CELL_DRIVE | CELL_WATER | CELL_LOW;
 const BOARD_REACH_M = 4.6;
 /** How near a seat must be for the action to offer it, in metres. */
 const SEAT_REACH_M = 1.9;
+/** How far to each side the camera looks to tell a wall from a post, and how much it rises for every metre a wall pulls it in. */
+const CAMERA_BESIDE_M = 0.9;
+const CAMERA_LIFT = 0.42;
+/** And the most it rises: enough to clear the head, never so much that it looks straight down. */
+const CAMERA_LIFT_MOST_M = 1.15;
 const EMOTE_LIST = EMOTES.map((id) => ({ id, label: tr.t(`emote.${id}`) }));
 const worldClock = compileClock(DEFAULT_CLOCK);
 
@@ -435,9 +440,15 @@ export function Andar() {
         const reach = (ride ? 8.5 : camera.distance) * (upright ? 1.25 : 1);
         const eyeY = y + (ride ? 1.9 : person.height * (0.86 - 0.22 * sit));
         let allowed = reach;
+        // Everything built is solid now (D-0.53), posts and trunks too. A wall must pull the camera in; a post must
+        // not, or the picture would lurch at every lamp. The difference is to the side: a wall goes on, a post does not.
+        const backX = Math.sin(camera.yaw);
+        const backZ = Math.cos(camera.yaw);
         for (let i = 1; i <= 14; i++) {
           const along = (reach * i) / 14;
-          if (!open(ground, x + Math.sin(camera.yaw) * along, z + Math.cos(camera.yaw) * along)) {
+          const px = x + backX * along;
+          const pz = z + backZ * along;
+          if (!open(ground, px, pz) && (!open(ground, px + backZ * CAMERA_BESIDE_M, pz - backX * CAMERA_BESIDE_M) || !open(ground, px - backZ * CAMERA_BESIDE_M, pz + backX * CAMERA_BESIDE_M))) {
             allowed = Math.max(0.9, along - 0.5);
             break;
           }
@@ -464,7 +475,9 @@ export function Andar() {
           renderer.camera.position.copy(eye);
           renderer.camera.lookAt(eye.x + Math.sin(turn) * Math.cos(tilt), eye.y + Math.sin(tilt), eye.z + Math.cos(turn) * Math.cos(tilt));
         } else {
-          renderer.camera.position.set(x + Math.sin(camera.yaw) * flat, eyeY + Math.sin(camera.pitch) * allowed + 0.25, z + Math.cos(camera.yaw) * flat);
+          // Pulled in by a wall, the camera rises: it looks down over the head, and is never inside it.
+          const lift = Math.min(CAMERA_LIFT_MOST_M, Math.max(0, reach - allowed) * CAMERA_LIFT);
+          renderer.camera.position.set(x + Math.sin(camera.yaw) * flat, eyeY + Math.sin(camera.pitch) * allowed + 0.25 + lift, z + Math.cos(camera.yaw) * flat);
           renderer.camera.lookAt(x, eyeY + (upright ? 0.55 : 0.2), z);
         }
         renderer.setFocus(x, 0, z);

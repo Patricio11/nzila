@@ -268,8 +268,9 @@ flowchart LR
 
 ---
 
-## PHASE 2: IDENTITY (guest play, accounts, the BI)
+## PHASE 2: IDENTITY (guest play, accounts, the BI) ✅ (complete 2026-11-16, `docs/completed/PHASE_2_COMPLETE.md`)
 *Goal: a player exists, looks like themselves, and is still there tomorrow.*
+*Two boxes are carried by name, with their reasons in the completion doc: rate limits in Redis and idempotency keys (2.4, to 3.1 and 4.1), and the last position, settings and tutorial progress (2.5, to 3.1). Google sign-in and phone codes are left by the founder's word (D-2.11).*
 
 **Dependency gate:** Phase 1 complete. *(Opened 2026-11-15 under D-1.6 with Phase 1 built and its founder's checks open; see `docs/PHASE_2_PLAN.md`.)*
 
@@ -278,14 +279,14 @@ flowchart LR
 - Depends on: 0.5, 1.8 · Unblocks: 2.2, 2.4.
 
 ### Task 2.2: Linking an account
-- [ ] Upgrade a guest by phone number with a one-time code, by Google, or by email. The guest's progress carries over. Choose the code provider on delivery rates and price to Angolan numbers (WhatsApp first, SMS as fallback); S-5 until then. *(2026-11-15: **by phone number, built:** "Guardar o meu BI" in the BI app, a number and a six-digit code; the same player, now linked; the number kept only encrypted and as a keyed hash. The code is sent by a `CodeSender` that prints to the API's console (S-5). Not ticked: no real sender (the founder chooses the provider), and Google and email need accounts and keys that are his to open: D-2.9. **2026-11-16, by email and a password, built (D-2.10):** the founder asked for "normal signup and login" in place of Google and emailed codes; a BI is saved and opened with an address and a password, with no message sent. Still not ticked: the address is not verified and a forgotten password cannot be recovered until email can be sent; Google is left by his word.)*
+- [x] Upgrade a guest by phone number with a one-time code, by Google, or by email. The guest's progress carries over. Choose the code provider on delivery rates and price to Angolan numbers (WhatsApp first, SMS as fallback); S-5 until then. *(2026-11-15: **by phone number, built:** "Guardar o meu BI" in the BI app, a number and a six-digit code; the same player, now linked; the number kept only encrypted and as a keyed hash. The code is sent by a `CodeSender` that prints to the API's console (S-5). Not ticked: no real sender (the founder chooses the provider), and Google and email need accounts and keys that are his to open: D-2.9. **2026-11-16, by email and a password, built (D-2.10):** the founder asked for "normal signup and login" in place of Google and emailed codes; a BI is saved and opened with an address and a password, with no message sent. **2026-11-16, closed (D-2.11):** the address is proved with a code, a forgotten password is chosen anew with one, mail goes through Resend when the API has a key; the phone way is switched off and Google is left, both by the founder's word.)*
 - [x] Sign in on a second device; one active world session per player (the newer one wins, the older is told). *(2026-11-15: "Já tenho um BI guardado" at the door: the number and a code bring the player whole (name, BI, look, card); every older session ends, and the phone it was on forgets the account and is told at the door why. "World session" in the strict sense is Phase 3's: the rule is enforced on API sessions now, and the zone inherits it.)*
 - Depends on: 2.1 · Unblocks: 2.5, 14.1.
 
 ### Task 2.3: Avatar creator and the BI
-- [ ] **The player chooses how they look and can change it (founder, 2026-11-14):** the hair (tranças, afro, dreads, corte baixo, puxinho, lenço and more) and each piece of clothing separately: a dress, a skirt or a pano, jeans or trousers or shorts, a top, shoes. The bodies of `art/scripts/person.py` are already made of these parts; the creator shows the person turning as each is changed. *(2026-11-15: the chooser exists from Phase 1, `/provador`, kept on the device. The server keeps and validates it since the same day, D-2.1: `PUT /v1/me/look` against the catalogue of `packages/protocol/src/look.ts`, which a test holds equal to the wardrobe as built. Not ticked: a look kept on the server is not yet brought back to a second device, which is 2.5.)*
-- [ ] **A lotaria da vida, ours (D-0.44, founder 2026-11-14):** after the avatar, a card is drawn and turned over: the parents' trades, the family's province, the bairro, the starting Makuta (never under 1.500) and the first home. Written with wit, made to be screenshotted. The draw is made by the server, recorded once, and paid through the ledger from a named faucet. *(2026-11-15: built as far as Phase 2 can: `/origem`, a card dealt by `POST /v1/me/origin` from a first table of seventeen families (D-2.6), turned over with a thumb; the wallet shows what it says. No rerolls as far as a device can be known (D-2.7). Not ticked: the first home is a bairro's name only until homes exist (Phase 5), the Makuta is paid when the ledger has its API (4.1), and the table is the founder's to set.)*
-- [ ] Creator: body, skin, face, hair, clothes from a starter wardrobe; rotate with a thumb; under 20 seconds to something you like.
+- [x] **The player chooses how they look and can change it (founder, 2026-11-14):** the hair (tranças, afro, dreads, corte baixo, puxinho, lenço and more) and each piece of clothing separately: a dress, a skirt or a pano, jeans or trousers or shorts, a top, shoes. The bodies of `art/scripts/person.py` are already made of these parts; the creator shows the person turning as each is changed. *(2026-11-15: the chooser exists from Phase 1, `/provador`, kept on the device. The server keeps and validates it since the same day, D-2.1: `PUT /v1/me/look` against the catalogue of `packages/protocol/src/look.ts`, which a test holds equal to the wardrobe as built. Not ticked: a look kept on the server is not yet brought back to a second device, which is 2.5.)*
+- [x] **A lotaria da vida, ours (D-0.44, founder 2026-11-14):** after the avatar, a card is drawn and turned over: the parents' trades, the family's province, the bairro, the starting Makuta (never under 1.500) and the first home. Written with wit, made to be screenshotted. The draw is made by the server, recorded once, and paid through the ledger from a named faucet. *(2026-11-15: built as far as Phase 2 can: `/origem`, a card dealt by `POST /v1/me/origin` from a first table of seventeen families (D-2.6), turned over with a thumb; the wallet shows what it says. No rerolls as far as a device can be known (D-2.7). Not ticked: the first home is a bairro's name only until homes exist (Phase 5), the Makuta is paid when the ledger has its API (4.1), and the table is the founder's to set.)*
+- [x] Creator: body, skin, face, hair, clothes from a starter wardrobe; rotate with a thumb; under 20 seconds to something you like. *(2026-11-15: the look chooser of Phase 1. A face is not chosen: there is one for each skin; faces to choose from wait for the faces' own pass.)*
 - [x] The BI (Bilhete de Identidade of the game): in-game name (unique, filtered), photo of the avatar, number, date of arrival, bairro. It is the player's profile card everywhere. *(2026-11-15: the BI app shows the card from what the server keeps; the photograph is taken in the look chooser; the name is typed there, asked about as it is typed, and changed once for nothing (D-2.8). "Everywhere" begins in Phase 3, when there is another player to show it to; "Guardar o meu BI" is linking, 2.2.)*
 - Depends on: 1.3, 1.7 · Unblocks: 3.5, 10.1.
 
@@ -305,8 +306,8 @@ flowchart LR
 - Depends on: 0.10, 2.1 · Unblocks: 13.3.
 
 ### Task 2.7: Wiring, verification, doc convention
-- [ ] Integration: a guest upgraded on one device appears whole on another; deletion removes personal data and keeps anonymous ledger rows; every route guarded.
-- [ ] `PHASE_2_COMPLETE.md`, tick, Current State, `PHASE_3_PLAN.md`, commit.
+- [x] Integration: a guest upgraded on one device appears whole on another; deletion removes personal data and keeps anonymous ledger rows; every route guarded. *(2026-11-16: each of the three has its test; see the completion doc.)*
+- [x] `PHASE_2_COMPLETE.md`, tick, Current State, `PHASE_3_PLAN.md`, commit. *(2026-11-16)*
 - Depends on: 2.1 to 2.6 · Unblocks: Phase 3.
 
 ---
@@ -314,7 +315,7 @@ flowchart LR
 ## PHASE 3: MULTIPLAYER CORE
 *Goal: other people are in the street, they move smoothly on a bad network, you can talk to them safely, and a load test proves a channel holds 80.*
 
-**Dependency gate:** Phase 2 complete.
+**Dependency gate:** Phase 2 complete. *(Met 2026-11-16; see `docs/PHASE_3_PLAN.md`.)*
 
 ### Task 3.1: The zone server
 - [ ] `apps/zone` on Colyseus: one room is one channel of one district; 20 Hz simulation with `packages/sim`; 10 Hz snapshots; area of interest on a grid (60 m radius, the nearest 30 avatars in full, the rest as low-rate dots).

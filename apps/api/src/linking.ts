@@ -10,9 +10,10 @@
 // been given: asking for a code always answers the same.
 
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
-import { encryptField, keyedHash, normalizePhone, protectPhone, type Keyring } from "@nzila/db";
+import { decryptField, encryptField, keyedHash, normalizePhone, protectPhone, type Keyring } from "@nzila/db";
 import { checkEmail, checkPassword } from "@nzila/protocol";
 import { type Sql } from "postgres";
+import { codeLetter, type Mailer } from "./mail.ts";
 import { Refusal } from "./routes.ts";
 import { openSession } from "./sessions.ts";
 
@@ -148,16 +149,108 @@ let nobody: Promise<string> | null = null;
 
 const hashEmail = (email: string, pepper: Uint8Array): string => keyedHash(email, "email", pepper);
 
+/**
+ * Sends a code to an address, to confirm it or to choose a new password. As with a number: few in a
+ * quarter of an hour, whoever asks. A letter that cannot be sent is not the asker's to know about:
+ * it is logged, and the answer is the same.
+ */
+export async function mailCode(sql: Sql, pepper: Uint8Array, mailer: Mailer, newCode: () => string, email: string, kind: "verify" | "reset"): Promise<void> {
+  const target = hashEmail(email, pepper);
+  const [recent] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM login_codes WHERE phone_hash = ${target} AND created_at > now() - interval '15 minutes'`;
+  if (recent!.n >= CODES_PER_QUARTER) throw new Refusal(429, "slow_down");
+  const code = newCode();
+  await sql`INSERT INTO login_codes (phone_hash, code_hash, expires_at) VALUES (${target}, ${hashCode(target, code, pepper)}, now() + make_interval(mins => ${CODE_MINUTES}))`;
+  await mailer.send(codeLetter(kind, email, code, CODE_MINUTES)).catch((error: unknown) => console.error(`mail: ${error instanceof Error ? error.message : "not sent"}`));
+}
+
+/** The address a player saved their BI with, read back from its encrypted copy; null when they saved none. */
+async function emailOf(sql: Sql, keyring: Keyring, playerId: string): Promise<string | null> {
+  const [row] = await sql<{ email_enc: Uint8Array | null }[]>`SELECT email_enc FROM players WHERE id = ${playerId}`;
+  return row?.email_enc ? decryptField(row.email_enc, "players.email", keyring) : null;
+}
+
+/** Sends the player the code that confirms their address, again. */
+export async function mailVerifyCode(sql: Sql, keyring: Keyring, pepper: Uint8Array, mailer: Mailer, newCode: () => string, playerId: string): Promise<void> {
+  const email = await emailOf(sql, keyring, playerId);
+  if (!email) throw new Refusal(409, "not_saved");
+  await mailCode(sql, pepper, mailer, newCode, email, "verify");
+}
+
+/** The player types back the code their address was sent: the address is theirs. */
+export async function verifyEmail(sql: Sql, keyring: Keyring, pepper: Uint8Array, playerId: string, code: string): Promise<void> {
+  const email = await emailOf(sql, keyring, playerId);
+  if (!email) throw new Refusal(409, "not_saved");
+  if (!(await codeIsRight(sql, pepper, hashEmail(email, pepper), code, true))) throw new Refusal(400, "wrong_code");
+  await sql`UPDATE players SET email_verified_at = now() WHERE id = ${playerId}`;
+}
+
+/** "Esqueci-me": a code goes to the address if it has an account. The answer is the same either way, and does not wait for the letter. */
+export async function forgotPassword(sql: Sql, pepper: Uint8Array, mailer: Mailer, newCode: () => string, emailInput: string): Promise<void> {
+  const email = checkEmail(emailInput);
+  if (!email) return;
+  const [holder] = await sql<{ id: string }[]>`SELECT id FROM players WHERE email_hash = ${hashEmail(email, pepper)} AND status = 'active'`;
+  if (!holder) return;
+  // Too many asked for is not said either: saying it would say the address has an account.
+  void mailCode(sql, pepper, mailer, newCode, email, "reset").catch(() => undefined);
+}
+
+/**
+ * A new password, chosen with the code sent to the address. Whoever has the code has the mailbox:
+ * the address is proved, every session ends, and this device comes in.
+ */
+export async function resetPassword(sql: Sql, pepper: Uint8Array, emailInput: string, code: string, password: string, deviceId: string, platform: string | null): Promise<{ playerId: string; token: string }> {
+  const email = checkEmail(emailInput);
+  if (!email || checkPassword(password, email) !== null) throw new Refusal(400, "invalid");
+  const target = hashEmail(email, pepper);
+  if (!(await codeIsRight(sql, pepper, target, code, true))) throw new Refusal(400, "wrong_code");
+  const [holder] = await sql<{ id: string }[]>`SELECT id FROM players WHERE email_hash = ${target} AND status = 'active'`;
+  if (!holder) throw new Refusal(400, "wrong_code");
+  const kept = await hashPassword(password);
+  return sql.begin(async (tx) => {
+    await tx`UPDATE players SET password_hash = ${kept}, email_verified_at = coalesce(email_verified_at, now()), signin_failures = 0, signin_locked_until = NULL WHERE id = ${holder.id}`;
+    await tx`UPDATE player_sessions SET revoked_at = now() WHERE player_id = ${holder.id} AND revoked_at IS NULL`;
+    return { playerId: holder.id, token: await openSession(tx as unknown as Sql, pepper, holder.id, deviceId, platform) };
+  });
+}
+
+/** A player who knows their password chooses another. Every other session ends; this one stays. */
+export async function changePassword(sql: Sql, keyring: Keyring, playerId: string, sessionId: string, current: string, next: string): Promise<void> {
+  const email = await emailOf(sql, keyring, playerId);
+  const [row] = await sql<{ password_hash: string | null; locked: boolean }[]>`SELECT password_hash, coalesce(signin_locked_until > now(), false) AS locked FROM players WHERE id = ${playerId}`;
+  if (!email || !row?.password_hash) throw new Refusal(409, "not_saved");
+  if (row.locked) throw new Refusal(429, "slow_down");
+  if (checkPassword(next, email) !== null) throw new Refusal(400, "invalid");
+  if (!(await passwordMatches(current, row.password_hash))) {
+    await countWrongGuess(sql, playerId);
+    throw new Refusal(400, "wrong_login");
+  }
+  const kept = await hashPassword(next);
+  await sql.begin(async (tx) => {
+    await tx`UPDATE players SET password_hash = ${kept}, signin_failures = 0, signin_locked_until = NULL WHERE id = ${playerId}`;
+    await tx`UPDATE player_sessions SET revoked_at = now() WHERE player_id = ${playerId} AND id <> ${sessionId} AND revoked_at IS NULL`;
+  });
+}
+
+/** One more wrong guess at an account's password; the fifth closes it to guessing for a while and starts the count again. */
+async function countWrongGuess(sql: Sql, playerId: string): Promise<void> {
+  await sql`
+    UPDATE players SET
+      signin_locked_until = CASE WHEN signin_failures + 1 >= ${SIGNIN_TRIES} THEN now() + make_interval(mins => ${SIGNIN_LOCK_MINUTES}) ELSE signin_locked_until END,
+      signin_failures = CASE WHEN signin_failures + 1 >= ${SIGNIN_TRIES} THEN 0 ELSE signin_failures + 1 END
+    WHERE id = ${playerId}`;
+}
+
 /** Saves a guest's BI with an address and a password. The same player, now linked. */
-export async function linkEmail(sql: Sql, keyring: Keyring, pepper: Uint8Array, playerId: string, emailInput: string, password: string): Promise<void> {
+export async function linkEmail(sql: Sql, keyring: Keyring, pepper: Uint8Array, playerId: string, emailInput: string, password: string): Promise<string> {
   const email = checkEmail(emailInput);
   if (!email || checkPassword(password, email) !== null) throw new Refusal(400, "invalid");
   const kept = await hashPassword(password);
   try {
     await sql`
       UPDATE players SET kind = 'linked', email_enc = ${encryptField(email, "players.email", keyring)}, email_hash = ${hashEmail(email, pepper)}, password_hash = ${kept},
-        signin_failures = 0, signin_locked_until = NULL
+        signin_failures = 0, signin_locked_until = NULL, email_verified_at = NULL
       WHERE id = ${playerId}`;
+    return email;
   } catch (error) {
     // The address is another player's: one account an address.
     if ((error as { code?: string }).code === "23505") throw new Refusal(409, "has_account");
@@ -175,14 +268,8 @@ export async function signInEmail(sql: Sql, pepper: Uint8Array, emailInput: stri
   nobody ??= hashPassword(randomBytes(24).toString("base64"));
   const right = await passwordMatches(password, holder?.password_hash ?? (await nobody));
   if (!holder || !right) {
-    if (holder) {
-      // Counted in a statement of its own; the fifth wrong guess closes the account for a while and starts the count again.
-      await sql`
-        UPDATE players SET
-          signin_locked_until = CASE WHEN signin_failures + 1 >= ${SIGNIN_TRIES} THEN now() + make_interval(mins => ${SIGNIN_LOCK_MINUTES}) ELSE signin_locked_until END,
-          signin_failures = CASE WHEN signin_failures + 1 >= ${SIGNIN_TRIES} THEN 0 ELSE signin_failures + 1 END
-        WHERE id = ${holder.id}`;
-    }
+    // Counted in a statement of its own, so that the refusal cannot give the guess back.
+    if (holder) await countWrongGuess(sql, holder.id);
     // The same word for an address nobody has and for a wrong password: which it was is not said.
     throw new Refusal(400, "wrong_login");
   }

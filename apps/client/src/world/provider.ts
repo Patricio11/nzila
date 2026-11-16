@@ -16,6 +16,7 @@ import { account, askName, choices, choose, deleteAccount, exportData, refreshAc
 export interface Me {
   /** "linked" once the BI is saved with a phone number. */
   readonly kind: Account["kind"] | undefined;
+  readonly savedWith: Account["savedWith"] | undefined;
   readonly name: Account["name"] | undefined;
   readonly nameFree: boolean | undefined;
   readonly biNumber: string | undefined;
@@ -189,7 +190,7 @@ export class LocalWorld implements WorldProvider {
 
   me(): Me | null {
     const mine = account();
-    return mine ? { kind: mine.kind, name: mine.name, nameFree: mine.nameFree, biNumber: mine.biNumber, arrivedAt: mine.arrivedAt, origin: mine.origin, photo: savedPhoto() } : null;
+    return mine ? { kind: mine.kind, savedWith: mine.savedWith, name: mine.name, nameFree: mine.nameFree, biNumber: mine.biNumber, arrivedAt: mine.arrivedAt, origin: mine.origin, photo: savedPhoto() } : null;
   }
 
   async refreshMe(): Promise<Me | null> {

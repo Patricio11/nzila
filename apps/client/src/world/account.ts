@@ -27,6 +27,8 @@ export interface Account {
   readonly token?: string;
   /** "linked" once the BI is saved with a phone number: the account can then be opened on another phone. */
   readonly kind?: "guest" | "linked";
+  /** How the BI was saved, and whether the address was proved. Never the address or the number themselves. */
+  readonly savedWith?: { readonly email: boolean; readonly emailVerified: boolean; readonly phoneNumber: boolean };
   /** The card the server dealt, kept so that it can be shown with no network. */
   readonly origin?: Origin;
   /** What is on the BI: the name, whether it can still be changed for nothing, the number, the day of arrival. */
@@ -100,6 +102,14 @@ function platform(): "android" | "ios" | "desktop" {
 
 /** One question to the server. Null when it cannot be reached or says no; `status` and the one word of `error` tell which no. */
 async function ask<T>(method: string, path: string, body: unknown, token?: string, patience = PATIENCE_MS): Promise<{ status: number; answer: T | null; error?: string }> {
+  const first = await askOnce<T>(method, path, body, token, patience);
+  // A request lost on the way (no answer at all, or a gateway's error) is asked once more, when asking twice does no
+  // harm: reading, and the questions that change nothing. Whatever makes or changes something is never sent twice.
+  const harmless = method === "GET" || path === "/v1/names/check";
+  return harmless && (first.status === 0 || first.status >= 502) ? askOnce<T>(method, path, body, token, patience) : first;
+}
+
+async function askOnce<T>(method: string, path: string, body: unknown, token: string | undefined, patience: number): Promise<{ status: number; answer: T | null; error?: string }> {
   try {
     const response = await fetch(API + path, {
       method,
@@ -176,11 +186,12 @@ interface Whoami {
   arrivedAt: string;
   look: Look | null;
   origin: Origin | null;
+  savedWith?: { email: boolean; emailVerified: boolean; phoneNumber: boolean };
 }
 
 /** The account with what the server says of it laid over what this phone knew. */
 function known(mine: Account, said: Whoami): Account {
-  return { ...mine, kind: said.kind, ...(said.name ? { name: said.name } : {}), nameFree: said.nameFree, ...(said.biNumber ? { biNumber: said.biNumber } : {}), arrivedAt: said.arrivedAt, ...(said.origin ? { origin: said.origin } : {}) };
+  return { ...mine, kind: said.kind, ...(said.name ? { name: said.name } : {}), nameFree: said.nameFree, ...(said.biNumber ? { biNumber: said.biNumber } : {}), arrivedAt: said.arrivedAt, ...(said.origin ? { origin: said.origin } : {}), ...(said.savedWith ? { savedWith: said.savedWith } : {}) };
 }
 
 /** Asks the server who the player is, and keeps what it says of the BI. The account as it is now known. */
@@ -316,7 +327,7 @@ export async function linkEmail(email: string, password: string): Promise<"ok" |
   const { answer, error } = await ask<{ kind: "linked" }>("POST", "/v1/me/email", { email, password }, mine.token);
   if (answer) {
     changes++;
-    keep({ ...mine, kind: "linked" });
+    keep({ ...mine, kind: "linked", savedWith: { email: true, emailVerified: false, phoneNumber: mine.savedWith?.phoneNumber ?? false } });
     return "ok";
   }
   return error === "has_account" ? "has" : error === "invalid" ? "invalid" : "offline";
@@ -328,4 +339,59 @@ export async function signInEmail(email: string, password: string): Promise<"ok"
   const { answer, error } = await ask<{ playerId: string; token: string }>("POST", "/v1/signin/email", { email, password, deviceId, platform: platform() });
   if (!answer) return error === "wrong_login" || error === "invalid" ? "wrong" : error === "slow_down" ? "slow" : "offline";
   return comeInto(deviceId, answer);
+}
+
+/**
+ * Whether a BI may be saved with a phone number here. Off: nobody is paying a provider to send the
+ * codes (founder, 2026-11-16). On only where the build says so, or where this phone was told so
+ * (the browser tests do that, against an API with the codes switched on).
+ */
+export function phoneOffered(): boolean {
+  if (import.meta.env.VITE_PHONE_CODES === "on") return true;
+  try {
+    return localStorage.getItem("nzila.numero") !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Types back the code sent to the address: the address is the player's own. */
+export async function verifyEmail(code: string): Promise<"ok" | "wrong" | "offline"> {
+  const mine = account();
+  if (!mine?.token) return "offline";
+  const { answer, error } = await ask<{ verified: boolean }>("POST", "/v1/me/email/verify", { code }, mine.token);
+  if (!answer) return error === "wrong_code" || error === "invalid" ? "wrong" : "offline";
+  changes++;
+  keep({ ...mine, savedWith: { email: true, emailVerified: true, phoneNumber: mine.savedWith?.phoneNumber ?? false } });
+  return "ok";
+}
+
+/** Asks for the letter with the code again. */
+export async function mailVerifyCode(): Promise<"ok" | "slow" | "offline"> {
+  const mine = account();
+  if (!mine?.token) return "offline";
+  const { status, answer } = await ask<{ ok: boolean }>("POST", "/v1/me/email/code", {}, mine.token);
+  return answer ? "ok" : status === 429 ? "slow" : "offline";
+}
+
+/** "Esqueci-me": asks for a code to be sent to the address. The server says the same whether or not the address has a BI. */
+export async function forgotPassword(email: string): Promise<"ok" | "slow" | "offline"> {
+  const { status, answer } = await ask<{ ok: boolean }>("POST", "/v1/password/forgot", { email });
+  return answer ? "ok" : status === 429 ? "slow" : "offline";
+}
+
+/** A new password, with the code sent to the address; and in, on this phone. */
+export async function resetPassword(email: string, code: string, password: string): Promise<"ok" | "wrong" | "offline"> {
+  const deviceId = account()?.deviceId ?? newDeviceId();
+  const { answer, error } = await ask<{ playerId: string; token: string }>("POST", "/v1/password/reset", { email, code, password, deviceId, platform: platform() });
+  if (!answer) return error === "wrong_code" || error === "invalid" ? "wrong" : "offline";
+  return comeInto(deviceId, answer);
+}
+
+/** Someone who knows their password chooses another. */
+export async function changePassword(current: string, next: string): Promise<"ok" | "wrong" | "invalid" | "slow" | "offline"> {
+  const mine = account();
+  if (!mine?.token) return "offline";
+  const { status, answer, error } = await ask<{ ok: boolean }>("PUT", "/v1/me/password", { current, next }, mine.token);
+  return answer ? "ok" : error === "wrong_login" ? "wrong" : error === "invalid" ? "invalid" : status === 429 ? "slow" : "offline";
 }

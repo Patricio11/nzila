@@ -13,3 +13,7 @@
   .provador-panel { flex: 0 0 420px; margin-top: 0; border-radius: 0; }
 }
 .provador-extras { display: flex; flex-direction: column; gap: var(--s-2); }
+/* The cloth along the head of the panel, from edge to edge, under its round corners. */
+.provador-edge { flex: 0 0 auto; width: auto; margin: calc(var(--s-4) * -1) calc(max(var(--s-4), env(safe-area-inset-right)) * -1) 0 calc(max(var(--s-4), env(safe-area-inset-left)) * -1); --faixa: 12px; }
+.provador-panel { overflow-x: hidden; }
+@media (orientation: portrait), (max-width: 699px) { .provador-edge { border-radius: var(--r-sheet) var(--r-sheet) 0 0; } }
