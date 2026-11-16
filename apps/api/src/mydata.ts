@@ -16,8 +16,8 @@ import { Refusal } from "./routes.ts";
 
 /** Everything the game keeps of one player, in words a person can read. Hashes are left out: they say nothing to their owner. */
 export async function exportOf(sql: Sql, origins: OriginTable, playerId: string): Promise<Record<string, unknown>> {
-  const [player] = await sql<{ kind: string; name: string | null; bi_number: string | null; name_changes: number; age_band: string | null; arrived_at: Date; district_id: string | null }[]>`
-    SELECT kind, name, bi_number, name_changes, age_band, arrived_at, district_id FROM players WHERE id = ${playerId}`;
+  const [player] = await sql<{ kind: string; name: string | null; bi_number: string | null; name_changes: number; age_band: string | null; arrived_at: Date; district_id: string | null; by_phone: boolean; by_email: boolean }[]>`
+    SELECT kind, name, bi_number, name_changes, age_band, arrived_at, district_id, phone_hash IS NOT NULL AS by_phone, email_hash IS NOT NULL AS by_email FROM players WHERE id = ${playerId}`;
   const [avatar] = await sql<{ spec: unknown; updated_at: Date }[]>`SELECT spec, updated_at FROM avatars WHERE player_id = ${playerId}`;
   const devices = await sql<{ platform: string | null; first_seen_at: Date; last_seen_at: Date }[]>`SELECT platform, first_seen_at, last_seen_at FROM devices WHERE player_id = ${playerId} ORDER BY first_seen_at`;
   const sessions = await sql<{ created_at: Date; last_seen_at: Date; expires_at: Date; revoked_at: Date | null }[]>`
@@ -27,6 +27,8 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
   return {
     exportedAt: new Date().toISOString(),
     player: { id: playerId, kind: player!.kind, name: player!.name, biNumber: player!.bi_number, nameChanges: player!.name_changes, ageBand: player!.age_band, arrivedAt: player!.arrived_at, lastDistrict: player!.district_id },
+    // How the BI was saved. The number and the address themselves are kept encrypted and are the player's own to know.
+    savedWith: { phoneNumber: player!.by_phone, email: player!.by_email },
     look: avatar ? { ...checkLook(avatar.spec), updatedAt: avatar.updated_at } : null,
     origin: await originOfPlayer(sql, origins, playerId),
     consents: consents.map((row) => ({ purpose: row.purpose, version: row.version, granted: row.granted, at: row.at })),
@@ -56,7 +58,8 @@ export async function deleteAccount(sql: Sql, playerId: string, biNumber: string
     await tx`DELETE FROM player_origins WHERE player_id = ${playerId}`;
     await tx`
       UPDATE players SET status = 'deleted', deleted_at = now(), name = NULL, name_key = NULL, bi_number = NULL, age_band = NULL,
-        home_district_id = NULL, province_id = NULL, district_id = NULL, x = NULL, y = NULL, z = NULL, phone_enc = NULL, phone_hash = NULL
+        home_district_id = NULL, province_id = NULL, district_id = NULL, x = NULL, y = NULL, z = NULL, phone_enc = NULL, phone_hash = NULL,
+        email_enc = NULL, email_hash = NULL, password_hash = NULL, signin_failures = 0, signin_locked_until = NULL
       WHERE id = ${playerId}`;
     await audit.log(tx as unknown as Sql, { actorKind: "player", actorId: playerId, kind: "player.delete", subjectKind: "player", subjectId: playerId, reason: "the player deleted their account" });
   });

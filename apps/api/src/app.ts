@@ -11,7 +11,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
 import { memoryLimiter, type Limiter } from "./limiter.ts";
-import { consoleSender, linkPhone, sendCode, signIn, type CodeSender } from "./linking.ts";
+import { consoleSender, linkEmail, linkPhone, sendCode, signIn, signInEmail, type CodeSender } from "./linking.ts";
 import { choicesOf, deleteAccount, exportOf } from "./mydata.ts";
 import { askName, FREE_NAME_CHANGES, loadNameFilter, rename } from "./names.ts";
 import { dealOrigin, originOfPlayer } from "./origins.ts";
@@ -200,6 +200,28 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: z.strictObject({ phone: phoneShape, code: codeShape, deviceId: deviceShape, platform: platformShape }),
     perMinute: 10,
     handler: async (body) => signIn(deps.sql, deps.pepper, body.phone, body.code, body.deviceId, body.platform ?? null),
+  });
+
+  // The ordinary way: an email address and a password. The same player, linked; and the way back in on another phone.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/me/email",
+    guard: "player",
+    body: z.strictObject({ email: z.string().max(254), password: z.string().max(512) }),
+    perMinute: 6,
+    handler: async (body, caller) => {
+      await linkEmail(deps.sql, deps.keyring, deps.pepper, caller.player.id, body.email, body.password);
+      return { kind: "linked" };
+    },
+  });
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/signin/email",
+    guard: "public",
+    body: z.strictObject({ email: z.string().max(254), password: z.string().max(512), deviceId: deviceShape, platform: platformShape }),
+    // Few by address; and five wrong guesses close the account itself for a while (linking.ts).
+    perMinute: 10,
+    handler: async (body) => signInEmail(deps.sql, deps.pepper, body.email, body.password, body.deviceId, body.platform ?? null),
   });
 
   // What the player agrees to, of the things that can be said no to. Both are off until they say yes (Rule 16).

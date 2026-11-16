@@ -434,3 +434,82 @@ describe("saving the BI with a phone number", () => {
     expect((await app.inject({ method: "POST", url: "/v1/me/phone", payload: { phone: "923456067", code } })).statusCode).toBe(401);
   });
 });
+
+describe("saving the BI with an email address and a password", () => {
+  const link = (token: string, email: unknown, password: unknown) => app.inject({ method: "POST", url: "/v1/me/email", headers: as(token), payload: { email, password } });
+  const signIn = (email: string, password: string, n: number) => app.inject({ method: "POST", url: "/v1/signin/email", payload: { email, password, deviceId: device(n) } });
+  const me = (token: string) => app.inject({ method: "GET", url: "/v1/me", headers: as(token) });
+
+  test("a guest is linked: the same player; the address kept only encrypted and hashed, the password only as a salted hash", async () => {
+    const guest = await newGuest(70);
+    expect((await link(guest.token, " Dona.Xepa@Exemplo.AO ", "funje com peixe")).statusCode).toBe(200);
+    expect((await me(guest.token)).json()).toMatchObject({ id: guest.playerId, kind: "linked", biNumber: guest.biNumber });
+    const [row] = await sql`SELECT email_enc, email_hash, password_hash FROM players WHERE id = ${guest.playerId}`;
+    expect(decryptField(row!.email_enc as Uint8Array, "players.email", keyring)).toBe("dona.xepa@exemplo.ao");
+    expect(row!.password_hash).toMatch(/^scrypt\$15\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/);
+    const everything = JSON.stringify(await sql`SELECT * FROM players WHERE id = ${guest.playerId}`);
+    expect(everything).not.toContain("dona.xepa");
+    expect(everything).not.toContain("funje");
+    // What they may take away says how the BI was saved, and nothing of the secret.
+    const data = await app.inject({ method: "GET", url: "/v1/me/data", headers: as(guest.token) });
+    expect(data.json()).toMatchObject({ savedWith: { phoneNumber: false, email: true } });
+    expect(data.body).not.toContain("scrypt");
+  });
+
+  test("what is not an address, or not a password worth the name, saves nothing", async () => {
+    const guest = await newGuest(71);
+    for (const [email, password] of [["not an address", "funje com peixe"], ["a@b.ao", "curta"], ["a@b.ao", "12345678"], ["ze.manel.luanda@b.ao", "ze.manel.luanda"], [42, "funje com peixe"]] as const) {
+      const res = await link(guest.token, email, password);
+      expect(res.statusCode, String(email)).toBe(400);
+    }
+    expect((await me(guest.token)).json()).toMatchObject({ kind: "guest" });
+    expect((await app.inject({ method: "POST", url: "/v1/me/email", payload: { email: "a@b.ao", password: "funje com peixe" } })).statusCode).toBe(401);
+  });
+
+  test("an address is one player's: a second guest who asks for it is told it has an account", async () => {
+    const owner = await newGuest(72);
+    expect((await link(owner.token, "kota@exemplo.ao", "muamba de galinha")).statusCode).toBe(200);
+    const other = await newGuest(73);
+    const told = await link(other.token, "KOTA@exemplo.ao", "outra palavra-passe");
+    expect(told.statusCode).toBe(409);
+    expect(told.json()).toEqual({ error: "has_account" });
+    expect((await me(other.token)).json()).toMatchObject({ kind: "guest" });
+  });
+
+  test("on a second phone the address and the password bring the player back, and the older phone is put out", async () => {
+    const first = await newGuest(74);
+    await app.inject({ method: "PUT", url: "/v1/me/name", headers: as(first.token), payload: { name: "Tia Bia" } });
+    expect((await link(first.token, "tia.bia@exemplo.ao", "calulu de peixe seco")).statusCode).toBe(200);
+    const second = await signIn("Tia.Bia@exemplo.ao", "calulu de peixe seco", 75);
+    expect(second.statusCode).toBe(200);
+    const { playerId, token } = second.json() as { playerId: string; token: string };
+    expect(playerId).toBe(first.playerId);
+    expect((await me(token)).json()).toMatchObject({ name: "Tia Bia", kind: "linked" });
+    expect((await me(first.token)).statusCode).toBe(401);
+  });
+
+  test("a wrong password and an address nobody has are told the same thing; five wrong guesses close the account for a while, even to the right password", async () => {
+    const guest = await newGuest(76);
+    expect((await link(guest.token, "mano@exemplo.ao", "kizaca com ginguba")).statusCode).toBe(200);
+    const nobody = await signIn("ninguem@exemplo.ao", "kizaca com ginguba", 77);
+    const wrong = await signIn("mano@exemplo.ao", "outra coisa qualquer", 77);
+    expect([nobody.statusCode, nobody.json()]).toEqual([400, { error: "wrong_login" }]);
+    expect([wrong.statusCode, wrong.json()]).toEqual([400, { error: "wrong_login" }]);
+    expect((await signIn("not an address", "kizaca com ginguba", 77)).json()).toEqual({ error: "wrong_login" });
+    for (let n = 0; n < 4; n++) expect((await signIn("mano@exemplo.ao", `guess number ${n}`, 77)).statusCode).toBe(400);
+    const closed = await signIn("mano@exemplo.ao", "kizaca com ginguba", 77);
+    expect([closed.statusCode, closed.json()]).toEqual([429, { error: "slow_down" }]);
+    // When the quarter of an hour has passed, the right password opens it, and the count begins again.
+    await sql`UPDATE players SET signin_locked_until = now() - interval '1 second' WHERE id = ${guest.playerId}`;
+    expect((await signIn("mano@exemplo.ao", "kizaca com ginguba", 77)).statusCode).toBe(200);
+    expect((await sql`SELECT signin_failures, signin_locked_until FROM players WHERE id = ${guest.playerId}`)[0]).toEqual({ signin_failures: 0, signin_locked_until: null });
+  }, 30_000);
+
+  test("deleting the account takes the address and the password with it", async () => {
+    const guest = await newGuest(78);
+    expect((await link(guest.token, "adeus@exemplo.ao", "ate a proxima vez")).statusCode).toBe(200);
+    expect((await app.inject({ method: "DELETE", url: "/v1/me", headers: as(guest.token), payload: { biNumber: guest.biNumber } })).statusCode).toBe(200);
+    expect((await sql`SELECT email_enc, email_hash, password_hash FROM players WHERE id = ${guest.playerId}`)[0]).toEqual({ email_enc: null, email_hash: null, password_hash: null });
+    expect((await signIn("adeus@exemplo.ao", "ate a proxima vez", 79)).json()).toEqual({ error: "wrong_login" });
+  });
+});

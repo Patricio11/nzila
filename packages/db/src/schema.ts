@@ -60,6 +60,12 @@ export const players = pgTable("players", {
   // Never the number itself: see privacy.ts.
   phoneEnc: bytea("phone_enc"),
   phoneHash: text("phone_hash"),
+  // The same for an email address, and the salted hash of the password that goes with it.
+  emailEnc: bytea("email_enc"),
+  emailHash: text("email_hash"),
+  passwordHash: text("password_hash"),
+  signinFailures: integer("signin_failures").notNull().default(0),
+  signinLockedUntil: at("signin_locked_until"),
   arrivedAt: at("arrived_at").notNull().defaultNow(),
   createdAt: at("created_at").notNull().defaultNow(),
   deletedAt: at("deleted_at"),

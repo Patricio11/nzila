@@ -18,5 +18,9 @@
   {
     "id": "0005_login_codes",
     "sha256": "c8c4740b70f9dda800baad9372b2db62b2c2f6c1fba4063b94e684b53cb0a093"
+  },
+  {
+    "id": "0006_player_email",
+    "sha256": "b815aa9f1152964501196a09e442e97b8efcabea80cc7b6e21bd0d5c91c7d7aa"
   }
 ]

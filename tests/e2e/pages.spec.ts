@@ -261,7 +261,7 @@ test.describe("saving the BI", () => {
     await expect(page.locator(".tm-save-said")).toHaveText("O código não está certo. Vê outra vez.");
     await page.getByLabel("O código de 6 algarismos que recebeste").fill(code);
     await page.getByRole("button", { name: "Confirmar código" }).click();
-    await expect(page.getByText("BI guardado. Com o teu número, entras em qualquer telemóvel.")).toBeVisible();
+    await expect(page.getByText("BI guardado. Agora entras em qualquer telemóvel.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Guardar o meu BI" })).toHaveCount(0);
     // The number is nowhere on the phone.
     expect(JSON.stringify(await page.evaluate(() => ({ ...localStorage })))).not.toContain("923000");
@@ -288,9 +288,74 @@ test.describe("saving the BI", () => {
     await page.goto("/andar?pack=l1&telemovel=bi");
     await page.waitForFunction(() => localStorage.getItem("nzila.conta") === null, undefined, { timeout: 30_000 });
     await page.goto("/");
-    await expect(page.getByText("O teu BI foi aberto noutro telemóvel. Para jogar neste, entra outra vez com o teu número.")).toBeVisible();
+    await expect(page.getByText("O teu BI foi aberto noutro telemóvel. Para jogar neste, entra outra vez.")).toBeVisible();
     await expect(page.getByLabel("O teu número de telemóvel")).toBeVisible();
     await expectNoSidewaysScroll(page);
+    expect(seen.errors.filter((error) => !/40[01]/.test(error))).toEqual([]);
+  });
+});
+
+test.describe("saving the BI with an email", () => {
+  test("a guest saves the BI with an email address and a password, and a second phone comes in with them; a wrong password is told nothing more", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/front.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). Saving the BI by email was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(150_000);
+    const seen = watch(page);
+    const email = `kamba.${info.project.name}@exemplo.ao`;
+    const password = "funje com peixe grelhado";
+    await page.goto("/");
+    await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    await bornIn(page, "1995");
+    await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Está bom" }).click();
+    await turnCard(page);
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    await page.getByRole("button", { name: "BI", exact: true }).click();
+    const born = (await page.locator(".n-bi-name").textContent()) ?? "";
+
+    await page.getByRole("button", { name: "Guardar o meu BI" }).click();
+    await page.getByRole("radio", { name: "E-mail" }).click();
+    const said = page.locator(".tm-save-said");
+    await expect(said).toHaveText("Pelo menos 8 letras. Uma frase que só tu sabes é melhor do que uma palavra difícil.");
+    // What is wrong is said at once, before anything is asked of the server.
+    await page.getByLabel("O teu e-mail").fill("kamba@");
+    await page.getByLabel("Escolhe uma palavra-passe").fill(password);
+    await page.getByRole("button", { name: "Guardar", exact: true }).click();
+    await expect(said).toHaveText("Esse e-mail não parece certo.");
+    await page.getByLabel("O teu e-mail").fill(email);
+    await page.getByLabel("Escolhe uma palavra-passe").fill("12345678");
+    await page.getByRole("button", { name: "Guardar", exact: true }).click();
+    await expect(said).toHaveText("Essa adivinha-se logo. Escolhe outra.");
+    await page.getByLabel("Escolhe uma palavra-passe").fill(password);
+    await page.getByRole("button", { name: "Guardar", exact: true }).click();
+    await expect(page.getByText("BI guardado. Agora entras em qualquer telemóvel.")).toBeVisible();
+    // Neither the address nor the password stays on the phone.
+    const kept = JSON.stringify(await page.evaluate(() => ({ ...localStorage })));
+    expect(kept).not.toContain("exemplo.ao");
+    expect(kept).not.toContain("funje");
+
+    // A second phone: a wrong password is told one thing only; the right one brings the player whole.
+    const other = await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" });
+    const second = await other.newPage();
+    await second.goto("/");
+    await second.getByRole("link", { name: "Já tenho um BI guardado" }).click();
+    await second.getByRole("radio", { name: "E-mail" }).click();
+    await second.getByLabel("O teu e-mail").fill(email.toUpperCase());
+    await second.getByLabel("A tua palavra-passe").fill("outra coisa qualquer");
+    await second.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(second.locator(".tm-save-said")).toHaveText("O e-mail ou a palavra-passe não estão certos.");
+    await second.getByLabel("A tua palavra-passe").fill(password);
+    await second.getByRole("button", { name: "Entrar", exact: true }).click();
+    await second.waitForURL(/\/andar\?pack=l1/);
+    await second.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await second.getByRole("button", { name: "Telemóvel" }).click();
+    await second.getByRole("button", { name: "BI", exact: true }).click();
+    await expect(second.locator(".n-bi-name")).toHaveText(born);
+    await other.close();
     expect(seen.errors.filter((error) => !/40[01]/.test(error))).toEqual([]);
   });
 });

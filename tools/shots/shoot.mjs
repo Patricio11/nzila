@@ -49,6 +49,7 @@ const PAGES = [
   ...[8, 9, 10, 11, 12, 13, 14].flatMap((n) => [[`rua-${n}`, `/corpo?hour=16.6&quem=${n}&ang=25`], [`rua-${n}-tras`, `/corpo?hour=15&quem=${n}&ang=200`]]),
   // The age question and the card of origin (Tasks 2.6, 2.3).
   ["entrar-numero", "/?entrar"],
+  ["entrar-email", "/?entrar=email"],
   ["idade", "/?ano="],
   ["idade-meio", "/?ano=19"],
   ["idade-cheia", "/?ano=1990"],

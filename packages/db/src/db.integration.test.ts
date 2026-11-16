@@ -74,7 +74,7 @@ async function balance(id: string): Promise<number> {
 
 describe("migrations", () => {
   test("apply once, and a second run applies nothing", async () => {
-    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins", "0004_player_names", "0005_login_codes"]);
+    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins", "0004_player_names", "0005_login_codes", "0006_player_email"]);
     expect(await migrate(sql)).toEqual([]);
   });
 
@@ -252,8 +252,8 @@ describe("players", () => {
     await sql`UPDATE players SET age_band = '15_17' WHERE id = ${guest!.id}`;
     expect(await refusal(sql`UPDATE players SET age_band = '2011' WHERE id = ${guest!.id}`)).toBe(CHECK);
     const columns = await sql<{ column_name: string }[]>`SELECT column_name FROM information_schema.columns WHERE table_name = 'players'`;
-    // The only trace of a phone number is its encrypted copy and its keyed hash.
-    expect(columns.map((c) => c.column_name).filter((c) => /birth|phone|email|real_name/.test(c)).sort()).toEqual(["phone_enc", "phone_hash"]);
+    // The only trace of a phone number or an email address is its encrypted copy and its keyed hash.
+    expect(columns.map((c) => c.column_name).filter((c) => /birth|phone|email|real_name/.test(c)).sort()).toEqual(["email_enc", "email_hash", "phone_enc", "phone_hash"]);
   });
 
   test("a phone number is stored encrypted and hashed, found by its hash, and belongs to one account", async () => {

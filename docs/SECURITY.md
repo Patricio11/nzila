@@ -17,7 +17,7 @@
 
 **1. Client to API (Phase 2).**
 - Every route is declared through `declare()` (`apps/api/src/routes.ts`) with a **guard** (`public`, `player`, `staff`), a **shape** checked with Zod before the handler runs (unknown fields are refused, bodies are capped at 16 KB), and a **rate limit**. A route registered any other way stops the app from being built, and a test walks every route. The list of public routes is written out in that test: adding one is a deliberate act.
-- Errors are a status and a one-word code (`invalid`, `unauthenticated`, `slow_down`, `forbidden`, `not_found`, `failed`, for a name `name_taken`, `name_refused`, `name_spent`, `not_confirmed` for a deletion without its proof, and for a code `wrong_code`, `has_account`, `no_account`). No message, no stack, no detail of what was wrong: the client has the words, and an attacker learns nothing.
+- Errors are a status and a one-word code (`invalid`, `unauthenticated`, `slow_down`, `forbidden`, `not_found`, `failed`, for a name `name_taken`, `name_refused`, `name_spent`, `not_confirmed` for a deletion without its proof, for a code `wrong_code`, `has_account`, `no_account`, and for a password `wrong_login`). No message, no stack, no detail of what was wrong: the client has the words, and an attacker learns nothing.
 - `staff` passes nobody until the Estúdio exists (Phase 12).
 
 **2. Sessions (Task 2.1).**
@@ -41,6 +41,13 @@
 - Asking for a code answers the same for every number. Whether a number has an account is said only to someone who has given a right code for it.
 - The number itself is stored encrypted (AES-256-GCM, bound to its column) and as a keyed hash for finding the account; it is on no phone and in no answer of the API.
 - Signing in ends every other session of the player (one active session; the newer wins).
+
+**2f. Saving the BI with an email address and a password (Task 2.2, D-2.10).**
+- The password is stretched with scrypt (2^15 blocks of 8, a salt of its own) and only the result is kept; a wrong guess costs the server the same work whether or not the address has an account.
+- A wrong password and an unknown address get the same answer, `wrong_login`.
+- Five wrong guesses close the account to guessing for fifteen minutes, counted on the account itself, whatever address they come from; the limit by address is on top.
+- The address is kept encrypted and as a keyed hash, never in the clear; neither it nor the password stays on the phone.
+- **Not done, and it matters:** the address is not verified (no email is sent yet), so someone can save a BI with an address that is not theirs, and nothing can be sent to a player who forgets their password. A password cannot yet be changed. Saving with an address that already has an account says so (there is no way to hide that without sending mail).
 
 **3. Personal data (Task 0.10).** Fields that identify a person are encrypted with AES-256-GCM under a rotating keyring, bound to their column; phone numbers and device ids are matched by keyed hash. A guest has none.
 

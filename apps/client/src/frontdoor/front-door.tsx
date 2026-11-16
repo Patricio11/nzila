@@ -71,7 +71,7 @@ export function FrontDoor() {
             <Postal />
           </div>
           {putOut ? <p class="frontdoor-cost">{tr.t("session.elsewhere")}</p> : null}
-          <Guardar mode="signin" onBack={() => setReturning(false)} onDone={() => void go(new LocalWorld().settings.poupanca)} />
+          <Guardar mode="signin" first={params.get("entrar") === "email" ? "email" : "phone"} onBack={() => setReturning(false)} onDone={() => void go(new LocalWorld().settings.poupanca)} />
         </>
       ) : asking ? (
         <AgeGate onIn={old} start={params.get("ano") ?? ""} shut={params.has("cedo")} busy={going} />

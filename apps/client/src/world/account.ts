@@ -283,17 +283,14 @@ export async function linkPhone(phone: string, code: string): Promise<"ok" | "wr
 }
 
 /**
- * Comes into the account a number belongs to, on this phone. What the server
- * keeps of the player (the look, the name, the card) replaces what this phone
- * had: whoever was playing here as a guest is left behind.
+ * A token the server has just given for a saved account is kept, with what the
+ * server keeps of the player (the look, the name, the card) in place of what
+ * this phone had: whoever was playing here as a guest is left behind.
  */
-export async function signInPhone(phone: string, code: string): Promise<"ok" | "wrong" | "none" | "offline"> {
-  const deviceId = account()?.deviceId ?? newDeviceId();
-  const { answer, error } = await ask<{ playerId: string; token: string }>("POST", "/v1/signin/phone", { phone, code, deviceId, platform: platform() });
-  if (!answer) return error === "no_account" ? "none" : error === "wrong_code" || error === "invalid" ? "wrong" : "offline";
-  const me = (await ask<Whoami>("GET", "/v1/me", undefined, answer.token)).answer;
+async function comeInto(deviceId: string, given: { playerId: string; token: string }): Promise<"ok" | "offline"> {
+  const me = (await ask<Whoami>("GET", "/v1/me", undefined, given.token)).answer;
   if (!me?.ageBand) return "offline";
-  keep(known({ deviceId, ageBand: me.ageBand, playerId: answer.playerId, token: answer.token }, me));
+  keep(known({ deviceId, ageBand: me.ageBand, playerId: given.playerId, token: given.token }, me));
   try {
     localStorage.removeItem("nzila.foto");
     if (me.look) localStorage.setItem("nzila.look", JSON.stringify(me.look));
@@ -302,4 +299,33 @@ export async function signInPhone(phone: string, code: string): Promise<"ok" | "
     // Storage is off: the look is chosen again.
   }
   return "ok";
+}
+
+/** Comes into the account a number belongs to, on this phone. */
+export async function signInPhone(phone: string, code: string): Promise<"ok" | "wrong" | "none" | "offline"> {
+  const deviceId = account()?.deviceId ?? newDeviceId();
+  const { answer, error } = await ask<{ playerId: string; token: string }>("POST", "/v1/signin/phone", { phone, code, deviceId, platform: platform() });
+  if (!answer) return error === "no_account" ? "none" : error === "wrong_code" || error === "invalid" ? "wrong" : "offline";
+  return comeInto(deviceId, answer);
+}
+
+/** Saves this account with an email address and a password. "has": the address is another player's. */
+export async function linkEmail(email: string, password: string): Promise<"ok" | "has" | "invalid" | "offline"> {
+  const mine = account();
+  if (!mine?.token) return "offline";
+  const { answer, error } = await ask<{ kind: "linked" }>("POST", "/v1/me/email", { email, password }, mine.token);
+  if (answer) {
+    changes++;
+    keep({ ...mine, kind: "linked" });
+    return "ok";
+  }
+  return error === "has_account" ? "has" : error === "invalid" ? "invalid" : "offline";
+}
+
+/** Comes into the account an address belongs to, on this phone. "slow": too many wrong guesses, the account is closed for a while. */
+export async function signInEmail(email: string, password: string): Promise<"ok" | "wrong" | "slow" | "offline"> {
+  const deviceId = account()?.deviceId ?? newDeviceId();
+  const { answer, error } = await ask<{ playerId: string; token: string }>("POST", "/v1/signin/email", { email, password, deviceId, platform: platform() });
+  if (!answer) return error === "wrong_login" || error === "invalid" ? "wrong" : error === "slow_down" ? "slow" : "offline";
+  return comeInto(deviceId, answer);
 }

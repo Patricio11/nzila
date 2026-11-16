@@ -9,8 +9,9 @@
 // Nothing here says whether a number has an account until a right code has
 // been given: asking for a code always answers the same.
 
-import { timingSafeEqual } from "node:crypto";
-import { keyedHash, normalizePhone, protectPhone, type Keyring } from "@nzila/db";
+import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { encryptField, keyedHash, normalizePhone, protectPhone, type Keyring } from "@nzila/db";
+import { checkEmail, checkPassword } from "@nzila/protocol";
 import { type Sql } from "postgres";
 import { Refusal } from "./routes.ts";
 import { openSession } from "./sessions.ts";
@@ -105,6 +106,88 @@ export async function signIn(sql: Sql, pepper: Uint8Array, input: string, code: 
   const [holder] = await sql<{ id: string }[]>`SELECT id FROM players WHERE phone_hash = ${phoneHash} AND status = 'active'`;
   if (!holder) throw new Refusal(404, "no_account");
   return sql.begin(async (tx) => {
+    await tx`UPDATE player_sessions SET revoked_at = now() WHERE player_id = ${holder.id} AND revoked_at IS NULL`;
+    return { playerId: holder.id, token: await openSession(tx as unknown as Sql, pepper, holder.id, deviceId, platform) };
+  });
+}
+
+// ------------------------------------------------------------------ an email address and a password
+//
+// The ordinary way (founder, 2026-11-15). No message is sent, so nothing here waits on a
+// provider; and so nothing proves the address is the player's own, and a forgotten password
+// cannot yet be sent anywhere (finding F-140). The password is kept only as a salted scrypt
+// hash. Five wrong guesses close an account to guessing for a quarter of an hour.
+
+/** scrypt's cost: 2^15 blocks of 8, which is 32 MB and some tens of milliseconds a guess. */
+const COST_LOG2 = 15;
+const BLOCK = 8;
+const KEY_BYTES = 32;
+export const SIGNIN_TRIES = 5;
+export const SIGNIN_LOCK_MINUTES = 15;
+
+function stretch(password: string, salt: Buffer, costLog2: number): Promise<Buffer> {
+  return new Promise((done, failed) => scrypt(password.normalize("NFKC"), salt, KEY_BYTES, { N: 2 ** costLog2, r: BLOCK, p: 1, maxmem: 256 * 2 ** costLog2 * BLOCK }, (error, key) => (error ? failed(error) : done(key))));
+}
+
+/** What is kept of a password: how it was stretched, the salt, and the result. Never the password. */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16);
+  return `scrypt$${COST_LOG2}$${salt.toString("base64")}$${(await stretch(password, salt, COST_LOG2)).toString("base64")}`;
+}
+
+export async function passwordMatches(password: string, kept: string): Promise<boolean> {
+  const [scheme, cost, salt, key] = kept.split("$");
+  if (scheme !== "scrypt" || !cost || !salt || !key) return false;
+  const wanted = Buffer.from(key, "base64");
+  const given = await stretch(password, Buffer.from(salt, "base64"), Number(cost));
+  return given.length === wanted.length && timingSafeEqual(given, wanted);
+}
+
+/** A hash nobody's password matches: guessing at an address that has no account costs the same time as guessing at one that has. */
+let nobody: Promise<string> | null = null;
+
+const hashEmail = (email: string, pepper: Uint8Array): string => keyedHash(email, "email", pepper);
+
+/** Saves a guest's BI with an address and a password. The same player, now linked. */
+export async function linkEmail(sql: Sql, keyring: Keyring, pepper: Uint8Array, playerId: string, emailInput: string, password: string): Promise<void> {
+  const email = checkEmail(emailInput);
+  if (!email || checkPassword(password, email) !== null) throw new Refusal(400, "invalid");
+  const kept = await hashPassword(password);
+  try {
+    await sql`
+      UPDATE players SET kind = 'linked', email_enc = ${encryptField(email, "players.email", keyring)}, email_hash = ${hashEmail(email, pepper)}, password_hash = ${kept},
+        signin_failures = 0, signin_locked_until = NULL
+      WHERE id = ${playerId}`;
+  } catch (error) {
+    // The address is another player's: one account an address.
+    if ((error as { code?: string }).code === "23505") throw new Refusal(409, "has_account");
+    throw error;
+  }
+}
+
+/** Comes into the account an address belongs to, on this device. As with a number: every older session ends. */
+export async function signInEmail(sql: Sql, pepper: Uint8Array, emailInput: string, password: string, deviceId: string, platform: string | null): Promise<{ playerId: string; token: string }> {
+  const email = checkEmail(emailInput);
+  if (!email) throw new Refusal(400, "wrong_login");
+  const [holder] = await sql<{ id: string; password_hash: string | null; locked: boolean }[]>`
+    SELECT id, password_hash, coalesce(signin_locked_until > now(), false) AS locked FROM players WHERE email_hash = ${hashEmail(email, pepper)} AND status = 'active'`;
+  if (holder?.locked) throw new Refusal(429, "slow_down");
+  nobody ??= hashPassword(randomBytes(24).toString("base64"));
+  const right = await passwordMatches(password, holder?.password_hash ?? (await nobody));
+  if (!holder || !right) {
+    if (holder) {
+      // Counted in a statement of its own; the fifth wrong guess closes the account for a while and starts the count again.
+      await sql`
+        UPDATE players SET
+          signin_locked_until = CASE WHEN signin_failures + 1 >= ${SIGNIN_TRIES} THEN now() + make_interval(mins => ${SIGNIN_LOCK_MINUTES}) ELSE signin_locked_until END,
+          signin_failures = CASE WHEN signin_failures + 1 >= ${SIGNIN_TRIES} THEN 0 ELSE signin_failures + 1 END
+        WHERE id = ${holder.id}`;
+    }
+    // The same word for an address nobody has and for a wrong password: which it was is not said.
+    throw new Refusal(400, "wrong_login");
+  }
+  return sql.begin(async (tx) => {
+    await tx`UPDATE players SET signin_failures = 0, signin_locked_until = NULL WHERE id = ${holder.id}`;
     await tx`UPDATE player_sessions SET revoked_at = now() WHERE player_id = ${holder.id} AND revoked_at IS NULL`;
     return { playerId: holder.id, token: await openSession(tx as unknown as Sql, pepper, holder.id, deviceId, platform) };
   });
