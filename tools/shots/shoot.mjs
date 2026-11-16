@@ -93,6 +93,11 @@ const PAGES = [
   ["sinais-marginal", "/andar?pack=l1&em=188,84&cam=250&hour=16.8&transito=30"],
   ["sinais-noite", "/andar?pack=l1&em=216,166&cam=140&hour=20.5&transito=30"],
   ["sinais-cena", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=196,160,3&look=220,170,3"],
+  // Names over whoever is standing still and near: the sellers seated before the market, the man who fishes.
+  ["nomes-vendedeiras", "/andar?pack=l1&em=121,157.2&cam=20&hour=15&transito=10"],
+  ["nomes-vendedeiras-2", "/andar?pack=l1&em=117,158&cam=300&hour=16.5&transito=10"],
+  ["nomes-pescador", "/andar?pack=l1&em=364,52.5&cam=140&hour=16.5&transito=30"],
+  ["nomes-largo", "/andar?pack=l1&em=212,172&cam=200&hour=12&transito=30"],
   ["hud", "/andar?hour=16.8&cam=200"],
   ...["acenar", "rir", "aplaudir", "chamar", "dancar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
   ["ela-joelhos-lado", "/andar?hour=15&cam=90&quem=6&gesto=dancar&t=6.0&pausa"],

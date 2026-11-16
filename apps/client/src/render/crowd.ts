@@ -19,6 +19,7 @@ const REACH_M = 70;
 const SHADOWS = 3;
 
 interface Walker {
+  readonly id: number;
   readonly actor: CrowdActor;
   readonly who: Listed;
   /** The light body, which everyone has from the start. */
@@ -32,6 +33,11 @@ interface Walker {
 }
 
 export interface PersonSeen {
+  /** Which of the district's people this is: their place in its list. */
+  readonly id: number;
+  readonly female: boolean;
+  /** How high the top of their head is, as they stand or sit. */
+  readonly top: number;
   readonly role: string;
   readonly x: number;
   readonly z: number;
@@ -68,7 +74,7 @@ export class Crowd {
           person.root.visible = false;
           person.shadow = false;
           crowd.root.add(person.root);
-          crowd.walkers.push({ actor, who, person, whole: null, fetching: false, yaw: 0, shown: false, sit: 0 });
+          crowd.walkers.push({ id: n, actor, who, person, whole: null, fetching: false, yaw: 0, shown: false, sit: 0 });
         }),
       );
       return crowd;
@@ -136,7 +142,7 @@ export class Crowd {
           ...(at.pose === "fish" ? { hold: "cana" as const } : walker.actor.role === "zungueira" ? { hold: "bacia" as const } : {}),
         },
       );
-      seen.push({ role: walker.actor.role, x: at.x, z: at.z, pose: at.pose, speed: at.speed });
+      seen.push({ id: walker.id, female: person.female, top: y + person.height * (1 - 0.3 * walker.sit), role: walker.actor.role, x: at.x, z: at.z, pose: at.pose, speed: at.speed });
     }
     this.seen = seen;
   }

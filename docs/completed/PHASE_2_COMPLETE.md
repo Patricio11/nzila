@@ -67,8 +67,10 @@ Every one of these has its entry in `docs/FINDINGS.md`.
 
 ## Waiting on the founder
 
-1. A Resend account: the key, and a domain to send from.
-2. His ear on the words: the seventeen card lines, "Caluanda" as the arrival name, the lots' names, the letters' wording.
+*(2026-11-16, his answers: the Resend key will come, everything is ready for it; the words are fine; the phones will be checked later, the browser serves for now.)*
+
+1. A Resend account: the key, and a domain to send from. **He will give it.**
+2. ~~His ear on the words.~~ **"It is okay."**
 3. The table of origins: shares, amounts, families, bairros.
 4. Whether the count of players may be read off a BI number.
 5. Phase 1's two checks.

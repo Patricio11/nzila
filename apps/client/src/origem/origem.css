@@ -32,16 +32,18 @@
 /* The head of the face: a strip of the cloth in the colourway of the family's lot, and the name of the lot under it. */
 .origem-cloth { align-self: stretch; flex: 0 0 auto; height: 52px; margin: 0 calc(var(--s-4) * -1); border-bottom: 3px solid var(--n-pano-preto); overflow: hidden; }
 .origem-tier { align-self: stretch; margin: 0 calc(var(--s-4) * -1) var(--s-2) !important; padding: var(--s-2) var(--s-3); background: var(--tier); color: var(--tier-ink); font: var(--type-title); letter-spacing: 0.02em; box-shadow: 0 3px 0 var(--n-pano-preto); }
-.origem-foot { align-self: stretch; margin: var(--s-2) calc(var(--s-4) * -1) calc(var(--s-4) * -1); --faixa: 12px; }
-.origem-parents { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px var(--s-3); align-items: baseline; text-align: left; align-self: stretch; }
-.origem-parents dt { color: var(--n-tinta-suave); font: var(--type-small); }
+.origem-foot { align-self: stretch; width: auto; margin: var(--s-2) calc(var(--s-4) * -1) calc(var(--s-4) * -1); --faixa: 12px; }
+/* The father and the mother: each a small word and under it the trade, in the middle of the card like the rest of it. */
+.origem-parents { margin: 0; display: flex; flex-direction: column; align-items: center; text-align: center; align-self: stretch; }
+.origem-parents dt { color: var(--n-tinta-suave); font: var(--type-small); letter-spacing: 0.06em; text-transform: uppercase; }
+.origem-parents dt:not(:first-child) { margin-top: var(--s-2); }
 .origem-parents dd { margin: 0; font: var(--type-title); overflow-wrap: anywhere; }
 .origem-where { font: var(--type-label); color: var(--n-tinta); }
 .origem-line { flex: 1; display: grid; align-items: center; font: var(--type-small); font-style: italic; color: var(--n-tinta-suave); }
 .origem-starts { font: var(--type-small); color: var(--n-tinta-suave); }
 .origem-makuta { font: var(--type-number-l); color: var(--n-tinta); }
 .origem-turned .origem-makuta { animation: n-pop 520ms var(--ease-mola) 520ms both; }
-.origem-stamp { position: absolute; right: 10px; bottom: 70px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--n-vermelho); opacity: 0;
+.origem-stamp { position: absolute; right: 10px; bottom: 26px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--n-vermelho); opacity: 0;
   box-shadow: inset 0 0 0 2px var(--n-vermelho), inset 0 0 0 5px var(--n-papel), inset 0 0 0 6px var(--n-vermelho); transform: rotate(-14deg); }
 .origem-stamp .n-road-line { stroke: var(--n-papel); }
 .origem-turned .origem-stamp { animation: n-stamp 420ms cubic-bezier(0.2, 1.4, 0.4, 1) 900ms both; }

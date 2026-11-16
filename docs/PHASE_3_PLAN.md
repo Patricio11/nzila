@@ -43,8 +43,7 @@ Order of work: 3.1, 3.3 (a second browser sees the first), 3.2, 3.7 (numbers bef
 **Q5. Chat safety before chat.** The Angolan word list is empty and a wrong entry would silence friendly talk.
 *Recommendation:* chat does not open to the public until the founder and a second Luandan have written and read that list; 3.5 is built and tested with the Portuguese list and a clear flag.
 
-**Q6. Names seen by others.** A name is unique and filtered; "Caluanda 1042" is what most will carry until they change it.
-*Recommendation:* show the name over a player only when near (as the speech balloon is), and the BI on a tap, so that a street is not a wall of labels.
+**Q6. Names seen by others.** Answered by the founder on 2026-11-16: see D-3.5.
 
 ## Decisions
 
@@ -55,6 +54,10 @@ Order of work: 3.1, 3.3 (a second browser sees the first), 3.2, 3.7 (numbers bef
 **D-3.3 `LocalWorld` stays, for development, the bench and playing with no network (delegated).** A build for players cannot reach it by accident: a test fails the production build if it can. *Recommendation: yes, as the roadmap says.*
 
 **D-3.4 Numbers before features (delegated).** The bot swarm (3.7) is built as soon as two browsers can see each other, and every later task is measured with 80 in a channel. *Recommendation: yes.*
+
+**D-3.5 A name shows over whoever stands still, when you are near (founder, 2026-11-16).** "I was thinking to show the name when they stop, the NPC as well as the players: if they stop then the name shows, as if you get close." Someone walking has no label; someone who stops, or sits, is named to whoever is within about fourteen metres, the nearest six at once, so that a street is never a wall of labels and whoever can be talked to says who they are. Built on 2026-11-16 for the people of the street (`render/names.ts`): each has a name of their own, the same every day, and what they do under it when that is worth saying (zungueira, polícia, cobrador). **Players wear the same tags by the same rule** when there are other players (3.3, 3.5), with their own name; the BI opens on a tap (3.5).
+
+**D-3.6 Colyseus 0.18, for rooms and seats; the bytes are ours (delegated, 2026-11-16; answers Q1).** Its current documentation was read on 2026-11-16 (docs.colyseus.io; server `colyseus` 0.18, client `@colyseus/sdk` 0.18; MIT). What matters to us is all there: a room may send and receive raw bytes with no schema state of its own (`onMessageBytes`, `client.sendBytes`, `broadcastBytes`; `room.sendBytes` on the client), so `packages/protocol` stays the only wire format; a seat is reserved from our own API (`matchMaker.joinOrCreate`, `reserveSeatFor`) and consumed by the client (`consumeSeatReservation`), which is Task 3.2's matchmaker; a join is checked with a token (`static onAuth(token, options, context)`), which is our session token; a dropped client's seat is held (`allowReconnection(client, seconds)`), which is 3.4; several processes need `@colyseus/redis-presence` and `@colyseus/redis-driver`. The default transport is `ws`; uWebSockets is recommended for production and is looked at with the load test (3.7). WebTransport is experimental and not used. Not found in the docs and to be checked in code: the least version of Node it supports, and the shape in which the client receives raw bytes.
 
 ## What "done" means for this phase
 

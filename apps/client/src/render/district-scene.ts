@@ -10,6 +10,7 @@ import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
 import { Crowd } from "./crowd.ts";
 import { Markers } from "./markers.ts";
+import { NameTags, type Named } from "./names.ts";
 import { Outdoors } from "./outdoors.ts";
 import { People } from "./people.ts";
 import { Signs } from "./signs.ts";
@@ -59,6 +60,10 @@ export class DistrictScene {
   /** The signs that float over places and say what each is, and the paper on the outdoors. */
   readonly markers: Markers | null;
   private readonly outdoors: Outdoors | null;
+  /** The names over whoever is standing still and near. */
+  readonly names: NameTags | null;
+  /** Says what someone of the street is called and what they do, from who they are. Given by the page, which has the words. */
+  nameOf: ((person: { id: number; female: boolean; role: string }) => { name: string; role?: string }) | null = null;
   /** The people of the street, when the district has a timetable for them and they are built. */
   readonly crowd: Crowd | null;
 
@@ -82,6 +87,7 @@ export class DistrictScene {
     this.signs = Signs.open(renderer, chunks.manifest, (key) => words[key] ?? key);
     this.markers = Markers.open(renderer, chunks.manifest);
     this.outdoors = Outdoors.open(renderer, chunks.manifest);
+    this.names = NameTags.open(renderer);
     this.words = words;
     this.renderer = renderer;
     this.chunks = chunks;
@@ -172,6 +178,9 @@ export class DistrictScene {
     const onFoot = this.trafficAt !== null ? null : [...(this.afoot ? [{ x: this.x, z: this.z }] : []), ...(this.crowd?.seen ?? []).filter((person) => person.speed > 0)];
     this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, onFoot);
     this.crowd?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, this.chunks.ground());
+    const say = this.nameOf;
+    const people: Named[] = say ? (this.crowd?.seen ?? []).map((person) => ({ ...say(person), x: person.x, y: person.top, z: person.z, still: person.speed === 0 })) : [];
+    this.names?.update(this.renderer.camera, people, this.x, this.z);
     this.lastUpdate = now;
   }
 
@@ -200,6 +209,7 @@ export class DistrictScene {
     this.signs?.close();
     this.markers?.close();
     this.outdoors?.close();
+    this.names?.close();
     this.people?.close();
     for (const water of this.waters) {
       this.renderer.scene.remove(water);

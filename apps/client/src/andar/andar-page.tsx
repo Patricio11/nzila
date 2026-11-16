@@ -19,7 +19,7 @@
 //   /andar?chegar          keeps the arriving screen up (for stills)
 //   /andar?hour=17.3&tier=normal
 
-import { ptAOTranslator as tr } from "@nzila/i18n";
+import { ptAO, ptAOTranslator as tr } from "@nzila/i18n";
 import { CELL_DRIVE, CELL_LOW, CELL_WALK, bodyFits, groundHeight, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
 import { Arrival, Button, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, SpeechBalloon, WalletChip, type CompassMark } from "@nzila/ui";
 import { PointLight, Vector3 } from "three";
@@ -46,7 +46,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; waited: number; nearestVehicle: number; tangled: number; heeding: number };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number };
   }
 }
 
@@ -57,6 +57,8 @@ const OPEN = CELL_WALK | CELL_DRIVE | CELL_WATER | CELL_LOW;
 const BOARD_REACH_M = 4.6;
 /** How near a seat must be for the action to offer it, in metres. */
 const SEAT_REACH_M = 1.9;
+/** How many names there are for the women of the street and for the men (packages/i18n, `npc.name`). */
+const NPC_NAMES = 12;
 /** How far to each side the camera looks to tell a wall from a post, and how much it rises for every metre a wall pulls it in. */
 const CAMERA_BESIDE_M = 0.9;
 const CAMERA_LIFT = 0.42;
@@ -194,6 +196,11 @@ export function Andar() {
         world.enter(opened, params.get("pack") ? `/packs/${params.get("pack")}/` : DEV_PACK);
         if (params.has("desde")) opened.runFrom(Number(params.get("desde")) * 1000);
         else if (params.has("transito")) opened.trafficAt = Number(params.get("transito")) * 1000;
+        // What each person of the street is called: a name of their own, the same every day, and what they do when it is worth saying.
+        opened.nameOf = (one) => ({
+          name: tr.t(`npc.name.${one.female ? "f" : "m"}.${one.id % NPC_NAMES}` as "npc.name.f.0"),
+          ...(`npc.role.${one.role}` in ptAO ? { role: tr.t(`npc.role.${one.role}` as "npc.role.zungueira") } : {}),
+        });
         person = loaded;
         setArrived(true);
         setTimeout(() => setArrived(false), 2600);
@@ -230,6 +237,16 @@ export function Andar() {
       return { dx: Math.round(worldX * 127), dz: Math.round(worldZ * 127), run: run || length > 1.35 };
     };
 
+    /**
+     * Whether what stands at a point is a wall, for the camera: something that goes on. A building is deep (the
+     * ground stays closed behind its face); a garden wall is long (closed three paces on to one side). A post, a
+     * trunk, a table with its stools are neither, and the camera looks past them.
+     */
+    const walled = (ground: Ground, px: number, pz: number, backX: number, backZ: number): boolean => {
+      const deep = [1, 2, 3].every((n) => !open(ground, px + backX * CAMERA_BESIDE_M * n, pz + backZ * CAMERA_BESIDE_M * n));
+      const long = [1, -1].some((side) => [1, 2, 3].every((n) => !open(ground, px + backZ * CAMERA_BESIDE_M * n * side, pz - backX * CAMERA_BESIDE_M * n * side)));
+      return deep || long;
+    };
     const open = (ground: Ground, x: number, z: number): boolean => (ground.flagsAt(Math.floor((x * 1000) / ground.cellMm), Math.floor((z * 1000) / ground.cellMm)) & OPEN) !== 0;
 
     let frame = 0;
@@ -448,7 +465,7 @@ export function Andar() {
           const along = (reach * i) / 14;
           const px = x + backX * along;
           const pz = z + backZ * along;
-          if (!open(ground, px, pz) && (!open(ground, px + backZ * CAMERA_BESIDE_M, pz - backX * CAMERA_BESIDE_M) || !open(ground, px - backZ * CAMERA_BESIDE_M, pz + backX * CAMERA_BESIDE_M))) {
+          if (!open(ground, px, pz) && walled(ground, px, pz, backX, backZ)) {
             allowed = Math.max(0.9, along - 0.5);
             break;
           }
@@ -484,7 +501,7 @@ export function Andar() {
         district.update();
 
         const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
