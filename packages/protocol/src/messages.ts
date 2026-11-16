@@ -21,6 +21,7 @@ export const MSG = {
   CHAT_TYPING: 9,
   HANDOFF: 10,
   WHO: 11,
+  EMOTE: 12,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -193,7 +194,42 @@ export const EVENT = {
   EMOTE: 1,
   /** A notice from the zone to this client; text is a catalog key, never a sentence. */
   NOTICE: 2,
+  /** Talk is open in this channel: the chat bar may be used. Not sent where it is not. */
+  CHAT_OPEN: 3,
+  /** A line this client sent was not said to anyone. subject is the line's messageId; args[0] is why (CHAT_REFUSAL). */
+  CHAT_REFUSED: 4,
 } as const;
+
+/** Why a line was not said. Numbers are never reused. */
+export const CHAT_REFUSAL = {
+  /** It has a word the game does not pass on. */
+  WORDS: 1,
+  /** Too many lines too quickly. */
+  SLOW_DOWN: 2,
+  /** It carries an address to somewhere outside the game. */
+  LINKS: 3,
+} as const;
+
+/**
+ * The gestures a player can make, as they are numbered on the wire. WIRE FORMAT: new ones are added at the
+ * end, and none is moved or removed.
+ */
+export const EMOTE_NAMES = ["acenar", "rir", "aplaudir", "chamar", "dancar"] as const;
+export type EmoteName = (typeof EMOTE_NAMES)[number];
+
+/** Client to zone: I make this gesture. The zone tells whoever can see (an Event of kind EMOTE). */
+export interface EmoteMade {
+  /** Its place in EMOTE_NAMES. */
+  readonly emote: number;
+}
+
+export function encodeEmote(m: EmoteMade): Uint8Array {
+  return new Writer().u8(MSG.EMOTE).u8(m.emote).finish();
+}
+
+function readEmote(r: Reader): EmoteMade {
+  return { emote: r.bounded(EMOTE_NAMES.length - 1, "emote") };
+}
 
 /**
  * Zone to client: something happened that a snapshot does not carry. The
@@ -282,6 +318,7 @@ function readChatTyping(r: Reader): ChatTyping {
 // ---------------------------------------------------------------- Who
 
 const NAME_BYTES = 96;
+const BI_BYTES = 32;
 
 /**
  * Zone to client: who an entity is. Sent once for each player a client comes to see, before or with the
@@ -290,14 +327,15 @@ const NAME_BYTES = 96;
  */
 export interface Who {
   readonly entityId: number;
-  /** The name on their BI. */
+  /** The name on their BI, and its number: what a player is known by to anyone who meets them, and how they are blocked or reported. */
   readonly name: string;
+  readonly bi: string;
   /** Their look, or null for one that is not known. Twelve bytes on the wire (look.ts: packLook). */
   readonly look: Look | null;
 }
 
 export function encodeWho(m: Who): Uint8Array {
-  const w = new Writer().u8(MSG.WHO).uint(m.entityId).text(m.name).bool(m.look !== null);
+  const w = new Writer().u8(MSG.WHO).uint(m.entityId).text(m.name).text(m.bi).bool(m.look !== null);
   if (m.look) for (const byte of packLook(m.look)) w.u8(byte);
   return w.finish();
 }
@@ -305,11 +343,12 @@ export function encodeWho(m: Who): Uint8Array {
 function readWho(r: Reader): Who {
   const entityId = r.uint();
   const name = r.text(NAME_BYTES);
-  if (!r.bool()) return { entityId, name, look: null };
+  const bi = r.text(BI_BYTES);
+  if (!r.bool()) return { entityId, name, bi, look: null };
   const bytes = new Uint8Array(LOOK_BYTES);
   for (let n = 0; n < LOOK_BYTES; n++) bytes[n] = r.u8();
   // Bytes that are no look the wardrobe knows come out as no look: what the phone draws is always checked.
-  return { entityId, name, look: unpackLook(bytes) };
+  return { entityId, name, bi, look: unpackLook(bytes) };
 }
 
 // ---------------------------------------------------------------- Handoff
@@ -369,7 +408,8 @@ export type ClientMessage =
   | ({ readonly type: "join" } & Join)
   | ({ readonly type: "input" } & Input)
   | ({ readonly type: "chat_send" } & ChatSend)
-  | ({ readonly type: "chat_typing" } & ChatTyping);
+  | ({ readonly type: "chat_typing" } & ChatTyping)
+  | ({ readonly type: "emote" } & EmoteMade);
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -383,6 +423,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.INPUT) return { type: "input", ...readInput(r) };
   if (type === MSG.CHAT_SEND) return { type: "chat_send", ...readChatSend(r) };
   if (type === MSG.CHAT_TYPING) return { type: "chat_typing", ...readChatTyping(r) };
+  if (type === MSG.EMOTE) return { type: "emote", ...readEmote(r) };
   throw new ProtocolError("unknown_type", String(type));
 }
 

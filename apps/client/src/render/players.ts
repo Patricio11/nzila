@@ -9,7 +9,7 @@
 import { DOING, type Who } from "@nzila/protocol";
 import { type Seen } from "../net/others.ts";
 import { type Named } from "./names.ts";
-import { type Person } from "./person.ts";
+import { EMOTE_SECONDS, type Emote, type Person } from "./person.ts";
 import { FIRST_LOOK, dress } from "./wardrobe.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
@@ -24,6 +24,8 @@ interface Body {
   facing: number | null;
   shown: number;
   air: number;
+  /** A gesture under way, and when it began (in the seconds the picture counts). */
+  emote: { kind: Emote; began: number | null } | null;
   x: number;
   y: number;
   z: number;
@@ -53,8 +55,30 @@ export class Players {
     return this.faces.get(id)?.name ?? null;
   }
 
+  who(id: number): Who | null {
+    return this.faces.get(id) ?? null;
+  }
+
+  /** Someone makes a gesture: their body makes it, from the next frame, for as long as it lasts or until they walk. */
+  gesture(id: number, kind: Emote): void {
+    const body = this.bodies.get(id);
+    if (body) body.emote = { kind, began: null };
+  }
+
+  /** The gesture each body is making, or null: for the tests. */
+  gesturing(): (string | null)[] {
+    return [...this.bodies.values()].map((body) => body.emote?.kind ?? null);
+  }
+
+  /** Where the top of each body's head is: for what hangs over it, and for a finger. */
+  heads(): { id: number; x: number; y: number; z: number }[] {
+    const out: { id: number; x: number; y: number; z: number }[] = [];
+    for (const [id, body] of this.bodies) if (body.person) out.push({ id, x: body.x, y: body.y + body.person.height, z: body.z });
+    return out;
+  }
+
   private make(id: number, who: Who): Body {
-    const body: Body = { person: null, phase: 0, speed: 0, facing: null, shown: 0, air: 0, x: 0, y: 0, z: 0 };
+    const body: Body = { person: null, phase: 0, speed: 0, facing: null, shown: 0, air: 0, emote: null, x: 0, y: 0, z: 0 };
     // What came over the wire is checked again here; one who never chose is dressed in the first look.
     // The look was checked as it came off the wire; one whose look is not known is dressed in the first look.
     void dress(this.renderer, who.look ?? FIRST_LOOK)
@@ -96,7 +120,10 @@ export class Players {
       person.root.rotation.y = body.facing;
       person.root.scale.setScalar(0.6 + 0.4 * body.shown);
       person.root.visible = true;
-      person.pose({ speed: body.speed, phase: body.phase, time: seconds + one.id * 1.3 }, { jump: body.air > 0.05 ? Math.min(0.95, body.air * 0.5) : 0 });
+      // A gesture lasts its time, and ends when its maker walks off.
+      if (body.emote && body.emote.began === null) body.emote.began = seconds;
+      if (body.emote && (seconds - body.emote.began! > EMOTE_SECONDS[body.emote.kind] || body.speed > 0.6 || flying)) body.emote = null;
+      person.pose({ speed: body.speed, phase: body.phase, time: seconds + one.id * 1.3 }, { jump: body.air > 0.05 ? Math.min(0.95, body.air * 0.5) : 0, ...(body.emote ? { emote: { kind: body.emote.kind, seconds: seconds - body.emote.began! } } : {}) });
       named.push({ x: one.x, y: one.y + person.height, z: one.z, name: who.name, still: one.speed < 0.15 && !flying });
     }
     for (const [id, body] of this.bodies) {

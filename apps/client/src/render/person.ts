@@ -9,6 +9,7 @@
 // backward and a negative one forward. About z, a negative angle lifts the
 // right arm out and up, a positive one the left.
 
+import { EMOTE_NAMES, type EmoteName } from "@nzila/protocol";
 import { Bone, Group, Mesh, Quaternion, SkinnedMesh, Vector3, type Material } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { type WorldRenderer } from "./world-renderer.ts";
@@ -28,8 +29,9 @@ export interface Gait {
  * dancers in a sala): the low bounce on bent knees with the knees opening and closing, the fist
  * pumped overhead, the deep squat with the arms thrown forward, the lean from side to side.
  */
-export const EMOTES = ["acenar", "rir", "aplaudir", "chamar", "dancar"] as const;
-export type Emote = (typeof EMOTES)[number];
+/** The gestures, as the protocol numbers them: what one phone makes, another must be able to draw. */
+export const EMOTES = EMOTE_NAMES;
+export type Emote = EmoteName;
 /** How long each lasts, in seconds. */
 export const EMOTE_SECONDS: Readonly<Record<Emote, number>> = { acenar: 2.4, rir: 2.6, aplaudir: 2.6, chamar: 2.2, dancar: 9.6 };
 

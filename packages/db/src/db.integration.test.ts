@@ -3,6 +3,7 @@
 // development data is never touched. Every Makuta figure is a fixture.
 
 import { getTableColumns, getTableName } from "drizzle-orm";
+import { expireTalk, keepChatLines, reportPlayer } from "./talk.ts";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -75,7 +76,7 @@ async function balance(id: string): Promise<number> {
 
 describe("migrations", () => {
   test("apply once, and a second run applies nothing", async () => {
-    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins", "0004_player_names", "0005_login_codes", "0006_player_email", "0007_email_verified"]);
+    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins", "0004_player_names", "0005_login_codes", "0006_player_email", "0007_email_verified", "0008_talk"]);
     expect(await migrate(sql)).toEqual([]);
   });
 
@@ -302,5 +303,26 @@ describe("audit.log and consents", () => {
     await sql`INSERT INTO consents (player_id, purpose, version, granted) VALUES (${id}, 'notifications', ${CONSENT_PURPOSES.notifications.version + 1}, true)`;
     expect((await consentsOf(sql, id)).notifications).toBe(false);
     expect(await refusal(sql`INSERT INTO consents (player_id, purpose, version, granted) VALUES (${id}, 'marketing', 1, true)`)).toBe(CHECK);
+  });
+});
+
+describe("what was said is not kept for ever", () => {
+  test("lines older than thirty days go, and reports closed more than ninety days ago; everything younger, and every open report, stays", async () => {
+    const [a] = await sql<{ id: string }[]>`INSERT INTO players (age_band) VALUES ('18_plus') RETURNING id`;
+    const [b] = await sql<{ id: string }[]>`INSERT INTO players (age_band) VALUES ('18_plus') RETURNING id`;
+    await keepChatLines(sql, [{ playerId: a!.id, districtId: "ao-lua/l1", channel: 1, text: "de hoje", said: true, heardBy: 1 }]);
+    await sql`INSERT INTO chat_lines (at, player_id, district_id, channel, text, said) VALUES (now() - interval '31 days', ${a!.id}, 'ao-lua/l1', 1, 'de há um mês', true), (now() - interval '29 days', ${a!.id}, 'ao-lua/l1', 1, 'de há quatro semanas', true)`;
+    const fresh = await reportPlayer(sql, b!.id, a!.id, "insults", null);
+    await sql`INSERT INTO reports (reporter_id, reported_id, reason, status, closed_at, at) VALUES
+      (${b!.id}, ${a!.id}, 'other', 'closed', now() - interval '91 days', now() - interval '100 days'),
+      (${b!.id}, ${a!.id}, 'other', 'closed', now() - interval '10 days', now() - interval '100 days'),
+      (${b!.id}, ${a!.id}, 'other', 'open', NULL, now() - interval '200 days')`;
+    expect(await expireTalk(sql)).toEqual({ lines: 1, reports: 1 });
+    expect((await sql<{ text: string }[]>`SELECT text FROM chat_lines WHERE player_id = ${a!.id} ORDER BY at`).map((row) => row.text)).toEqual(["de há quatro semanas", "de hoje"]);
+    expect((await sql`SELECT 1 FROM reports WHERE reported_id = ${a!.id}`).length).toBe(3);
+    // The report made today carries the line said today, copied: it will outlive it.
+    const [kept] = await sql<{ lines: { text: string }[] }[]>`SELECT lines FROM reports WHERE id = ${fresh}`;
+    expect(kept!.lines.map((line) => line.text)).toEqual(["de hoje"]);
+    expect(await expireTalk(sql)).toEqual({ lines: 0, reports: 0 });
   });
 });

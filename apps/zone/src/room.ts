@@ -7,12 +7,14 @@
 // send bytes and be closed (server.ts makes those from WebSockets, a test may
 // make them from nothing). Every byte is ours (packages/protocol).
 
-import { faceOf, keepWhereabouts, whereaboutsOf } from "@nzila/db";
-import { PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeJoinAccepted, encodeWho } from "@nzila/protocol";
+import { faceOf, keepChatLines, keepWhereabouts, shutOutOf, whereaboutsOf, type ChatLine } from "@nzila/db";
+import { type ChatFilter } from "@nzila/i18n";
+import { EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend } from "@nzila/protocol";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
 import { type District } from "./district.ts";
+import { Talk, reached } from "./talk.ts";
 
 /** How many people one channel holds when nobody says otherwise (the tunable `channels.cap`; held by the swarm of 3.7). */
 export const CHANNEL_HOLDS = 80;
@@ -32,6 +34,8 @@ export const MESSAGES_A_SECOND = 60;
 export const STRIKES = 5;
 /** A player whose line dropped keeps their body in the street, standing, this long: they may be in a tunnel (Task 3.4). */
 export const HOLD_MS = 60_000;
+/** A gesture a second, at the most, is passed on. */
+const GESTURE_GAP_MS = 1000;
 /** How far behind the loop may fall and still catch up, in steps; beyond it time is let go, not made up in a rush. */
 const CATCH_UP_STEPS = 3;
 
@@ -46,6 +50,11 @@ export interface ZoneDeps {
   readonly holds?: number;
   /** How long a dropped line's place is kept (HOLD_MS; a test brings a shorter one). */
   readonly holdMs?: number;
+  /**
+   * The word filter. Given, talk is open in the channels of this district; not given, nobody can say anything
+   * (Rule 11: talk does not open before report, block and mute are there, and the lists are read; Q5).
+   */
+  readonly filter?: ChatFilter;
   /** Where the zone says what went wrong. */
   readonly log?: (line: string) => void;
 }
@@ -65,6 +74,9 @@ interface Held {
   /** Messages in the second now running, and how many times this client has gone too far. */
   heard: number;
   strikes: number;
+  /** Whether they are known to be typing, and when they last made a gesture. */
+  typing: boolean;
+  gestureAt: number;
 }
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
@@ -96,6 +108,11 @@ export class ChannelRoom {
   /** Players whose line dropped: their bodies stand in the street until they come back or their time runs out. */
   private readonly away = new Map<string, { held: Held; timer: ReturnType<typeof setTimeout> }>();
   private readonly holdMs: number;
+  /** Talk, when it is open here; who is on which line by their number; who has shut whom out; and lines waiting to be written down. */
+  private readonly talk: Talk | null;
+  private readonly lineOfEntity = new Map<number, Line>();
+  private readonly shut = new Map<string, Set<string>>();
+  private said: ChatLine[] = [];
   /** Told when someone has gone for good: the zone then closes a channel nobody is in, and says who is left. */
   private readonly changed: () => void;
   /** Who each body is, as the bytes every client near them is sent once. */
@@ -109,6 +126,7 @@ export class ChannelRoom {
   constructor(deps: ZoneDeps, number: number, changed: () => void = () => {}) {
     this.changed = changed;
     this.holdMs = deps.holdMs ?? HOLD_MS;
+    this.talk = deps.filter ? new Talk(deps.filter) : null;
     this.sql = deps.sql;
     this.district = deps.district;
     this.remember = deps.remember ?? true;
@@ -154,6 +172,12 @@ export class ChannelRoom {
     this.timer = null;
   }
 
+  /** The channel is closed because nobody is in it: its clock stops, and what was said in it is written down before it is forgotten. */
+  retire(): void {
+    this.stop();
+    void this.writeDown();
+  }
+
   /** Whether this player is in the channel, and on which line. */
   lineOf(playerId: string): Line | null {
     for (const [line, held] of this.held) if (held.playerId === playerId) return line;
@@ -173,6 +197,8 @@ export class ChannelRoom {
     const held = this.held.get(line);
     if (!held) return null;
     this.held.delete(line);
+    this.lineOfEntity.delete(held.entityId);
+    if (held.typing) this.saysTyping(held, false);
     const timer = setTimeout(() => void this.expire(held.playerId), this.holdMs);
     this.away.set(held.playerId, { held, timer });
     return held.playerId;
@@ -221,12 +247,15 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0 });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0 });
+      this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
+      this.welcome(line);
       return true;
     }
     this.arriving++;
-    const [last, face] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId)]).finally(() => this.arriving--);
+    const [last, face, apart] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk ? shutOutOf(this.sql, playerId) : []]).finally(() => this.arriving--);
+    this.shut.set(playerId, new Set(apart));
     let at: Place = last ?? district.arrival;
     // Off a van at a paragem: the vans are each phone's own until the zone runs them (F-152), so the phone says
     // which paragem and the zone puts them beside it. It is believed that far and no farther: a paragem, never a place.
@@ -238,10 +267,17 @@ export class ChannelRoom {
     // The look is sent as it would be accepted today: what was stored under an older catalogue is not passed on blind.
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
-    this.faces.set(entityId, encodeWho({ entityId, name: face.name, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0 });
+    this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0 });
+    this.lineOfEntity.set(entityId, line);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
+    this.welcome(line);
     return true;
+  }
+
+  /** What a newcomer is told beyond where they are: that talk is open here, when it is. */
+  private welcome(line: Line): void {
+    if (this.talk) line.send(encodeEvent({ kind: EVENT.CHAT_OPEN, tick: this.channel.world.tick, subject: 0, args: [], text: "" }));
   }
 
   /** A line has gone, or is being put out: its player leaves the street, and where they stood is given back and written down. */
@@ -249,11 +285,16 @@ export class ChannelRoom {
     const held = this.held.get(line);
     if (!held) return null;
     this.held.delete(line);
+    this.lineOfEntity.delete(held.entityId);
     return this.depart(held);
   }
 
   /** A body leaves the street for good: nobody need remember who it was, and where it stood is written down. */
   private async depart(held: Held): Promise<Place | null> {
+    // Whoever saw them typing is told they have stopped: nobody is left with three dots over an empty place.
+    if (held.typing) this.saysTyping(held, false);
+    this.talk?.forget(held.entityId);
+    this.shut.delete(held.playerId);
     const left = this.channel.leave(held.entityId);
     this.faces.delete(held.entityId);
     for (const other of this.held.values()) other.told.delete(held.entityId);
@@ -275,9 +316,84 @@ export class ChannelRoom {
     try {
       const message = decodeClientMessage(bytes);
       if (message.type === "input") this.channel.input(held.entityId, message);
-      // Talk arrives with Task 3.5; a second "join" on a line already in means nothing.
+      else if (message.type === "chat_send") this.says(line, held, message);
+      else if (message.type === "chat_typing") this.saysTyping(held, message.typing);
+      else if (message.type === "emote") this.gestures(held, message.emote);
+      // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
+    }
+  }
+
+  /** Whether two bodies have shut each other out: either blocked the other. */
+  private apart = (a: number, b: number): boolean => {
+    const one = this.playerOf(a);
+    const other = this.playerOf(b);
+    return one !== null && other !== null && (this.shut.get(one)?.has(other) === true || this.shut.get(other)?.has(one) === true);
+  };
+
+  private playerOf(entityId: number): string | null {
+    const line = this.lineOfEntity.get(entityId);
+    return (line && this.held.get(line)?.playerId) ?? null;
+  }
+
+  /** Someone says a line: to whoever is near, with its words for whoever is nearer still (talk.ts). Kept for moderation either way. */
+  private says(line: Line, held: Held, sent: ChatSend): void {
+    if (!this.talk) return;
+    const verdict = this.talk.line(held.entityId, sent.messageId, sent.text, Date.now());
+    if (verdict.kind === "repeat" || verdict.kind === "empty") return;
+    const tick = this.channel.world.tick;
+    const where = { playerId: held.playerId, districtId: this.district.id, channel: this.number, text: verdict.text };
+    if (verdict.kind === "refuse") {
+      line.send(encodeEvent({ kind: EVENT.CHAT_REFUSED, tick, subject: sent.messageId, args: [verdict.reason], text: "" }));
+      this.said.push({ ...where, said: false, heardBy: 0 });
+      return;
+    }
+    const hearers = reached(this.channel.entities(), held.entityId, this.apart);
+    for (const one of hearers) this.lineOfEntity.get(one.id)?.send(encodeChatHeard({ from: held.entityId, tick, text: one.reads ? verdict.text : "" }));
+    this.said.push({ ...where, said: true, heardBy: hearers.filter((one) => one.reads).length - 1 });
+    // A line said is the end of its typing.
+    held.typing = false;
+  }
+
+  /** Three dots over someone who is typing, for whoever would hear them: said when it starts and when it stops, not in between. */
+  private saysTyping(held: Held, typing: boolean): void {
+    if (!this.talk || held.typing === typing) return;
+    held.typing = typing;
+    const bytes = encodeChatTyping({ from: held.entityId, typing });
+    for (const one of reached(this.channel.entities(), held.entityId, this.apart)) if (one.id !== held.entityId) this.lineOfEntity.get(one.id)?.send(bytes);
+  }
+
+  /** A gesture, for whoever has the one who makes it in sight. */
+  private gestures(held: Held, emote: number): void {
+    const now = Date.now();
+    if (now - held.gestureAt < GESTURE_GAP_MS) return;
+    held.gestureAt = now;
+    const bytes = encodeEvent({ kind: EVENT.EMOTE, tick: this.channel.world.tick, subject: held.entityId, args: [emote], text: "" });
+    for (const [other, seeing] of this.held) if (seeing !== held && this.channel.seenBy(seeing.entityId).includes(held.entityId)) other.send(bytes);
+  }
+
+  /** Lines said since the last time are written down, together. A failure is said, and the lines are not lost to the next try. */
+  private async writeDown(): Promise<void> {
+    if (this.said.length === 0) return;
+    const lines = this.said;
+    this.said = [];
+    try {
+      await keepChatLines(this.sql, lines);
+    } catch (error) {
+      this.said = [...lines, ...this.said].slice(-2000);
+      this.log(`zone: could not keep what was said: ${String(error)}`);
+    }
+  }
+
+  /** Who has shut whom out is read again now and then: a block made a moment ago reaches the zone within half a minute. */
+  private async reread(): Promise<void> {
+    for (const held of this.held.values()) {
+      try {
+        this.shut.set(held.playerId, new Set(await shutOutOf(this.sql, held.playerId)));
+      } catch (error) {
+        this.log(`zone: could not read who ${held.playerId} has shut out: ${String(error)}`);
+      }
     }
   }
 
@@ -308,7 +424,9 @@ export class ChannelRoom {
     }
     if (tick % (1000 / STEP_MS) === 0) for (const held of this.held.values()) held.heard = 0;
     if (tick % STEPS_A_NOTE === 0) {
+      void this.writeDown();
       const lasting = tick % STEPS_A_CHECKPOINT === 0;
+      if (lasting && this.talk) void this.reread();
       for (const held of this.held.values()) {
         const at = this.channel.placeOf(held.entityId);
         if (at) void this.keep(held.playerId, at, lasting);
@@ -329,6 +447,7 @@ export class ChannelRoom {
     const waited = [...this.away.values()];
     this.away.clear();
     await Promise.all([...lines.map((line) => this.leave(line)), ...waited.map((kept) => this.depart(kept.held))]);
+    await this.writeDown();
     for (const line of lines) line.close(code);
   }
 

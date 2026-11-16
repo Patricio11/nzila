@@ -7,8 +7,8 @@
 // of their BI) and may change it once for nothing. What a later change costs
 // is the economy's to say (Phase 4); until then there is no later change.
 
-import { readFileSync } from "node:fs";
-import { createChatFilter, parseWordList, type ChatFilter } from "@nzila/i18n";
+import { type ChatFilter } from "@nzila/i18n";
+import { loadChatFilter } from "@nzila/i18n/server";
 import { checkName, type NameFault } from "@nzila/protocol";
 import { type Sql } from "postgres";
 import { Refusal } from "./routes.ts";
@@ -23,8 +23,8 @@ export const FREE_NAME_CHANGES = 1;
 
 /** The word lists the chat filter reads (packages/i18n/filter), applied to names too. */
 export function loadNameFilter(): ChatFilter {
-  const list = (file: string): string[] => parseWordList(readFileSync(new URL(`../../../packages/i18n/filter/${file}`, import.meta.url), "utf8"));
-  return createChatFilter([...list("pt.txt"), ...list("ao.txt")]);
+  // One list for names and for talk, read in one place (packages/i18n: server.ts): the zone reads the same.
+  return loadChatFilter();
 }
 
 /** The BI number and the name a guest arrives with, from the order of their arrival. */

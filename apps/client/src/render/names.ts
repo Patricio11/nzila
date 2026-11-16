@@ -146,6 +146,9 @@ export class NameTags {
     const position = this.mesh.geometry.getAttribute("position") as BufferAttribute;
     const uv = this.mesh.geometry.getAttribute("uv") as BufferAttribute;
     const near = named(people, viewerX, viewerZ);
+    // The camera's account of itself, made current: it is asked here before the frame is drawn.
+    camera.updateWorldMatrix(true, false);
+    camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
     // Where each label would be on the screen, and how big: two people standing together do not get two labels
     // written over each other; the nearer keeps theirs.
     const boxes = near.map((one) => {

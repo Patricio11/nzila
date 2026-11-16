@@ -172,6 +172,37 @@ export async function playSeat(districtId: string, channel?: number): Promise<Pl
   return answer;
 }
 
+/** What a BI shows of someone met in the street. */
+export interface PlayerCard {
+  readonly name: string | null;
+  readonly biNumber: string;
+  readonly bairro: string | null;
+  readonly arrivedAt: string;
+}
+
+/** The BI of another player, by its number. Null when it cannot be had. */
+export async function playerCard(biNumber: string): Promise<PlayerCard | null> {
+  const mine = account();
+  if (!mine?.token) return null;
+  return (await ask<PlayerCard>("POST", "/v1/players/card", { biNumber }, mine.token)).answer;
+}
+
+/** "Bloquear" and its undoing. True when the server recorded it. */
+export async function blockPlayer(biNumber: string, on: boolean): Promise<boolean> {
+  const mine = account();
+  if (!mine?.token) return false;
+  return (await ask<{ ok: boolean }>(on ? "POST" : "DELETE", "/v1/blocks", { biNumber }, mine.token)).answer?.ok === true;
+}
+
+export type ReportReason = "insults" | "harassment" | "sexual" | "scam" | "cheating" | "name" | "other";
+
+/** "Denunciar". True when the moderators have it. */
+export async function reportPlayer(biNumber: string, reason: ReportReason, note: string): Promise<boolean> {
+  const mine = account();
+  if (!mine?.token) return false;
+  return (await ask<{ ok: boolean }>("POST", "/v1/reports", { biNumber, reason, ...(note.trim() ? { note: note.trim() } : {}) }, mine.token)).answer?.ok === true;
+}
+
 /** Proposes the look to the server. True when it was recorded. */
 export async function pushLook(look: Look): Promise<boolean> {
   const mine = await ensureGuest();

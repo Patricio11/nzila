@@ -46,3 +46,42 @@ export function askedLine(search: string): { roundTripMs: number; lossPercent: n
   if (roundTripMs === undefined || !Number.isFinite(roundTripMs) || !Number.isFinite(lossPercent) || roundTripMs < 0 || lossPercent < 0) return null;
   return { roundTripMs: Math.min(roundTripMs, 5000), lossPercent: Math.min(lossPercent, 100) };
 }
+
+/**
+ * Hands things over late, in the order they were given: one line, one queue. Timers alone would not do: two
+ * waits that end in the same millisecond may fire in either order, and a line never delivers out of order.
+ */
+export class LateLine {
+  private readonly waiting: { at: number; run: () => void }[] = [];
+  private readonly conditioner: Conditioner;
+  private readonly now: () => number;
+  private readonly wake: (run: () => void, ms: number) => void;
+  private asked = false;
+
+  constructor(conditioner: Conditioner, now: () => number = () => performance.now(), wake: (run: () => void, ms: number) => void = (run, ms) => void setTimeout(run, ms)) {
+    this.conditioner = conditioner;
+    this.now = now;
+    this.wake = wake;
+  }
+
+  /** Does `run` when its time on the line has passed, after everything given before it. */
+  give(run: () => void): void {
+    const now = this.now();
+    const at = this.conditioner.due(now);
+    this.waiting.push({ at, run });
+    this.wake(() => this.pump(), Math.max(0, at - now));
+  }
+
+  private pump(): void {
+    // Half a millisecond of grace: a timer may wake a hair early.
+    while (this.waiting.length > 0 && this.waiting[0]!.at <= this.now() + 0.5) this.waiting.shift()!.run();
+    // Woken well before the head of the queue was due: asked again for when it is, once, so that nothing is left waiting on a timer that has already gone.
+    if (this.waiting.length > 0 && !this.asked) {
+      this.asked = true;
+      this.wake(() => {
+        this.asked = false;
+        this.pump();
+      }, Math.max(0, this.waiting[0]!.at - this.now()));
+    }
+  }
+}

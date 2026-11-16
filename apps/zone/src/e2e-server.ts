@@ -6,6 +6,7 @@
 
 import { existsSync } from "node:fs";
 import { connect, databaseUrl } from "@nzila/db";
+import { loadChatFilter } from "@nzila/i18n/server";
 import { redisPresence, redisUrl } from "@nzila/presence";
 import { loadDistrict } from "./district.ts";
 import { startZone } from "./server.ts";
@@ -25,5 +26,7 @@ for (const pack of ["dev", "l1"]) {
 const port = Number(process.env.ZONE_PORT ?? 2577);
 // The same keys as the API of the tests (apps/api/src/e2e-server.ts), and nobody else's.
 const presence = await redisPresence(redisUrl(), "nzila-e2e");
-const zone = await startZone({ sql, districts, presence }, port);
+// A fallen line's place is kept eight seconds here, not sixty: long enough for the test that comes back to it,
+// short enough that a test which fails does not leave a body standing in the next test's street.
+const zone = await startZone({ sql, districts, presence, filter: loadChatFilter(), holdMs: 8000 }, port);
 console.log(`zone for the browser tests: ${zone.roomNames.join(", ")} on ${port}`);

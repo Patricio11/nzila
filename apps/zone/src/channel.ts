@@ -17,15 +17,20 @@ import { DEFAULT_CHARACTER, addCharacter, createWorld, removeEntity, stepPerson,
 export const SIGHT_MM = 60_000;
 export const SEEN_AT_MOST = 30;
 /** How many of a player's stick frames wait their turn at the most: more than this is lateness the player would feel, and is let go. */
-export const FRAMES_WAITING_AT_MOST = 6;
+export const FRAMES_WAITING_AT_MOST = 16;
 /**
  * Time is what a client is given to walk in: one frame a step. A phone's frames do not arrive one a step (it draws
  * at its own pace and the network bunches them), so time not used is kept, a little, and a late frame is walked
  * with it: at the most this many steps kept, and this many frames walked in one step. Over any stretch a client
  * walks no more frames than steps have passed, whatever it sends.
+ *
+ * How much is kept is how long a line may stall and lose nothing: six tenths of a second, which is a lost packet
+ * sent again on a slow line (finding F-171: kept shorter, every stall left the player's stick a third of a second
+ * late for good, and put their body right when it need not have been). It is also the most a cheat gains by
+ * holding their frames back and sending them at once: six tenths of a second of walking, done in a fifth.
  */
-export const STEPS_KEPT_AT_MOST = 3;
-export const FRAMES_A_STEP_AT_MOST = 2;
+export const STEPS_KEPT_AT_MOST = 12;
+export const FRAMES_A_STEP_AT_MOST = 3;
 /** Someone is said to be standing after this many steps without moving: frames arrive in bunches, and a walker must not be said to stop and start. */
 const STOOD_STEPS = 3;
 /** Snapshots a client may still name as the one they have: about three seconds of them. */

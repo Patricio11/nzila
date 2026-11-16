@@ -128,6 +128,43 @@ export const consents = pgTable("consents", {
   at: at("at").notNull().defaultNow(),
 });
 
+// ------------------------------------------------------------------ talk
+
+export const chatLines = pgTable("chat_lines", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  at: at("at").notNull().defaultNow(),
+  playerId: uuid("player_id").notNull(),
+  districtId: text("district_id").notNull(),
+  channel: integer("channel").notNull(),
+  text: text("text").notNull(),
+  said: boolean("said").notNull(),
+  heardBy: integer("heard_by").notNull().default(0),
+});
+
+export const playerBlocks = pgTable(
+  "player_blocks",
+  {
+    playerId: uuid("player_id").notNull(),
+    blockedId: uuid("blocked_id").notNull(),
+    at: at("at").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.playerId, table.blockedId] })],
+);
+
+export const reports = pgTable("reports", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  at: at("at").notNull().defaultNow(),
+  reporterId: uuid("reporter_id").notNull(),
+  reportedId: uuid("reported_id").notNull(),
+  reason: text("reason").notNull(),
+  note: text("note"),
+  lines: jsonb("lines").notNull(),
+  status: text("status").notNull().default("open"),
+  closedAt: at("closed_at"),
+  closedBy: uuid("closed_by"),
+  outcome: text("outcome"),
+});
+
 // ------------------------------------------------------------------ staff
 
 export const staff = pgTable("staff", {
@@ -215,6 +252,9 @@ export const tables = {
   playerOrigins,
   loginCodes,
   consents,
+  chatLines,
+  playerBlocks,
+  reports,
   staff,
   staffRoles,
   auditLog,

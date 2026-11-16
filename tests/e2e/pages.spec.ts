@@ -2,7 +2,7 @@ declare global {
   interface Window {
     __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -873,6 +873,12 @@ test.describe("the bench", () => {
 });
 
 test.describe("two phones in the same street", () => {
+  // The second phone of each test. Closed whatever happens: a phone left in the street by a test that failed
+  // would be a stranger in the next test's channel.
+  const seconds: Page[] = [];
+  test.afterEach(async () => {
+    for (const left of seconds.splice(0)) await left.context().close().catch(() => {});
+  });
   /** A guest made by the API, kept on the phone as the door would have kept it. */
   const comeIn = async (page: Page, n: number): Promise<string> => {
     const deviceId = `two-phones-${n}-${Date.now()}-abcdefgh`;
@@ -892,6 +898,7 @@ test.describe("two phones in the same street", () => {
     const seen = watch(page);
     const firstName = await comeIn(page, 1);
     const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
     const otherSeen = watch(other);
     const secondName = await comeIn(other, 2);
 
@@ -972,6 +979,7 @@ test.describe("two phones in the same street", () => {
     const seen = watch(page);
     await comeIn(page, 11);
     const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
     await comeIn(other, 12);
     await page.goto("/andar?tier=poupanca&hour=12");
     await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
@@ -1019,6 +1027,7 @@ test.describe("two phones in the same street", () => {
     const seen = watch(page);
     await comeIn(page, 21);
     const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
     await comeIn(other, 22);
     await page.goto("/andar?tier=poupanca&hour=12&rede=250,5");
     await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
@@ -1048,6 +1057,137 @@ test.describe("two phones in the same street", () => {
     expect(Math.hypot(sight.x - walker.x, sight.z - walker.z)).toBeLessThan(0.3);
     // And the walker's own body was almost never put right: a late line is not a wrong one.
     expect(walker.corrections).toBeLessThan(4);
+    await other.close();
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("they talk: a line typed by one is a balloon over their head and a line in the other's log; dots while typing; a quick phrase on one tap; a rude word is said to nobody; a gesture is seen", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Talk was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    const firstName = await comeIn(page, 31);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const otherSeen = watch(other);
+    const secondName = await comeIn(other, 32);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true && window.__andar.talk, undefined, { timeout: 45_000 });
+    await other.goto("/andar?tier=poupanca&hour=12");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.talk && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1, undefined, { timeout: 20_000 });
+
+    // The second arrived a step in front of the first, in the first's picture. The second opens the line and types:
+    // the first sees three dots over them before a word is said.
+    await other.getByRole("button", { name: "Escreve aqui" }).click();
+    const line = other.getByRole("textbox", { name: "Escreve aqui" });
+    await line.pressSequentially("Bom dia, vizinha");
+    await page.waitForFunction(() => window.__andar!.balloons === 1, undefined, { timeout: 10_000 });
+    await expect(page.locator(".cv-over .n-dots")).toHaveCount(1);
+    await page.screenshot({ path: info.outputPath("conversa-a-escrever.png") });
+    // The letters did not walk the player about: W, A, S and D are letters while the line is open.
+    expect(await other.evaluate(() => window.__andar!.speed)).toBeLessThan(0.2);
+
+    // Said: a balloon over the speaker on both phones, and a line in both logs, with the speaker's name on the other's.
+    await line.press("Enter");
+    await expect(page.locator(".cv-over .n-balloon:not([hidden])")).toHaveText("Bom dia, vizinha", { timeout: 10_000 });
+    await expect(other.locator(".cv-over .n-balloon:not([hidden])")).toHaveText("Bom dia, vizinha");
+    await expect(page.locator(".cv-log")).toContainText(`${secondName} Bom dia, vizinha`);
+    await expect(other.locator(".cv-log")).toContainText("Tu Bom dia, vizinha");
+    await page.screenshot({ path: info.outputPath("conversa-balao.png") });
+
+    // The first answers with a quick phrase, on one tap.
+    await page.getByRole("button", { name: "Escreve aqui" }).click();
+    await page.screenshot({ path: info.outputPath("conversa-frases.png") });
+    await page.getByRole("button", { name: "Tudo fixe?" }).click();
+    await expect(other.locator(".cv-log")).toContainText(`${firstName} Tudo fixe?`, { timeout: 10_000 });
+
+    // A word the game does not pass on: said to nobody, and only its speaker is told, kindly.
+    await other.waitForTimeout(700);
+    await other.getByRole("button", { name: "Escreve aqui" }).click();
+    await other.getByRole("textbox", { name: "Escreve aqui" }).fill("és um merdas");
+    await other.getByRole("textbox", { name: "Escreve aqui" }).press("Enter");
+    await expect(other.locator(".cv-refused")).toHaveText("Essa frase não foi dita. Diz de outra maneira.", { timeout: 10_000 });
+    await page.waitForTimeout(600);
+    expect((await page.evaluate(() => window.__andar!.lines)).some((said) => said.includes("merdas"))).toBe(false);
+    await expect(page.locator(".cv-refused")).toHaveCount(0);
+
+    // A gesture: the second waves (the key 1), and the first sees their body wave.
+    await other.keyboard.press("1");
+    await page.waitForFunction(() => window.__andar!.gestures.includes("acenar"), undefined, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("conversa-gesto.png") });
+
+    await other.close();
+    expect(seen.errors).toEqual([]);
+    expect(otherSeen.errors).toEqual([]);
+  });
+
+  test("a tap on someone opens their BI with everything that can be done about them: talk, stop hearing, shut out, report", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The card of another player was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 41);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const otherName = await comeIn(other, 42);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true && window.__andar.talk, undefined, { timeout: 45_000 });
+    await other.goto("/andar?tier=poupanca&hour=12");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.talk && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1 && window.__andar!.names >= 1, undefined, { timeout: 20_000 });
+
+    // The other stands a step ahead, in the middle of the picture: a tap on their body.
+    const size = page.viewportSize()!;
+    let opened = false;
+    for (const [dx, dy] of [[0, -0.02], [0, -0.08], [0.04, -0.05], [-0.04, -0.05], [0, 0.03]] as const) {
+      await page.mouse.click(size.width * (0.5 + dx), size.height * (0.6 + dy));
+      if (await page.getByRole("dialog", { name: otherName }).isVisible().catch(() => false)) {
+        opened = true;
+        break;
+      }
+    }
+    expect(opened, "a tap on the other player opened their card").toBe(true);
+    const sheet = page.getByRole("dialog", { name: otherName });
+    await expect(sheet.locator(".n-bi-name")).toHaveText(otherName);
+    await expect(sheet.locator(".n-bi-fields")).toContainText("-LA");
+    // Rule 11: every one of them on the same sheet as "Falar".
+    for (const name of ["Falar", "Silenciar", "Bloquear", "Denunciar"]) await expect(sheet.getByRole("button", { name, exact: true })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Adicionar" })).toBeDisabled();
+    await page.screenshot({ path: info.outputPath("jogador-bi.png") });
+
+    // Silenciar: what the other says is no longer heard on this phone, at once.
+    await sheet.getByRole("button", { name: "Silenciar", exact: true }).click();
+    await expect(sheet.getByRole("button", { name: "Voltar a ouvir" })).toBeVisible();
+    await other.getByRole("button", { name: "Escreve aqui" }).click();
+    await other.getByRole("button", { name: "Bom dia!" }).click();
+    await page.waitForTimeout(800);
+    expect(await page.evaluate(() => window.__andar!.lines)).toEqual([]);
+    await sheet.getByRole("button", { name: "Voltar a ouvir" }).click();
+
+    // Denunciar: a reason, a few words, sent; the moderators have it.
+    await sheet.getByRole("button", { name: "Denunciar", exact: true }).click();
+    await expect(sheet.getByRole("button", { name: "Enviar", exact: true })).toBeDisabled();
+    await sheet.getByRole("radio", { name: "Insultos" }).click();
+    await sheet.getByRole("textbox").fill("disse coisas feias");
+    await page.screenshot({ path: info.outputPath("jogador-denunciar.png") });
+    await sheet.getByRole("button", { name: "Enviar", exact: true }).click();
+    await expect(sheet.getByRole("status")).toHaveText("Recebemos. Um moderador vai ver.");
+
+    // Bloquear: recorded by the server, and undone.
+    await sheet.getByRole("button", { name: "Bloquear", exact: true }).click();
+    await expect(sheet.getByRole("status")).toHaveText("Feito. Já não se ouvem um ao outro.");
+    await expect(sheet.getByRole("button", { name: "Desbloquear" })).toBeVisible();
+    await sheet.getByRole("button", { name: "Desbloquear" }).click();
+    await expect(sheet.getByRole("status")).toHaveText("Feito. Voltam a ouvir-se.");
+
+    // Falar: the sheet goes and the line opens.
+    await sheet.getByRole("button", { name: "Falar", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Escreve aqui" })).toBeFocused();
     await other.close();
     expect(seen.errors).toEqual([]);
   });

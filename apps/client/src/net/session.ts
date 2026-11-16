@@ -12,7 +12,7 @@
 // others stay where they were last seen; they do not vanish. Only after a
 // minute of trying is the player told there is no network.
 
-import { type InputFrame, type Snapshot } from "@nzila/protocol";
+import { CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
 import { Players } from "../render/players.ts";
@@ -22,6 +22,21 @@ import { openLink, type Link } from "./link.ts";
 import { Others } from "./others.ts";
 import { Prediction, type Said } from "./predict.ts";
 import { ALONE_RETRIES, ALONE_RETRY_MS, SAY_AFTER_MS, nextTry, type NetState } from "./retry.ts";
+import { Talking } from "./talking.ts";
+
+/** Why a line was not said: a word the game does not pass on, too many too fast, or an address to somewhere outside. */
+export type Refused = "words" | "slow" | "links";
+
+/** Where the players this phone has silenced are kept, by the number of their BI: silence outlives the visit. */
+const SILENCED_KEY = "nzila.silenciados";
+function silencedHere(): Set<string> {
+  try {
+    const kept = JSON.parse(localStorage.getItem(SILENCED_KEY) ?? "[]") as unknown;
+    return new Set(Array.isArray(kept) ? kept.filter((one): one is string => typeof one === "string").slice(-500) : []);
+  } catch {
+    return new Set();
+  }
+}
 
 export const STILL: InputFrame = { dx: 0, dz: 0, run: false, brake: false };
 
@@ -38,6 +53,8 @@ export class Session {
   private first: Said | null = null;
   /** Whether the zone has said where the player is: before that the page must not send a stick from the wrong place. */
   private arrived = false;
+  /** The newest snapshot acted on in this stay. */
+  private heardTick = -1;
   /** Each attempt to come in has a number: an answer to an older attempt is thrown away. */
   private attempt = 0;
   private tries = 0;
@@ -48,6 +65,12 @@ export class Session {
   private wasEntity: number | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private closed = false;
+  /** What is being said in the street, and whether talk is open in this channel at all. */
+  readonly talk = new Talking();
+  private chatOpen = false;
+  private readonly silencedBi = silencedHere();
+  /** Why the player's last line was not said, until the page has shown it. */
+  refused: Refused | null = null;
   /** How many times the zone has had to put the body right, and how many times a fallen line was picked up: for the tests and the bench. */
   corrections = 0;
   reconnections = 0;
@@ -103,7 +126,21 @@ export class Session {
   private open(seat: PlaySeat, paragem: string | undefined, attempt: number): Promise<void> {
     return openLink(seat, paragem, {
       snapshot: (snapshot) => attempt === this.attempt && this.hear(snapshot),
-      who: (who) => attempt === this.attempt && this.players.know(who),
+      who: (who) => {
+        if (attempt !== this.attempt) return;
+        this.players.know(who);
+        // Someone this phone silenced on another day is silent still.
+        if (who.bi && this.silencedBi.has(who.bi)) this.talk.silence(who.entityId, true);
+      },
+      heard: (from, text) => {
+        if (attempt !== this.attempt) return;
+        const mine = from === this.link?.accepted.entityId;
+        const name = mine ? null : this.players.nameOf(from);
+        // Someone whose name has not arrived is not yet anyone: their line waits for nothing and is dropped.
+        if (mine || name !== null) this.talk.heard(from, name, text, performance.now());
+      },
+      typing: (from, on) => attempt === this.attempt && this.talk.typing(from, on, performance.now()),
+      event: (event) => attempt === this.attempt && this.happened(event),
       closed: (why) => {
         if (attempt !== this.attempt) return;
         this.wasEntity = this.link?.accepted.entityId ?? null;
@@ -130,6 +167,8 @@ export class Session {
       this.fellAt = null;
       this.gaveUp = false;
       this.tries = 0;
+      this.chatOpen = false;
+      this.heardTick = -1;
       this.link = link;
     });
   }
@@ -179,6 +218,9 @@ export class Session {
   private hear(snapshot: Snapshot): void {
     const link = this.link;
     if (!link) return;
+    // Only ever forwards: an older word arriving after a newer one changes nothing.
+    if (snapshot.tick <= this.heardTick) return;
+    this.heardTick = snapshot.tick;
     const me = snapshot.entities.find((entity) => entity.id === link.accepted.entityId);
     if (me) {
       const said = { x: me.x, y: me.y, z: me.z, yaw: me.yaw };
@@ -187,6 +229,68 @@ export class Session {
       this.mine = { said, lastInputSeq: snapshot.lastInputSeq };
     }
     this.others.take(snapshot, link.accepted.entityId, performance.now());
+  }
+
+  private happened(event: WorldEvent): void {
+    if (event.kind === EVENT.CHAT_OPEN) this.chatOpen = true;
+    else if (event.kind === EVENT.CHAT_REFUSED) this.refused = event.args[0] === CHAT_REFUSAL.SLOW_DOWN ? "slow" : event.args[0] === CHAT_REFUSAL.LINKS ? "links" : "words";
+    else if (event.kind === EVENT.EMOTE) {
+      const name = EMOTE_NAMES[event.args[0] ?? -1];
+      if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);
+    }
+  }
+
+  /** "Silenciar", and its undoing: at once, on this phone, and remembered here by the number of their BI. */
+  silence(entity: number, on: boolean): void {
+    this.talk.silence(entity, on);
+    const bi = this.players.who(entity)?.bi;
+    if (!bi) return;
+    if (on) this.silencedBi.add(bi);
+    else this.silencedBi.delete(bi);
+    try {
+      localStorage.setItem(SILENCED_KEY, JSON.stringify([...this.silencedBi]));
+    } catch {
+      // Storage is off: they are silent for this visit.
+    }
+  }
+
+  /** Whether the player can talk here now: in a channel where talk is open. */
+  get canTalk(): boolean {
+    return this.walking && this.chatOpen;
+  }
+
+  /** The player's own number in the channel, when they are in one. */
+  get me(): number | null {
+    return this.link?.accepted.entityId ?? null;
+  }
+
+  /** Says a line to whoever is near. It comes back from the zone when it has been said, and is shown then: never before. */
+  say(text: string): void {
+    if (this.canTalk) this.link!.say(this.talk.takeId(), text);
+  }
+
+  typing(on: boolean): void {
+    if (this.canTalk) this.link!.typing(on);
+  }
+
+  /** A gesture, for the others to see. */
+  gesture(name: EmoteName): void {
+    if (this.walking) this.link!.gesture(EMOTE_NAMES.indexOf(name));
+  }
+
+  /** What each body in the street is doing with its hands, for the tests: the gesture under way, or null. */
+  gesturing(): (string | null)[] {
+    return this.players.gesturing();
+  }
+
+  /** Who a body is: their name, their BI number and their look, as the zone said. */
+  who(entity: number): Who | null {
+    return this.players.who(entity);
+  }
+
+  /** The bodies in the street as places on the ground, for a balloon to hang over or a finger to land on. */
+  heads(): { id: number; x: number; y: number; z: number }[] {
+    return this.players.heads();
   }
 
   /** Where the zone put the player on coming in: given once, when it is first known. */

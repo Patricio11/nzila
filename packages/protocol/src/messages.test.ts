@@ -11,6 +11,9 @@ import {
   encodeChatSend,
   encodeChatTyping,
   encodeWho,
+  encodeEmote,
+  EMOTE_NAMES,
+  CHAT_REFUSAL,
   zoneRoomOf,
   encodeEvent,
   encodeHandoff,
@@ -72,6 +75,19 @@ describe("round trips", () => {
   });
 });
 
+describe("a gesture", () => {
+  test("a client says which gesture it makes, by its number; a number that is no gesture is not read", () => {
+    for (const [n] of EMOTE_NAMES.entries()) expect(decodeClientMessage(encodeEmote({ emote: n }))).toEqual({ type: "emote", emote: n });
+    expect(() => decodeClientMessage(encodeEmote({ emote: EMOTE_NAMES.length }))).toThrow(ProtocolError);
+    expect(encodeEmote({ emote: 2 })).toHaveLength(2);
+    // The zone tells of a gesture with an event: a client never sends one of those, and a zone never sends this.
+    expect(decodeZoneMessage(encodeEmote({ emote: 1 }))).toEqual({ type: "unknown", code: 12 });
+    // WIRE FORMAT: added to at the end, never moved.
+    expect(EMOTE_NAMES).toEqual(["acenar", "rir", "aplaudir", "chamar", "dancar"]);
+    expect(CHAT_REFUSAL).toEqual({ WORDS: 1, SLOW_DOWN: 2, LINKS: 3 });
+  });
+});
+
 describe("where a district is asked for", () => {
   test("a district's room is its id made fit for a web address", () => {
     expect(zoneRoomOf("ao-lua/l1")).toBe("ao-lua.l1");
@@ -80,14 +96,14 @@ describe("where a district is asked for", () => {
 
 describe("who someone is", () => {
   test("Who: the entity, the name on their BI, and their look as it is kept", () => {
-    const who = { entityId: 412, name: "Dona Xepa", look: checkLook(arrivalLook(5))! };
+    const who = { entityId: 412, name: "Dona Xepa", bi: "00000412-LA", look: checkLook(arrivalLook(5))! };
     expect(decodeZoneMessage(encodeWho(who))).toEqual({ type: "who", ...who });
     // Small: the entity, the name, and twelve bytes of look.
-    expect(encodeWho(who).length).toBeLessThanOrEqual(3 + 1 + 9 + 1 + 12);
+    expect(encodeWho(who).length).toBeLessThanOrEqual(3 + 1 + 9 + 1 + 11 + 1 + 12);
     // One whose look is not known has none to send.
-    expect(decodeZoneMessage(encodeWho({ entityId: 1, name: "Caluanda 7", look: null }))).toEqual({ type: "who", entityId: 1, name: "Caluanda 7", look: null });
+    expect(decodeZoneMessage(encodeWho({ entityId: 1, name: "Caluanda 7", bi: "", look: null }))).toEqual({ type: "who", entityId: 1, name: "Caluanda 7", bi: "", look: null });
     // A look that could not be dressed arrives as no look, never as something to draw.
-    expect(decodeZoneMessage(encodeWho({ ...who, look: { ...who.look, hair: "moicano" } }))).toEqual({ type: "who", entityId: 412, name: "Dona Xepa", look: null });
+    expect(decodeZoneMessage(encodeWho({ ...who, look: { ...who.look, hair: "moicano" } }))).toEqual({ type: "who", entityId: 412, name: "Dona Xepa", bi: "00000412-LA", look: null });
     // A client never says who anyone is.
     expect(() => decodeClientMessage(encodeWho(who))).toThrow(ProtocolError);
   });

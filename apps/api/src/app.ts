@@ -4,7 +4,7 @@
 
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
-import { recordConsent } from "@nzila/db";
+import { REPORT_REASONS, blockPlayer, blockedBy, playerOfBi, recordConsent, reportPlayer, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
 import { checkLook, zoneRoomOf } from "@nzila/protocol";
@@ -376,6 +376,85 @@ export function buildApp(deps: Deps): FastifyInstance {
       if (!picked) throw new Refusal(409, "full");
       const seat = await presence.reserve({ playerId: caller.player.id, zoneId: picked.zoneId, room, channel: picked.channel });
       return { address: picked.address, room, seat, channel: picked.channel };
+    },
+  });
+
+  // ------------------------------------------------------------ other players (Tasks 3.5 and 3.6, Rule 11)
+  // A player knows another by what is on their BI: its number. That is how they are looked at, shut out and reported.
+  const biShape = z.string().regex(/^[0-9A-Za-z-]{3,32}$/);
+  /** The player a BI number belongs to; never the caller themselves. */
+  const other = async (biNumber: string, callerId: string): Promise<string> => {
+    const id = await playerOfBi(deps.sql, biNumber);
+    if (!id) throw new Refusal(404, "not_found");
+    if (id === callerId) throw new Refusal(400, "invalid");
+    return id;
+  };
+
+  // The BI of someone met in the street: what the card shows and nothing more. Their Makuta, their family's
+  // trades, how they saved their BI and everything else are their own.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/players/card",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape }),
+    perMinute: 60,
+    handler: async (body) => {
+      const [row] = await deps.sql<{ name: string | null; bi_number: string; arrived_at: Date; bairro: string | null }[]>`
+        SELECT p.name, p.bi_number, p.arrived_at, o.bairro FROM players p LEFT JOIN player_origins o ON o.player_id = p.id
+        WHERE p.bi_number = ${body.biNumber} AND p.status = 'active'`;
+      if (!row) throw new Refusal(404, "not_found");
+      return { name: row.name, biNumber: row.bi_number, bairro: row.bairro, arrivedAt: row.arrived_at.toISOString() };
+    },
+  });
+
+  // "Bloquear": the two neither hear nor are heard by each other, anywhere, from the next half minute at the latest
+  // (the phone hides them at once). Asking twice changes nothing. The other is not told.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/blocks",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape }),
+    perMinute: 20,
+    handler: async (body, caller) => {
+      await blockPlayer(deps.sql, caller.player.id, await other(body.biNumber, caller.player.id));
+      return { ok: true };
+    },
+  });
+
+  declare(app, gate, {
+    method: "DELETE",
+    url: "/v1/blocks",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape }),
+    perMinute: 20,
+    handler: async (body, caller) => {
+      await unblockPlayer(deps.sql, caller.player.id, await other(body.biNumber, caller.player.id));
+      return { ok: true };
+    },
+  });
+
+  // Whom this player has shut out, so that it can be undone.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/blocks",
+    guard: "player",
+    body: nothing,
+    perMinute: 30,
+    handler: async (_body, caller) => ({ blocked: await blockedBy(deps.sql, caller.player.id) }),
+  });
+
+  // "Denunciar": said to the moderators, with the reported player's last lines copied beside it as they were at
+  // that moment. The reported player is not told who, or that. A few a minute: a report is a serious thing to say.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/reports",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape, reason: z.enum(REPORT_REASONS), note: z.string().max(500).optional() }),
+    perMinute: 6,
+    handler: async (body, caller) => {
+      const note = body.note?.trim();
+      const report = await reportPlayer(deps.sql, caller.player.id, await other(body.biNumber, caller.player.id), body.reason, note ? note : null);
+      return { ok: true, report };
     },
   });
 

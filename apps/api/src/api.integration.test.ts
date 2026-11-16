@@ -1,7 +1,7 @@
 // The API against a real PostgreSQL (`pnpm services` starts it). Each run
 // makes its own database and drops it afterwards.
 
-import { connect, databaseUrl, decryptField, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
+import { connect, databaseUrl, decryptField, keepChatLines, shutOutOf, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES } from "@nzila/economy";
 import { ZONE_TTL_S, memoryPresence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
@@ -738,5 +738,77 @@ describe("where to play", () => {
     // And with every zone silent there is nowhere, said plainly: the phone lets the player walk alone.
     later += (ZONE_TTL_S + 1) * 1000;
     expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toEqual({ error: "no_zone" });
+  });
+});
+
+describe("other players: looking, shutting out, reporting (Rule 11)", () => {
+  const post = (token: string, url: string, payload: object) => app.inject({ method: "POST", url, headers: as(token), payload });
+
+  test("the BI of someone met in the street shows what a card shows and nothing more; a number that is nobody's shows nothing", async () => {
+    const me = await newGuest(950);
+    const them = await newGuest(951);
+    await app.inject({ method: "POST", url: "/v1/me/origin", headers: as(them.token), payload: {} });
+    const card = await post(me.token, "/v1/players/card", { biNumber: them.biNumber });
+    expect(card.statusCode).toBe(200);
+    const shown = card.json() as Record<string, unknown>;
+    expect(Object.keys(shown).sort()).toEqual(["arrivedAt", "bairro", "biNumber", "name"]);
+    expect(shown).toMatchObject({ name: them.name, biNumber: them.biNumber });
+    expect(typeof shown.bairro).toBe("string");
+    expect((await post(me.token, "/v1/players/card", { biNumber: "99999999-LA" })).statusCode).toBe(404);
+    expect((await app.inject({ method: "POST", url: "/v1/players/card", payload: { biNumber: them.biNumber } })).statusCode).toBe(401);
+    expect((await post(me.token, "/v1/players/card", { biNumber: "'; DROP TABLE players; --" })).statusCode).toBe(400);
+  });
+
+  test("a player shuts another out and lets them back in; asking twice changes nothing; nobody shuts themselves out; the list is theirs alone", async () => {
+    const me = await newGuest(952);
+    const them = await newGuest(953);
+    expect((await post(me.token, "/v1/blocks", { biNumber: them.biNumber })).statusCode).toBe(200);
+    expect((await post(me.token, "/v1/blocks", { biNumber: them.biNumber })).statusCode).toBe(200);
+    expect((await post(me.token, "/v1/blocks", { biNumber: me.biNumber })).statusCode).toBe(400);
+    expect((await post(me.token, "/v1/blocks", { biNumber: "99999999-LA" })).statusCode).toBe(404);
+    const mine = (await app.inject({ method: "GET", url: "/v1/blocks", headers: as(me.token) })).json() as { blocked: { name: string; biNumber: string }[] };
+    expect(mine.blocked).toMatchObject([{ name: them.name, biNumber: them.biNumber }]);
+    // The other is told nothing, and their own list is empty.
+    expect(((await app.inject({ method: "GET", url: "/v1/blocks", headers: as(them.token) })).json() as { blocked: unknown[] }).blocked).toEqual([]);
+    // What the zone reads: each is shut out from the other, whoever asked.
+    expect(await shutOutOf(sql, me.playerId)).toEqual([them.playerId]);
+    expect(await shutOutOf(sql, them.playerId)).toEqual([me.playerId]);
+    expect((await app.inject({ method: "DELETE", url: "/v1/blocks", headers: as(me.token), payload: { biNumber: them.biNumber } })).statusCode).toBe(200);
+    expect(await shutOutOf(sql, them.playerId)).toEqual([]);
+  });
+
+  test("a report reaches the moderators with the reported player's last lines as they were, and outlives them; the reporter's file says they made it", async () => {
+    const me = await newGuest(954);
+    const them = await newGuest(955);
+    await keepChatLines(sql, [
+      { playerId: them.playerId, districtId: "ao-lua/l1", channel: 1, text: "primeira coisa", said: true, heardBy: 2 },
+      { playerId: them.playerId, districtId: "ao-lua/l1", channel: 1, text: "segunda, recusada", said: false, heardBy: 0 },
+      { playerId: me.playerId, districtId: "ao-lua/l1", channel: 1, text: "o que eu disse", said: true, heardBy: 1 },
+    ]);
+    const res = await post(me.token, "/v1/reports", { biNumber: them.biNumber, reason: "insults", note: "  chamou-me nomes  " });
+    expect(res.statusCode).toBe(200);
+    const [report] = await sql<{ reporter_id: string; reported_id: string; reason: string; note: string; status: string; lines: { text: string; said: boolean }[] }[]>`SELECT reporter_id, reported_id, reason, note, status, lines FROM reports WHERE id = ${(res.json() as { report: number }).report}`;
+    expect(report).toMatchObject({ reporter_id: me.playerId, reported_id: them.playerId, reason: "insults", note: "chamou-me nomes", status: "open" });
+    // Their lines, in the order they were said, the refused one too; and none of the reporter's own.
+    expect(report!.lines.map((line) => [line.text, line.said])).toEqual([["primeira coisa", true], ["segunda, recusada", false]]);
+    // Not a reason the game knows, and not oneself.
+    expect((await post(me.token, "/v1/reports", { biNumber: them.biNumber, reason: "não gosto dele" })).statusCode).toBe(400);
+    expect((await post(me.token, "/v1/reports", { biNumber: me.biNumber, reason: "other" })).statusCode).toBe(400);
+    // An empty note is no note.
+    const bare = await post(me.token, "/v1/reports", { biNumber: them.biNumber, reason: "other", note: "   " });
+    const [second] = await sql<{ note: string | null }[]>`SELECT note FROM reports WHERE id = ${(bare.json() as { report: number }).report}`;
+    expect(second!.note).toBeNull();
+    // "Os meus dados": what they said, whom they shut out, what they reported (and not whom).
+    await post(me.token, "/v1/blocks", { biNumber: them.biNumber });
+    const file = (await app.inject({ method: "GET", url: "/v1/me/data", headers: as(me.token) })).json() as { said: { text: string }[]; blocked: { biNumber: string }[]; reports: Record<string, unknown>[] };
+    expect(file.said.map((line) => line.text)).toEqual(["o que eu disse"]);
+    expect(file.blocked.map((one) => one.biNumber)).toEqual([them.biNumber]);
+    expect(file.reports).toHaveLength(2);
+    expect(JSON.stringify(file.reports)).not.toContain(them.playerId);
+    expect(JSON.stringify(file.reports)).not.toContain(them.biNumber);
+    // Deleting the account: nobody is left shut out by it; the report stays with the moderators.
+    expect((await app.inject({ method: "DELETE", url: "/v1/me", headers: as(me.token), payload: { biNumber: me.biNumber } })).statusCode).toBe(200);
+    expect(await shutOutOf(sql, them.playerId)).toEqual([]);
+    expect((await sql`SELECT 1 FROM reports WHERE reporter_id = ${me.playerId}`).length).toBe(2);
   });
 });

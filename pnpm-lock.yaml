@@ -237,6 +237,9 @@ importers:
       '@nzila/economy':
         specifier: workspace:*
         version: link:../../packages/economy
+      '@nzila/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@nzila/presence':
         specifier: workspace:*
         version: link:../../packages/presence

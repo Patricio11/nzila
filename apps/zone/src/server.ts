@@ -22,6 +22,7 @@
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { playerOfSession } from "@nzila/db";
+import { type ChatFilter } from "@nzila/i18n";
 import { ZONE_SAYS_EVERY_S, type Presence, type ZoneCard } from "@nzila/presence";
 import { JOIN_REFUSAL, PROTOCOL_VERSION, ZONE_CLOSE, decodeClientMessage, encodeJoinRefused, negotiate, type JoinRefusalCode } from "@nzila/protocol";
 import { type Sql } from "postgres";
@@ -59,6 +60,8 @@ export interface ZoneOptions {
   /** How long a dropped line's place is kept, and how often lines are asked whether they are there: the defaults unless a test brings shorter ones. */
   readonly holdMs?: number;
   readonly askEveryMs?: number;
+  /** The word filter: given, talk is open; not given, nobody can say anything here (room.ts). */
+  readonly filter?: ChatFilter;
   readonly log?: (line: string) => void;
 }
 
@@ -83,7 +86,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
   const running = new Map<string, Running>();
   for (const { district, remember } of options.districts) {
     running.set(roomNameOf(district.id), {
-      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.holdMs ? { holdMs: options.holdMs } : {}), ...(options.log ? { log: options.log } : {}) },
+      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.holdMs ? { holdMs: options.holdMs } : {}), ...(options.filter ? { filter: options.filter } : {}), ...(options.log ? { log: options.log } : {}) },
       channels: [],
     });
   }
@@ -110,7 +113,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
     if (closing) return;
     for (const room of [...district.channels]) {
       if (room.count > 0) continue;
-      room.stop();
+      room.retire();
       district.channels.splice(district.channels.indexOf(room), 1);
     }
     say();

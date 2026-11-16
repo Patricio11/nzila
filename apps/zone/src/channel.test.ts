@@ -151,11 +151,24 @@ describe("the channel decides where everyone is", () => {
     channel.input(a, { seq: 6, ackTick: 0, frames: Array.from({ length: 6 }, () => north) });
     channel.tick();
     const one = channel.placeOf(a)!.z;
-    // Two frames in the first step, at the most; and after the little that was kept, one a step.
-    expect(one).toBeLessThan(200);
-    for (let n = 0; n < STEPS_KEPT_AT_MOST + 1; n++) channel.tick();
+    // A few frames in the first step, at the most: never the whole burst at once.
+    expect(one).toBeLessThan(80 * FRAMES_A_STEP_AT_MOST);
+    expect(decodeSnapshot(channel.snapshotFor(a)!, () => undefined).lastInputSeq).toBe(FRAMES_A_STEP_AT_MOST);
+    channel.tick();
     expect(decodeSnapshot(channel.snapshotFor(a)!, () => undefined).lastInputSeq).toBe(6);
-    expect(FRAMES_A_STEP_AT_MOST).toBe(2);
+    // And what is kept has an end: a longer burst is walked at the pace of time once it is spent.
+    const long = new Channel(ground);
+    const b = long.join("player-b", here)!;
+    for (let n = 0; n < 100; n++) long.tick();
+    long.input(b, { seq: 8, ackTick: 0, frames: Array.from({ length: 8 }, () => north) });
+    long.input(b, { seq: 16, ackTick: 0, frames: Array.from({ length: 8 }, () => north) });
+    let steps = 0;
+    while (decodeSnapshot(long.snapshotFor(b)!, () => undefined).lastInputSeq < 16) {
+      long.tick();
+      steps++;
+    }
+    expect(steps).toBeGreaterThan(16 / FRAMES_A_STEP_AT_MOST);
+    expect(STEPS_KEPT_AT_MOST).toBeLessThanOrEqual(12);
   });
 
   test("two people cannot stand in the same place: one walking at another stops before them", () => {

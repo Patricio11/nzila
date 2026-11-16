@@ -17,7 +17,14 @@ import {
   type JoinAccepted,
   type Snapshot,
   type Who,
+  type WorldEvent,
+  CHAT_REFUSAL,
+  EVENT,
+  encodeChatSend,
+  encodeChatTyping,
+  encodeEmote,
 } from "@nzila/protocol";
+import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
 import postgres, { type Sql } from "postgres";
@@ -25,13 +32,20 @@ import { WebSocket as Cuttable } from "ws";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { type District } from "./district.ts";
 import { STEP_MS, STRIKES } from "./room.ts";
+import { LINE_GAP_MS } from "./talk.ts";
 import { startZone, type Zone } from "./server.ts";
 
 const name = `nzila_zone_test_${process.pid}_${Date.now()}`;
 const port = 21_000 + (process.pid % 20_000);
 // A square of open ground 200 m across, with a wall along z = 30 m.
 const ground: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz === 60 || Math.abs(cx) > 200 || Math.abs(cz) > 200 ? 0 : 1), heightAt: () => 0 };
-const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obstacles: [], paragens: new Map([["mutamba", { x: 40_000, y: 0, z: -20_000, yaw: 0 }]]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 } };
+const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obstacles: [], paragens: new Map([
+    ["mutamba", { x: 40_000, y: 0, z: -20_000, yaw: 0 }],
+    // Three places along a line, for talk: together, ten metres off (seen to speak, not read), and thirty (out of hearing).
+    ["conversa", { x: -60_000, y: 0, z: -60_000, yaw: 0 }],
+    ["conversa-10", { x: -50_000, y: 0, z: -60_000, yaw: 0 }],
+    ["conversa-30", { x: -30_000, y: 0, z: -60_000, yaw: 0 }],
+  ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 } };
 // A town the database has never heard of: played in, and nobody's place in it is kept.
 const rehearsal: District = { ...district, id: "zz-dev/d1", provinceId: "zz-dev" };
 const presence = memoryPresence();
@@ -48,7 +62,7 @@ beforeAll(async () => {
   sql = connect(url.toString(), 10);
   await migrate(sql, await loadMigrations());
   await seed(sql, await loadWorldSeed());
-  zone = await startZone({ sql, districts: [{ district }, { district: rehearsal, remember: false }], presence, sessions: true, log: (line) => void said.push(line) }, port);
+  zone = await startZone({ sql, districts: [{ district }, { district: rehearsal, remember: false }], presence, sessions: true, filter: createChatFilter(["palavrao"]), log: (line) => void said.push(line) }, port);
 }, 60_000);
 
 afterAll(async () => {
@@ -104,7 +118,7 @@ async function phone(token: string, protocolVersion = PROTOCOL_VERSION, paragem?
   const socket = new WebSocket(`ws://127.0.0.1:${port}/${roomName}${paragem ? `?paragem=${paragem}` : ""}`);
   socket.binaryType = "arraybuffer";
   const had = new Map<number, Snapshot>();
-  const state = { accepted: null as JoinAccepted | null, refused: null as number | null, latest: null as Snapshot | null, snapshots: 0, bytes: 0, closed: null as number | null, seq: 0, who: [] as Who[] };
+  const state = { accepted: null as JoinAccepted | null, refused: null as number | null, latest: null as Snapshot | null, snapshots: 0, bytes: 0, closed: null as number | null, seq: 0, who: [] as Who[], heard: [] as { from: number; text: string }[], typing: [] as { from: number; typing: boolean }[], events: [] as WorldEvent[] };
   socket.onopen = () => socket.send(encodeJoin({ protocolVersion, token }));
   socket.onmessage = (event: MessageEvent) => {
     const bytes = new Uint8Array(event.data as ArrayBuffer);
@@ -112,7 +126,10 @@ async function phone(token: string, protocolVersion = PROTOCOL_VERSION, paragem?
     const message = decodeZoneMessage(bytes);
     if (message.type === "join_accepted") state.accepted = message;
     if (message.type === "join_refused") state.refused = message.reason;
-    if (message.type === "who") state.who.push({ entityId: message.entityId, name: message.name, look: message.look });
+    if (message.type === "chat_heard") state.heard.push({ from: message.from, text: message.text });
+    if (message.type === "chat_typing") state.typing.push({ from: message.from, typing: message.typing });
+    if (message.type === "event") state.events.push(message);
+    if (message.type === "who") state.who.push({ entityId: message.entityId, name: message.name, bi: message.bi, look: message.look });
     if (message.type === "snapshot") {
       const snapshot = decodeSnapshot(bytes, (tick) => had.get(tick));
       had.set(snapshot.tick, snapshot);
@@ -219,6 +236,8 @@ describe("two phones in the same street", () => {
     await until(() => b.state.who.some((who) => who.entityId === aId) && a.state.who.some((who) => who.entityId === bId));
     const ofA = b.state.who.find((who) => who.entityId === aId)!;
     expect(ofA.name).toBe(dressed.name);
+    // And the number of their BI: what they can be blocked or reported by, and nothing more private than the card shows.
+    expect(ofA.bi).toMatch(/^9\d{7}-LA$/);
     expect(ofA.look).toMatchObject({ sex: "f", hair: "trancas", bottom: "pano" });
     // The other's stored look is not one the game knows: it is not passed on. They are shown in a look of their own
     // all the same, made by the zone and good for the wardrobe.
@@ -379,6 +398,141 @@ describe("seats and the matchmaker", () => {
     await strict.close();
     for (const socket of lines) socket.close(1000);
     expect((await presence.zones()).some((card) => card.id === strict.id)).toBe(false);
+  });
+});
+
+describe("talk in the street", () => {
+  const send = (who: { socket: WebSocket }, bytes: Uint8Array): void => who.socket.send(bytes);
+
+  test("a line is read by whoever is near, seen as a balloon by whoever is a little farther, and not known of beyond; and it is kept", async () => {
+    const speaker = await player();
+    const a = await phone(speaker.token, PROTOCOL_VERSION, "conversa");
+    const near = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const mid = await phone((await player()).token, PROTOCOL_VERSION, "conversa-10");
+    const far = await phone((await player()).token, PROTOCOL_VERSION, "conversa-30");
+    const aId = a.state.accepted!.entityId;
+    // Each was told, on coming in, that talk is open here.
+    expect(a.state.events.some((event) => event.kind === EVENT.CHAT_OPEN)).toBe(true);
+
+    send(a, encodeChatSend({ messageId: 1, text: "  Bom   dia,\nvizinhos!  " }));
+    await until(() => near.state.heard.length === 1 && mid.state.heard.length === 1 && a.state.heard.length === 1);
+    expect(near.state.heard[0]).toEqual({ from: aId, text: "Bom dia, vizinhos!" });
+    // Ten metres off: someone spoke. What they said was never sent.
+    expect(mid.state.heard[0]).toEqual({ from: aId, text: "" });
+    // The speaker hears their own line as it was said, tidied.
+    expect(a.state.heard[0]).toEqual({ from: aId, text: "Bom dia, vizinhos!" });
+    await pause(200);
+    expect(far.state.heard).toEqual([]);
+    // Sent twice over a bad line: said once.
+    send(a, encodeChatSend({ messageId: 1, text: "Bom dia, vizinhos!" }));
+    await pause(200);
+    expect(near.state.heard).toHaveLength(1);
+
+    for (const one of [a, near, mid, far]) await one.leave();
+    // Kept for moderation: who, where, what, and how many read it.
+    await until(() => false, 300).catch(() => {});
+    const kept = await sql<{ text: string; said: boolean; heard_by: number; district_id: string; channel: number }[]>`SELECT text, said, heard_by, district_id, channel FROM chat_lines WHERE player_id = ${speaker.id}`;
+    expect(kept).toEqual([{ text: "Bom dia, vizinhos!", said: true, heard_by: 1, district_id: "ao-lua/l1", channel: 1 }]);
+  });
+
+  test("a line with a word the game does not pass on is said to nobody; its speaker is told, kindly and alone, and it is kept; so is one too many too fast", async () => {
+    const speaker = await player();
+    const a = await phone(speaker.token, PROTOCOL_VERSION, "conversa");
+    const near = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    send(a, encodeChatSend({ messageId: 5, text: "és um p4l4vr4o" }));
+    await until(() => a.state.events.some((event) => event.kind === EVENT.CHAT_REFUSED));
+    expect(a.state.events.find((event) => event.kind === EVENT.CHAT_REFUSED)).toMatchObject({ subject: 5, args: [CHAT_REFUSAL.WORDS] });
+    // A line that was refused still counts against its speaker's pace: a breath, then two lines in the same instant, and the second is too fast.
+    await pause(LINE_GAP_MS + 100);
+    send(a, encodeChatSend({ messageId: 6, text: "agora" }));
+    send(a, encodeChatSend({ messageId: 7, text: "já" }));
+    await until(() => a.state.events.filter((event) => event.kind === EVENT.CHAT_REFUSED).length === 2);
+    expect(a.state.events.filter((event) => event.kind === EVENT.CHAT_REFUSED)[1]).toMatchObject({ subject: 7, args: [CHAT_REFUSAL.SLOW_DOWN] });
+    await pause(200);
+    expect(near.state.heard).toEqual([{ from: a.state.accepted!.entityId, text: "agora" }]);
+    expect(near.state.events.some((event) => event.kind === EVENT.CHAT_REFUSED)).toBe(false);
+    await a.leave();
+    await near.leave();
+    await until(() => false, 300).catch(() => {});
+    const kept = await sql<{ text: string; said: boolean }[]>`SELECT text, said FROM chat_lines WHERE player_id = ${speaker.id} ORDER BY id`;
+    expect(kept).toEqual([
+      { text: "és um p4l4vr4o", said: false },
+      { text: "agora", said: true },
+      { text: "já", said: false },
+    ]);
+  });
+
+  test("three dots over whoever is typing, said when it starts and when it stops; and a gesture is seen by whoever has them in sight", async () => {
+    const a = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const near = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const far = await phone((await player()).token, PROTOCOL_VERSION, "mutamba");
+    const aId = a.state.accepted!.entityId;
+    for (let n = 0; n < 4; n++) send(a, encodeChatTyping({ from: 0, typing: true }));
+    await until(() => near.state.typing.length === 1);
+    send(a, encodeChatTyping({ from: 0, typing: false }));
+    await until(() => near.state.typing.length === 2);
+    // The zone says who is typing: a client's own word for it is not taken.
+    expect(near.state.typing).toEqual([{ from: aId, typing: true }, { from: aId, typing: false }]);
+    expect(a.state.typing).toEqual([]);
+
+    // Typing, then gone without a word: the dots do not stay over an empty place.
+    send(a, encodeChatTyping({ from: 0, typing: true }));
+    await until(() => near.state.typing.length === 3);
+    send(a, encodeEmote({ emote: 4 }));
+    send(a, encodeEmote({ emote: 1 }));
+    await until(() => near.state.events.some((event) => event.kind === EVENT.EMOTE));
+    // One gesture a second: the second, sent at once, is not passed on.
+    await pause(200);
+    expect(near.state.events.filter((event) => event.kind === EVENT.EMOTE)).toMatchObject([{ subject: aId, args: [4] }]);
+    expect(far.state.events.some((event) => event.kind === EVENT.EMOTE)).toBe(false);
+    expect(far.state.typing).toEqual([]);
+    await a.leave();
+    await until(() => near.state.typing.length === 4);
+    expect(near.state.typing[3]).toEqual({ from: aId, typing: false });
+    await near.leave();
+    await far.leave();
+  });
+
+  test("two who have shut each other out do not hear each other, whoever did the shutting; everyone else hears both", async () => {
+    const one = await player();
+    const two = await player();
+    await sql`INSERT INTO player_blocks (player_id, blocked_id) VALUES (${one.id}, ${two.id})`;
+    const a = await phone(one.token, PROTOCOL_VERSION, "conversa");
+    const b = await phone(two.token, PROTOCOL_VERSION, "conversa");
+    const c = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    send(a, encodeChatSend({ messageId: 1, text: "ouves-me?" }));
+    send(b, encodeChatSend({ messageId: 1, text: "e a mim?" }));
+    send(b, encodeChatTyping({ from: 0, typing: true }));
+    await until(() => c.state.heard.length === 2 && c.state.typing.length === 1);
+    await pause(200);
+    expect(a.state.heard.map((line) => line.text)).toEqual(["ouves-me?"]);
+    expect(b.state.heard.map((line) => line.text)).toEqual(["e a mim?"]);
+    expect(a.state.typing).toEqual([]);
+    for (const each of [a, b, c]) await each.leave();
+  });
+
+  test("where talk is not open nobody is told it is, and nothing said is passed on or kept", async () => {
+    const quiet = await startZone({ sql, districts: [{ district }], presence, sessions: true, log: (line) => void said.push(line) }, port + 3);
+    const speaker = await player();
+    const join = async (token: string) => {
+      const socket = new WebSocket(`ws://127.0.0.1:${port + 3}/ao-lua.l1`);
+      socket.binaryType = "arraybuffer";
+      const got: string[] = [];
+      socket.onopen = () => socket.send(encodeJoin({ protocolVersion: PROTOCOL_VERSION, token }));
+      socket.onmessage = (event: MessageEvent) => void got.push(decodeZoneMessage(new Uint8Array(event.data as ArrayBuffer)).type);
+      await until(() => got.includes("snapshot"));
+      return { socket, got };
+    };
+    const a = await join(speaker.token);
+    const b = await join((await player()).token);
+    a.socket.send(encodeChatSend({ messageId: 1, text: "está alguém?" }));
+    a.socket.send(encodeChatTyping({ from: 0, typing: true }));
+    await pause(300);
+    for (const one of [a, b]) expect(one.got.filter((type) => type === "event" || type === "chat_heard" || type === "chat_typing")).toEqual([]);
+    a.socket.close(1000);
+    b.socket.close(1000);
+    await quiet.close();
+    expect(await sql`SELECT 1 FROM chat_lines WHERE player_id = ${speaker.id}`).toEqual([]);
   });
 });
 

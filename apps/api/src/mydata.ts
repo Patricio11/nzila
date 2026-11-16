@@ -7,7 +7,7 @@
 // and the card of origin go. The history of consents stays for its period:
 // it is the proof that they agreed. The audit log records that it was done.
 
-import { audit, consentsOf } from "@nzila/db";
+import { audit, blockedBy, consentsOf } from "@nzila/db";
 import { type OriginTable } from "@nzila/economy";
 import { checkLook } from "@nzila/protocol";
 import { type Sql } from "postgres";
@@ -23,6 +23,9 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
   const sessions = await sql<{ created_at: Date; last_seen_at: Date; expires_at: Date; revoked_at: Date | null }[]>`
     SELECT created_at, last_seen_at, expires_at, revoked_at FROM player_sessions WHERE player_id = ${playerId} ORDER BY created_at`;
   const consents = await sql<{ purpose: string; version: number; granted: boolean; at: Date }[]>`SELECT purpose, version, granted, at FROM consents WHERE player_id = ${playerId} ORDER BY at, id`;
+  const lines = await sql<{ at: Date; text: string; said: boolean; district_id: string }[]>`SELECT at, text, said, district_id FROM chat_lines WHERE player_id = ${playerId} ORDER BY at, id`;
+  const shutOut = await blockedBy(sql, playerId);
+  const reported = await sql<{ at: Date; reason: string; note: string | null; status: string }[]>`SELECT at, reason, note, status FROM reports WHERE reporter_id = ${playerId} ORDER BY at, id`;
   await audit.log(sql, { actorKind: "player", actorId: playerId, kind: "player.export", subjectKind: "player", subjectId: playerId, reason: "the player asked for their data" });
   return {
     exportedAt: new Date().toISOString(),
@@ -34,6 +37,11 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
     consents: consents.map((row) => ({ purpose: row.purpose, version: row.version, granted: row.granted, at: row.at })),
     devices: devices.map((row) => ({ platform: row.platform, firstSeen: row.first_seen_at, lastSeen: row.last_seen_at })),
     sessions: sessions.map((row) => ({ opened: row.created_at, lastUsed: row.last_seen_at, expires: row.expires_at, ended: row.revoked_at })),
+    // What they said in the street, kept thirty days for moderation; whom they shut out; what they reported
+    // (what they wrote of it, not whom: that is the other player's to be told by a moderator, or not).
+    said: lines.map((row) => ({ at: row.at, text: row.text, passedOn: row.said, district: row.district_id })),
+    blocked: shutOut,
+    reports: reported.map((row) => ({ at: row.at, reason: row.reason, note: row.note, status: row.status })),
   };
 }
 
@@ -56,6 +64,9 @@ export async function deleteAccount(sql: Sql, playerId: string, biNumber: string
     await tx`DELETE FROM devices WHERE player_id = ${playerId}`;
     await tx`DELETE FROM avatars WHERE player_id = ${playerId}`;
     await tx`DELETE FROM player_origins WHERE player_id = ${playerId}`;
+    // Whom they shut out, and who shut them out: nobody is left to hear. What they said stays its thirty days, and
+    // what was reported stays with the moderators, under a player who is now nobody (docs/legal/RETENTION.md).
+    await tx`DELETE FROM player_blocks WHERE player_id = ${playerId} OR blocked_id = ${playerId}`;
     await tx`
       UPDATE players SET status = 'deleted', deleted_at = now(), name = NULL, name_key = NULL, bi_number = NULL, age_band = NULL,
         home_district_id = NULL, province_id = NULL, district_id = NULL, x = NULL, y = NULL, z = NULL, phone_enc = NULL, phone_hash = NULL,

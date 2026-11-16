@@ -6,12 +6,15 @@
 //                    Not given: "the game's own address, at /zone", which is right behind one proxy.
 //   ZONE_SESSIONS    "on" lets a session token in without a seat from the API: for the swarm and a
 //                    developer's machine only. A zone players reach leaves it off.
+//   CHAT             "on" opens talk in the street. Off unless said: talk does not open to players before
+//                    report, block and mute are there and the Angolan word list has been written and read (Q5).
 //   DATABASE_URL, REDIS_URL
 
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { connect } from "@nzila/db";
+import { connect, expireTalk } from "@nzila/db";
 import { BASE_TUNABLES } from "@nzila/economy";
+import { loadChatFilter } from "@nzila/i18n/server";
 import { memoryPresence, redisPresence, type Presence } from "@nzila/presence";
 import { loadDistrict } from "./district.ts";
 import { startZone } from "./server.ts";
@@ -38,13 +41,20 @@ try {
   presence = memoryPresence();
 }
 const sessions = process.env.ZONE_SESSIONS === "on";
-const zone = await startZone({ sql, districts, presence, address: process.env.ZONE_PUBLIC_URL ?? "", sessions, holds: BASE_TUNABLES.channels.cap }, port);
-console.log(`zone: ${zone.id}: ${zone.roomNames.join(", ")} on :${port}${sessions ? " (sessions let in without a seat)" : ""}`);
+const chat = process.env.CHAT === "on";
+const zone = await startZone({ sql, districts, presence, address: process.env.ZONE_PUBLIC_URL ?? "", sessions, holds: BASE_TUNABLES.channels.cap, ...(chat ? { filter: loadChatFilter() } : {}) }, port);
+console.log(`zone: ${zone.id}: ${zone.roomNames.join(", ")} on :${port}${sessions ? " (sessions let in without a seat)" : ""}${chat ? " (talk is open)" : ""}`);
+
+// What was said is kept thirty days and no longer (docs/legal/RETENTION.md): swept as the zone starts and every hour after.
+const sweep = (): void => void expireTalk(sql).catch((error: unknown) => console.error(`zone: could not delete old talk: ${String(error)}`));
+sweep();
+const sweeping = setInterval(sweep, 3_600_000);
 
 let closing = false;
 const stop = async (): Promise<void> => {
   if (closing) return;
   closing = true;
+  clearInterval(sweeping);
   await zone.close();
   await presence.close();
   await sql.end();

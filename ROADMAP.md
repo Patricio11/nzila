@@ -340,14 +340,14 @@ flowchart LR
 - Depends on: 3.2, 3.3 · Unblocks: 13.1.
 
 ### Task 3.5: Chat and emotes
-- [ ] Proximity text chat: walk up to someone and talk. Words appear as speech balloons over the speaker, and three small dots show over anyone who is typing, so a conversation is visible from across the street before it can be read. Balloons are readable only within a few metres; farther off they are balloons without text. A compact log keeps the last lines.
-- [ ] Also: quick phrases in Angolan Portuguese on one tap ("Bom dia!", "Tudo fixe?", "Bora!"); the emote wheel.
-- [ ] Tap a player to see their BI card with the actions: Falar, Adicionar (10.1), Silenciar, Bloquear, Denunciar.
+- [x] Proximity text chat: walk up to someone and talk. Words appear as speech balloons over the speaker, and three small dots show over anyone who is typing, so a conversation is visible from across the street before it can be read. Balloons are readable only within a few metres; farther off they are balloons without text. A compact log keeps the last lines. *(2026-11-17: built. The zone decides who hears: within 7 m the words, within 16 m that someone spoke (the words are never sent to a phone too far to read them), beyond that nothing (`apps/zone/src/talk.ts`). On the phone: the line with its quick phrases, balloons and dots that ride their speakers' heads (`conversa/over.ts`), the last four lines above the bar. **Talk is switched on by `CHAT=on` on a zone and is off for players until the word lists are read (Q5, D-3.8).** Two browsers talk to each other in the gate.)*
+- [x] Also: quick phrases in Angolan Portuguese on one tap ("Bom dia!", "Tudo fixe?", "Bora!"); the emote wheel. *(2026-11-17: the three phrases over the line; a gesture made on one phone is made by that player's body on every phone that has them in sight, one a second at the most.)*
+- [x] Tap a player to see their BI card with the actions: Falar, Adicionar (10.1), Silenciar, Bloquear, Denunciar. *(2026-11-17: a tap on a body opens their BI (name, number, bairro, day of arrival: what a card shows and nothing more) under a band of the cloth, with all of them on the one sheet (Rule 11). Adicionar waits for 10.1 and says so by being greyed. A player is known to another by the number of their BI, which the zone sends with their name.)*
 - Depends on: 2.3, 3.3 · Unblocks: 3.6, 10.1.
 
 ### Task 3.6: Player safety v1
-- [ ] Chat filter (Portuguese, Angolan slang, evasion patterns), rate limits, link blocking; block and mute persist; reports with the last messages attached land in a queue.
-- [ ] Chat retained for moderation for a stated period, then deleted (the retention doc).
+- [ ] Chat filter (Portuguese, Angolan slang, evasion patterns), rate limits, link blocking; block and mute persist; reports with the last messages attached land in a queue. *(2026-11-17: built: a line with a listed word is said to nobody and its speaker alone is told (D-3.7); the filter reads through the usual disguises (digits for letters, letters spelled out, accents); a line every half second and six in ten at the most; no addresses to anywhere outside the game, however spelled; "Bloquear" is the server's, both ways, read by the zone within half a minute; "Silenciar" is the phone's own and remembered there; "Denunciar" writes a report with the reported player's last twenty lines copied into it. Not ticked: **the Angolan word list is still empty** (the founder's and a second Luandan's to write, F-21, Q5), and the queue has nobody to read it until the Estúdio (3.8).)*
+- [x] Chat retained for moderation for a stated period, then deleted (the retention doc). *(2026-11-17: every line sent, said or refused, is kept in `chat_lines`; lines older than thirty days and reports closed more than ninety days ago are deleted by the zone as it starts and every hour (`expireTalk`). A player's own lines are in "Os meus dados".)*
 - Depends on: 0.10, 3.5 · Unblocks: 3.8, 13.3.
 
 ### Task 3.7: The bot swarm

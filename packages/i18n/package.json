@@ -5,7 +5,8 @@
   "type": "module",
   "description": "pt-AO catalog (base), glossary, ICU helpers.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
