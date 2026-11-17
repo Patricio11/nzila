@@ -6,10 +6,11 @@
 //
 // It needs PostgreSQL (`pnpm services`), like the integration tests.
 
-import { connect, databaseUrl, loadMigrations, loadWorldSeed, migrate, parseKeyring, seed } from "@nzila/db";
+import { connect, databaseUrl, loadMigrations, loadWorldSeed, migrate, parseKeyring, putStaff, seed } from "@nzila/db";
 import { redisPresence, redisUrl } from "@nzila/presence";
 import postgres from "postgres";
 import { buildApp } from "./app.ts";
+import { hashPassword } from "./linking.ts";
 
 const name = "nzila_e2e";
 const admin = postgres(databaseUrl(), { max: 1, onnotice: () => {} });
@@ -29,6 +30,10 @@ const keyring = parseKeyring(`1:${Buffer.alloc(32, 6).toString("base64")}`);
 // The zone of the tests (apps/zone/src/e2e-server.ts) says where it is under the same keys, and nobody else's.
 const presence = await redisPresence(redisUrl(), "nzila-e2e");
 const app = buildApp({ presence, sql, pepper: new Uint8Array(32).fill(5), keyring, limiter: { allow: () => true }, sender: { send: async () => {} }, mailer: { send: async () => {} }, phoneCodes: true, newCode: () => "246810" });
+// The staff of the tests (tests/e2e/studio.spec.ts): a moderator and someone from support, in a database that lives one run.
+const staffPassword = await hashPassword("palavra-passe-dos-testes");
+await putStaff(sql, { email: "moderacao@nzila.test", name: "Moderadora dos Testes", passwordHash: staffPassword, roles: ["moderador"] });
+await putStaff(sql, { email: "apoio@nzila.test", name: "Apoio dos Testes", passwordHash: staffPassword, roles: ["support"] });
 const port = Number(process.env.API_PORT ?? 4010);
 await app.listen({ port, host: "127.0.0.1" });
 console.log(`api for the browser tests: listening on ${port}`);

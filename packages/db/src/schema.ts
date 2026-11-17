@@ -173,6 +173,30 @@ export const staff = pgTable("staff", {
   name: text("name").notNull(),
   status: text("status").notNull().default("active"),
   createdAt: at("created_at").notNull().defaultNow(),
+  passwordHash: text("password_hash"),
+});
+
+export const staffSessions = pgTable("staff_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  staffId: uuid("staff_id").notNull(),
+  tokenHash: text("token_hash").notNull(),
+  createdAt: at("created_at").notNull().defaultNow(),
+  expiresAt: at("expires_at").notNull(),
+  revokedAt: at("revoked_at"),
+});
+
+export const sanctions = pgTable("sanctions", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  at: at("at").notNull().defaultNow(),
+  playerId: uuid("player_id").notNull(),
+  kind: text("kind").notNull(),
+  reason: text("reason").notNull(),
+  staffId: uuid("staff_id").notNull(),
+  until: at("until"),
+  reportId: bigint("report_id", { mode: "number" }),
+  liftedAt: at("lifted_at"),
+  liftedBy: uuid("lifted_by"),
+  liftReason: text("lift_reason"),
 });
 
 export const staffRoles = pgTable(
@@ -256,6 +280,8 @@ export const tables = {
   playerBlocks,
   reports,
   staff,
+  staffSessions,
+  sanctions,
   staffRoles,
   auditLog,
   featureFlags,

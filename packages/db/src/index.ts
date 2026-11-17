@@ -8,3 +8,4 @@ export * from "./privacy.ts";
 export * from "./audit.ts";
 export * from "./sessions.ts";
 export * from "./talk.ts";
+export * from "./studio.ts";

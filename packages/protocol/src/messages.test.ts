@@ -84,7 +84,7 @@ describe("a gesture", () => {
     expect(decodeZoneMessage(encodeEmote({ emote: 1 }))).toEqual({ type: "unknown", code: 12 });
     // WIRE FORMAT: added to at the end, never moved.
     expect(EMOTE_NAMES).toEqual(["acenar", "rir", "aplaudir", "chamar", "dancar"]);
-    expect(CHAT_REFUSAL).toEqual({ WORDS: 1, SLOW_DOWN: 2, LINKS: 3 });
+    expect(CHAT_REFUSAL).toEqual({ WORDS: 1, SLOW_DOWN: 2, LINKS: 3, MUTED: 4 });
   });
 });
 

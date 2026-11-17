@@ -19,8 +19,11 @@ export const ALONE_RETRY_MOST_MS = 30_000;
  *   linked        in a channel
  *   reconnecting  the line fell and is being picked up ("A ligar de novo…")
  *   lost          a minute of trying has passed ("Sem rede. Guardámos onde estavas.")
+ *   out           a moderator has kept the player out of the streets with others, for a time or for good
  */
-export type NetState = "alone" | "linked" | "reconnecting" | "lost";
+export type NetState = "alone" | "linked" | "reconnecting" | "lost" | "out";
+/** Someone kept out is asked about again this often: a suspension ends, or is lifted. */
+export const OUT_RETRY_MS = 60_000;
 
 /** How long to wait before the next try, given how long ago the line fell and how many tries have been made; null when the time for trying is over. */
 export function nextTry(sinceFallMs: number, tries: number): number | null {

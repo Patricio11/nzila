@@ -28,7 +28,7 @@ import { DEV_PACK } from "../render/bench-scene.ts";
 import { DistrictScene } from "../render/district-scene.ts";
 import { EMOTES, EMOTE_SECONDS, loadPerson, type Emote, type Person } from "../render/person.ts";
 import { type VanSeen } from "../render/traffic.ts";
-import { account } from "../world/account.ts";
+import { account, type KeptOut } from "../world/account.ts";
 import { type TierName } from "../render/tiers.ts";
 import { dress, savedLook } from "../render/wardrobe.ts";
 import { Sound } from "../sound/sound.ts";
@@ -85,6 +85,7 @@ interface Hud {
   talk: boolean;
   lines: readonly SaidLine[];
   refused: Refused | null;
+  out: KeptOut | null;
   /** How it stands with the zone: the player is told when a line is being picked up, and when it could not be. */
   net: NetState;
   ready: boolean;
@@ -126,7 +127,7 @@ export function Andar() {
   };
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
-  const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
+  const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
   const [missing, setMissing] = useState(false);
   /** The line being typed is open; and someone met, whose card is up. */
   const [composing, setComposing] = useState(false);
@@ -663,7 +664,7 @@ export function Andar() {
             else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { proxima: ahead });
           }
           // `&semrede` shows what a minute without a network looks like, for a still.
-          setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
+          setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
       }
       renderer.render(elapsed);
@@ -794,6 +795,11 @@ export function Andar() {
               <Button kind="quiet" onPress={() => retryNet.current()}>
                 {tr.t("state.retry")}
               </Button>
+            </div>
+          ) : null}
+          {hud.net === "out" ? (
+            <div class="andar-net">
+              <Banner state="stopped">{hud.out?.kind === "ban" ? tr.t("state.banned") : hud.out?.until ? tr.t("state.suspended", { when: new Date(hud.out.until).toLocaleString("pt-AO", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) }) : tr.t("state.suspended.some")}</Banner>
             </div>
           ) : null}
           {arrived && !hud.ride ? <Arrival place={hud.place} /> : null}

@@ -18,6 +18,11 @@
 export interface ChannelCount {
   readonly number: number;
   readonly players: number;
+  /** Who is in it, by player id: for the Estúdio, which shows who is where and can put out a player who is stuck. */
+  readonly who?: readonly string[];
+  /** How long a step of its world took since the zone last spoke, in milliseconds: the mean and the worst. */
+  readonly meanMs?: number;
+  readonly worstMs?: number;
 }
 
 /** What a zone says of itself. */

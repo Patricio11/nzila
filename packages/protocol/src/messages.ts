@@ -30,6 +30,8 @@ export const ZONE_CLOSE = {
   ELSEWHERE: 4100,
   /** The client kept sending what no client of ours sends. */
   MISBEHAVED: 4101,
+  /** Staff put the player out of the channel: the client asks the matchmaker again, which says whether they may come back. */
+  PUT_OUT: 4102,
 } as const;
 
 const TOKEN_BYTES = 512;
@@ -208,6 +210,8 @@ export const CHAT_REFUSAL = {
   SLOW_DOWN: 2,
   /** It carries an address to somewhere outside the game. */
   LINKS: 3,
+  /** A moderator has silenced the speaker for a time. */
+  MUTED: 4,
 } as const;
 
 /**

@@ -4,7 +4,7 @@
 
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
-import { REPORT_REASONS, blockPlayer, blockedBy, playerOfBi, recordConsent, reportPlayer, unblockPlayer } from "@nzila/db";
+import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
 import { checkLook, zoneRoomOf } from "@nzila/protocol";
@@ -19,6 +19,7 @@ import { askName, FREE_NAME_CHANGES, loadNameFilter, rename } from "./names.ts";
 import { dealOrigin, originOfPlayer } from "./origins.ts";
 import { Refusal, declare, routesOf, type Gate } from "./routes.ts";
 import { createGuest, playerOfToken, revokeSession } from "./sessions.ts";
+import { studioRoutes } from "./studio.ts";
 
 export interface Deps {
   readonly sql: Sql;
@@ -78,6 +79,11 @@ export function buildApp(deps: Deps): FastifyInstance {
       const token = /^Bearer ([A-Za-z0-9_-]{20,200})$/.exec(header)?.[1];
       return token ? playerOfToken(deps.sql, token) : null;
     },
+    async staffOf(request) {
+      const token = /^Bearer ([A-Za-z0-9_-]{20,200})$/.exec(request.headers.authorization ?? "")?.[1];
+      const staff = token ? await staffOfSession(deps.sql, token) : null;
+      return staff && token ? { staff, token } : null;
+    },
   };
 
   // No route gets in by another door: one without a guard stops the app from being built.
@@ -85,7 +91,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     if (!route.config?.guard) throw new Error(`${String(route.method)} ${route.url} was registered without a guard: use declare()`);
   });
   app.setErrorHandler((error, _request, reply) => {
-    if (error instanceof Refusal) return reply.status(error.status).send({ error: error.code });
+    if (error instanceof Refusal) return reply.status(error.status).send({ ...error.more, error: error.code });
     const status = (error as { statusCode?: number }).statusCode;
     // Something of the caller that Fastify itself refused (a body too large, bad JSON).
     if (status && status >= 400 && status < 500) return reply.status(status).send({ error: "invalid" });
@@ -364,6 +370,9 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: z.strictObject({ districtId: z.string().regex(/^[a-z0-9-]{1,24}\/[a-z0-9-]{1,24}$/), channel: z.number().int().min(1).max(999).optional() }),
     perMinute: 30,
     handler: async (body, caller) => {
+      // Someone suspended or banned is not let into a street with others; their phone is told which and until when.
+      const out = await keptOut(deps.sql, caller.player.id);
+      if (out) throw new Refusal(403, "kept_out", { kind: out.kind, until: out.until });
       const room = zoneRoomOf(body.districtId);
       const zones = await presence.zones();
       if (!zones.some((zone) => zone.rooms.some((one) => one.name === room))) throw new Refusal(503, "no_zone");
@@ -457,6 +466,8 @@ export function buildApp(deps: Deps): FastifyInstance {
       return { ok: true, report };
     },
   });
+
+  studioRoutes(app, gate, { sql: deps.sql, presence });
 
   // Leaving on this device: the session ends; the player and their progress stay.
   declare(app, gate, {

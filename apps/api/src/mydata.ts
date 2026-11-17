@@ -26,6 +26,7 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
   const lines = await sql<{ at: Date; text: string; said: boolean; district_id: string }[]>`SELECT at, text, said, district_id FROM chat_lines WHERE player_id = ${playerId} ORDER BY at, id`;
   const shutOut = await blockedBy(sql, playerId);
   const reported = await sql<{ at: Date; reason: string; note: string | null; status: string }[]>`SELECT at, reason, note, status FROM reports WHERE reporter_id = ${playerId} ORDER BY at, id`;
+  const measures = await sql<{ at: Date; kind: string; reason: string; until: Date | null; lifted_at: Date | null }[]>`SELECT at, kind, reason, until, lifted_at FROM sanctions WHERE player_id = ${playerId} ORDER BY at, id`;
   await audit.log(sql, { actorKind: "player", actorId: playerId, kind: "player.export", subjectKind: "player", subjectId: playerId, reason: "the player asked for their data" });
   return {
     exportedAt: new Date().toISOString(),
@@ -42,6 +43,8 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
     said: lines.map((row) => ({ at: row.at, text: row.text, passedOn: row.said, district: row.district_id })),
     blocked: shutOut,
     reports: reported.map((row) => ({ at: row.at, reason: row.reason, note: row.note, status: row.status })),
+    // What the moderators did about them, and why they said they did it. Not which moderator.
+    moderation: measures.map((row) => ({ at: row.at, kind: row.kind, reason: row.reason, until: row.until, lifted: row.lifted_at })),
   };
 }
 

@@ -17,6 +17,8 @@ const PORT = 4174;
 const API_PORT = "4010";
 // The zone the game asks at /zone: the real one too, on the same database (apps/zone/src/e2e-server.ts).
 const ZONE_PORT = "2577";
+// The Estúdio, as it was last built, asking the same API (tests/e2e/studio.spec.ts).
+const STUDIO_PORT = 4176;
 
 export default defineConfig({
   testDir: ".",
@@ -49,6 +51,14 @@ export default defineConfig({
       url: `http://localhost:${PORT}`,
       cwd: "../..",
       env: { API_PORT, ZONE_PORT },
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      command: `pnpm --filter @nzila/studio exec vite preview --port ${STUDIO_PORT} --strictPort`,
+      url: `http://127.0.0.1:${STUDIO_PORT}`,
+      cwd: "../..",
+      env: { API_PORT },
       reuseExistingServer: false,
       timeout: 60_000,
     },

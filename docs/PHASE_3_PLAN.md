@@ -93,6 +93,8 @@ So the channel holds its eighty with room to spare on both budgets, before chat,
 
 Found on the way and fixed: the camera's own account of itself is stale between two pictures, so anything placed on the screen from the world must bring it up to date first (F-170); a stalled line left the player's stick late for good (F-171); a phone noticed a dead line only when the browser did (F-172).
 
+**3.8, 2026-11-17.** The Estúdio. The database: `staff_sessions`, `sanctions` and a password on `staff` (migration 0009); `packages/db/src/studio.ts` holds what is read and written, and whatever changes a player's standing writes its audit row in the same transaction. The API: `apps/api/src/studio.ts`, every route guarded "staff" and naming its roles (`declare` refuses to build a staff route that names none); the matchmaker seats nobody who is suspended or banned. The zone: `heed()`, one question a channel every five seconds; its card now says who is in each channel and how its steps went since it last spoke. The phone: a banner for someone kept out, a line for someone silenced. The page: `apps/studio` (Moderação, Jogadores, Canais, Registo), in the game's own cloth and paper. Held by `api.integration.test.ts` ("the Estúdio"), two tests in `zone.integration.test.ts`, and `tests/e2e/studio.spec.ts`, where a moderator suspends a player who is standing in the street on a phone and that phone is told.
+
 ## What is the founder's to say (Phase 3)
 
 Said on 2026-11-17: the word lists (D-3.8), a refused line (D-3.7), who may talk to whom (D-3.9), playing with no zone (D-3.10), the Estúdio's sign-in (D-3.11). Still open:

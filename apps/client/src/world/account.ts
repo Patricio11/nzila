@@ -101,7 +101,7 @@ function platform(): "android" | "ios" | "desktop" {
 }
 
 /** One question to the server. Null when it cannot be reached or says no; `status` and the one word of `error` tell which no. */
-async function ask<T>(method: string, path: string, body: unknown, token?: string, patience = PATIENCE_MS): Promise<{ status: number; answer: T | null; error?: string }> {
+async function ask<T>(method: string, path: string, body: unknown, token?: string, patience = PATIENCE_MS): Promise<Asked<T>> {
   const first = await askOnce<T>(method, path, body, token, patience);
   // A request lost on the way (no answer at all, or a gateway's error) is asked once more, when asking twice does no
   // harm: reading, and the questions that change nothing. Whatever makes or changes something is never sent twice.
@@ -109,7 +109,15 @@ async function ask<T>(method: string, path: string, body: unknown, token?: strin
   return harmless && (first.status === 0 || first.status >= 502) ? askOnce<T>(method, path, body, token, patience) : first;
 }
 
-async function askOnce<T>(method: string, path: string, body: unknown, token: string | undefined, patience: number): Promise<{ status: number; answer: T | null; error?: string }> {
+/** An answer, or why not: the one word of the refusal, and whatever facts came with it. */
+interface Asked<T> {
+  status: number;
+  answer: T | null;
+  error?: string;
+  said?: Record<string, unknown>;
+}
+
+async function askOnce<T>(method: string, path: string, body: unknown, token: string | undefined, patience: number): Promise<Asked<T>> {
   try {
     const response = await fetch(API + path, {
       method,
@@ -122,7 +130,7 @@ async function askOnce<T>(method: string, path: string, body: unknown, token: st
     dataMeter.add(text.length);
     const json = response.headers.get("content-type")?.includes("json") ? (JSON.parse(text) as T) : null;
     const error = response.ok ? undefined : (json as { error?: string } | null)?.error;
-    return { status: response.status, answer: response.ok ? json : null, ...(error ? { error } : {}) };
+    return { status: response.status, answer: response.ok ? json : null, ...(error ? { error, said: json as Record<string, unknown> } : {}) };
   } catch {
     return { status: 0, answer: null };
   }
@@ -161,15 +169,23 @@ export interface PlaySeat {
   readonly channel: number;
 }
 
+/** Kept out of every street with others by a moderator: suspended until a time, or banned. */
+export interface KeptOut {
+  readonly kind: "suspend" | "ban";
+  readonly until: string | null;
+}
+
 /**
  * Asks the matchmaker where to play: a channel of the district, or the one a friend invited to. Null when there is
- * nowhere (no network, no zone running, the invited channel full): the player then walks alone.
+ * nowhere (no network, no zone running, the invited channel full): the player then walks alone. `out` when a
+ * moderator has kept them out, which they are told.
  */
-export async function playSeat(districtId: string, channel?: number): Promise<PlaySeat | null> {
+export async function playSeat(districtId: string, channel?: number): Promise<PlaySeat | { out: KeptOut } | null> {
   const mine = account();
   if (!mine?.token) return null;
-  const { answer } = await ask<PlaySeat>("POST", "/v1/play/join", { districtId, ...(channel ? { channel } : {}) }, mine.token);
-  return answer;
+  const asked = await ask<PlaySeat>("POST", "/v1/play/join", { districtId, ...(channel ? { channel } : {}) }, mine.token);
+  if (asked.error === "kept_out") return { out: { kind: asked.said?.kind === "ban" ? "ban" : "suspend", until: typeof asked.said?.until === "string" ? asked.said.until : null } };
+  return asked.answer;
 }
 
 /** What a BI shows of someone met in the street. */

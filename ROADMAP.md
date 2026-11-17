@@ -356,7 +356,7 @@ flowchart LR
 - Depends on: 3.1 · Unblocks: 3.9, 13.5.
 
 ### Task 3.8: Estúdio v1
-- [ ] Staff sign-in with two-factor; Jogadores (find by BI number, see state, with a logged reason); Canais (who is where, tick health, kick a stuck player); Moderação (the report queue, mute, suspend, ban, each with a reason and an audit row).
+- [x] Staff sign-in ~~with two-factor~~; Jogadores (find by BI number, see state, with a logged reason); Canais (who is where, tick health, kick a stuck player); Moderação (the report queue, mute, suspend, ban, each with a reason and an audit row). *(2026-11-17: built, as `apps/studio` (its own page, never served to players; `pnpm dev` runs it on port 5180) over `/v1/staff/*` on the API. Sign-in is an address and a password, **no second factor yet, by the founder's word (D-3.11)**; staff accounts are made from the server (`pnpm staff:add`). Every read of a player and everything done to one asks for a reason and writes the audit log in the same transaction. A sanction is a row the zone reads every five seconds and carries out: silenced players are heard by nobody, suspended and banned ones are put out and not seated again, a stuck one comes back at the district's door. The player is told in the game's own words. Also there: Registo, the audit log read back. What is left is F-175.)*
 - Depends on: 2.4, 3.6 · Unblocks: 12.1.
 
 ### Task 3.9: Wiring, verification, doc convention

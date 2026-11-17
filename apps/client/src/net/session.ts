@@ -17,15 +17,15 @@ import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
 import { Players } from "../render/players.ts";
 import { type WorldRenderer } from "../render/world-renderer.ts";
-import { playSeat, type PlaySeat } from "../world/account.ts";
+import { playSeat, type KeptOut, type PlaySeat } from "../world/account.ts";
 import { openLink, type Link } from "./link.ts";
 import { Others } from "./others.ts";
 import { Prediction, type Said } from "./predict.ts";
-import { ALONE_RETRY_MOST_MS, ALONE_RETRY_MS, SAY_AFTER_MS, nextTry, type NetState } from "./retry.ts";
+import { ALONE_RETRY_MOST_MS, ALONE_RETRY_MS, OUT_RETRY_MS, SAY_AFTER_MS, nextTry, type NetState } from "./retry.ts";
 import { Talking } from "./talking.ts";
 
 /** Why a line was not said: a word the game does not pass on, too many too fast, or an address to somewhere outside. */
-export type Refused = "words" | "slow" | "links";
+export type Refused = "words" | "slow" | "links" | "muted";
 
 /** Where the players this phone has silenced are kept, by the number of their BI: silence outlives the visit. */
 const SILENCED_KEY = "nzila.silenciados";
@@ -71,6 +71,8 @@ export class Session {
   private readonly silencedBi = silencedHere();
   /** Why the player's last line was not said, until the page has shown it. */
   refused: Refused | null = null;
+  /** Kept out by a moderator, as the matchmaker last said: which, and until when. */
+  out: KeptOut | null = null;
   /** How many times the zone has had to put the body right, and how many times a fallen line was picked up: for the tests and the bench. */
   corrections = 0;
   reconnections = 0;
@@ -84,6 +86,7 @@ export class Session {
   /** How it stands with the zone, as the player should be told. A fall that has only just happened is not mentioned yet. */
   get state(): NetState {
     if (this.link) return "linked";
+    if (this.out) return "out";
     if (this.gaveUp) return "lost";
     if (this.fellAt !== null) return performance.now() - this.fellAt > SAY_AFTER_MS ? "reconnecting" : "linked";
     return "alone";
@@ -110,6 +113,14 @@ export class Session {
     // First the matchmaker: which channel, in which zone, and a ticket for the seat. Then the line itself.
     void playSeat(this.districtId, this.invited).then((seat) => {
       if (attempt !== this.attempt || this.closed) return;
+      if (seat && "out" in seat) {
+        // Kept out by a moderator. The player is told, walks their own street, and is asked about again in a while.
+        this.out = seat.out;
+        this.alone();
+        this.timer = setTimeout(() => !this.closed && attempt === this.attempt && this.join(), OUT_RETRY_MS);
+        return;
+      }
+      this.out = null;
       if (!seat) return this.again(attempt);
       void this.open(seat, paragem, attempt);
     });
@@ -149,6 +160,12 @@ export class Session {
         this.mine = null;
         // Taken by the same player on another phone: that is where they are now, and this one walks alone.
         if (why === "elsewhere") return this.alone();
+        // Put out by staff: the matchmaker is asked at once. Someone who was only stuck comes in again at the
+        // district's door; someone suspended is told so.
+        if (why === "put_out") {
+          this.alone();
+          return this.join();
+        }
         // Fallen: picked up again, and the others are kept on the screen as they were.
         this.fellAt = performance.now();
         this.tries = 0;
@@ -234,7 +251,7 @@ export class Session {
 
   private happened(event: WorldEvent): void {
     if (event.kind === EVENT.CHAT_OPEN) this.chatOpen = true;
-    else if (event.kind === EVENT.CHAT_REFUSED) this.refused = event.args[0] === CHAT_REFUSAL.SLOW_DOWN ? "slow" : event.args[0] === CHAT_REFUSAL.LINKS ? "links" : "words";
+    else if (event.kind === EVENT.CHAT_REFUSED) this.refused = event.args[0] === CHAT_REFUSAL.SLOW_DOWN ? "slow" : event.args[0] === CHAT_REFUSAL.LINKS ? "links" : event.args[0] === CHAT_REFUSAL.MUTED ? "muted" : "words";
     else if (event.kind === EVENT.EMOTE) {
       const name = EMOTE_NAMES[event.args[0] ?? -1];
       if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);

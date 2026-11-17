@@ -7,9 +7,9 @@
 // send bytes and be closed (server.ts makes those from WebSockets, a test may
 // make them from nothing). Every byte is ours (packages/protocol).
 
-import { faceOf, keepChatLines, keepWhereabouts, shutOutOf, whereaboutsOf, type ChatLine } from "@nzila/db";
+import { faceOf, keepChatLines, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { type ChatFilter } from "@nzila/i18n";
-import { EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend } from "@nzila/protocol";
+import { EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, CHAT_REFUSAL } from "@nzila/protocol";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
@@ -85,6 +85,10 @@ export interface Pace {
   lastMs: number;
   worstMs: number;
   totalMs: number;
+  /** The same, since the zone last said how it was doing: what the Estúdio is shown. */
+  sinceSteps: number;
+  sinceWorstMs: number;
+  sinceTotalMs: number;
 }
 
 /** A number from a player's id: the same player, the same number, in every channel. */
@@ -97,7 +101,7 @@ function seedOf(playerId: string): number {
 export class ChannelRoom {
   readonly number: number;
   readonly channel: Channel;
-  readonly pace: Pace = { steps: 0, lastMs: 0, worstMs: 0, totalMs: 0 };
+  readonly pace: Pace = { steps: 0, lastMs: 0, worstMs: 0, totalMs: 0, sinceSteps: 0, sinceWorstMs: 0, sinceTotalMs: 0 };
   private readonly sql: Sql;
   private readonly district: District;
   private readonly remember: boolean;
@@ -113,6 +117,9 @@ export class ChannelRoom {
   private readonly lineOfEntity = new Map<number, Line>();
   private readonly shut = new Map<string, Set<string>>();
   private said: ChatLine[] = [];
+  /** Players a moderator has silenced, and the kicks already carried out (a kick stands for half a minute and is done once). */
+  private readonly muted = new Set<string>();
+  private readonly kicked = new Set<number>();
   /** Told when someone has gone for good: the zone then closes a channel nobody is in, and says who is left. */
   private readonly changed: () => void;
   /** Who each body is, as the bytes every client near them is sent once. */
@@ -140,6 +147,17 @@ export class ChannelRoom {
   /** How many people are in or on their way in (the database is being asked about them), and how many more would fit. */
   get count(): number {
     return this.held.size + this.away.size + this.arriving;
+  }
+  /** Everyone who has a body here, by player id: for the Estúdio. */
+  get who(): string[] {
+    return [...[...this.held.values()].map((held) => held.playerId), ...this.away.keys()];
+  }
+  /** How the steps have gone since this was last asked: the mean and the worst, in milliseconds. */
+  health(): { meanMs: number; worstMs: number } {
+    const pace = this.pace;
+    const said = { meanMs: pace.sinceSteps ? Math.round((pace.sinceTotalMs / pace.sinceSteps) * 100) / 100 : 0, worstMs: Math.round(pace.sinceWorstMs * 100) / 100 };
+    pace.sinceSteps = pace.sinceTotalMs = pace.sinceWorstMs = 0;
+    return said;
   }
   get room(): number {
     return this.holds - this.count;
@@ -254,8 +272,11 @@ export class ChannelRoom {
       return true;
     }
     this.arriving++;
-    const [last, face, apart] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk ? shutOutOf(this.sql, playerId) : []]).finally(() => this.arriving--);
+    const [last, face, apart, against] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : []]).finally(() => this.arriving--);
     this.shut.set(playerId, new Set(apart));
+    // Silenced by a moderator before they came in: silent from their first word.
+    if (against.some((one) => one.kind === "mute")) this.muted.add(playerId);
+    else this.muted.delete(playerId);
     let at: Place = last ?? district.arrival;
     // Off a van at a paragem: the vans are each phone's own until the zone runs them (F-152), so the phone says
     // which paragem and the zone puts them beside it. It is believed that far and no farther: a paragem, never a place.
@@ -344,6 +365,12 @@ export class ChannelRoom {
     if (verdict.kind === "repeat" || verdict.kind === "empty") return;
     const tick = this.channel.world.tick;
     const where = { playerId: held.playerId, districtId: this.district.id, channel: this.number, text: verdict.text };
+    // Silenced by a moderator: nothing they say is passed on, they are told so, and the line is kept as not said.
+    if (this.muted.has(held.playerId)) {
+      line.send(encodeEvent({ kind: EVENT.CHAT_REFUSED, tick, subject: sent.messageId, args: [CHAT_REFUSAL.MUTED], text: "" }));
+      this.said.push({ ...where, said: false, heardBy: 0 });
+      return;
+    }
     if (verdict.kind === "refuse") {
       line.send(encodeEvent({ kind: EVENT.CHAT_REFUSED, tick, subject: sent.messageId, args: [verdict.reason], text: "" }));
       this.said.push({ ...where, said: false, heardBy: 0 });
@@ -397,6 +424,34 @@ export class ChannelRoom {
     }
   }
 
+  /**
+   * What staff have done to anyone here is carried out (Task 3.8): asked of the database every few seconds, one
+   * question for the whole channel. Silenced: nothing they say is passed on. Suspended or banned: put out, and the
+   * matchmaker will not let them back. Kicked (stuck somewhere): put out once, to come in again at the district's door.
+   */
+  private async heed(): Promise<void> {
+    const ids = this.who;
+    if (ids.length === 0) return;
+    let against: Awaited<ReturnType<typeof standingAgainst>>;
+    try {
+      against = await standingAgainst(this.sql, ids);
+    } catch (error) {
+      this.log(`zone: could not read what stands against the players of channel ${this.number}: ${String(error)}`);
+      return;
+    }
+    this.muted.clear();
+    for (const one of against) if (one.kind === "mute") this.muted.add(one.playerId);
+    for (const one of against) {
+      if (one.kind === "mute" || this.kicked.has(one.id)) continue;
+      if (one.kind === "kick") this.kicked.add(one.id);
+      const line = await this.putOut(one.playerId);
+      line?.close(ZONE_CLOSE.PUT_OUT);
+      // A stuck player comes back at the door, not into the wall they were stuck in.
+      if (one.kind === "kick") await this.keep(one.playerId, this.district.arrival);
+      this.changed();
+    }
+  }
+
   private strike(line: Line, held: Held): void {
     held.strikes++;
     if (held.strikes >= STRIKES) line.close(ZONE_CLOSE.MISBEHAVED);
@@ -425,6 +480,7 @@ export class ChannelRoom {
     if (tick % (1000 / STEP_MS) === 0) for (const held of this.held.values()) held.heard = 0;
     if (tick % STEPS_A_NOTE === 0) {
       void this.writeDown();
+      void this.heed();
       const lasting = tick % STEPS_A_CHECKPOINT === 0;
       if (lasting && this.talk) void this.reread();
       for (const held of this.held.values()) {
@@ -437,6 +493,9 @@ export class ChannelRoom {
     this.pace.lastMs = took;
     this.pace.totalMs += took;
     if (took > this.pace.worstMs) this.pace.worstMs = took;
+    this.pace.sinceSteps++;
+    this.pace.sinceTotalMs += took;
+    if (took > this.pace.sinceWorstMs) this.pace.sinceWorstMs = took;
   }
 
   /** Everyone out, each written down: the zone is closing. */

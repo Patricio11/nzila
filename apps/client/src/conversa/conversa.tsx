@@ -83,7 +83,7 @@ export function Composer({ onSay, onTyping, onClose }: { onSay: (text: string) =
 }
 
 /** The last few lines said near the player, oldest first; and, when a line of theirs was not said, why. */
-export function ChatLog({ lines, refused, raised }: { lines: readonly SaidLine[]; refused: "words" | "slow" | "links" | null; raised?: boolean }) {
+export function ChatLog({ lines, refused, raised }: { lines: readonly SaidLine[]; refused: "words" | "slow" | "links" | "muted" | null; raised?: boolean }) {
   if (lines.length === 0 && !refused) return null;
   return (
     <div class={`cv-log${raised ? " cv-log-up" : ""}`} role="log" aria-live="polite">

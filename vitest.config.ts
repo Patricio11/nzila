@@ -37,7 +37,9 @@ export default defineConfig({
         // The database tests need PostgreSQL (`pnpm services` starts it; each run makes and
         // drops its own database). The asset tests need Blender and KTX-Software, and skip
         // themselves, saying so, on a machine without them.
-        test: { name: "integration", include: ["tests/integration/**/*.test.ts", "packages/*/src/**/*.integration.test.ts", "apps/*/src/**/*.integration.test.ts", "tools/**/*.integration.test.ts"] },
+        // These suites run side by side against one PostgreSQL and real sockets, and wait on real clocks: a test is
+        // given fifteen seconds, not the five a unit test gets (finding F-176).
+        test: { name: "integration", testTimeout: 15_000, include: ["tests/integration/**/*.test.ts", "packages/*/src/**/*.integration.test.ts", "apps/*/src/**/*.integration.test.ts", "tools/**/*.integration.test.ts"] },
       },
       {
         test: {

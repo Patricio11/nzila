@@ -23,7 +23,7 @@ describe("every route is guarded", () => {
     expect(routes.length).toBeGreaterThan(2);
     for (const route of routes) expect(["public", "player", "staff"], `${route.method} ${route.url}`).toContain(route.guard);
     // The list of what anyone may call without being a player. A new public route is added here on purpose or not at all.
-    expect(routes.filter((route) => route.guard === "public").map((route) => `${route.method} ${route.url}`).sort()).toEqual(["GET /health", "POST /v1/codes", "POST /v1/guests", "POST /v1/password/forgot", "POST /v1/password/reset", "POST /v1/signin/email", "POST /v1/signin/phone"]);
+    expect(routes.filter((route) => route.guard === "public").map((route) => `${route.method} ${route.url}`).sort()).toEqual(["GET /health", "POST /v1/codes", "POST /v1/guests", "POST /v1/password/forgot", "POST /v1/password/reset", "POST /v1/signin/email", "POST /v1/signin/phone", "POST /v1/staff/login"]);
     // And nothing reached Fastify by another door: what it prints is what was declared.
     const printed = built.printRoutes({ commonPrefix: false });
     for (const route of routes) expect(printed).toContain(route.url.split("/").pop()!);
@@ -99,13 +99,26 @@ describe("rate limits", () => {
   });
 });
 
-test("a staff route passes nobody yet, and a handler that fails says only that it failed", async () => {
+test("a staff route passes nobody who is not staff, nor staff without one of its roles; and a handler that fails says only that it failed", async () => {
   const built = Fastify();
-  const gate: Gate = { playerOf: async () => null, allow: () => true };
+  let roles: string[] | null = null;
+  const gate: Gate = { playerOf: async () => null, staffOf: async () => (roles ? { staff: { id: "s", email: "s@x", name: "S", roles }, token: "t" } : null), allow: () => true };
   built.setErrorHandler((error, _request, reply) => reply.status((error as { status?: number }).status ?? 500).send({ error: (error as { code?: string }).code ?? "failed" }));
-  declare(built, gate, { method: "GET", url: "/staff", guard: "staff", body: z.strictObject({}), perMinute: 10, handler: async () => ({}) });
+  declare(built, gate, { method: "GET", url: "/staff", guard: "staff", roles: ["moderador"], body: z.strictObject({}), perMinute: 10, handler: async (_body, caller) => ({ who: caller.staff.name }) });
+  declare(built, gate, { method: "GET", url: "/staff/any", guard: "staff", roles: "any", body: z.strictObject({}), perMinute: 10, handler: async () => ({ ok: true }) });
+  // A staff route with no roles named, and roles on a route that is not for staff, do not get built at all.
+  expect(() => declare(built, gate, { method: "GET", url: "/x", guard: "staff", body: z.strictObject({}), perMinute: 10, handler: async () => ({}) })).toThrow(/names its roles/);
+  expect(() => declare(built, gate, { method: "GET", url: "/y", guard: "public", roles: "any", body: z.strictObject({}), perMinute: 10, handler: async () => ({}) })).toThrow(/names its roles/);
   declare(built, gate, { method: "GET", url: "/broken", guard: "public", body: z.strictObject({}), perMinute: 10, handler: async () => Promise.reject(new Error("secret detail")) });
+  expect((await built.inject({ method: "GET", url: "/staff" })).json()).toEqual({ error: "unauthenticated" });
+  roles = ["support"];
   expect((await built.inject({ method: "GET", url: "/staff" })).json()).toEqual({ error: "forbidden" });
+  expect((await built.inject({ method: "GET", url: "/staff/any" })).json()).toEqual({ ok: true });
+  roles = ["moderador"];
+  expect((await built.inject({ method: "GET", url: "/staff" })).json()).toEqual({ who: "S" });
+  // The platform admin may do what any role may.
+  roles = ["platform_admin"];
+  expect((await built.inject({ method: "GET", url: "/staff" })).json()).toEqual({ who: "S" });
   const broken = await built.inject({ method: "GET", url: "/broken" });
   expect(broken.statusCode).toBe(500);
   expect(broken.body).not.toContain("secret");

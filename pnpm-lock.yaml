@@ -215,10 +215,23 @@ importers:
         version: 8.3.8(@types/node@26.6.6)
 
   apps/studio:
+    dependencies:
+      '@nzila/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      preact:
+        specifier: ^11.2.0
+        version: 11.2.0
     devDependencies:
+      '@preact/preset-vite':
+        specifier: ^2.10.6
+        version: 2.10.6(@babel/core@7.29.13)(preact@11.2.0)(vite@8.3.8(@types/node@26.6.6))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
+      vite:
+        specifier: ^8.3.8
+        version: 8.3.8(@types/node@26.6.6)
 
   apps/worker:
     devDependencies:

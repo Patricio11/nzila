@@ -5,9 +5,18 @@
   "type": "module",
   "description": "Estudio, the staff console.",
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
-    "typescript": "^6.0.3"
+    "@preact/preset-vite": "^2.10.6",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8"
+  },
+  "dependencies": {
+    "@nzila/ui": "workspace:*",
+    "preact": "^11.2.0"
   }
 }

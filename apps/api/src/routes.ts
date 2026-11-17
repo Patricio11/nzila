@@ -19,9 +19,23 @@ export interface Player {
   readonly sessionId: string;
 }
 
+/** A member of staff, as the Estúdio's session says who they are. */
+export interface Staff {
+  readonly id: string;
+  readonly email: string;
+  readonly name: string;
+  readonly roles: readonly string[];
+}
+
+/** The role that may do anything any other role may. */
+export const ADMIN_ROLE = "platform_admin";
+
 export interface Caller {
   /** The player, on a route guarded "player". */
   readonly player: Player;
+  /** The member of staff and the token they came with, on a route guarded "staff". */
+  readonly staff: Staff;
+  readonly staffToken: string;
   /** The address the request came from, for rate limits. */
   readonly address: string;
 }
@@ -30,6 +44,8 @@ export interface RouteSpec<B extends z.ZodType, R> {
   readonly method: "GET" | "POST" | "PUT" | "DELETE";
   readonly url: string;
   readonly guard: Guard;
+  /** On a route guarded "staff": the roles that may call it (the platform admin always may), or "any" for anyone on the staff. */
+  readonly roles?: readonly string[] | "any";
   /** The shape of the body. A route with no body gives the shape of an empty object. */
   readonly body: B;
   /** How many calls a minute one caller may make (a player, or an address on a public route). */
@@ -40,6 +56,7 @@ export interface RouteSpec<B extends z.ZodType, R> {
 /** What the app gives `declare` so that it can guard a route: who is calling, and whether they have called too often. */
 export interface Gate {
   playerOf(request: FastifyRequest): Promise<Player | null>;
+  staffOf(request: FastifyRequest): Promise<{ staff: Staff; token: string } | null>;
   allow(key: string, perMinute: number): boolean;
 }
 
@@ -47,10 +64,13 @@ export interface Gate {
 export class Refusal extends Error {
   readonly status: number;
   readonly code: string;
-  constructor(status: number, code: string) {
+  /** What else the caller is told with the code: facts, never sentences. */
+  readonly more: Readonly<Record<string, unknown>>;
+  constructor(status: number, code: string, more: Readonly<Record<string, unknown>> = {}) {
     super(code);
     this.status = status;
     this.code = code;
+    this.more = more;
   }
 }
 
@@ -68,6 +88,8 @@ export function routesOf(app: FastifyInstance): readonly Declared[] {
 }
 
 export function declare<B extends z.ZodType, R>(app: FastifyInstance, gate: Gate, spec: RouteSpec<B, R>): void {
+  // A staff route says who on the staff may call it, and no other route says anything of the kind.
+  if ((spec.guard === "staff") !== (spec.roles !== undefined)) throw new Error(`${spec.method} ${spec.url}: a staff route names its roles, and only a staff route does`);
   const list = declared.get(app) ?? [];
   declared.set(app, list);
   list.push({ method: spec.method, url: spec.url, guard: spec.guard });
@@ -78,17 +100,22 @@ export function declare<B extends z.ZodType, R>(app: FastifyInstance, gate: Gate
     handler: async (request, reply) => {
       const address = request.ip;
       let player: Player | null = null;
-      // Staff routes arrive with the Estúdio (Phase 12): until then nobody passes this guard.
-      if (spec.guard === "staff") throw new Refusal(403, "forbidden");
+      let staff: { staff: Staff; token: string } | null = null;
+      if (spec.guard === "staff") {
+        staff = await gate.staffOf(request);
+        if (!staff) throw new Refusal(401, "unauthenticated");
+        const roles = spec.roles ?? [];
+        if (roles !== "any" && !staff.staff.roles.includes(ADMIN_ROLE) && !roles.some((role) => staff!.staff.roles.includes(role))) throw new Refusal(403, "forbidden");
+      }
       if (spec.guard === "player") {
         player = await gate.playerOf(request);
         if (!player) throw new Refusal(401, "unauthenticated");
       }
-      if (!gate.allow(`${spec.method} ${spec.url} ${player?.id ?? address}`, spec.perMinute)) throw new Refusal(429, "slow_down");
+      if (!gate.allow(`${spec.method} ${spec.url} ${player?.id ?? staff?.staff.id ?? address}`, spec.perMinute)) throw new Refusal(429, "slow_down");
       const body = spec.body.safeParse(request.body ?? {});
       if (!body.success) throw new Refusal(400, "invalid");
       // On a public route there is no player; the handler of one never reads it.
-      return spec.handler(body.data as z.infer<B>, { player: player as Player, address }, reply);
+      return spec.handler(body.data as z.infer<B>, { player: player as Player, staff: staff?.staff as Staff, staffToken: staff?.token ?? "", address }, reply);
     },
   });
 }

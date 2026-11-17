@@ -2,7 +2,7 @@
 // clients on real sockets: what two phones in the same street would live.
 
 import { randomBytes } from "node:crypto";
-import { connect, databaseUrl, hashToken, loadMigrations, loadWorldSeed, migrate, seed } from "@nzila/db";
+import { connect, databaseUrl, hashToken, liftSanction, loadMigrations, loadWorldSeed, migrate, putStaff, sanction, seed } from "@nzila/db";
 import {
   DOING,
   JOIN_REFUSAL,
@@ -343,13 +343,18 @@ describe("seats and the matchmaker", () => {
   });
 
   test("the zone says who is in each channel where the API reads it, and what it says sends the next player to meet the first", async () => {
-    const one = await phone(await seat((await player()).id, 2));
+    const first = await player();
+    const one = await phone(await seat(first.id, 2));
     await until(() => false, 150).catch(() => {});
     const cards = await presence.zones();
     const mine = cards.find((card) => card.id === zone.id)!;
     expect(mine.address).toBe("");
     expect(mine.rooms.map((room) => room.name).sort()).toEqual(["ao-lua.l1", "zz-dev.d1"]);
-    expect(mine.rooms.find((room) => room.name === "ao-lua.l1")!.channels).toEqual([{ number: 2, players: 1 }]);
+    // With who is there and how its steps are going, for the Estúdio.
+    const [channel] = mine.rooms.find((room) => room.name === "ao-lua.l1")!.channels;
+    expect(channel).toMatchObject({ number: 2, players: 1, who: [first.id] });
+    expect(channel!.worstMs).toBeGreaterThanOrEqual(channel!.meanMs!);
+    expect(channel!.worstMs).toBeLessThan(50);
     expect(pickChannel(cards, "ao-lua.l1", { fillTo: 60, cap: 80 })).toMatchObject({ zoneId: zone.id, channel: 2 });
     await one.leave();
     // The channel nobody is in is closed, and the zone says so at once.
@@ -693,6 +698,78 @@ describe("a client that misbehaves", () => {
     expect((await fetch(`http://127.0.0.1:${port}/anything-else`)).status).toBe(404);
     await one.leave();
   });
+
+  // What staff do in the Estúdio is carried out here (Task 3.8): the zone asks every few seconds.
+  test("someone a moderator has silenced is heard by nobody and told so, from their first word or within seconds; unsilenced, they are heard again", async () => {
+    const staffId = await putStaff(sql, { email: "mod@zona.test", name: "Mod", passwordHash: "x", roles: ["moderador"] });
+    const speaker = await player();
+    const already = await player();
+    await sanction(sql, { playerId: already.id, kind: "mute", reason: "insultos", staffId, hours: 1 });
+    const a = await phone(speaker.token, PROTOCOL_VERSION, "conversa");
+    const b = await phone(already.token, PROTOCOL_VERSION, "conversa");
+    // Silenced before coming in: silent from the first word.
+    b.socket.send(encodeChatSend({ messageId: 1, text: "ouvem-me?" }));
+    await until(() => b.state.events.some((event) => event.kind === EVENT.CHAT_REFUSED));
+    expect(b.state.events.find((event) => event.kind === EVENT.CHAT_REFUSED)).toMatchObject({ subject: 1, args: [CHAT_REFUSAL.MUTED] });
+    // Silenced while in the street: within a few seconds.
+    a.socket.send(encodeChatSend({ messageId: 1, text: "antes" }));
+    await until(() => b.state.heard.length === 1);
+    const mute = await sanction(sql, { playerId: speaker.id, kind: "mute", reason: "insultos", staffId, hours: 1 });
+    let n = 1;
+    await until(() => {
+      a.socket.send(encodeChatSend({ messageId: ++n, text: `depois ${n}` }));
+      return a.state.events.some((event) => event.kind === EVENT.CHAT_REFUSED && event.args[0] === CHAT_REFUSAL.MUTED);
+    }, 9000).catch(() => {});
+    expect(a.state.events.some((event) => event.kind === EVENT.CHAT_REFUSED && event.args[0] === CHAT_REFUSAL.MUTED)).toBe(true);
+    const heardWhileSilenced = b.state.heard.length;
+    await pause(LINE_GAP_MS + 100);
+    a.socket.send(encodeChatSend({ messageId: 500, text: "calado" }));
+    await pause(300);
+    expect(b.state.heard).toHaveLength(heardWhileSilenced);
+    // They still walk and are still seen: silenced is not put out.
+    expect(a.state.closed).toBeNull();
+    // Lifted: heard again within seconds.
+    expect(await liftSanction(sql, mute, staffId, "engano")).toBe(true);
+    let m = 600;
+    await until(() => {
+      a.socket.send(encodeChatSend({ messageId: ++m, text: "de volta" }));
+      return b.state.heard.some((line) => line.text === "de volta");
+    }, 9000).catch(() => {});
+    expect(b.state.heard.some((line) => line.text === "de volta")).toBe(true);
+    await a.leave();
+    await b.leave();
+    // What a silenced player tried to say is kept, as not said.
+    await pause(300);
+    expect(await sql`SELECT 1 FROM chat_lines WHERE player_id = ${already.id} AND text = 'ouvem-me?' AND said = false`).toHaveLength(1);
+  }, 40_000);
+
+  test("someone suspended is put out of the street within seconds, on a line that says why it closed; someone kicked for being stuck comes back at the district's door", async () => {
+    const staffId = await putStaff(sql, { email: "mod2@zona.test", name: "Mod Dois", passwordHash: "x", roles: ["moderador"] });
+    const bad = await player();
+    const stuck = await player();
+    const watcher = await phone((await player()).token);
+    const a = await phone(bad.token);
+    const b = await phone(stuck.token);
+    const aId = a.state.accepted!.entityId;
+    await until(() => watcher.seen(aId) !== undefined);
+    await b.walk(30, east);
+    const walkedTo = b.me().x;
+    expect(walkedTo).toBeGreaterThan(1000);
+    await sanction(sql, { playerId: bad.id, kind: "suspend", reason: "ameaças", staffId, hours: 24 });
+    await sanction(sql, { playerId: stuck.id, kind: "kick", reason: "preso numa parede", staffId });
+    await until(() => a.state.closed !== null && b.state.closed !== null, 9000);
+    expect(a.state.closed).toBe(ZONE_CLOSE.PUT_OUT);
+    expect(b.state.closed).toBe(ZONE_CLOSE.PUT_OUT);
+    // Gone from the street at once: no body is kept standing for someone put out.
+    await until(() => watcher.seen(aId) === undefined);
+    // The kicked player comes in again, at the door and not where they were; and is not put out a second time by the same kick.
+    const back = await phone(stuck.token);
+    expect(Math.abs(back.me().x)).toBeLessThan(walkedTo / 2);
+    await pause(6000);
+    expect(back.state.closed).toBeNull();
+    await back.leave();
+    await watcher.leave();
+  }, 40_000);
 
   test("and through all of it the zone had nothing to complain of", () => {
     expect(said).toEqual([]);

@@ -165,6 +165,9 @@ export const ptAO = {
   "state.reconnecting": "A ligar de novo…",
   "state.offline": "Sem rede. Guardámos onde estavas.",
   "state.retry": "Tentar de novo",
+  "state.suspended": "Conta suspensa até {when}. Até lá andas sem os outros.",
+  "state.suspended.some": "Conta suspensa. Até lá andas sem os outros.",
+  "state.banned": "Conta banida pela moderação. Andas sem os outros.",
   "state.refresh": "Há uma versão nova do jogo. Actualiza a página para continuar.",
 
   // Time and quantities.
@@ -195,6 +198,7 @@ export const ptAO = {
   "chat.refused.words": "Essa frase não foi dita. Diz de outra maneira.",
   "chat.refused.slow": "Calma. Uma frase de cada vez.",
   "chat.refused.links": "Essa frase não foi dita. Aqui não se passam endereços.",
+  "chat.refused.muted": "A moderação tirou-te a palavra por agora.",
   "player.add": "Adicionar",
   "player.mute": "Silenciar",
   "player.unmute": "Voltar a ouvir",

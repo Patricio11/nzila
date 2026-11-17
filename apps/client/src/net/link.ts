@@ -32,8 +32,8 @@ export interface LinkEvents {
   typing(from: number, typing: boolean): void;
   /** Something a snapshot does not carry: a gesture, that talk is open here, that a line was not said. */
   event(event: WorldEvent): void;
-  /** The line is gone. `elsewhere` when the same player came in on another phone. */
-  closed(why: "dropped" | "elsewhere"): void;
+  /** The line is gone. `elsewhere` when the same player came in on another phone; `put_out` when staff put them out. */
+  closed(why: "dropped" | "elsewhere" | "put_out"): void;
 }
 
 export interface Link {
@@ -84,7 +84,7 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
     let told = false;
     let lastHeard = performance.now();
     /** The line is gone without a goodbye: said once, however it was found out. */
-    const fallen = (why: "dropped" | "elsewhere"): void => {
+    const fallen = (why: "dropped" | "elsewhere" | "put_out"): void => {
       if (told || let_go) return;
       told = true;
       clearInterval(listening);
@@ -171,7 +171,7 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
       clearTimeout(patience);
       clearInterval(listening);
       if (!accepted) return done(null);
-      fallen(event.code === ZONE_CLOSE.ELSEWHERE ? "elsewhere" : "dropped");
+      fallen(event.code === ZONE_CLOSE.ELSEWHERE ? "elsewhere" : event.code === ZONE_CLOSE.PUT_OUT ? "put_out" : "dropped");
     };
   });
 }

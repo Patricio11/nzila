@@ -123,7 +123,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
   const card = (): ZoneCard => ({
     id,
     address: options.address ?? "",
-    rooms: [...running].map(([name, district]) => ({ name, channels: district.channels.map((room) => ({ number: room.number, players: room.count })) })),
+    rooms: [...running].map(([name, district]) => ({ name, channels: district.channels.map((room) => ({ number: room.number, players: room.count, who: room.who, ...room.health() })) })),
   });
   const say = (): void => {
     if (!closing) void presence?.announce(card()).catch((error: unknown) => log(`zone: could not announce itself: ${String(error)}`));

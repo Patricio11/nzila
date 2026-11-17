@@ -1,7 +1,7 @@
 // The API against a real PostgreSQL (`pnpm services` starts it). Each run
 // makes its own database and drops it afterwards.
 
-import { connect, databaseUrl, decryptField, keepChatLines, shutOutOf, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
+import { connect, databaseUrl, decryptField, keepChatLines, putStaff, shutOutOf, standingAgainst, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES } from "@nzila/economy";
 import { ZONE_TTL_S, memoryPresence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
@@ -9,6 +9,7 @@ import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { buildApp } from "./app.ts";
 import { memoryLimiter } from "./limiter.ts";
+import { hashPassword } from "./linking.ts";
 
 const name = `nzila_api_test_${process.pid}_${Date.now()}`;
 const pepper = parsePepper(Buffer.alloc(32, 9).toString("base64"));
@@ -810,5 +811,189 @@ describe("other players: looking, shutting out, reporting (Rule 11)", () => {
     expect((await app.inject({ method: "DELETE", url: "/v1/me", headers: as(me.token), payload: { biNumber: me.biNumber } })).statusCode).toBe(200);
     expect(await shutOutOf(sql, them.playerId)).toEqual([]);
     expect((await sql`SELECT 1 FROM reports WHERE reporter_id = ${me.playerId}`).length).toBe(2);
+  });
+});
+
+describe("the Estúdio (Task 3.8)", () => {
+  const staffPost = (token: string | null, url: string, payload: unknown = {}) => app.inject({ method: "POST", url, ...(token ? { headers: as(token) } : {}), payload: payload as Record<string, unknown> });
+  const staffGet = (token: string | null, url: string) => app.inject({ method: "GET", url, ...(token ? { headers: as(token) } : {}) });
+  const signIn = async (email: string, password: string): Promise<string> => {
+    const res = await staffPost(null, "/v1/staff/login", { email, password });
+    expect(res.statusCode).toBe(200);
+    return (res.json() as { token: string }).token;
+  };
+  let mod: string;
+  let support: string;
+  let boss: string;
+
+  beforeAll(async () => {
+    await putStaff(sql, { email: "Mod@nzila.test", name: "Moderadora Um", passwordHash: await hashPassword("palavra-passe-um"), roles: ["moderador"] });
+    await putStaff(sql, { email: "apoio@nzila.test", name: "Apoio Um", passwordHash: await hashPassword("palavra-passe-dois"), roles: ["support"] });
+    await putStaff(sql, { email: "chefe@nzila.test", name: "Chefe", passwordHash: await hashPassword("palavra-passe-tres"), roles: ["platform_admin"] });
+    mod = await signIn("mod@nzila.test", "palavra-passe-um");
+    support = await signIn("apoio@nzila.test", "palavra-passe-dois");
+    boss = await signIn("chefe@nzila.test", "palavra-passe-tres");
+  }, 60_000);
+
+  test("staff sign in with an address and a password; a wrong one, an unknown address and a switched-off account open nothing; a player's token is not staff's", async () => {
+    expect((await staffPost(null, "/v1/staff/login", { email: "mod@nzila.test", password: "errada" })).json()).toEqual({ error: "wrong" });
+    expect((await staffPost(null, "/v1/staff/login", { email: "ninguem@nzila.test", password: "palavra-passe-um" })).json()).toEqual({ error: "wrong" });
+    expect((await staffGet(mod, "/v1/staff/me")).json()).toEqual({ name: "Moderadora Um", email: "mod@nzila.test", roles: ["moderador"] });
+    expect((await staffGet(null, "/v1/staff/me")).statusCode).toBe(401);
+    const guest = await newGuest(900);
+    expect((await staffGet(guest.token, "/v1/staff/me")).statusCode).toBe(401);
+    // And staff's token is no player's.
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(mod) })).statusCode).toBe(401);
+    // Only the hash of the token is kept, and the password as a salted hash.
+    const kept = JSON.stringify(await sql`SELECT * FROM staff_sessions`) + JSON.stringify(await sql`SELECT * FROM staff`);
+    expect(kept).not.toContain(mod);
+    expect(kept).not.toContain("palavra-passe");
+    // Signing out ends that session and no other.
+    const again = await signIn("mod@nzila.test", "palavra-passe-um");
+    expect((await staffPost(again, "/v1/staff/logout")).statusCode).toBe(200);
+    expect((await staffGet(again, "/v1/staff/me")).statusCode).toBe(401);
+    expect((await staffGet(mod, "/v1/staff/me")).statusCode).toBe(200);
+    // A session lasts a working day.
+    const short = await signIn("apoio@nzila.test", "palavra-passe-dois");
+    await sql`UPDATE staff_sessions SET expires_at = now() - interval '1 minute' WHERE created_at = (SELECT max(created_at) FROM staff_sessions)`;
+    expect((await staffGet(short, "/v1/staff/me")).statusCode).toBe(401);
+    // An account switched off is out at once, and cannot come back in.
+    await putStaff(sql, { email: "fora@nzila.test", name: "Fora", passwordHash: await hashPassword("palavra-passe-fora"), roles: ["moderador"] });
+    const out = await signIn("fora@nzila.test", "palavra-passe-fora");
+    await sql`UPDATE staff SET status = 'disabled' WHERE email = 'fora@nzila.test'`;
+    expect((await staffGet(out, "/v1/staff/me")).statusCode).toBe(401);
+    expect((await staffPost(null, "/v1/staff/login", { email: "fora@nzila.test", password: "palavra-passe-fora" })).statusCode).toBe(401);
+  });
+
+  test("a player is found by BI number or name, only with a reason, and the read is written down; each role does its own work and no other", async () => {
+    const guest = await newGuest(901);
+    expect((await staffPost(support, "/v1/staff/players/find", { key: guest.biNumber })).statusCode).toBe(400);
+    expect((await staffPost(support, "/v1/staff/players/find", { key: guest.biNumber, reason: "x" })).statusCode).toBe(400);
+    expect((await staffPost(support, "/v1/staff/players/find", { key: "000-nobody", reason: "pedido 12 do apoio" })).statusCode).toBe(404);
+    const found = await staffPost(support, "/v1/staff/players/find", { key: guest.biNumber, reason: "pedido 12 do apoio" });
+    expect(found.statusCode).toBe(200);
+    const { player } = found.json() as { player: Record<string, unknown> };
+    expect(player).toMatchObject({ id: guest.playerId, name: guest.name, biNumber: guest.biNumber, kind: "guest", status: "active", ageBand: "18_plus", sanctions: [], reportsAgainst: 0, lines: [], now: null });
+    // By name too, however it is capitalised.
+    expect(((await staffPost(mod, "/v1/staff/players/find", { key: guest.name.toUpperCase(), reason: "a ver uma denúncia" })).json() as { player: { id: string } }).player.id).toBe(guest.playerId);
+    const rows = await sql<{ actor_id: string; reason: string }[]>`SELECT actor_id, reason FROM audit_log WHERE kind = 'player.read' AND subject_id = ${guest.playerId} ORDER BY id`;
+    expect(rows.map((row) => row.reason)).toEqual(["pedido 12 do apoio", "a ver uma denúncia"]);
+    // Nothing of how they saved their BI, their device or their sessions is in it.
+    expect(found.body).not.toMatch(/hash|token|device|email|phone/i);
+    // Support does not moderate; a moderator does; the platform admin may do either.
+    expect((await staffGet(support, "/v1/staff/reports")).statusCode).toBe(403);
+    expect((await staffPost(support, "/v1/staff/sanctions", { key: guest.biNumber, kind: "mute", reason: "não é comigo", hours: 1 })).statusCode).toBe(403);
+    expect((await staffGet(mod, "/v1/staff/reports")).statusCode).toBe(200);
+    expect((await staffGet(boss, "/v1/staff/reports")).statusCode).toBe(200);
+    expect((await staffPost(boss, "/v1/staff/players/find", { key: guest.biNumber, reason: "a conferir o apoio" })).statusCode).toBe(200);
+  });
+
+  test("the report queue is read oldest first with what was said; a sanction answers a report, keeps the player out or silent, is written down, and can be lifted", async () => {
+    const me = await newGuest(910);
+    const them = await newGuest(911);
+    await keepChatLines(sql, [{ playerId: them.playerId, districtId: "ao-lua/l1", channel: 1, text: "uma coisa feia", said: true, heardBy: 1 }]);
+    const reported = await app.inject({ method: "POST", url: "/v1/reports", headers: as(me.token), payload: { biNumber: them.biNumber, reason: "insults", note: "foi comigo" } });
+    const reportId = (reported.json() as { report: number }).report;
+    const queue = ((await staffGet(mod, "/v1/staff/reports")).json() as { reports: { id: number; reason: string; note: string | null; lines: { text: string }[]; reporter: { biNumber: string }; reported: { biNumber: string; name: string }; against: number }[] }).reports;
+    expect(queue.map((one) => one.id)).toEqual([...queue.map((one) => one.id)].sort((a, b) => a - b));
+    const mine = queue.find((one) => one.id === reportId)!;
+    expect(mine).toMatchObject({ reason: "insults", note: "foi comigo", reporter: { biNumber: me.biNumber }, reported: { biNumber: them.biNumber, name: them.name }, against: 1 });
+    expect(mine.lines.map((line) => line.text)).toEqual(["uma coisa feia"]);
+
+    // A zone is running, and they can come in.
+    await presence.announce({ id: "zone-s", address: "", rooms: [{ name: "ao-lua.l1", channels: [{ number: 1, players: 1, who: [them.playerId], meanMs: 1.5, worstMs: 4 }] }] });
+    const join = (token: string) => app.inject({ method: "POST", url: "/v1/play/join", headers: as(token), payload: { districtId: "ao-lua/l1" } });
+    expect((await join(them.token)).statusCode).toBe(200);
+
+    // A mute and a suspension say how long; a ban says none; nothing is done without a reason.
+    expect((await staffPost(mod, "/v1/staff/sanctions", { key: them.biNumber, kind: "mute", reason: "insultos na rua" })).statusCode).toBe(400);
+    expect((await staffPost(mod, "/v1/staff/sanctions", { key: them.biNumber, kind: "ban", reason: "insultos na rua", hours: 5 })).statusCode).toBe(400);
+    expect((await staffPost(mod, "/v1/staff/sanctions", { key: them.biNumber, kind: "mute", hours: 2 })).statusCode).toBe(400);
+    expect((await staffPost(mod, "/v1/staff/sanctions", { key: "000-nobody", kind: "mute", reason: "insultos na rua", hours: 2 })).statusCode).toBe(404);
+    const muted = await staffPost(mod, "/v1/staff/sanctions", { key: them.biNumber, kind: "mute", reason: "insultos na rua", hours: 2, reportId });
+    expect(muted.statusCode).toBe(200);
+    const muteId = (muted.json() as { sanction: number }).sanction;
+    expect(await standingAgainst(sql, [them.playerId, me.playerId])).toMatchObject([{ id: muteId, playerId: them.playerId, kind: "mute" }]);
+    // Silenced is not kept out.
+    expect((await join(them.token)).statusCode).toBe(200);
+
+    const suspended = await staffPost(mod, "/v1/staff/sanctions", { key: them.biNumber, kind: "suspend", reason: "voltou a insultar", hours: 24 });
+    const suspendId = (suspended.json() as { sanction: number }).sanction;
+    const refused = await join(them.token);
+    expect(refused.statusCode).toBe(403);
+    const said = refused.json() as { error: string; kind: string; until: string };
+    expect(said).toMatchObject({ error: "kept_out", kind: "suspend" });
+    expect(Math.abs(Date.parse(said.until) - Date.now() - 24 * 3600_000)).toBeLessThan(60_000);
+    // Everything else of the game is still theirs: their BI, their data.
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(them.token) })).statusCode).toBe(200);
+    // The reporter is not touched.
+    expect((await join(me.token)).statusCode).toBe(200);
+
+    // Lifted, with why: they may come in again. Lifting twice is nothing to lift.
+    expect((await staffPost(mod, "/v1/staff/sanctions/lift", { id: suspendId })).statusCode).toBe(400);
+    expect((await staffPost(mod, "/v1/staff/sanctions/lift", { id: suspendId, reason: "foi engano meu" })).statusCode).toBe(200);
+    expect((await staffPost(mod, "/v1/staff/sanctions/lift", { id: suspendId, reason: "foi engano meu" })).statusCode).toBe(404);
+    expect((await join(them.token)).statusCode).toBe(200);
+    // A suspension that has run out keeps nobody out.
+    await staffPost(mod, "/v1/staff/sanctions", { key: them.biNumber, kind: "suspend", reason: "uma hora de fora", hours: 1 });
+    expect((await join(them.token)).statusCode).toBe(403);
+    await sql`UPDATE sanctions SET until = now() - interval '1 second' WHERE player_id = ${them.playerId} AND kind = 'suspend' AND lifted_at IS NULL`;
+    expect((await join(them.token)).statusCode).toBe(200);
+    // A ban has no end.
+    const banned = await staffPost(mod, "/v1/staff/sanctions", { key: them.biNumber, kind: "ban", reason: "ameaças repetidas" });
+    expect((await join(them.token)).json()).toEqual({ error: "kept_out", kind: "ban", until: null });
+
+    // The report is closed with what was done; closing it twice is nothing to close; it leaves the queue.
+    expect((await staffPost(mod, "/v1/staff/reports/close", { id: reportId })).statusCode).toBe(400);
+    expect((await staffPost(mod, "/v1/staff/reports/close", { id: reportId, outcome: "silenciado duas horas" })).statusCode).toBe(200);
+    expect((await staffPost(mod, "/v1/staff/reports/close", { id: reportId, outcome: "silenciado duas horas" })).statusCode).toBe(404);
+    expect(((await staffGet(mod, "/v1/staff/reports")).json() as { reports: { id: number }[] }).reports.some((one) => one.id === reportId)).toBe(false);
+    const [closed] = await sql<{ status: string; outcome: string; closed_by: string }[]>`SELECT status, outcome, closed_by FROM reports WHERE id = ${reportId}`;
+    expect(closed).toMatchObject({ status: "closed", outcome: "silenciado duas horas" });
+
+    // What a moderator sees of them now: the history, with who did it, what stands and what was lifted; and where they are.
+    const seen = ((await staffPost(mod, "/v1/staff/players/find", { key: them.biNumber, reason: "a rever o caso" })).json() as { player: { sanctions: { id: number; kind: string; by: string; lifted: boolean; standing: boolean }[]; reportsAgainst: number; lines: { text: string }[]; now: unknown } }).player;
+    expect(seen.sanctions.map((one) => [one.kind, one.lifted, one.standing])).toEqual([["ban", false, true], ["suspend", false, false], ["suspend", true, false], ["mute", false, true]]);
+    expect(seen.sanctions.every((one) => one.by === "Moderadora Um")).toBe(true);
+    expect(seen).toMatchObject({ reportsAgainst: 1, now: { room: "ao-lua.l1", channel: 1 } });
+    expect(seen.lines.map((line) => line.text)).toEqual(["uma coisa feia"]);
+
+    // "Os meus dados": what was done about them and why is theirs to read; who did it is not.
+    const file = (await app.inject({ method: "GET", url: "/v1/me/data", headers: as(them.token) })).json() as { moderation: { kind: string; reason: string }[] };
+    expect(file.moderation.map((one) => one.kind)).toEqual(["mute", "suspend", "suspend", "ban"]);
+    expect(file.moderation[0]!.reason).toBe("insultos na rua");
+    expect(JSON.stringify(file)).not.toContain("Moderadora");
+    // Every one of those was written to the log that cannot be changed, with its reason; and the log can be read.
+    const log = await sql<{ kind: string; reason: string }[]>`SELECT kind, reason FROM audit_log WHERE subject_id = ${them.playerId} AND actor_kind = 'staff' AND kind <> 'player.read' ORDER BY id`;
+    expect(log.map((row) => row.kind)).toEqual(["player.mute", "player.suspend", "player.suspend.lift", "player.suspend", "player.ban"]);
+    expect(log[0]!.reason).toBe("insultos na rua");
+    const entries = ((await staffGet(support, "/v1/staff/audit")).json() as { entries: { by: string; kind: string; subject: string; reason: string }[] }).entries;
+    expect(entries[0]).toMatchObject({ by: "Moderadora Um", kind: "player.read", subject: them.biNumber, reason: "a rever o caso" });
+    expect(entries.some((entry) => entry.kind === "report.close" && entry.reason === "silenciado duas horas")).toBe(true);
+    await expect(sql`DELETE FROM audit_log WHERE subject_id = ${them.playerId}`).rejects.toThrow();
+    expect((banned.json() as { ok: boolean }).ok).toBe(true);
+    await presence.retire("zone-s");
+  });
+
+  test("the channels are shown with who is in each and how their steps go; a stuck player is kicked with a reason", async () => {
+    const guest = await newGuest(920);
+    await presence.announce({ id: "zone-c", address: "", rooms: [{ name: "ao-lua.l1", channels: [{ number: 1, players: 1, who: [guest.playerId], meanMs: 2.25, worstMs: 9.5 }, { number: 2, players: 0 }] }] });
+    expect((await staffGet(null, "/v1/staff/channels")).statusCode).toBe(401);
+    const shown = (await staffGet(support, "/v1/staff/channels")).json() as { zones: { id: string; rooms: { name: string; channels: { number: number; players: number; meanMs: number | null; worstMs: number | null; who: { name: string; biNumber: string }[] }[] }[] }[] };
+    const zone = shown.zones.find((one) => one.id === "zone-c")!;
+    expect(zone.rooms[0]!.channels).toEqual([
+      { number: 1, players: 1, meanMs: 2.25, worstMs: 9.5, who: [{ name: guest.name, biNumber: guest.biNumber }] },
+      { number: 2, players: 0, meanMs: null, worstMs: null, who: [] },
+    ]);
+    expect(JSON.stringify(shown)).not.toContain(guest.playerId);
+    expect((await staffPost(support, "/v1/staff/channels/kick", { key: guest.biNumber })).statusCode).toBe(400);
+    expect((await staffPost(support, "/v1/staff/channels/kick", { key: guest.biNumber, reason: "preso numa parede" })).statusCode).toBe(200);
+    expect(await standingAgainst(sql, [guest.playerId])).toMatchObject([{ playerId: guest.playerId, kind: "kick", until: null }]);
+    // A kick keeps nobody out, and is nothing half a minute later.
+    expect((await app.inject({ method: "POST", url: "/v1/play/join", headers: as(guest.token), payload: { districtId: "ao-lua/l1" } })).statusCode).toBe(200);
+    await sql`UPDATE sanctions SET at = now() - interval '31 seconds' WHERE player_id = ${guest.playerId}`;
+    expect(await standingAgainst(sql, [guest.playerId])).toEqual([]);
+    expect((await sql`SELECT 1 FROM audit_log WHERE kind = 'player.kick' AND subject_id = ${guest.playerId} AND reason = 'preso numa parede'`).length).toBe(1);
+    await presence.retire("zone-c");
   });
 });

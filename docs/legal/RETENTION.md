@@ -23,6 +23,8 @@ One row per table (Task 0.10). **The periods are proposals written by the develo
 
 | What | Planned rule | Task |
 |---|---|---|
+| Sanctions (mute, suspend, ban, kick) | Kept while the account exists: a moderator judging a second report must see the first. Each has its reason; a lifted one stays, marked lifted. The player reads them in "Os meus dados" (what, when, why; not which moderator). **Built 2026-11-17.** What happens to them when an account is deleted is not decided (they stay under a player who is by then nobody) | 3.8 |
+| Staff sessions | Twelve hours, then dead; the rows are not yet swept | 3.8 |
 | Chat messages | Kept for moderation for 30 days, then deleted; a message attached to a report is kept until the report is closed, then 90 days. **Built 2026-11-17:** every line sent to the street, said or refused, is in `chat_lines`; the last twenty lines of a reported player are copied into the report as it is made; the zone deletes lines after 30 days and closed reports after 90, as it starts and every hour (`expireTalk`). A deleted account's lines stay their thirty days under a player who is by then nobody. | 3.6 |
 | Reports and moderation decisions | 2 years after the decision | 3.6, 3.8 |
 | Analytics events | No player id; sampled; 13 months | 4B.4 |
