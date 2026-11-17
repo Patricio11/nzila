@@ -452,6 +452,12 @@ for (cx, cz) in flags:
     with open(os.path.join(out_dir, "chunks", f"c-{cx:02d}-{cz:02d}.walk.json"), "w", encoding="utf-8") as handle:
         json.dump(grid, handle)
 
+# The district as a map for the Telemóvel, as a real district has: one character for every two metres, north up.
+MAP_CELL_M = 2.0
+_every = int(MAP_CELL_M / CELL)
+with open(os.path.join(out_dir, "mapa.json"), "w", encoding="utf-8") as handle:
+    json.dump({"cellM": MAP_CELL_M, "rows": ["".join(_flag_at(ix, iz) for ix in range(_every // 2, ACROSS * CELLS, _every)) for iz in range(_every // 2, DOWN * CELLS, _every)]}, handle, separators=(",", ":"))
+
 sea_wall = (DOWN - 1) * CHUNK + CHUNK / 2 + ROAD / 2 + 16.5
 layout = {
     "bounds": {"minX": 0, "minZ": 0, "maxX": ACROSS * CHUNK, "maxZ": DOWN * CHUNK},

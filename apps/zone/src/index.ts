@@ -6,8 +6,8 @@
 //                    Not given: "the game's own address, at /zone", which is right behind one proxy.
 //   ZONE_SESSIONS    "on" lets a session token in without a seat from the API: for the swarm and a
 //                    developer's machine only. A zone players reach leaves it off.
-//   CHAT             "on" opens talk in the street. Off unless said: talk does not open to players before
-//                    report, block and mute are there and the Angolan word list has been written and read (Q5).
+//   CHAT             "off" shuts talk in the street: the switch to throw if talk must stop while the game goes on.
+//                    Open unless said, since the word lists were written and read (the founder, 2026-11-17, D-3.8).
 //   DATABASE_URL, REDIS_URL
 
 import { existsSync } from "node:fs";
@@ -41,7 +41,7 @@ try {
   presence = memoryPresence();
 }
 const sessions = process.env.ZONE_SESSIONS === "on";
-const chat = process.env.CHAT === "on";
+const chat = process.env.CHAT !== "off";
 const zone = await startZone({ sql, districts, presence, address: process.env.ZONE_PUBLIC_URL ?? "", sessions, holds: BASE_TUNABLES.channels.cap, ...(chat ? { filter: loadChatFilter() } : {}) }, port);
 console.log(`zone: ${zone.id}: ${zone.roomNames.join(", ")} on :${port}${sessions ? " (sessions let in without a seat)" : ""}${chat ? " (talk is open)" : ""}`);
 

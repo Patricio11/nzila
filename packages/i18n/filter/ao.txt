@@ -1,9 +1,37 @@
 # Chat filter: Angolan slang, Kimbundu and Umbundu insults, and what only
 # someone from Luanda would recognise as abuse. Same format as pt.txt.
 #
-# Nothing here is guessed from outside: a wrong entry would silence friendly
-# talk between kambas, which is worse than a missing one. The founder and the
-# moderators write this list in Task 3.6.
+# A wrong entry here silences friendly talk between kambas, which is worse
+# than a missing one: so the list is short and only has words that are abuse
+# whoever says them. Written on 2026-11-17 at the founder's word ("you can
+# even add more words"); he reads it, and the moderators correct it from the
+# first reports.
 #
-# Candidates for the founder to rule on. Remove the "#? " to switch one on.
-#? matumbo
+# Left out on purpose:
+#   pula, mwangolé, kota, puto, mboa, wi, madiê   how people talk
+#   bailundo, zairense   places and peoples first; as abuse, caught by reports
+#   feiticeiro, gatuno   grave things to call someone, and honest words too
+#   boelo, burro, matako, kunanga   mild; the game is rated 15+
+#
+# To switch a word off, put "#? " before it.
+
+# Insults
+matumbo
+matumba
+matumbos
+sundiameno
+sundiamena
+sunji a mama
+tuji
+
+# For where someone is from
+langa
+langas
+
+# For who someone loves
+panina
+paninas
+
+# What nobody says to a girl in this game
+catorzinha
+catorzinhas

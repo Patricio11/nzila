@@ -5,45 +5,135 @@
 # repeated letters collapsed. Write each word once, as it is normally spelled.
 # A word is only found whole, never inside another word.
 #
-# A first list (2026-11-14, the founder asked for a start). The founder and
-# the moderators review it in Task 3.6 and with the first reports from real
-# players. What the game does with a match (hide the word, hold the message,
-# warn) is decided there too.
+# A first list (2026-11-14), read by the founder and widened at his word on
+# 2026-11-17. A line with one of these is said to nobody and its speaker is
+# told (D-3.7). The moderators go on correcting it from the first reports of
+# real players.
 #
 # Left out on purpose, because honest people say them:
 #   puto     a boy, a kid
 #   bicha    a queue
 #   macaco   the animal; as an insult it is caught by reports, not by a list
-#   porra, bolas, fogo   mild; the game is rated 15+
+#   porra, bolas, fogo, bosta, cagar   mild; the game is rated 15+
+#   veado, vaca, cabra, porca, rata, pau, rola   animals and things first
+#   fds      "fim de semana" far more often than the other thing
+#   sexo     it is a line on a BI
+#   preto, negro   colours, and what most players are; abuse built on them
+#            is caught by the word it is built with, or by reports
 
 # Sexual and scatological
 caralho
 caralhos
+karalho
+crl
+foda
+fodas
 foda-se
 foder
 fode-te
 fodido
 fodida
+fodidos
 vai-te foder
 merda
 merdas
+merdoso
 cona
 conas
+conaça
 piça
+pila
+pilas
 punheta
+punhetas
+punheteiro
+boquete
+mamada
+tesão
 cu
+cuzão
+cuzona
+buceta
+bucetas
+xoxota
+porno
+pornografia
+nudes
 
 # Aimed at a person
 puta
 putas
+putinha
+putéfia
 filho da puta
 filha da puta
 filhos da puta
+fdp
 puta que pariu
+pqp
+vsf
+vai tomar no cu
 cabrão
 cabrões
 cabrona
 corno
+cornos
 cornudo
+cornuda
+vadia
+vadias
+vagabunda
+rameira
+arrombado
+arrombada
+
+# For who someone loves
 paneleiro
 paneleiros
+panasca
+panascas
+maricas
+larilas
+viado
+viados
+boiola
+fufa
+fufas
+
+# For where someone is from or how they look
+escarumba
+escarumbas
+monhé
+monhés
+cafre
+cafres
+nigga
+niggas
+nigger
+niggers
+
+# Harm
+estupro
+estuprar
+vou-te violar
+vou te violar
+mata-te
+vai-te matar
+suicida-te
+
+# English, as it is heard in Luanda
+fuck
+fucking
+fucker
+motherfucker
+shit
+bitch
+bitches
+pussy
+dick
+cock
+asshole
+whore
+slut
+cunt
+faggot

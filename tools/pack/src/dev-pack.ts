@@ -114,6 +114,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
     adSlots: [],
     seats: layout.seats.map((seat, n) => ({ id: `seat-${n + 1}`, pos: seat.pos, facing: seat.facing })),
     water: [{ id: "bay", rect: layout.water.rect, level: layout.water.level }],
+    map: "mapa.json",
     strings: "strings.pt-AO.json",
   };
   await writeFile(join(src, "district.json"), `${JSON.stringify(manifest, null, 2)}\n`);

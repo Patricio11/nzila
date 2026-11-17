@@ -308,6 +308,8 @@ export const ptAO = {
   "map.paragens": "Paragens",
   "map.pontos": "Lugares",
   "map.linhas": "Linhas",
+  "map.gente": "Gente",
+  "map.vans": "Candongueiros",
   "map.hint": "Toca num lugar para saber o que é.",
   "map.mark": "Marcar",
   "map.unmark": "Desmarcar",

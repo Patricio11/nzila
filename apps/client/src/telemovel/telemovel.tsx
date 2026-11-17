@@ -7,6 +7,7 @@
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { APP_GLYPHS, Button, Choice, DataMeter, EmptyState, PhoneSheet, Toggle, type PhoneApp, Pano, Swatches } from "@nzila/ui";
 import { WORLD } from "@nzila/world/client";
+import { type ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { PANOS } from "../world/pano.ts";
 import { type DistrictMap, type MapLine, type WorldProvider } from "../world/provider.ts";
@@ -38,6 +39,18 @@ interface Place {
 const css = (colour: readonly [number, number, number]): string => `#${colour.map((part) => part.toString(16).padStart(2, "0")).join("")}`;
 /** What the map is painted with: the world's own colours. */
 const PAINT: Readonly<Record<string, string>> = { "~": css(WORLD.seaShallow), "=": css(WORLD.tar), ".": css(WORLD.pavement), "^": css(WORLD.pavementShade), "#": css(WORLD.pavementShade) };
+
+/** One line of the map's key: the mark exactly as the map draws it, and its word. */
+function Key({ word, children }: { word: string; children: ComponentChildren }) {
+  return (
+    <li>
+      <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
+        {children}
+      </svg>
+      {word}
+    </li>
+  );
+}
 
 function Mapa({ world, marked, onMark }: { world: WorldProvider; marked: Marked | null; onMark: (place: Marked | null) => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -117,7 +130,17 @@ function Mapa({ world, marked, onMark }: { world: WorldProvider; marked: Marked 
       pen.setLineDash([]);
       for (const place of places) dot(place.x, place.z, place.kind === "paragem" ? 9 : 6.5, css(place.kind === "paragem" ? WORLD.vanBlue : WORLD.adBoard), css(WORLD.vanWhite));
       for (const van of world.vans()) dot(van.x, van.z, 5, css(WORLD.vanWhite), css(WORLD.vanBlue));
-      if (marked) dot(marked.x, marked.z, 12, css(WORLD.flagRed), css(WORLD.vanWhite));
+      if (marked) {
+        // The place the compass points to: a ring round it, so that what is there is still seen.
+        const [px, pz] = at(marked.x, marked.z);
+        for (const [width, colour] of [[8, css(WORLD.vanWhite)], [4.5, css(WORLD.flagRed)]] as const) {
+          pen.beginPath();
+          pen.arc(px, pz, 15, 0, Math.PI * 2);
+          pen.lineWidth = width;
+          pen.strokeStyle = colour;
+          pen.stroke();
+        }
+      }
       const you = world.you();
       if (you) {
         // You: a point with the way you face.
@@ -134,6 +157,11 @@ function Mapa({ world, marked, onMark }: { world: WorldProvider; marked: Marked 
         pen.strokeStyle = css(WORLD.vanWhite);
         pen.stroke();
       }
+      // Whoever is in the street with the player, as far as the zone tells this phone of them. Drawn last:
+      // someone standing beside the player is a dot on their arrow, not hidden under it.
+      const people = world.people();
+      for (const one of people) dot(one.x, one.z, 5.5, css(WORLD.flagRed), css(WORLD.vanWhite));
+      element.dataset.gente = String(people.length);
     };
     paint();
     const timer = window.setInterval(paint, 500);
@@ -164,10 +192,30 @@ function Mapa({ world, marked, onMark }: { world: WorldProvider; marked: Marked 
         <canvas ref={canvas} class="tm-map-canvas" role="img" aria-label={tr.t("app.mapa")} onClick={choose} />
       </div>
       <ul class="tm-map-key">
-        <li class="tm-key-you">{tr.t("map.you")}</li>
-        <li class="tm-key-paragem">{tr.t("map.paragens")}</li>
-        <li class="tm-key-ponto">{tr.t("map.pontos")}</li>
-        <li class="tm-key-linha">{tr.t("map.linhas")}</li>
+        <Key word={tr.t("map.you")}>
+          <path d="M9 1 L15 15 L9 11.5 L3 15 Z" fill={css(WORLD.tarShade)} stroke={css(WORLD.vanWhite)} stroke-width="1.8" stroke-linejoin="round" />
+        </Key>
+        {world.channel() !== null ? (
+          <Key word={tr.t("map.gente")}>
+            <circle cx="9" cy="8" r="5" fill={css(WORLD.flagRed)} stroke={css(WORLD.vanWhite)} stroke-width="2" />
+          </Key>
+        ) : null}
+        <Key word={tr.t("map.paragens")}>
+          <circle cx="9" cy="8" r="5.5" fill={css(WORLD.vanBlue)} stroke={css(WORLD.vanWhite)} stroke-width="2" />
+        </Key>
+        <Key word={tr.t("map.pontos")}>
+          <circle cx="9" cy="8" r="4.5" fill={css(WORLD.adBoard)} stroke={css(WORLD.vanWhite)} stroke-width="2" />
+        </Key>
+        {drawn && drawn.lines.length > 0 ? (
+          <>
+            <Key word={tr.t("map.linhas")}>
+              <path d="M1 8 H17" stroke={css(WORLD.vanBlue)} stroke-width="3" stroke-dasharray="5 3.5" />
+            </Key>
+            <Key word={tr.t("map.vans")}>
+              <circle cx="9" cy="8" r="3.5" fill={css(WORLD.vanWhite)} stroke={css(WORLD.vanBlue)} stroke-width="2" />
+            </Key>
+          </>
+        ) : null}
       </ul>
       {chosen ? (
         <div class="tm-place">

@@ -21,7 +21,7 @@ import { playSeat, type PlaySeat } from "../world/account.ts";
 import { openLink, type Link } from "./link.ts";
 import { Others } from "./others.ts";
 import { Prediction, type Said } from "./predict.ts";
-import { ALONE_RETRIES, ALONE_RETRY_MS, SAY_AFTER_MS, nextTry, type NetState } from "./retry.ts";
+import { ALONE_RETRY_MOST_MS, ALONE_RETRY_MS, SAY_AFTER_MS, nextTry, type NetState } from "./retry.ts";
 import { Talking } from "./talking.ts";
 
 /** Why a line was not said: a word the game does not pass on, too many too fast, or an address to somewhere outside. */
@@ -173,7 +173,7 @@ export class Session {
     });
   }
 
-  /** Another try, in a while: how long depends on whether a line fell (quick, for a minute) or there never was a zone (slow, a few times). */
+  /** Another try, in a while: how long depends on whether a line fell (quick, for a minute) or there never was a zone (slow, for as long as the player plays). */
   private again(attempt: number): void {
     if (this.closed || attempt !== this.attempt) return;
     let wait: number | null;
@@ -187,8 +187,9 @@ export class Session {
         return;
       }
     } else {
-      wait = this.tries < ALONE_RETRIES ? ALONE_RETRY_MS * (this.tries + 1) : null;
-      if (wait === null) return;
+      // Nobody to walk with yet: the player walks their own street and is told nothing, and the phone goes on
+      // looking, slowly, for as long as they play. A street with people in it is the game.
+      wait = Math.min(ALONE_RETRY_MOST_MS, ALONE_RETRY_MS * (this.tries + 1));
     }
     this.tries++;
     this.timer = setTimeout(() => {

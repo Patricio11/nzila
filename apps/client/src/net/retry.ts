@@ -10,7 +10,8 @@ export const TRY_AFTER_MS = [300, 700, 1500, 3000, 5000];
 export const SAY_AFTER_MS = 900;
 /** With no zone to be had at all, the matchmaker is asked again now and then: milliseconds, and how many times. */
 export const ALONE_RETRY_MS = 4000;
-export const ALONE_RETRIES = 4;
+/** The longest wait between two looks for a zone when there has been none: the phone never stops looking (the founder, 2026-11-17). */
+export const ALONE_RETRY_MOST_MS = 30_000;
 
 /**
  * How it stands with the zone, as the player should be told of it:

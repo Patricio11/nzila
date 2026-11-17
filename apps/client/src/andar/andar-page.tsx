@@ -586,7 +586,7 @@ export function Andar() {
         district.stand([x, z]);
         // North is the world's -Z; a heading is degrees clockwise from it.
         world.place(x, z, ((Math.atan2(Math.sin(facing), -Math.cos(facing)) * 180) / Math.PI + 360) % 360);
-        world.inChannel(session?.walking ? session.channel : null);
+        world.inChannel(session?.walking ? session.channel : null, session);
         const van = ride ? district.traffic?.bodyOf(ride.route, ride.index) : null;
         const place = district.traffic?.seats.find((s) => s.who === "jogador");
         if (ride && van && place) {

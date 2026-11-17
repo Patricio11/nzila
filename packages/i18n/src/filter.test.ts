@@ -85,11 +85,21 @@ describe("the word list files", () => {
       "Uma cuca? Não, uma gasosa. O cubo de gelo é teu.",
       "Vou cortar o cabelo e comprar um corneto.",
       "Tudo fixe? Bom dia! Já comeste o mufete?",
+      "Bom fds, kota. O pau da bandeira caiu e a vaca fugiu.",
+      "É um rapé antigo. Mata a sede, come e cala.",
+      "O sexo vem no BI. A fada do conto tinha um corneto e uma pilha.",
     ];
     for (const line of honest) expect(filter.find(line), line).toEqual([]);
   });
 
-  test("the Angolan list stays empty until Luandans write it; its candidates are switched off", async () => {
-    expect(await load("ao.txt")).toEqual([]);
+  test("the Angolan list is short, each word usable and in neither list twice, and it leaves how Luanda talks alone", async () => {
+    const words = await load("ao.txt");
+    expect(words.length).toBeGreaterThan(5);
+    const plain = [...words, ...(await load("pt.txt"))].map((word) => plainForm(word));
+    expect(new Set(plain).size).toBe(plain.length);
+    const filter = createChatFilter(words);
+    for (const line of ["Wi, kota, tudo fixe? Bora ao mufete com a mboa.", "O pula e o mwangolé foram ao Bailundo de candongueiro.", "Ya madiê, a kizomba está bué fixe. Langar não é palavra."]) expect(filter.find(line), line).toEqual([]);
+    expect(filter.find("és um m4tumb0")).toEqual(["matumbo"]);
+    expect(filter.find("sunji a mama")).toEqual(["sunji a mama"]);
   });
 });

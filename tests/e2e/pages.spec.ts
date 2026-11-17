@@ -928,6 +928,10 @@ test.describe("two phones in the same street", () => {
     const telemovel = page.getByRole("dialog", { name: "Telemóvel" });
     await telemovel.getByRole("button", { name: "Mapa" }).click();
     await expect(telemovel.locator(".tm-map-canal")).toHaveText("Canal 1");
+    // The other player is on the map, and the key says what their mark is; it does not speak of lines this town has not got.
+    await expect(telemovel.locator(".tm-map-key")).toContainText("Gente");
+    await expect(telemovel.locator(".tm-map-key")).not.toContainText("Linhas");
+    await expect(telemovel.locator(".tm-map-canvas")).toHaveAttribute("data-gente", "1");
     await page.screenshot({ path: info.outputPath("dois-mapa-canal.png") });
     await telemovel.getByRole("button", { name: "Fechar" }).click();
     await expect(telemovel).toHaveCount(0);

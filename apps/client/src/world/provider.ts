@@ -70,6 +70,8 @@ export interface WorldProvider {
   channel(): number | null;
   /** Where the player is, in metres, and the way they face, in degrees clockwise from north. */
   you(): { x: number; z: number; heading: number } | null;
+  /** The other players in the street, as far as this phone is told of them. */
+  people(): { x: number; z: number }[];
   /** The vans on the road now. */
   vans(): { x: number; z: number }[];
   /** Who the player is, as far as is known here; null before anyone has come in. */
@@ -115,6 +117,7 @@ export class LocalWorld implements WorldProvider {
   private base = "";
   private player: { x: number; z: number; heading: number } | null = null;
   private among: number | null = null;
+  private company: { heads(): { x: number; z: number }[] } | null = null;
   private drawn: Promise<{ map: DistrictMap | null; lines: MapLine[] }> | null = null;
 
   /** `asked` is what the address of the page asked for, which wins over what was stored. */
@@ -162,8 +165,13 @@ export class LocalWorld implements WorldProvider {
   }
 
   /** Said by the walking page: which channel the zone has put the player in, or none. */
-  inChannel(channel: number | null): void {
+  inChannel(channel: number | null, company: { heads(): { x: number; z: number }[] } | null = null): void {
     this.among = channel;
+    this.company = channel === null ? null : company;
+  }
+
+  people(): { x: number; z: number }[] {
+    return this.company?.heads() ?? [];
   }
 
   channel(): number | null {

@@ -57,9 +57,15 @@ Order of work: 3.1, 3.3 (a second browser sees the first), 3.2, 3.7 (numbers bef
 
 **D-3.5 A name shows over whoever stands still, when you are near (founder, 2026-11-16).** "I was thinking to show the name when they stop, the NPC as well as the players: if they stop then the name shows, as if you get close." Someone walking has no label; someone who stops, or sits, is named to whoever is within about fourteen metres, the nearest six at once, so that a street is never a wall of labels and whoever can be talked to says who they are. Built on 2026-11-16 for the people of the street (`render/names.ts`): each has a name of their own, the same every day, and what they do under it when that is worth saying (zungueira, polícia, cobrador). **Players wear the same tags by the same rule** when there are other players (3.3, 3.5), with their own name; the BI opens on a tap (3.5).
 
-**D-3.7 A line with a listed word is said to nobody (delegated, 2026-11-17; the founder's to confirm).** The speaker alone is told, kindly, and may say it another way; the line is kept for moderation, marked as not said. Hiding only the word leaves a sentence whose meaning everyone still reads; letting it through and logging it leaves the harm done. *Recommendation: as built.*
+**D-3.7 A line with a listed word is said to nobody (delegated, 2026-11-17; confirmed by the founder the same day).** The speaker alone is told, kindly, and may say it another way; the line is kept for moderation, marked as not said. Hiding only the word leaves a sentence whose meaning everyone still reads; letting it through and logging it leaves the harm done. *Recommendation: as built.*
 
-**D-3.8 Talk is off for players until the word lists have been written and read by Luandans (delegated, 2026-11-17; Q5).** It is a switch on the zone (`CHAT=on`), on in development and in the tests, off by default. A zone with it off tells nobody talk is open, passes nothing on and keeps nothing. *Recommendation: as built.*
+**D-3.8 Talk is open (the founder, 2026-11-17).** It was held shut until the word lists had been written and read. The founder read the Portuguese list, found it good, and asked for more words and for the Angolan list to be written here: both were done that day (`packages/i18n/filter/`, each with what was left out on purpose and why). So a zone opens talk unless it is started with `CHAT=off`, which stays as the switch to throw if talk must stop while the game goes on: a zone with it off tells nobody talk is open, passes nothing on and keeps nothing. The lists go on being corrected from the first reports of real players.
+
+**D-3.9 Everyone talks to everyone (the founder, 2026-11-17).** Nothing limits talk by age band: a player of 15 to 17 and an adult speak in the street like anyone else. What keeps them safe is what is on every sheet (block, mute, report), the filter, no addresses to anywhere outside the game, and every line kept thirty days for moderation. Counsel has not read this yet (it goes with the other questions for counsel).
+
+**D-3.10 With no zone the game still opens, and goes on looking (the founder, 2026-11-17: "do what is best for the game").** A player who cannot reach a zone walks their own street rather than look at a closed door: the megabytes were paid and the street is theirs (Rule 2). They are told nothing, and the phone looks again every half minute at the most for as long as they play, so that they are among people as soon as there are people to be among. This settles D-3.3: `LocalWorld` is reachable in a build for players, on purpose, and the roadmap's test that would forbid it is not written.
+
+**D-3.11 The Estúdio's staff sign in with a password alone for now (the founder, 2026-11-17).** No second factor yet. It is added before anyone outside the founder's own hands has an account there.
 
 **D-3.6, as revised the same day: no room library; a plain WebSocket and our own protocol (delegated, 2026-11-16; answers Q1).** The zone was first built on Colyseus 0.18 (below), and worked. Then the budget was weighed: **its client is 52 KB compressed on the phone, of a budget of 300 KB for all the game's code**, for things our own messages already say (`Join`, `JoinAccepted`, `JoinRefused` were written in Phase 0 for exactly a plain socket). Megabytes are money (Rule 2), so the library went, on both ends: `apps/zone/src/server.ts` is a WebSocket server of about two hundred lines (`ws`), the phone uses the browser's own `WebSocket` and downloads nothing for it. What the library would have given later is now ours to write, and is small: holding a seat for a dropped line (3.4) is the "same player on a new line stands where the old one stood" rule that already exists; many processes (3.2) is a registry in Redis. The roadmap's word "Colyseus" in Task 3.1 and in the stack notes is superseded by this.
 
@@ -89,12 +95,11 @@ Found on the way and fixed: the camera's own account of itself is stale between 
 
 ## What is the founder's to say (Phase 3)
 
-1. **The Angolan word list** (`packages/i18n/filter/ao.txt`, empty) and a read of the Portuguese one (49 words). Until then talk stays off for players (`CHAT` unset): D-3.8.
-2. **What a refused line should do** (D-3.7): today it is said to nobody and the speaker is told "Essa frase não foi dita. Diz de outra maneira." The other ways: say it with the word hidden, or say it and only log it.
-3. **How far a voice carries**: words within 7 m, a balloon without words to 16 m.
-4. **Whether a player of 15 to 17 may talk to anyone**, or only to others of their band, or only in quick phrases. Today everyone talks to everyone. This is a safety decision, and counsel's too.
-5. **Whether the game may open with no zone at all** (a player walking alone), which Rule 2 asks for and the roadmap's wording of 3.3 forbids (F-157).
-6. **Where the zone will run** (Q2): players in Luanda timing a few regions before one is chosen.
+Said on 2026-11-17: the word lists (D-3.8), a refused line (D-3.7), who may talk to whom (D-3.9), playing with no zone (D-3.10), the Estúdio's sign-in (D-3.11). Still open:
+
+1. **A read of the two word lists as they now stand** (`packages/i18n/filter/pt.txt`, `ao.txt`): the Angolan one was written here at the founder's word and no Luandan has read it yet. Three words to look at first: "matumbo" (friends say it too), "langa" (it is also a surname), "tuji".
+2. **How far a voice carries**: words within 7 m, a balloon without words to 16 m.
+3. **Where the zone will run** (Q2): players in Luanda timing a few regions before one is chosen.
 
 ## What "done" means for this phase
 
