@@ -325,7 +325,7 @@ flowchart LR
 
 ### Task 3.2: Matchmaker and channels
 - [x] `POST /play/join`: picks a channel of the district (fill to 60 before opening another, cap 80, tunable), reserves a seat, returns the address. Channels are named in the world's voice (Canal 1, Canal 2) and visible in the Mapa app. *(2026-11-17: `POST /v1/play/join`. People are put in the fullest channel that is not yet comfortably full (`channels.fillTo`, 60), then a new one is opened; a channel never holds more than `channels.cap` (80), which the zone enforces. The seat is a ticket taken once: the phone shows the zone that and never its session. The Mapa wears the channel's name beside the district's.)*
-- [ ] Join a specific channel by invite link. Friends-first placement arrives with 10.1. *(2026-11-17: the matchmaker takes an invitation to a channel and lets it past "comfortably full", and `&canal=3` in the address asks for one. Not ticked: nothing in the game makes or shares such a link yet (F-166).)*
+- [ ] ~~Join a specific channel by invite link.~~ **(Founder, 2026-11-17, D-3.12: there is no invite. Everyone in a bairro is in the same street; a channel is only the second copy that opens when a bairro is too full for one, and nobody chooses it.)** Friends-first placement arrives with 10.1. *(2026-11-17: the matchmaker takes an invitation to a channel and lets it past "comfortably full", and `&canal=3` in the address asks for one. Not ticked: nothing in the game makes or shares such a link yet (F-166).)*
 - [x] Zone processes register in Redis; a dead process's players are rerouted. *(2026-11-17: `packages/presence`: a zone says every three seconds where it is reached and who is in each channel, and is forgotten ten seconds after it stops; the matchmaker sends nobody to a zone it has not heard from, and a phone whose line drops asks the matchmaker again. Tested with zones as cards; two real processes for one district are 3.9's (F-166).)*
 - Depends on: 3.1 · Unblocks: 3.4, 10.1, 11.2.
 
@@ -463,8 +463,11 @@ flowchart LR
 - [ ] **Three ways to be inside (D-0.41).** Through the door at eye level, with no loading screen where the budget allows and the street visible through the window; the cut-away from above (roof off, near walls low) for furnishing and for seeing a whole gathering; and seated, through the player's own eyes, from any seat, bed or window. One button changes between them and the game remembers the choice per home.
 - Depends on: 4.1 · Unblocks: 5.2 to 5.5, 8.1.
 
+- [ ] **You live where you were born (founder, 2026-11-17, D-3.12).** The bairro on the card of origin is the player's home: where their family's house is, where they wake, and where they come back to. They may rent a house in another bairro, or another province, and then that is where they live. Away from home they are a visitor: they come by the road and pay for a bed.
+
 ### Task 5.2: Renting
 - [ ] Browse in the Casa app, visit, sign, pay a deposit to escrow; weekly rent by a job, with notices before it is due and a grace period; eviction stores belongings, never deletes them.
+- [ ] **A bed for a night away from home (founder, 2026-11-17): the hotel, the hospedaria, the pensão.** A player who is far from their house pays for a room by the night, at prices in tunables that differ by place and by comfort (a sink); they sleep there as they would at home, and wake there. With no house and no money for a bed there is the family's house to go back to, however far.
 - Depends on: 5.1 · Unblocks: 5.6.
 
 ### Task 5.3: Furnishing
