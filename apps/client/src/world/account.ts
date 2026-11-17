@@ -167,6 +167,8 @@ export interface PlaySeat {
   readonly room: string;
   readonly seat: string;
   readonly channel: number;
+  /** How many copies of the bairro were open on coming in. More than one is the only time a channel is named to the player. */
+  readonly copies?: number;
 }
 
 /** Kept out of every street with others by a moderator: suspended until a time, or banned. */

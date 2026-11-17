@@ -52,7 +52,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -86,6 +86,8 @@ interface Hud {
   lines: readonly SaidLine[];
   refused: Refused | null;
   out: KeptOut | null;
+  /** Someone has just waved at the player, or the two have just met. */
+  said: { kind: "met" | "waved"; name: string } | null;
   /** How it stands with the zone: the player is told when a line is being picked up, and when it could not be. */
   net: NetState;
   ready: boolean;
@@ -127,7 +129,7 @@ export function Andar() {
   };
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
-  const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
+  const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, said: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
   const [missing, setMissing] = useState(false);
   /** The line being typed is open; and someone met, whose card is up. */
   const [composing, setComposing] = useState(false);
@@ -169,6 +171,7 @@ export function Andar() {
     let session: Session | null = null;
     // What hangs over heads: words, dots, empty balloons. And when the player's last line was refused, until when to say so.
     let over: Over | null = null;
+    let said: { kind: "met" | "waved"; name: string; until: number } | null = null;
     let refusedUntil = 0;
     let refusedWhy: Refused | null = null;
     // How far the picture is from the body after the zone put it right: it slides there and does not jump.
@@ -587,7 +590,7 @@ export function Andar() {
         district.stand([x, z]);
         // North is the world's -Z; a heading is degrees clockwise from it.
         world.place(x, z, ((Math.atan2(Math.sin(facing), -Math.cos(facing)) * 180) / Math.PI + 360) % 360);
-        world.inChannel(session?.walking ? session.channel : null, session);
+        world.inChannel(session?.walking ? session.channel : null, session, session?.namedChannel ?? null);
         const van = ride ? district.traffic?.bodyOf(ride.route, ride.index) : null;
         const place = district.traffic?.seats.find((s) => s.who === "jogador");
         if (ride && van && place) {
@@ -621,6 +624,16 @@ export function Andar() {
             if (balloon && head) speakers.push({ id, x: head.x, y: head.y, z: head.z, balloon });
           }
           over.update(renderer.camera, ride ? [] : speakers, x, z);
+          if (session.met) {
+            said = { kind: "met", name: session.met, until: clock + 4500 };
+            session.met = null;
+            sound.meet();
+          } else if (session.waved) {
+            // Only a wave from close by is an invitation to wave back.
+            const head = heads.find((one) => one.id === session!.waved!.entity);
+            if (head && Math.hypot(head.x - x, head.z - z) < 6 && (!said || said.kind === "waved")) said = { kind: "waved", name: session.waved.name, until: clock + 6000 };
+            session.waved = null;
+          }
           if (session.refused) {
             refusedWhy = session.refused;
             refusedUntil = clock + 4500;
@@ -629,7 +642,7 @@ export function Andar() {
         }
 
         const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -664,7 +677,7 @@ export function Andar() {
             else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { proxima: ahead });
           }
           // `&semrede` shows what a minute without a network looks like, for a still.
-          setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
+          setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, said: said && performance.now() < said.until ? { kind: said.kind, name: said.name } : null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
       }
       renderer.render(elapsed);
@@ -795,6 +808,11 @@ export function Andar() {
               <Button kind="quiet" onPress={() => retryNet.current()}>
                 {tr.t("state.retry")}
               </Button>
+            </div>
+          ) : null}
+          {hud.said && hud.net === "linked" ? (
+            <div class="andar-net">
+              <Banner state={hud.said.kind === "met" ? "done" : "moving"}>{tr.t(hud.said.kind === "met" ? "meet.done" : "meet.waved", { name: hud.said.name })}</Banner>
             </div>
           ) : null}
           {hud.net === "out" ? (

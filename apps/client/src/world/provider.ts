@@ -68,6 +68,8 @@ export interface WorldProvider {
   map(): Promise<{ map: DistrictMap | null; lines: MapLine[] }>;
   /** The channel of the district the player is in with others, or null when they walk alone. */
   channel(): number | null;
+  /** The channel's number when it is worth saying: only when the bairro has more than one copy. */
+  channelNamed(): number | null;
   /** Where the player is, in metres, and the way they face, in degrees clockwise from north. */
   you(): { x: number; z: number; heading: number } | null;
   /** The other players in the street, as far as this phone is told of them. */
@@ -117,6 +119,7 @@ export class LocalWorld implements WorldProvider {
   private base = "";
   private player: { x: number; z: number; heading: number } | null = null;
   private among: number | null = null;
+  private named: number | null = null;
   private company: { heads(): { x: number; z: number }[] } | null = null;
   private drawn: Promise<{ map: DistrictMap | null; lines: MapLine[] }> | null = null;
 
@@ -165,9 +168,14 @@ export class LocalWorld implements WorldProvider {
   }
 
   /** Said by the walking page: which channel the zone has put the player in, or none. */
-  inChannel(channel: number | null, company: { heads(): { x: number; z: number }[] } | null = null): void {
+  inChannel(channel: number | null, company: { heads(): { x: number; z: number }[] } | null = null, named: number | null = null): void {
     this.among = channel;
+    this.named = channel === null ? null : named;
     this.company = channel === null ? null : company;
+  }
+
+  channelNamed(): number | null {
+    return this.named;
   }
 
   people(): { x: number; z: number }[] {

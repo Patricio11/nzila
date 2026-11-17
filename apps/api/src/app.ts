@@ -384,7 +384,11 @@ export function buildApp(deps: Deps): FastifyInstance {
       // Only an invitation can find its channel full: anyone else is given another.
       if (!picked) throw new Refusal(409, "full");
       const seat = await presence.reserve({ playerId: caller.player.id, zoneId: picked.zoneId, room, channel: picked.channel });
-      return { address: picked.address, room, seat, channel: picked.channel };
+      // How many copies of this bairro are open, the one they are going to among them: a phone names its channel
+      // only when there is more than one (D-3.13).
+      const open = new Set(zones.flatMap((zone) => zone.rooms.filter((one) => one.name === room).flatMap((one) => one.channels.map((channel) => channel.number))));
+      open.add(picked.channel);
+      return { address: picked.address, room, seat, channel: picked.channel, copies: open.size };
     },
   });
 

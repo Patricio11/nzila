@@ -692,7 +692,12 @@ describe("where to play", () => {
   test("people are put together until a channel is comfortably full, then another is opened; a friend's invitation goes past that, until the channel is truly full", async () => {
     const guest = await newGuest(902);
     await zone("zone-a", [[1, BASE_TUNABLES.channels.fillTo - 1], [2, 3]]);
-    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 1, address: "" });
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 1, address: "", copies: 2 });
+    // One copy of a bairro: the phone is told so, and names no channel to its player (D-3.13).
+    await zone("zone-a", [[1, 4]]);
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 1, copies: 1 });
+    await zone("zone-a", [[1, BASE_TUNABLES.channels.fillTo]]);
+    expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 2, copies: 2 });
     await zone("zone-a", [[1, BASE_TUNABLES.channels.fillTo], [2, 3]]);
     expect((await join(guest.token, { districtId: "ao-lua/l1" })).json()).toMatchObject({ channel: 2 });
     await zone("zone-a", [[1, BASE_TUNABLES.channels.fillTo], [2, BASE_TUNABLES.channels.cap]]);

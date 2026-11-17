@@ -498,6 +498,35 @@ describe("talk in the street", () => {
     await far.leave();
   });
 
+  test("a wave answered by a wave, close by, is a meeting: both are told, once; a wave from afar or one never answered is only a wave", async () => {
+    const a = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const b = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const far = await phone((await player()).token, PROTOCOL_VERSION, "conversa-10");
+    const met = (who: typeof a): number[] => who.state.events.filter((event) => event.kind === EVENT.MET).map((event) => event.subject);
+    // One waves, and nobody answers: nobody has met anybody.
+    send(a, encodeEmote({ emote: 0 }));
+    await pause(300);
+    expect([met(a), met(b), met(far)]).toEqual([[], [], []]);
+    // Ten metres off is too far to be a greeting, though the wave is seen.
+    send(far, encodeEmote({ emote: 0 }));
+    await pause(300);
+    expect([met(a), met(far)]).toEqual([[], []]);
+    // The other waves back: they have met, each told who.
+    send(b, encodeEmote({ emote: 0 }));
+    await until(() => met(a).length === 1 && met(b).length === 1);
+    expect(met(a)).toEqual([b.state.accepted!.entityId]);
+    expect(met(b)).toEqual([a.state.accepted!.entityId]);
+    // Another gesture is not a greeting, and waving again does not meet them twice.
+    await pause(1100);
+    send(a, encodeEmote({ emote: 4 }));
+    await pause(1100);
+    send(a, encodeEmote({ emote: 0 }));
+    send(b, encodeEmote({ emote: 0 }));
+    await pause(400);
+    expect([met(a).length, met(b).length, met(far).length]).toEqual([1, 1, 0]);
+    for (const one of [a, b, far]) await one.leave();
+  });
+
   test("two who have shut each other out do not hear each other, whoever did the shutting; everyone else hears both", async () => {
     const one = await player();
     const two = await player();

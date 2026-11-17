@@ -2,7 +2,7 @@ declare global {
   interface Window {
     __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
-    __andar?: { x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -927,7 +927,8 @@ test.describe("two phones in the same street", () => {
     await page.getByRole("button", { name: "Telemóvel" }).click();
     const telemovel = page.getByRole("dialog", { name: "Telemóvel" });
     await telemovel.getByRole("button", { name: "Mapa" }).click();
-    await expect(telemovel.locator(".tm-map-canal")).toHaveText("Canal 1");
+    // One copy of the bairro: its number is machinery, and is not shown (D-3.13).
+    await expect(telemovel.locator(".tm-map-canal")).toHaveCount(0);
     // The other player is on the map, and the key says what their mark is; it does not speak of lines this town has not got.
     await expect(telemovel.locator(".tm-map-key")).toContainText("Gente");
     await expect(telemovel.locator(".tm-map-key")).not.toContainText("Linhas");
@@ -1118,6 +1119,19 @@ test.describe("two phones in the same street", () => {
     expect((await page.evaluate(() => window.__andar!.lines)).some((said) => said.includes("merdas"))).toBe(false);
     await expect(page.locator(".cv-refused")).toHaveCount(0);
 
+    // Nobody arrives knowing anybody. The second waves; the first is told so, waves back, and each now knows the other:
+    // said on both phones, and remembered.
+    expect((await page.evaluate(() => window.__andar!.known))).toBe(0);
+    await other.keyboard.press("1");
+    await expect(page.getByText(/acenou-te\. Acena de volta\./)).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("dois-acenou.png") });
+    await page.keyboard.press("1");
+    await expect(page.getByText(/^Agora conheces /)).toBeVisible({ timeout: 10_000 });
+    await expect(other.getByText(/^Agora conheces /)).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("dois-conhecem-se.png") });
+    expect(await page.evaluate(() => window.__andar!.known)).toBe(1);
+    expect(await other.evaluate(() => JSON.parse(localStorage.getItem("nzila.conhecidos") ?? "[]").length)).toBe(1);
+    await page.waitForTimeout(1100);
     // A gesture: the second waves (the key 1), and the first sees their body wave.
     await other.keyboard.press("1");
     await page.waitForFunction(() => window.__andar!.gestures.includes("acenar"), undefined, { timeout: 10_000 });

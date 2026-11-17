@@ -128,6 +128,12 @@ export class Sound {
     this.thud(240, 0.34, 0.14);
   }
 
+  /** Two people have met: two small notes, the second higher. */
+  meet(): void {
+    this.tone(520, 540, 0.14, 0.12, "sine");
+    this.tone(780, 800, 0.14, 0.18, "sine", 0.13);
+  }
+
   /** A van's two short hoots. `near` is 0 (far) to 1 (beside you). */
   hoot(near: number): void {
     this.played += 1;

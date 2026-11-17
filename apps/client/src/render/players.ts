@@ -36,6 +36,8 @@ export class Players {
   private readonly bodies = new Map<number, Body>();
   private readonly faces = new Map<number, Who>();
   private closed = false;
+  /** Whether the player has met whoever carries this BI: said by the session, which remembers. */
+  knows: (bi: string) => boolean = () => false;
 
   constructor(renderer: WorldRenderer) {
     this.renderer = renderer;
@@ -124,7 +126,7 @@ export class Players {
       if (body.emote && body.emote.began === null) body.emote.began = seconds;
       if (body.emote && (seconds - body.emote.began! > EMOTE_SECONDS[body.emote.kind] || body.speed > 0.6 || flying)) body.emote = null;
       person.pose({ speed: body.speed, phase: body.phase, time: seconds + one.id * 1.3 }, { jump: body.air > 0.05 ? Math.min(0.95, body.air * 0.5) : 0, ...(body.emote ? { emote: { kind: body.emote.kind, seconds: seconds - body.emote.began! } } : {}) });
-      named.push({ x: one.x, y: one.y + person.height, z: one.z, name: who.name, still: one.speed < 0.15 && !flying });
+      named.push({ x: one.x, y: one.y + person.height, z: one.z, name: who.name, still: one.speed < 0.15 && !flying, known: who.bi !== "" && this.knows(who.bi) });
     }
     for (const [id, body] of this.bodies) {
       if (here.has(id)) continue;

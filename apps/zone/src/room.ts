@@ -36,6 +36,10 @@ export const STRIKES = 5;
 export const HOLD_MS = 60_000;
 /** A gesture a second, at the most, is passed on. */
 const GESTURE_GAP_MS = 1000;
+/** A wave is answered when the other waves within this long, standing within this far. The wave is the first of the gestures. */
+export const GREETING_WITHIN_MS = 8000;
+export const GREETING_WITHIN_MM = 6000;
+const WAVE = 0;
 /** How far behind the loop may fall and still catch up, in steps; beyond it time is let go, not made up in a rush. */
 const CATCH_UP_STEPS = 3;
 
@@ -77,6 +81,9 @@ interface Held {
   /** Whether they are known to be typing, and when they last made a gesture. */
   typing: boolean;
   gestureAt: number;
+  /** When they last waved, and whom they have met in this stay (by entity): two people meet once. */
+  wavedAt: number;
+  readonly met: Set<number>;
 }
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
@@ -265,7 +272,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0 });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -289,7 +296,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0 });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set() });
     this.lineOfEntity.set(entityId, line);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
@@ -398,6 +405,28 @@ export class ChannelRoom {
     held.gestureAt = now;
     const bytes = encodeEvent({ kind: EVENT.EMOTE, tick: this.channel.world.tick, subject: held.entityId, args: [emote], text: "" });
     for (const [other, seeing] of this.held) if (seeing !== held && this.channel.seenBy(seeing.entityId).includes(held.entityId)) other.send(bytes);
+    if (emote === WAVE) this.greets(held, now);
+  }
+
+  /**
+   * A wave answered by a wave is a meeting (the founder, 2026-11-17: nobody arrives knowing anybody). When someone
+   * waves and another who is close waved a moment ago, both are told they have met: once a pair, and never across
+   * a block. What each phone does with knowing someone is its own (their name shown as they pass, for now).
+   */
+  private greets(held: Held, now: number): void {
+    held.wavedAt = now;
+    const here = this.channel.placeOf(held.entityId);
+    if (!here) return;
+    const tick = this.channel.world.tick;
+    for (const [line, other] of this.held) {
+      if (other === held || now - other.wavedAt > GREETING_WITHIN_MS || held.met.has(other.entityId) || this.apart(held.entityId, other.entityId)) continue;
+      const there = this.channel.placeOf(other.entityId);
+      if (!there || Math.hypot(there.x - here.x, there.z - here.z) > GREETING_WITHIN_MM) continue;
+      held.met.add(other.entityId);
+      other.met.add(held.entityId);
+      line.send(encodeEvent({ kind: EVENT.MET, tick, subject: held.entityId, args: [], text: "" }));
+      this.lineOfEntity.get(held.entityId)?.send(encodeEvent({ kind: EVENT.MET, tick, subject: other.entityId, args: [], text: "" }));
+    }
   }
 
   /** Lines said since the last time are written down, together. A failure is said, and the lines are not lost to the next try. */

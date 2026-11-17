@@ -22,6 +22,8 @@ export interface Named {
   /** What they do, when it is worth saying ("Zungueira"): a second, smaller line. */
   readonly role?: string;
   readonly still: boolean;
+  /** Someone the player has met (a wave answered): named as they pass, and with a mark of the cloth's yellow. */
+  readonly known?: boolean;
 }
 
 /** A name is shown within this distance, whole within the first; and over this many people at once, the nearest. */
@@ -32,7 +34,7 @@ export const NAMES_AT_ONCE = 6;
 /** Which of the people get a name: those standing still and near, the nearest first, a few at once. */
 export function named(people: readonly Named[], viewerX: number, viewerZ: number): { who: Named; far: number }[] {
   return people
-    .filter((who) => who.still)
+    .filter((who) => who.still || who.known === true)
     .map((who) => ({ who, far: Math.hypot(who.x - viewerX, who.z - viewerZ) }))
     .filter((one) => NAME_FAR_M > one.far && one.far > 0.05)
     .sort((a, b) => a.far - b.far)
@@ -107,7 +109,7 @@ export class NameTags {
 
   /** The row of the picture a label is on, drawn now if it never was. When the picture is full the oldest rows are written over. */
   private rowOf(who: Named): number {
-    const key = `${who.name}\n${who.role ?? ""}`;
+    const key = `${who.name}\n${who.role ?? ""}\n${who.known ? "k" : ""}`;
     let row = this.rows.get(key);
     if (row !== undefined) return row;
     row = this.rows.size % ROWS;
@@ -124,6 +126,14 @@ export class NameTags {
     pen.beginPath();
     pen.roundRect(left, top + 4, wide, HIGH_PX - 10, 16);
     pen.fill();
+    if (who.known) {
+      // Someone met: the plate is edged in the cloth's yellow.
+      pen.lineWidth = 4;
+      pen.strokeStyle = css(WORLD.adBoard);
+      pen.beginPath();
+      pen.roundRect(left + 2, top + 6, wide - 4, HIGH_PX - 14, 14);
+      pen.stroke();
+    }
     pen.fillStyle = css(WORLD.adBoard);
     pen.fillRect(left + 14, top + HIGH_PX - 11, wide - 28, 3);
     pen.textAlign = "center";

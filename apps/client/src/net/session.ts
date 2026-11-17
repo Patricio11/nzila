@@ -38,6 +38,17 @@ function silencedHere(): Set<string> {
   }
 }
 
+/** Whom the player has met (a wave answered by a wave), by the number of their BI: kept on this phone until friends have a home on the server (10.1). */
+const KNOWN_KEY = "nzila.conhecidos";
+function knownHere(): Set<string> {
+  try {
+    const kept = JSON.parse(localStorage.getItem(KNOWN_KEY) ?? "[]") as unknown;
+    return new Set(Array.isArray(kept) ? kept.filter((one): one is string => typeof one === "string").slice(-500) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 export const STILL: InputFrame = { dx: 0, dz: 0, run: false, brake: false };
 
 export class Session {
@@ -69,6 +80,12 @@ export class Session {
   readonly talk = new Talking();
   private chatOpen = false;
   private readonly silencedBi = silencedHere();
+  private readonly knownBi = knownHere();
+  /** Someone just met, and someone who has just waved, until the page has said so. */
+  met: string | null = null;
+  waved: { entity: number; name: string } | null = null;
+  /** How many copies of the bairro were open on coming in. */
+  private copies = 1;
   /** Why the player's last line was not said, until the page has shown it. */
   refused: Refused | null = null;
   /** Kept out by a moderator, as the matchmaker last said: which, and until when. */
@@ -81,6 +98,18 @@ export class Session {
     this.districtId = districtId;
     this.invited = invited;
     this.players = new Players(renderer);
+    this.players.knows = (bi) => this.knownBi.has(bi);
+  }
+
+  /** How many people the player has met, on this phone: for the tests. */
+  get known(): number {
+    return this.knownBi.size;
+  }
+
+  /** The channel, when it is worth naming: only when the bairro has more than one copy (D-3.13). */
+  get namedChannel(): number | null {
+    const channel = this.channel;
+    return channel !== null && (this.copies > 1 || channel > 1) ? channel : null;
   }
 
   /** How it stands with the zone, as the player should be told. A fall that has only just happened is not mentioned yet. */
@@ -186,6 +215,7 @@ export class Session {
       this.tries = 0;
       this.chatOpen = false;
       this.heardTick = -1;
+      this.copies = seat.copies ?? 1;
       this.link = link;
     });
   }
@@ -255,6 +285,20 @@ export class Session {
     else if (event.kind === EVENT.EMOTE) {
       const name = EMOTE_NAMES[event.args[0] ?? -1];
       if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);
+      // A wave from someone not yet met: the page says so if they are close, so that it can be answered.
+      const who = this.players.who(event.subject);
+      if (name === "acenar" && who && who.bi && !this.knownBi.has(who.bi) && !this.talk.silenced(event.subject)) this.waved = { entity: event.subject, name: who.name };
+    } else if (event.kind === EVENT.MET) {
+      const who = this.players.who(event.subject);
+      if (!who || !who.bi) return;
+      this.knownBi.add(who.bi);
+      this.met = who.name;
+      this.waved = null;
+      try {
+        localStorage.setItem(KNOWN_KEY, JSON.stringify([...this.knownBi]));
+      } catch {
+        // Storage is off: they are known for this visit.
+      }
     }
   }
 

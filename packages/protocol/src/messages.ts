@@ -200,6 +200,8 @@ export const EVENT = {
   CHAT_OPEN: 3,
   /** A line this client sent was not said to anyone. subject is the line's messageId; args[0] is why (CHAT_REFUSAL). */
   CHAT_REFUSED: 4,
+  /** This client and subject have greeted each other (a wave answered by a wave, close by): they have met. */
+  MET: 5,
 } as const;
 
 /** Why a line was not said. Numbers are never reused. */
