@@ -12,6 +12,7 @@
 // others stay where they were last seen; they do not vanish. Only after a
 // minute of trying is the player told there is no network.
 
+import { isGreeting } from "@nzila/i18n";
 import { CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
@@ -83,7 +84,7 @@ export class Session {
   private readonly knownBi = knownHere();
   /** Someone just met, and someone who has just waved, until the page has said so. */
   met: string | null = null;
-  waved: { entity: number; name: string } | null = null;
+  waved: { entity: number; name: string; spoke?: boolean } | null = null;
   /** How many copies of the bairro were open on coming in. */
   private copies = 1;
   /** Why the player's last line was not said, until the page has shown it. */
@@ -178,6 +179,9 @@ export class Session {
         const name = mine ? null : this.players.nameOf(from);
         // Someone whose name has not arrived is not yet anyone: their line waits for nothing and is dropped.
         if (mine || name !== null) this.talk.heard(from, name, text, performance.now());
+        // Greeted in words by someone not yet met: the page says so, so that it can be answered.
+        const who = mine ? null : this.players.who(from);
+        if (who && who.bi && !this.knownBi.has(who.bi) && !this.talk.silenced(from) && isGreeting(text)) this.waved = { entity: from, name: who.name, spoke: true };
       },
       typing: (from, on) => attempt === this.attempt && this.talk.typing(from, on, performance.now()),
       event: (event) => attempt === this.attempt && this.happened(event),

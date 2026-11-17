@@ -87,7 +87,7 @@ interface Hud {
   refused: Refused | null;
   out: KeptOut | null;
   /** Someone has just waved at the player, or the two have just met. */
-  said: { kind: "met" | "waved"; name: string } | null;
+  said: { kind: "met" | "waved" | "greeted"; name: string } | null;
   /** How it stands with the zone: the player is told when a line is being picked up, and when it could not be. */
   net: NetState;
   ready: boolean;
@@ -171,7 +171,7 @@ export function Andar() {
     let session: Session | null = null;
     // What hangs over heads: words, dots, empty balloons. And when the player's last line was refused, until when to say so.
     let over: Over | null = null;
-    let said: { kind: "met" | "waved"; name: string; until: number } | null = null;
+    let said: { kind: "met" | "waved" | "greeted"; name: string; until: number } | null = null;
     let refusedUntil = 0;
     let refusedWhy: Refused | null = null;
     // How far the picture is from the body after the zone put it right: it slides there and does not jump.
@@ -631,7 +631,7 @@ export function Andar() {
           } else if (session.waved) {
             // Only a wave from close by is an invitation to wave back.
             const head = heads.find((one) => one.id === session!.waved!.entity);
-            if (head && Math.hypot(head.x - x, head.z - z) < 6 && (!said || said.kind === "waved")) said = { kind: "waved", name: session.waved.name, until: clock + 6000 };
+            if (head && Math.hypot(head.x - x, head.z - z) < 6 && (!said || said.kind !== "met")) said = { kind: session.waved.spoke ? "greeted" : "waved", name: session.waved.name, until: clock + 6000 };
             session.waved = null;
           }
           if (session.refused) {
@@ -812,7 +812,7 @@ export function Andar() {
           ) : null}
           {hud.said && hud.net === "linked" ? (
             <div class="andar-net">
-              <Banner state={hud.said.kind === "met" ? "done" : "moving"}>{tr.t(hud.said.kind === "met" ? "meet.done" : "meet.waved", { name: hud.said.name })}</Banner>
+              <Banner state={hud.said.kind === "met" ? "done" : "moving"}>{tr.t(hud.said.kind === "met" ? "meet.done" : hud.said.kind === "greeted" ? "meet.greeted" : "meet.waved", { name: hud.said.name })}</Banner>
             </div>
           ) : null}
           {hud.net === "out" ? (

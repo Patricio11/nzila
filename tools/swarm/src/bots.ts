@@ -14,8 +14,10 @@ import { SIM_STEP_MS } from "@nzila/sim";
 export interface SwarmOptions {
   /** The zone's address and the district's room: ws://host:port/room. */
   readonly url: string;
-  /** One session token for each bot. */
-  readonly tokens: readonly string[];
+  /** What each bot shows the zone: a session token, or a way to get a seat from the matchmaker at the moment it comes in (null: it does not come). */
+  readonly tokens: readonly (string | (() => Promise<string | null>))[];
+  /** Each bot is in before the next asks: for when where the next is put depends on who is already there. */
+  readonly oneByOne?: boolean;
   readonly seconds: number;
   readonly seed?: number;
   /** Bots come in this far apart, in milliseconds: a crowd arrives over a few seconds, not in one instant. */
@@ -84,7 +86,9 @@ export async function runSwarm(options: SwarmOptions): Promise<SwarmReport> {
   const bots: Bot[] = [];
   let measuring = false;
 
-  for (const token of options.tokens) {
+  for (const given of options.tokens) {
+    const token = typeof given === "string" ? given : await given();
+    if (token === null) continue;
     const socket = new WebSocket(options.url);
     socket.binaryType = "arraybuffer";
     const bot: Bot = { socket, had: new Map(), accepted: false, open: false, seq: 0, ackTick: 0, frames: [], ...next(random), bytes: 0, snapshots: 0, seenSum: 0, seenMost: 0, largest: 0 };
@@ -118,6 +122,7 @@ export async function runSwarm(options: SwarmOptions): Promise<SwarmReport> {
       }
     };
     bots.push(bot);
+    if (options.oneByOne) for (const end = Date.now() + 5000; !bot.accepted && socket.readyState <= 1 && Date.now() < end; ) await pause(5);
     if (options.staggerMs) await pause(options.staggerMs);
   }
 

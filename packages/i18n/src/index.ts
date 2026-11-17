@@ -13,6 +13,7 @@ import { ptAO, type MessageKey } from "./pt-AO.ts";
 export { argumentsOf, formatMessage, type Params } from "./icu.ts";
 export { ptAO, type MessageKey };
 export * from "./filter.ts";
+export * from "./greetings.ts";
 
 export type Catalog = Readonly<Record<MessageKey, string>>;
 

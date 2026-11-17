@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "@nzila/db": "workspace:*",
+    "@nzila/economy": "workspace:*",
+    "@nzila/i18n": "workspace:*",
+    "@nzila/presence": "workspace:*",
     "@nzila/protocol": "workspace:*",
     "@nzila/sim": "workspace:*",
     "postgres": "^4.1.1"

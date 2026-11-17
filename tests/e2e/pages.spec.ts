@@ -1041,10 +1041,10 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__andar!.players === 1, undefined, { timeout: 20_000 });
 
     const from = await other.evaluate(() => window.__andar!.others[0]!);
-    const watched: { x: number; z: number }[] = [];
+    const watched: { x: number; z: number; at: number }[] = [];
     await page.keyboard.down("d");
     for (let n = 0; n < 50; n++) {
-      watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN })));
+      watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN, at: performance.now() })));
       await other.waitForTimeout(100);
     }
     await page.keyboard.up("d");
@@ -1056,8 +1056,11 @@ test.describe("two phones in the same street", () => {
     info.annotations.push({ type: "weak line", description: `walked ${went.toFixed(1)} m in 5 s; biggest step seen in a tenth of a second ${Math.max(...steps).toFixed(2)} m; corrections ${walker.corrections}` });
     // They walked about as far as five seconds of walking goes, late line or not.
     expect(went).toBeGreaterThan(4);
-    // Never a jump: no more than a few strides between two looks a tenth of a second apart, even after a stall.
-    expect(Math.max(...steps)).toBeLessThan(1.2);
+    // Never a jump: no more than a few strides between two looks, even after a stall. Two looks are meant to be a
+    // tenth of a second apart and on a busy machine are sometimes several: what is allowed grows with the time that
+    // really passed between them (1,2 m at the usual 0,15 s), so that a late look is not taken for a jump (F-183).
+    const jumps = watched.slice(1).map((at, n) => steps[n]! - (0.75 + 3 * ((at.at - watched[n]!.at) / 1000)));
+    expect(Math.max(...jumps)).toBeLessThan(0);
     // When all is quiet the two agree on where the walker is.
     expect(Math.hypot(sight.x - walker.x, sight.z - walker.z)).toBeLessThan(0.3);
     // And the walker's own body was almost never put right: a late line is not a wrong one.
@@ -1101,6 +1104,9 @@ test.describe("two phones in the same street", () => {
     await expect(other.locator(".cv-over .n-balloon:not([hidden])")).toHaveText("Bom dia, vizinha");
     await expect(page.locator(".cv-log")).toContainText(`${secondName} Bom dia, vizinha`);
     await expect(other.locator(".cv-log")).toContainText("Tu Bom dia, vizinha");
+    // Nobody arrives knowing anybody, and "Bom dia" is a greeting: the one greeted is told so, and may answer.
+    expect(await page.evaluate(() => window.__andar!.known)).toBe(0);
+    await expect(page.getByText(/cumprimentou-te\. Responde-lhe\./)).toBeVisible({ timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("conversa-balao.png") });
 
     // The first answers with a quick phrase, on one tap.
@@ -1108,6 +1114,12 @@ test.describe("two phones in the same street", () => {
     await page.screenshot({ path: info.outputPath("conversa-frases.png") });
     await page.getByRole("button", { name: "Tudo fixe?" }).click();
     await expect(other.locator(".cv-log")).toContainText(`${firstName} Tudo fixe?`, { timeout: 10_000 });
+    // A greeting answered by a greeting: they have met. Said on both phones, and remembered on each.
+    await expect(page.getByText(/^Agora conheces /)).toBeVisible({ timeout: 10_000 });
+    await expect(other.getByText(/^Agora conheces /)).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("dois-conhecem-se.png") });
+    expect(await page.evaluate(() => window.__andar!.known)).toBe(1);
+    expect(await other.evaluate(() => JSON.parse(localStorage.getItem("nzila.conhecidos") ?? "[]").length)).toBe(1);
 
     // A word the game does not pass on: said to nobody, and only its speaker is told, kindly.
     await other.waitForTimeout(700);
@@ -1119,19 +1131,6 @@ test.describe("two phones in the same street", () => {
     expect((await page.evaluate(() => window.__andar!.lines)).some((said) => said.includes("merdas"))).toBe(false);
     await expect(page.locator(".cv-refused")).toHaveCount(0);
 
-    // Nobody arrives knowing anybody. The second waves; the first is told so, waves back, and each now knows the other:
-    // said on both phones, and remembered.
-    expect((await page.evaluate(() => window.__andar!.known))).toBe(0);
-    await other.keyboard.press("1");
-    await expect(page.getByText(/acenou-te\. Acena de volta\./)).toBeVisible({ timeout: 10_000 });
-    await page.screenshot({ path: info.outputPath("dois-acenou.png") });
-    await page.keyboard.press("1");
-    await expect(page.getByText(/^Agora conheces /)).toBeVisible({ timeout: 10_000 });
-    await expect(other.getByText(/^Agora conheces /)).toBeVisible({ timeout: 10_000 });
-    await page.screenshot({ path: info.outputPath("dois-conhecem-se.png") });
-    expect(await page.evaluate(() => window.__andar!.known)).toBe(1);
-    expect(await other.evaluate(() => JSON.parse(localStorage.getItem("nzila.conhecidos") ?? "[]").length)).toBe(1);
-    await page.waitForTimeout(1100);
     // A gesture: the second waves (the key 1), and the first sees their body wave.
     await other.keyboard.press("1");
     await page.waitForFunction(() => window.__andar!.gestures.includes("acenar"), undefined, { timeout: 10_000 });

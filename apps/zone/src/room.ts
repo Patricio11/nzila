@@ -7,6 +7,7 @@
 // send bytes and be closed (server.ts makes those from WebSockets, a test may
 // make them from nothing). Every byte is ours (packages/protocol).
 
+import { isGreeting } from "@nzila/i18n";
 import { faceOf, keepChatLines, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { type ChatFilter } from "@nzila/i18n";
 import { EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, CHAT_REFUSAL } from "@nzila/protocol";
@@ -36,8 +37,11 @@ export const STRIKES = 5;
 export const HOLD_MS = 60_000;
 /** A gesture a second, at the most, is passed on. */
 const GESTURE_GAP_MS = 1000;
-/** A wave is answered when the other waves within this long, standing within this far. The wave is the first of the gestures. */
-export const GREETING_WITHIN_MS = 8000;
+/**
+ * A greeting is answered when the other greets within this long, standing within this far. Long enough to type
+ * "Tudo bem, e tu?" with one thumb. The wave is the first of the gestures.
+ */
+export const GREETING_WITHIN_MS = 20_000;
 export const GREETING_WITHIN_MM = 6000;
 const WAVE = 0;
 /** How far behind the loop may fall and still catch up, in steps; beyond it time is let go, not made up in a rush. */
@@ -386,6 +390,8 @@ export class ChannelRoom {
     const hearers = reached(this.channel.entities(), held.entityId, this.apart);
     for (const one of hearers) this.lineOfEntity.get(one.id)?.send(encodeChatHeard({ from: held.entityId, tick, text: one.reads ? verdict.text : "" }));
     this.said.push({ ...where, said: true, heardBy: hearers.filter((one) => one.reads).length - 1 });
+    // "Bom dia", "Tudo bem?" and the like greet whoever is close, as a wave does (the founder, 2026-11-17).
+    if (isGreeting(verdict.text)) this.greets(held, Date.now());
     // A line said is the end of its typing.
     held.typing = false;
   }
@@ -409,6 +415,7 @@ export class ChannelRoom {
   }
 
   /**
+   * A greeting answered by a greeting is a meeting: a wave, or the words people say ("Bom dia", "Tudo bem?").
    * A wave answered by a wave is a meeting (the founder, 2026-11-17: nobody arrives knowing anybody). When someone
    * waves and another who is close waved a moment ago, both are told they have met: once a pair, and never across
    * a block. What each phone does with knowing someone is its own (their name shown as they pass, for now).
@@ -510,12 +517,17 @@ export class ChannelRoom {
     if (tick % STEPS_A_NOTE === 0) {
       void this.writeDown();
       void this.heed();
-      const lasting = tick % STEPS_A_CHECKPOINT === 0;
-      if (lasting && this.talk) void this.reread();
-      for (const held of this.held.values()) {
-        const at = this.channel.placeOf(held.entityId);
-        if (at) void this.keep(held.playerId, at, lasting);
-      }
+      if (tick % STEPS_A_CHECKPOINT === 0 && this.talk) void this.reread();
+    }
+    // Where each player stands is written down once every five seconds, and where it lasts once every thirty: each
+    // in a step of their own, not all eighty in one: no step carries the whole channel's writing (finding F-182).
+    const slot = tick % STEPS_A_NOTE;
+    const lasting = Math.floor(tick / STEPS_A_NOTE) % (STEPS_A_CHECKPOINT / STEPS_A_NOTE) === 0;
+    let n = 0;
+    for (const held of this.held.values()) {
+      if (n++ % STEPS_A_NOTE !== slot) continue;
+      const at = this.channel.placeOf(held.entityId);
+      if (at) void this.keep(held.playerId, at, lasting);
     }
     const took = performance.now() - began;
     this.pace.steps++;

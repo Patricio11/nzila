@@ -527,6 +527,31 @@ describe("talk in the street", () => {
     for (const one of [a, b, far]) await one.leave();
   });
 
+  test("a greeting in words is a greeting: \"Bom dia\" answered by \"Tudo bem?\", or by a wave, is a meeting; other talk is not", async () => {
+    const a = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const b = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const c = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const met = (who: typeof a): number[] => who.state.events.filter((event) => event.kind === EVENT.MET).map((event) => event.subject).sort();
+    const ids = [a, b, c].map((one) => one.state.accepted!.entityId);
+    // Talk that greets nobody meets nobody.
+    send(a, encodeChatSend({ messageId: 1, text: "onde fica a paragem" }));
+    send(b, encodeChatSend({ messageId: 1, text: "ali à frente" }));
+    await pause(400);
+    expect([met(a), met(b), met(c)]).toEqual([[], [], []]);
+    // "Bom dia!" from one, "Tudo bem?" from another: those two have met; the third, who said nothing, has not.
+    await pause(LINE_GAP_MS);
+    send(a, encodeChatSend({ messageId: 2, text: "Bom dia!" }));
+    await pause(LINE_GAP_MS + 100);
+    send(b, encodeChatSend({ messageId: 2, text: "tudo bem?" }));
+    await until(() => met(a).length === 1 && met(b).length === 1);
+    expect([met(a), met(b), met(c)]).toEqual([[ids[1]], [ids[0]], []]);
+    // The third answers with a wave: it is an answer to both greetings, which are still in the air.
+    send(c, encodeEmote({ emote: 0 }));
+    await until(() => met(c).length === 2);
+    expect(met(c)).toEqual([ids[0], ids[1]].sort());
+    for (const one of [a, b, c]) await one.leave();
+  });
+
   test("two who have shut each other out do not hear each other, whoever did the shutting; everyone else hears both", async () => {
     const one = await player();
     const two = await player();

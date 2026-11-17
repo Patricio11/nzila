@@ -184,6 +184,7 @@ export const ptAO = {
   "hud.emotes": "Gestos",
   "hud.compass": "Bússola",
   "meet.waved": "{name} acenou-te. Acena de volta.",
+  "meet.greeted": "{name} cumprimentou-te. Responde-lhe.",
   "meet.done": "Agora conheces {name}.",
   "emote.acenar": "Acenar",
   "emote.rir": "Rir",
