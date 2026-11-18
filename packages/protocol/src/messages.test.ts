@@ -11,6 +11,8 @@ import {
   encodeChatSend,
   encodeChatTyping,
   encodeWho,
+  encodeTraffic,
+  TRAFFIC_VEHICLES_AT_MOST,
   encodeEmote,
   EMOTE_NAMES,
   CHAT_REFUSAL,
@@ -106,6 +108,26 @@ describe("who someone is", () => {
     expect(decodeZoneMessage(encodeWho({ ...who, look: { ...who.look, hair: "moicano" } }))).toEqual({ type: "who", entityId: 412, name: "Dona Xepa", bi: "00000412-LA", look: null });
     // A client never says who anyone is.
     expect(() => decodeClientMessage(encodeWho(who))).toThrow(ProtocolError);
+  });
+});
+
+describe("the street's traffic", () => {
+  test("Traffic: the zone's clock and the vehicles that are waiting, in a few bytes each; nothing else is said of the rest", () => {
+    const said = { nowMs: 1_763_400_000_123, vehicles: [{ index: 3, lagMs: 2400, rate: 1, away: false }, { index: 40, lagMs: 0, rate: -0.3, away: true }, { index: 7, lagMs: 150, rate: 0.27, away: false }] };
+    expect(decodeZoneMessage(encodeTraffic(said))).toEqual({ type: "traffic", ...said });
+    expect(decodeZoneMessage(encodeTraffic({ nowMs: 5, vehicles: [] }))).toEqual({ type: "traffic", nowMs: 5, vehicles: [] });
+    // A rate past its ends is brought inside them; a lag below nothing is nothing.
+    expect(decodeZoneMessage(encodeTraffic({ nowMs: 5, vehicles: [{ index: 1, lagMs: -40, rate: 3, away: false }, { index: 2, lagMs: 10, rate: -9, away: false }] }))).toMatchObject({ vehicles: [{ lagMs: 0, rate: 1 }, { lagMs: 10, rate: -1 }] });
+    // A rate byte no zone writes is read as the most it can be.
+    const forged = encodeTraffic({ nowMs: 5, vehicles: [{ index: 1, lagMs: 0, rate: 0, away: false }] });
+    forged[forged.length - 2] = 255;
+    expect(decodeZoneMessage(forged)).toMatchObject({ vehicles: [{ rate: 1 }] });
+    // Small: ten vehicles waiting cost under sixty bytes.
+    expect(encodeTraffic({ nowMs: 1_763_400_000_123, vehicles: Array.from({ length: 10 }, (_, index) => ({ index, lagMs: 3000, rate: 1, away: false })) }).length).toBeLessThan(60);
+    // Too many, or a vehicle past the list, is refused; and a client never says it.
+    expect(() => decodeZoneMessage(encodeTraffic({ nowMs: 1, vehicles: [{ index: TRAFFIC_VEHICLES_AT_MOST, lagMs: 0, rate: 0, away: false }] }))).toThrow(ProtocolError);
+    expect(() => decodeZoneMessage(new Uint8Array([MSG.TRAFFIC, 1, 0xff, 0x7f]))).toThrow(ProtocolError);
+    expect(() => decodeClientMessage(encodeTraffic(said))).toThrow(ProtocolError);
   });
 });
 

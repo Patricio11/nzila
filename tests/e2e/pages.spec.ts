@@ -2,7 +2,7 @@ declare global {
   interface Window {
     __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
-    __andar?: { at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -1123,6 +1123,46 @@ test.describe("two phones in the same street", () => {
     // And the walker's own body was almost never put right: a late line is not a wrong one.
     expect(walker.corrections).toBeLessThan(4);
     await other.close();
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("two phones see the same street traffic, the same van in the same place, even when one phone's clock is seven seconds wrong (F-152)", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-vehicles/veiculos.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The vehicles or the people are not built (they need Blender). Shared traffic was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 51);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    await comeIn(other, 52);
+    // The second phone's own clock is seven seconds ahead of the world's. Left to itself, it would draw every van
+    // fifty metres from where the first draws it.
+    await other.addInitScript(() => {
+      const real = Date.now.bind(Date);
+      Date.now = () => real() + 7000;
+    });
+    for (const one of [page, other]) {
+      await one.goto("/andar?pack=l1&tier=poupanca&hour=12");
+      await one.waitForFunction(() => window.__andar?.linked === true && window.__andar.trafficFollowed && window.__andar.vans.length > 0, undefined, { timeout: 45_000 });
+    }
+    // Looked at five times, both at once: every van either phone draws is where the other draws it, give or take
+    // how far a van goes in the time between the two looks.
+    let compared = 0;
+    for (let n = 0; n < 5; n++) {
+      const [a, b] = await Promise.all([page.evaluate(() => ({ now: window.__andar!.streetNow, vans: window.__andar!.vans })), other.evaluate(() => ({ now: window.__andar!.streetNow, vans: window.__andar!.vans }))]);
+      // Both draw the street at the zone's moment, whatever their own clocks say.
+      expect(Math.abs(a.now - b.now)).toBeLessThan(600);
+      for (const van of a.vans) {
+        const same = b.vans.find((one) => one.key === van.key);
+        if (!same) continue;
+        compared++;
+        expect(Math.hypot(van.x - same.x, van.z - same.z), van.key).toBeLessThan(0.8 + (9 * Math.abs(a.now - b.now)) / 1000);
+      }
+      await page.waitForTimeout(700);
+    }
+    expect(compared).toBeGreaterThan(4);
     expect(seen.errors).toEqual([]);
   });
 

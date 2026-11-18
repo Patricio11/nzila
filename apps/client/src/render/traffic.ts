@@ -3,33 +3,27 @@
 // and the zone see the same van at the same paragem without a byte sent.
 // Here they are only drawn: one model, one draw for each van on the road.
 
-import { DEFAULT_CLOCK, compileClock, compileRoute, routeVehiclesAt, type Obstacle, type Route } from "@nzila/sim";
-import { WORLD, type Manifest } from "@nzila/world/client";
+import { type Obstacle, type Route } from "@nzila/sim";
+import { TrafficRules, VAN_HALF_LENGTH_MM, VAN_HALF_WIDTH_MM, WORLD, vanRoute, wayAhead, type Afoot, type Manifest, type TrafficState } from "@nzila/world/client";
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { BufferAttribute, BufferGeometry, CanvasTexture, Group, LinearFilter, Mesh, MeshLambertMaterial, SRGBColorSpace, type Material, type Object3D } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { gltfLoader } from "./chunk-stream.ts";
-import { actorAt, type CrowdFile, type CrowdVehicle } from "./crowd-plan.ts";
+import { type CrowdFile, type CrowdVehicle } from "./crowd-plan.ts";
 import { type People } from "./people.ts";
 import { type Person } from "./person.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
 /** Where the vehicles' models are served. They belong to the game, not to a district. */
 const VEHICLES = "/packs/dev-vehicles/";
-/** First numbers, to be tuned on the street: about 30 km/h, twelve seconds at a paragem. */
-const CRUISE_MM_PER_S = 8300;
-const RAMP_MS = 3500;
-const DWELL_MS = 12_000;
-/** The van's size on the ground (art/scripts/vehicles.py). */
-const HALF_WIDTH_MM = 850;
-const HALF_LENGTH_MM = 2350;
+const HALF_WIDTH_MM = VAN_HALF_WIDTH_MM;
+const HALF_LENGTH_MM = VAN_HALF_LENGTH_MM;
 
 /** The phrases a van may have across its back window, and how often one carries an advert there instead. */
 const PHRASES = 8;
 const AD_EVERY = 4;
 const css = (colour: readonly [number, number, number]): string => `#${colour.map((part) => part.toString(16).padStart(2, "0")).join("")}`;
 
-const clock = compileClock(DEFAULT_CLOCK);
 
 /**
  * The back windows of `count` vans on one picture: each its own phrase in white across the glass,
@@ -134,108 +128,12 @@ interface Roamer {
 /** Whether a vehicle is down among people: one on a viaduct is over their heads and stops nobody. */
 const onTheGround = (roamer: Roamer): boolean => 1.5 > roamer.y;
 
-// Giving way (finding F-133). A vehicle's place comes from its timetable and the clock; a vehicle
-// that must wait falls behind its timetable (its `lag`), and makes the time up, a little faster
-// than it would drive, once the road is clear. It waits for a person in the road ahead of it and
-// for the vehicle in front. This is the phone's own traffic (LocalWorld): when the zone runs the
-// streets (Phase 3) the waiting is the zone's to decide, by the same rule.
-/** How far ahead a driver looks, how far short of a person and of a vehicle they stop, and how much faster they make up time. */
-const LOOK_M = 9;
-const STOP_SHORT_PERSON_M = 1.4;
-const STOP_SHORT_VEHICLE_M = 1.3;
-const CATCH_UP = 0.3;
-/** How far to the side of the vehicle's own width someone still counts as in its way. */
-const BESIDE_M = 0.45;
-/** A vehicle that has stood this long for other vehicles alone goes on for a while regardless: no knot of traffic lasts. */
-const PATIENCE_MS = 14_000;
-const PUSH_ON_MS = 4_000;
-/** A roamer taken off the road comes back when its place is clear and the viewer is at least this far from it; and where "off the road" is. */
-const RETURN_UNSEEN_M = 45;
+/** The zone's word on the traffic is followed for this long after it was last said; after that the phone decides. */
+const FOLLOW_FOR_MS = 2000;
+/** Where a vehicle taken off the road is put: nowhere anybody could walk into it or see it. */
 const OFF_THE_ROAD_M = 1000;
 
-/** Someone on foot the traffic must not run down. */
-export interface Afoot {
-  readonly x: number;
-  readonly z: number;
-}
-
-interface Moving {
-  readonly key: string;
-  readonly x: number;
-  readonly z: number;
-  readonly y: number;
-  /** Radians; forward is (sin, cos). */
-  readonly heading: number;
-  readonly halfWidth: number;
-  readonly halfLength: number;
-}
-
-/** How much room two vehicles keep between their bodies at the least, in metres: they never touch. */
-const CLEAR_M = 0.3;
-/** Two vehicles found one inside the other, neither able to move without touching, are parted after this long. */
-export const KNOT_MS = 600;
-
-/**
- * What a vehicle does that is inside another and cannot move (finding F-180). Two timetables, or a return to the
- * road, can put one vehicle on top of another; "a body does not go where another body is" then holds both where
- * they are for ever, each waiting for the other. After a moment: one of the other traffic leaves the road (it comes
- * back when its place is clear and nobody is looking); a candongueiro, which people ride and wait for, drives on.
- */
-export function untangle(roamer: boolean, knotMs: number): "wait" | "leave" | "push" {
-  return KNOT_MS > knotMs ? "wait" : roamer ? "leave" : "push";
-}
-
-/**
- * Whether the bodies of two vehicles overlap, each grown by `margin` all round. Two rectangles on
- * the ground, at any angle: they are apart when some edge of one has the whole of the other beyond it.
- */
-export function touching(a: Moving, b: Moving, margin = 0): boolean {
-  if (Math.abs(a.y - b.y) > 1.5) return false;
-  const dx = b.x - a.x;
-  const dz = b.z - a.z;
-  for (const [first, second] of [[a, b], [b, a]] as const) {
-    // The two axes of `first`: along it and across it. `second`'s reach along each is the sum of its own halves, turned.
-    const axes = [[Math.sin(first.heading), Math.cos(first.heading), first.halfLength], [Math.cos(first.heading), -Math.sin(first.heading), first.halfWidth]] as const;
-    for (const [ax, az, mine] of axes) {
-      const theirs = Math.abs(Math.sin(second.heading) * ax + Math.cos(second.heading) * az) * second.halfLength + Math.abs(Math.cos(second.heading) * ax - Math.sin(second.heading) * az) * second.halfWidth;
-      if (Math.abs(dx * ax + dz * az) > mine + theirs + margin * 2) return false;
-    }
-  }
-  return true;
-}
-
-/**
- * How freely a vehicle may go, from 0 (it must stand) to 1 (the road is clear):
- * less the nearer someone on foot or the vehicle in front is, ahead of it and in its lane.
- */
-export function wayAhead(me: Moving, others: readonly Moving[], afoot: readonly Afoot[], heedVehicles = true): number {
-  const sin = Math.sin(me.heading);
-  const cos = Math.cos(me.heading);
-  let free = 1;
-  const ahead = (x: number, z: number): { forward: number; beside: number } => ({ forward: (x - me.x) * sin + (z - me.z) * cos, beside: Math.abs((x - me.x) * cos - (z - me.z) * sin) });
-  if (1.5 > me.y) {
-    for (const person of afoot) {
-      const { forward, beside } = ahead(person.x, person.z);
-      if (forward > 0 && beside < me.halfWidth + BESIDE_M) free = Math.min(free, (forward - me.halfLength - STOP_SHORT_PERSON_M) / (LOOK_M - STOP_SHORT_PERSON_M));
-    }
-  }
-  for (const other of heedVehicles ? others : []) {
-    if (other.key === me.key || Math.abs(other.y - me.y) > 1.5) continue;
-    const same = Math.sin(other.heading) * sin + Math.cos(other.heading) * cos;
-    const { forward, beside } = ahead(other.x, other.z);
-    if (same >= 0.5) {
-      // The one in front, going the same way: keep a gap behind it.
-      if (forward > 0.05 && beside < 1.4) free = Math.min(free, (forward - me.halfLength - other.halfLength - STOP_SHORT_VEHICLE_M) / 5);
-    } else if (same > -0.5 && other.key < me.key) {
-      // One that crosses the way ahead. Of two that meet at a crossing one must go first: the one
-      // whose name sorts first, always, so that they never both wait. (What comes the other way,
-      // in its own lane, is nobody's business.) A crossing vehicle lies across the lane, so it is
-      // in the way from further to the side.
-      if (forward > 0.05 && beside < other.halfLength + me.halfWidth + 0.3) free = Math.min(free, (forward - me.halfLength - other.halfWidth - STOP_SHORT_VEHICLE_M) / 5);
-    }
-  }
-  return Math.min(1, Math.max(0, free));
-}
+export type { Afoot };
 
 /** How near a moto or a kupapata must be for its rider to be drawn, in metres, and how many riders at once. */
 const RIDER_REACH_M = 55;
@@ -252,17 +150,13 @@ export class Traffic {
   seats: readonly VanSeat[] = [];
   /** The vans on the road at the last update. */
   seen: VanSeen[] = [];
-  /** How far behind its timetable each vehicle is, in milliseconds, for having given way. */
-  private readonly lag = new Map<string, number>();
-  /** How long each has stood for other vehicles alone; below zero, it is pushing on for that long yet. */
-  private readonly stood = new Map<string, number>();
-  /** Vehicles taken off the road for a while because they were in a knot that would not come undone (roamers only, by their key). */
-  private readonly away = new Set<string>();
-  /** How long each vehicle has been inside another and held there. */
-  private readonly knot = new Map<string, number>();
-  private moving: Moving[] = [];
+  /** Who waits and where every vehicle is: decided here when walking alone, or as the zone says among people. */
+  private rules: TrafficRules | null = null;
+  /** When the zone last said how the traffic is waiting, by this phone's clock. */
+  private heardAt = -Infinity;
   /** How many vehicles are slowing or standing for the viewer themself, at the last update: for the tests. */
   heeding = 0;
+  private lastNow = 0;
 
   private constructor(renderer: WorldRenderer) {
     this.renderer = renderer;
@@ -294,16 +188,7 @@ export class Traffic {
       });
       for (const listed of routes) {
         const spline = JSON.parse(new TextDecoder().decode(await meteredFetch(base + listed.spline))) as { points: [number, number, number][] };
-        const route = compileRoute({
-          points: spline.points.map(([x, y, z]) => ({ x: Math.round(x * 1000), y: Math.round(y * 1000), z: Math.round(z * 1000) })),
-          stops: listed.stopPoints.map((pointIndex) => ({ pointIndex, dwellMs: DWELL_MS })),
-          cruiseMmPerS: CRUISE_MM_PER_S,
-          rampMs: RAMP_MS,
-          headwayMs: listed.headwaySeconds * 1000,
-          // All day and all night for now: when the last van runs is a tunable to come.
-          serviceStartGameS: 0,
-          serviceEndGameS: 86_400,
-        });
+        const route = vanRoute(spline.points, listed.stopPoints, listed.headwaySeconds);
         const vans = [];
         for (let i = 0; i < route.vehicleCount; i++) {
           const body = gltf.scene.clone();
@@ -363,6 +248,10 @@ export class Traffic {
           }
         }
       }
+      traffic.rules = new TrafficRules(
+        traffic.lines.map((line) => ({ id: line.id, route: line.route })),
+        traffic.roamers.map((roamer) => ({ plan: roamer.plan, halfWidthMm: roamer.halfWidthMm, halfLengthMm: roamer.halfLengthMm })),
+      );
       return traffic;
     } catch {
       return null;
@@ -370,159 +259,91 @@ export class Traffic {
   }
 
   /**
-   * Puts every vehicle where the clock says it is, less what it has had to wait. `elapsedMs` since
-   * the last call eases the turns. `afoot` is who is on foot near the road: the traffic gives way
-   * to them and to the vehicle in front; null holds every vehicle to its timetable (a still).
+   * What the zone says of the traffic's waiting (D-3.2): followed while it goes on saying it. The clock it was said by
+   * is the one `update` is given, so that every phone sees the same van in the same place.
+   */
+  follow(state: TrafficState): void {
+    this.rules?.follow(state);
+    this.heardAt = performance.now();
+  }
+
+  /**
+   * Puts every vehicle where the clock says it is, less what it has had to wait. `elapsedMs` since the last call
+   * eases the turns. `afoot` is who is on foot near the road: the traffic gives way to them and to the vehicle in
+   * front; null holds every vehicle to its timetable (a still). Among people the zone decides who waits, and this
+   * only draws it; a phone the zone has not spoken to for a moment decides for itself, from where it left off.
    */
   update(nowMs: number, elapsedMs: number, viewerX = 0, viewerZ = 0, afoot: readonly Afoot[] | null = null): void {
-    // What each vehicle saw at the last update decides how much of this one's time it may use.
-    if (afoot && elapsedMs > 0) {
-      const step = Math.min(elapsedMs, 250);
-      const viewer = afoot.filter((person) => person.x === viewerX && person.z === viewerZ);
-      this.heeding = this.moving.filter((me) => 1 > wayAhead(me, [], viewer)).length;
-      const placed = new Map<string, Moving>();
-      for (const me of [...this.moving].sort((a, b) => (a.key < b.key ? -1 : 1))) {
-        const stood = this.stood.get(me.key) ?? 0;
-        const free = wayAhead(me, this.moving, afoot, stood >= 0);
-        // Standing for vehicles only (people are always waited for): patience runs out, then it pushes on, then it is patient again.
-        const held = free < 0.05 && wayAhead(me, [], afoot) > 0.05;
-        const next = stood < 0 ? Math.min(0, stood + step) : held ? stood + step : 0;
-        if (next > PATIENCE_MS) this.stood.set(me.key, -PUSH_ON_MS);
-        else if (next === 0) this.stood.delete(me.key);
-        else this.stood.set(me.key, next);
-        const before = this.lag.get(me.key) ?? 0;
-        let lag = Math.max(0, before + step * (1 - free) - (free === 1 ? step * CATCH_UP : 0));
-        // And whatever the driver judged, a body does not go where another body is (founder, 2026-11-16: "cars should
-        // not brush each other: if they do it is an accident"). Where it would be is tried against where every other
-        // vehicle is: those already moved this turn, and the rest where they stood. If it would touch one, it stays
-        // exactly where it is. (Two that timetables put on top of one another may still move apart.)
-        const there = this.poseOf(me.key, nowMs, lag) ?? me;
-        const others = this.moving.map((other) => placed.get(other.key) ?? other);
-        let stopped = others.some((other) => other.key !== me.key && touching(there, other, CLEAR_M) && !(touching(me, other, CLEAR_M) && Math.hypot(there.x - other.x, there.z - other.z) > Math.hypot(me.x - other.x, me.z - other.z)));
-        // Held, and already inside another: a knot. It is given a moment, then undone.
-        const inside = stopped && others.some((other) => other.key !== me.key && touching(me, other));
-        const knotted = inside ? (this.knot.get(me.key) ?? 0) + step : 0;
-        if (knotted > 0) this.knot.set(me.key, knotted);
-        else this.knot.delete(me.key);
-        const undo = inside ? untangle(me.key.startsWith("r"), knotted) : "wait";
-        if (undo === "push") stopped = false;
-        if (stopped) lag = before + elapsedMs;
-        placed.set(me.key, stopped ? me : there);
-        if (undo === "leave") {
-          this.away.add(me.key);
-          this.lag.delete(me.key);
-          this.stood.delete(me.key);
-          this.knot.delete(me.key);
-          continue;
-        }
-        if (lag > 0) this.lag.set(me.key, lag);
-        else this.lag.delete(me.key);
-        // A knot that will not come undone: after its patience a roamer leaves the road, and comes back to its
-        // timetable when its place there is clear and nobody is near enough to see it arrive.
-        if (stopped && me.key.startsWith("r") && (this.stood.get(me.key) ?? 0) < 0) {
-          this.away.add(me.key);
-          this.lag.delete(me.key);
-          this.stood.delete(me.key);
-        }
-      }
-      for (const key of this.away) {
-        const back = this.poseOf(key, nowMs, 0);
-        if (back && Math.hypot(back.x - viewerX, back.z - viewerZ) > RETURN_UNSEEN_M && ![...placed.values()].some((other) => touching(back, other, 2))) this.away.delete(key);
-      }
-    } else if (!afoot) {
-      this.lag.clear();
-      this.stood.clear();
-      this.away.clear();
-      this.knot.clear();
-    }
-    const moving: Moving[] = [];
+    const rules = this.rules;
+    if (!rules) return;
+    const viewer = { x: viewerX, z: viewerZ };
+    if (!afoot) rules.reset();
+    const told = afoot !== null && performance.now() - this.heardAt < FOLLOW_FOR_MS && rules.following;
+    const poses = !afoot || told ? rules.place(nowMs) : rules.step(nowMs, elapsedMs, afoot, [viewer], viewer);
+    this.heeding = poses.filter((me) => 1 > wayAhead(me, [], [viewer])).length;
     // The other traffic first: where each is, and a rider for the nearest few that have one.
     const near: { roamer: Roamer; far: number }[] = [];
-    for (const [n, roamer] of this.roamers.entries()) {
-      roamer.body.visible = !this.away.has(`r${n}`);
-      if (!roamer.body.visible) {
-        // Off the road: nowhere anybody could walk into it or see it.
-        roamer.y = OFF_THE_ROAD_M;
-        continue;
-      }
-      const at = actorAt({ role: "", offset: roamer.plan.offset, keys: roamer.plan.keys }, (nowMs - (this.lag.get(`r${n}`) ?? 0)) / 1000);
-      moving.push({ key: `r${n}`, x: at.x, z: at.z, y: at.y, heading: at.yaw, halfWidth: roamer.halfWidthMm / 1000, halfLength: roamer.halfLengthMm / 1000 });
-      const turn = Math.atan2(Math.sin(at.yaw - roamer.yaw), Math.cos(at.yaw - roamer.yaw));
-      roamer.yaw = elapsedMs > 0 ? roamer.yaw + turn * Math.min(1, elapsedMs / 380) : at.yaw;
-      roamer.x = at.x;
-      roamer.z = at.z;
-      roamer.body.position.set(at.x, at.y, at.z);
-      roamer.y = at.y;
+    for (const roamer of this.roamers) roamer.body.visible = false;
+    for (const pose of poses) {
+      if (pose.roamer === undefined) continue;
+      const roamer = this.roamers[pose.roamer]!;
+      roamer.body.visible = true;
+      const turn = Math.atan2(Math.sin(pose.heading - roamer.yaw), Math.cos(pose.heading - roamer.yaw));
+      roamer.yaw = elapsedMs > 0 ? roamer.yaw + turn * Math.min(1, elapsedMs / 380) : pose.heading;
+      roamer.x = pose.x;
+      roamer.z = pose.z;
+      roamer.y = pose.y;
+      roamer.body.position.set(pose.x, pose.y, pose.z);
       roamer.body.rotation.y = roamer.yaw;
       if (roamer.rider) {
         roamer.rider.root.visible = false;
-        const far = Math.hypot(at.x - viewerX, at.z - viewerZ);
+        const far = Math.hypot(pose.x - viewerX, pose.z - viewerZ);
         if (far < RIDER_REACH_M) near.push({ roamer, far });
       }
     }
+    // Off the road: nowhere anybody could walk into it or see it.
+    for (const roamer of this.roamers) if (!roamer.body.visible) roamer.y = OFF_THE_ROAD_M;
     near.sort((a, b) => a.far - b.far);
     for (const { roamer } of near.slice(0, RIDERS)) {
       roamer.rider!.root.visible = true;
       roamer.rider!.pose({ speed: 0, phase: 0, time: nowMs / 1000 + roamer.plan.offset }, { sit: 1, hold: "guiador" });
     }
     const seen: VanSeen[] = [];
-    for (const line of this.lines) {
-      for (const van of line.vans) van.body.visible = false;
-      // Each van at its own time: the clock's, less what it has waited. Most have waited nothing, and share one reading of the timetable.
-      const readings = new Map<number, ReturnType<typeof routeVehiclesAt>>();
-      const reading = (lagMs: number): ReturnType<typeof routeVehiclesAt> => {
-        const at = Math.round(nowMs - lagMs);
-        let read = readings.get(at);
-        if (!read) readings.set(at, (read = routeVehiclesAt(line.route, clock, at)));
-        return read;
-      };
-      for (const onTime of reading(0)) {
-        const key = `${line.id}/${onTime.index}`;
-        const at = reading(this.lag.get(key) ?? 0).find((late) => late.index === onTime.index) ?? onTime;
-        moving.push({ key, x: at.x / 1000, z: at.z / 1000, y: at.y / 1000, heading: (at.yaw / 18_000) * Math.PI, halfWidth: HALF_WIDTH_MM / 1000, halfLength: HALF_LENGTH_MM / 1000 });
-        const van = line.vans[at.index]!;
-        const target = (at.yaw / 18_000) * Math.PI;
-        // A route turns at its points; a van turns over a second or so.
-        const turn = Math.atan2(Math.sin(target - van.yaw), Math.cos(target - van.yaw));
-        van.yaw = van.shown ? van.yaw + turn * Math.min(1, elapsedMs / 450) : target;
-        van.shown = true;
-        van.body.visible = true;
-        van.body.position.set(at.x / 1000, at.y / 1000, at.z / 1000);
-        van.body.rotation.y = van.yaw;
-        const legs = line.route.legs;
-        const travel = legs[(at.stop + legs.length - 1) % legs.length]!.travelMs;
-        seen.push({ route: line.id, index: at.index, x: at.x / 1000, z: at.z / 1000, yaw: van.yaw, dwelling: at.dwelling, stop: at.stop, progress: at.dwelling ? 1 : 1 - at.msToStop / Math.max(1, travel), stops: line.stops });
-      }
-      for (const van of line.vans) if (!van.body.visible) van.shown = false;
+    for (const line of this.lines) for (const van of line.vans) van.body.visible = false;
+    for (const pose of poses) {
+      const at = pose.van;
+      if (!at) continue;
+      const line = this.lines.find((one) => one.id === at.line)!;
+      const van = line.vans[at.index]!;
+      // A route turns at its points; a van turns over a second or so.
+      const turn = Math.atan2(Math.sin(pose.heading - van.yaw), Math.cos(pose.heading - van.yaw));
+      van.yaw = van.shown ? van.yaw + turn * Math.min(1, elapsedMs / 450) : pose.heading;
+      van.shown = true;
+      van.body.visible = true;
+      van.body.position.set(pose.x, pose.y, pose.z);
+      van.body.rotation.y = van.yaw;
+      const legs = line.route.legs;
+      const travel = legs[(at.stop + legs.length - 1) % legs.length]!.travelMs;
+      seen.push({ route: line.id, index: at.index, x: pose.x, z: pose.z, yaw: van.yaw, dwelling: at.dwelling, stop: at.stop, progress: at.dwelling ? 1 : 1 - at.msToStop / Math.max(1, travel), stops: line.stops });
     }
+    for (const line of this.lines) for (const van of line.vans) if (!van.body.visible) van.shown = false;
     this.seen = seen;
-    this.moving = moving;
-  }
-
-  /** Where a vehicle is when it is `lagMs` behind its timetable, or null for one that is not on the road. */
-  private poseOf(key: string, nowMs: number, lagMs: number): Moving | null {
-    if (key.startsWith("r")) {
-      const roamer = this.roamers[Number(key.slice(1))];
-      if (!roamer) return null;
-      const at = actorAt({ role: "", offset: roamer.plan.offset, keys: roamer.plan.keys }, (nowMs - lagMs) / 1000);
-      return { key, x: at.x, z: at.z, y: at.y, heading: at.yaw, halfWidth: roamer.halfWidthMm / 1000, halfLength: roamer.halfLengthMm / 1000 };
-    }
-    const cut = key.lastIndexOf("/");
-    const line = this.lines.find((one) => one.id === key.slice(0, cut));
-    const at = line ? routeVehiclesAt(line.route, clock, Math.round(nowMs - lagMs)).find((van) => van.index === Number(key.slice(cut + 1))) : undefined;
-    return at ? { key, x: at.x / 1000, z: at.z / 1000, y: at.y / 1000, heading: (at.yaw / 18_000) * Math.PI, halfWidth: HALF_WIDTH_MM / 1000, halfLength: HALF_LENGTH_MM / 1000 } : null;
+    this.lastNow = nowMs;
   }
 
   /** How many pairs of vehicles have their bodies overlapping: for the tests. Vehicles never touch, so this is nothing. */
   get tangled(): number {
-    let pairs = 0;
-    for (const [n, a] of this.moving.entries()) for (const b of this.moving.slice(n + 1)) if (touching(a, b)) pairs++;
-    return pairs;
+    return this.rules?.tangled ?? 0;
   }
 
   /** How far behind its timetable the vehicle that has waited longest is, in seconds: for the tests. */
   get waited(): number {
-    return Math.max(0, ...this.lag.values()) / 1000;
+    return this.rules?.waitedAt(this.lastNow) ?? 0;
+  }
+
+  /** Whether the zone is deciding the traffic now: for the tests. */
+  get followed(): boolean {
+    return performance.now() - this.heardAt < FOLLOW_FOR_MS && (this.rules?.following ?? false);
   }
 
   /** The other traffic at the last update: what each is and where. */

@@ -13,7 +13,7 @@
 // minute of trying is the player told there is no network.
 
 import { isGreeting } from "@nzila/i18n";
-import { CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
+import { type TrafficSaid, CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
 import { Players } from "../render/players.ts";
@@ -89,6 +89,13 @@ export class Session {
   private copies = 1;
   /** Why the player's last line was not said, until the page has shown it. */
   refused: Refused | null = null;
+  /** How the street's traffic is waiting, as the zone last said, until the page has taken it. */
+  traffic: TrafficSaid | null = null;
+  private readonly offsets: number[] = [];
+  /** How far the zone's clock is ahead of this phone's, in milliseconds; null before it has said anything. */
+  get zoneClockAhead(): number | null {
+    return this.offsets.length === 0 ? null : Math.max(...this.offsets);
+  }
   /** Kept out by a moderator, as the matchmaker last said: which, and until when. */
   out: KeptOut | null = null;
   /** How many times the zone has had to put the body right, and how many times a fallen line was picked up: for the tests and the bench. */
@@ -167,6 +174,14 @@ export class Session {
   private open(seat: PlaySeat, paragem: string | undefined, attempt: number): Promise<void> {
     return openLink(seat, paragem, {
       snapshot: (snapshot) => attempt === this.attempt && this.hear(snapshot),
+      traffic: (said) => {
+        if (attempt !== this.attempt) return;
+        this.traffic = said;
+        // The zone's clock as this phone can know it: what it said less how long the saying took, which only ever
+        // makes it look earlier. The latest of the last few is the nearest the truth (F-152).
+        this.offsets.push(said.nowMs - Date.now());
+        if (this.offsets.length > 20) this.offsets.shift();
+      },
       who: (who) => {
         if (attempt !== this.attempt) return;
         this.players.know(who);

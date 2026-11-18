@@ -4,7 +4,7 @@
 // character controller and the real camera are Task 1.3.
 
 import { type Obstacle } from "@nzila/sim";
-import { seatObstacles, type Manifest } from "@nzila/world/client";
+import { type TrafficState, seatObstacles, type Manifest } from "@nzila/world/client";
 import { type Mesh } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
@@ -49,6 +49,23 @@ export class DistrictScene {
   runFrom(ms: number): void {
     this.trafficAt = null;
     this.shift = ms - Date.now();
+    this.filming = true;
+  }
+  private filming = false;
+
+  /**
+   * Among people, the street runs by the zone's clock and its traffic waits as the zone decides, so that every phone
+   * sees the same street (F-152). Not in a film or a still, which choose their own moment.
+   */
+  /** The moment the street is drawn at, by the clock it runs by. */
+  get streetNow(): number {
+    return this.trafficAt ?? Date.now() + this.shift;
+  }
+
+  followZone(clockAheadMs: number, said: TrafficState | null): void {
+    if (this.filming || this.trafficAt !== null) return;
+    this.shift = clockAheadMs;
+    if (said) this.traffic?.follow(said);
   }
 
   /** The bodies people are made from, when they are built. */

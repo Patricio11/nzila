@@ -51,6 +51,8 @@ Opened 2026-11-17, with Phase 3 built and not yet proven on real phones (`docs/c
 
 **D-4.12 There are no guests: everyone registers (the founder, 2026-11-18; built the same day, Task 4.0).** An address and a password at the door, the address proved later, before sending Makuta or asking someone out; then the character; then the family. As first written, when it was a question: He proposed that everyone registers, to keep things simple. The recommendation given to him: yes to one kind of player, with registration as an address and a password and nothing else before the first step, and the address proved (the code by mail, already built) before a player may send Makuta or ask someone out. Registration alone does not stop one person making many accounts: D-4.11 and the proof of the address do. What it costs is the door that asks for nothing, which was the one thing our front door had over the competitor's.
 
+**Done on the way, at the founder's word (2026-11-18):** the street's traffic is the zone's to decide, so two players see the same van (F-190); vehicles that began inside each other are parted (F-180); two who arrive together stand side by side (F-189).
+
 ## Carried into this phase from the founder's rulings of 2026-11-17
 
 - The family gives a house, empty, of a kind that depends on the family (D-3.13): the family table gains the kind of house in this phase's tunables, so that Phase 5 has it.

@@ -22,6 +22,7 @@ export const MSG = {
   HANDOFF: 10,
   WHO: 11,
   EMOTE: 12,
+  TRAFFIC: 13,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -357,6 +358,50 @@ function readWho(r: Reader): Who {
   return { entityId, name, bi, look: unpackLook(bytes) };
 }
 
+// ---------------------------------------------------------------- Traffic
+
+/** How many vehicles a district's traffic may name in one message. */
+export const TRAFFIC_VEHICLES_AT_MOST = 512;
+
+/**
+ * Zone to client: how the street's traffic is waiting (D-3.2, F-152), so that every phone in a channel sees the same
+ * van stand for the same person. Every vehicle not named is on its timetable. The rules and the vehicles' names are
+ * the pack's and packages/world's: here only numbers.
+ */
+export interface TrafficSaid {
+  /** The zone's clock when it was said, Unix milliseconds: the clock every phone draws the traffic by. */
+  readonly nowMs: number;
+  readonly vehicles: readonly {
+    /** Its place in the district's list of vehicles. */
+    readonly index: number;
+    /** How far behind its timetable, in milliseconds. */
+    readonly lagMs: number;
+    /** How fast that is changing, milliseconds a millisecond, in hundredths from -1 to 1. */
+    readonly rate: number;
+    /** Taken off the road for a while. */
+    readonly away: boolean;
+  }[];
+}
+
+export function encodeTraffic(m: TrafficSaid): Uint8Array {
+  const w = new Writer().u8(MSG.TRAFFIC).uint(m.nowMs).uint(m.vehicles.length);
+  for (const one of m.vehicles) w.uint(one.index).uint(Math.max(0, Math.round(one.lagMs))).u8(Math.round(Math.max(-1, Math.min(1, one.rate)) * 100) + 100).bool(one.away);
+  return w.finish();
+}
+
+function readTraffic(r: Reader): TrafficSaid {
+  const nowMs = r.uint();
+  const count = r.bounded(TRAFFIC_VEHICLES_AT_MOST, "traffic");
+  const vehicles = [];
+  for (let n = 0; n < count; n++) {
+    const index = r.bounded(TRAFFIC_VEHICLES_AT_MOST - 1, "vehicle");
+    const lagMs = r.uint();
+    const rate = (Math.min(200, r.u8()) - 100) / 100;
+    vehicles.push({ index, lagMs, rate, away: r.bool() });
+  }
+  return { nowMs, vehicles };
+}
+
 // ---------------------------------------------------------------- Handoff
 
 export const HANDOFF_REASON = {
@@ -442,6 +487,7 @@ export type ZoneMessage =
   | ({ readonly type: "chat_typing" } & ChatTyping)
   | ({ readonly type: "handoff" } & Handoff)
   | ({ readonly type: "who" } & Who)
+  | ({ readonly type: "traffic" } & TrafficSaid)
   | { readonly type: "snapshot" }
   | { readonly type: "unknown"; readonly code: number };
 
@@ -462,5 +508,6 @@ export function decodeZoneMessage(bytes: Uint8Array): ZoneMessage {
   if (type === MSG.CHAT_TYPING) return { type: "chat_typing", ...readChatTyping(r) };
   if (type === MSG.HANDOFF) return { type: "handoff", ...readHandoff(r) };
   if (type === MSG.WHO) return { type: "who", ...readWho(r) };
+  if (type === MSG.TRAFFIC) return { type: "traffic", ...readTraffic(r) };
   return { type: "unknown", code: type };
 }

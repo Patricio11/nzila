@@ -8,9 +8,11 @@
 // make them from nothing). Every byte is ours (packages/protocol).
 
 import { isGreeting } from "@nzila/i18n";
+import { TrafficRules, actorAt } from "@nzila/world";
 import { faceOf, keepChatLines, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { type ChatFilter } from "@nzila/i18n";
-import { EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, CHAT_REFUSAL } from "@nzila/protocol";
+import {
+  encodeTraffic, EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, CHAT_REFUSAL } from "@nzila/protocol";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
@@ -39,6 +41,9 @@ export const HOLD_MS = 60_000;
 const GESTURE_GAP_MS = 1000;
 const STEPS_A_LOOK = 5;
 const MARK_EVERY_MS = 1000;
+/** The traffic is decided every this many steps, and said to the phones every this many. */
+const STEPS_A_TRAFFIC = 2;
+const STEPS_A_TRAFFIC_SAID = 6;
 /** Two people are "together" for handing something over within this far, in millimetres. */
 export const HAND_REACH_MM = 3000;
 /**
@@ -137,6 +142,9 @@ export class ChannelRoom {
   private readonly lineOfEntity = new Map<number, Line>();
   private readonly shut = new Map<string, Set<string>>();
   private said: ChatLine[] = [];
+  /** The street's traffic, when the district has any: decided here for everyone (F-152). */
+  private readonly traffic: TrafficRules | null;
+  private trafficAt = 0;
   /** Players a moderator has silenced, and the kicks already carried out (a kick stands for half a minute and is done once). */
   private readonly muted = new Set<string>();
   private readonly kicked = new Set<number>();
@@ -162,6 +170,7 @@ export class ChannelRoom {
     this.log = deps.log ?? ((line: string) => console.error(line));
     this.number = number;
     this.channel = new Channel(deps.district.ground, deps.district.obstacles);
+    this.traffic = deps.district.traffic ? new TrafficRules(deps.district.traffic.lines, deps.district.traffic.roamers) : null;
   }
 
   /** How many people are in or on their way in (the database is being asked about them), and how many more would fit. */
@@ -527,6 +536,19 @@ export class ChannelRoom {
       void this.writeDown();
       void this.heed();
       if (tick % STEPS_A_CHECKPOINT === 0 && this.talk) void this.reread();
+    }
+    // The street's traffic, for everyone in the channel at once (F-152): ten times a second it is decided who waits
+    // for whom, among every player on foot and the people of the street; a few times a second each phone is told.
+    if (this.traffic && tick % STEPS_A_TRAFFIC === 0) {
+      const now = Date.now();
+      const people = this.channel.entities().filter((one) => one.kind === "player").map((one) => ({ x: one.x / 1000, z: one.z / 1000 }));
+      const street = (this.district.traffic?.crowd ?? []).map((actor) => actorAt(actor, now / 1000)).filter((at) => at.speed > 0);
+      this.traffic.step(now, this.trafficAt === 0 ? STEPS_A_TRAFFIC * STEP_MS : now - this.trafficAt, [...people, ...street], people);
+      this.trafficAt = now;
+      if (tick % STEPS_A_TRAFFIC_SAID === 0) {
+        const bytes = encodeTraffic(this.traffic.state(now));
+        for (const line of this.held.keys()) line.send(bytes);
+      }
     }
     // Whoever stands at a caixa is said to be there, so that the API will bank for them (Task 4.1): looked for four
     // times a second, so that someone who has just walked up is not told to come closer, and said once a second.

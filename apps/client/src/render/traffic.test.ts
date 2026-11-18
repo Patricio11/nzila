@@ -1,7 +1,7 @@
 // Giving way: how freely a vehicle may go, from what is ahead of it.
 
 import { describe, expect, test } from "vitest";
-import { touching, wayAhead } from "./traffic.ts";
+import { touching, wayAhead } from "@nzila/world/client";
 
 // A van at the origin, driving toward +z (heading 0: forward is (sin, cos)).
 const van = { key: "a", x: 0, z: 0, y: 0, heading: 0, halfWidth: 0.85, halfLength: 2.35 };
@@ -100,7 +100,7 @@ describe("two bodies", () => {
 
 describe("two vehicles found one inside the other (F-180)", () => {
   test("are given a moment, and then undone: other traffic leaves the road, a candongueiro drives on", async () => {
-    const { KNOT_MS, untangle } = await import("./traffic.ts");
+    const { KNOT_MS, untangle } = await import("@nzila/world/client");
     expect(untangle(true, 0)).toBe("wait");
     expect(untangle(false, KNOT_MS - 1)).toBe("wait");
     expect(untangle(true, KNOT_MS)).toBe("leave");

@@ -8,7 +8,7 @@
 // street, alone: the game never stops for want of a network (Rule 2). Coming
 // back by itself is Task 3.4.
 
-import { PROTOCOL_VERSION, ZONE_CLOSE, decodeSnapshot, decodeZoneMessage, encodeChatSend, encodeChatTyping, encodeEmote, encodeInput, encodeJoin, type JoinAccepted, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
+import { type TrafficSaid, PROTOCOL_VERSION, ZONE_CLOSE, decodeSnapshot, decodeZoneMessage, encodeChatSend, encodeChatTyping, encodeEmote, encodeInput, encodeJoin, type JoinAccepted, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { type PlaySeat } from "../world/account.ts";
 import { Conditioner, LateLine, askedLine } from "./conditioner.ts";
 import { dataMeter } from "./data-meter.ts";
@@ -32,6 +32,8 @@ export interface LinkEvents {
   typing(from: number, typing: boolean): void;
   /** Something a snapshot does not carry: a gesture, that talk is open here, that a line was not said. */
   event(event: WorldEvent): void;
+  /** How the street's traffic is waiting, as the zone decided it for everyone in the channel. */
+  traffic?(said: TrafficSaid): void;
   /** The line is gone. `elsewhere` when the same player came in on another phone; `put_out` when staff put them out. */
   closed(why: "dropped" | "elsewhere" | "put_out"): void;
 }
@@ -143,6 +145,8 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
               fallen("dropped");
             },
           });
+        } else if (message.type === "traffic") {
+          events.traffic?.(message);
         } else if (message.type === "who") {
           events.who(message);
         } else if (message.type === "chat_heard") {
