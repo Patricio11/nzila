@@ -415,6 +415,18 @@ flowchart LR
 
 ---
 
+## THE ORDER OF BUILDING AFTER PHASE 4 (founder, 2026-11-18, D-4.8 to D-4.10)
+
+The phases below keep their numbers and their tasks. **The order they are built in changes**, because a player of the alpha must have things to do with other people and a bairro of their own to be born in, and both were years down this list (finding F-184).
+
+1. **Phase 4** as written: money, items, shops, needs, biscatos done by hand.
+2. **Things to do together, brought forward:** hailing a kupapata or a táxi (the first line of 6.2); *Convidar para sair* and giving a gift (the first two lines of 10.13), for players of 18 or over; one small game two strangers can play in a minute (4B.1, Não te irrites, already here).
+3. **The second bairro, brought forward: Zango.** The pack pipeline's hardening and the handoff between districts (11.1, 11.2) come with it. Most players are born into a family of little money, and their card must wake them where it says. Until Zango exists nobody is told they were born anywhere but the Marginal.
+4. **Phase 4B**, the alpha, with two bairros.
+5. Then the phases in their order, and **the bairros in the founder's order: Zango, Cazenga, Maianga, Ilha de Luanda, Mussulo**, then the rest of 15 as the players ask. The Ilha and Mussulo are where the water is: **the jet ski (mota de água) is a game there** (15.1's water vehicles, as a run against the clock and against another player).
+
+**Nobody ages and nobody dies (D-4.9).** A player's body is theirs for as long as they play. Only those under 18 grow: the children of a household (10.17), and, by the calendar, a player of 15 to 17 who becomes 18.
+
 ## PHASE 4B: ALFA ABERTA (real players on the Marginal)
 *Goal: anyone with the link can walk the Marginal, talk, ride, earn, spend and sit down to a game of Não te irrites, and we learn from numbers what they come back for. Decided by the founder on 2026-11-14 (D-0.28). Kept deliberately small: it opens what Phases 1 to 4 built and adds only what makes people stay and tell someone.*
 
@@ -834,6 +846,7 @@ flowchart LR
 ---
 
 ## PHASE 11: THE SECOND DISTRICT (prove the pipeline with the Ilha de Luanda)
+*(Founder, 2026-11-18: the second district is **Zango**, built before the alpha; the Ilha is the fifth. See "The order of building after Phase 4". The tasks below hold for whichever district is second.)*
 *Goal: add a district without touching engine code, and walk from one to the other. If this phase needs an engine change, the change is made here, once, so no later place needs one.*
 
 **Dependency gate:** Phase 6 complete.

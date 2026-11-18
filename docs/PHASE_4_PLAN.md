@@ -41,6 +41,12 @@ Opened 2026-11-17, with Phase 3 built and not yet proven on real phones (`docs/c
 
 **D-4.7 Every amount is in tunables from the first line (Rule 14).** Prices, pay, caps and the rates of Fome and Energia are added to `tunables/base.json` as they are needed, and the test that fails the build on a Makuta literal already exists. *Recommendation: yes.*
 
+**D-4.8 After Phase 4, things to do together and a second bairro come before the alpha (the founder, 2026-11-18).** The order is written in `ROADMAP.md` ("The order of building after Phase 4"): taxi and kupapata, asking someone out and giving a gift, a small game for two; then Zango; then the alpha. Phase 4 itself is unchanged, and is built so that those follow at once: a gift is an item bought in a shop (4.2, 4.3) and handed over; a fare is a transfer.
+
+**D-4.9 Nobody ages and nobody dies (the founder, 2026-11-18).** "Only under 18 can": read here as the children of a household, who grow (10.17), and a player of 15 to 17, who becomes 18 by the calendar. *That reading is the founder's to confirm.* For this phase it means what 4.4 already says: an empty bar is a hospital bill, never a death.
+
+**D-4.10 The bairros, in order: Zango, Cazenga, Maianga, Ilha de Luanda, Mussulo (the founder, 2026-11-18).** The jet ski is a game on the water of the Ilha and Mussulo. The card of origin's bairros are these, and a family is given its house (D-3.13) only in a bairro that exists.
+
 ## Carried into this phase from the founder's rulings of 2026-11-17
 
 - The family gives a house, empty, of a kind that depends on the family (D-3.13): the family table gains the kind of house in this phase's tunables, so that Phase 5 has it.

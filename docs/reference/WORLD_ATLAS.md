@@ -46,6 +46,7 @@ The order is the plan. It follows three things: what is most recognisable, what 
 
 | # | District | Opens in | One line | The new thing it brings |
 |---|----------|----------|----------|-------------------------|
+| | **The order of building (founder, 2026-11-18):** L1, then **Zango** (out of L6, a district of its own, with Zango 0 and Zango 1 to follow as it fills), **Cazenga** (out of L7), **Maianga** (new to this list: the old middle-class centre above the Baixa), **Ilha de Luanda**, **Mussulo**. The L numbers below are names, not the order | | | |
 | L1 | Marginal e Baixa | Phase 1 | The postcard: the bay, the fortress, the old city | The game itself |
 | L2 | Ilha de Luanda | Phase 11 | Beach on one side, bay on the other, mufete in the middle | Swimming, beach life, restaurants, the pipeline proof |
 | L3 | Mussulo | 15.1 | The quiet sand across the water | Boats and motas de água |
