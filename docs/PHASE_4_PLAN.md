@@ -47,6 +47,10 @@ Opened 2026-11-17, with Phase 3 built and not yet proven on real phones (`docs/c
 
 **D-4.10 The bairros, in order: Zango, Cazenga, Maianga, Ilha de Luanda, Mussulo (the founder, 2026-11-18).** The jet ski is a game on the water of the Ilha and Mussulo. The card of origin's bairros are these, and a family is given its house (D-3.13) only in a bairro that exists.
 
+**D-4.11 A new account cannot send Makuta for its first three days, and has a daily limit after that (the founder, 2026-11-18; answers Q6).** Both numbers live in tunables. Receiving is never limited. With it: one grant of starting Makuta a phone (F-185).
+
+**D-4.12 Whether there are guests at all (the founder asked, 2026-11-18; not decided).** He proposes that everyone registers, to keep things simple. The recommendation given to him: yes to one kind of player, with registration as an address and a password and nothing else before the first step, and the address proved (the code by mail, already built) before a player may send Makuta or ask someone out. Registration alone does not stop one person making many accounts: D-4.11 and the proof of the address do. What it costs is the door that asks for nothing, which was the one thing our front door had over the competitor's.
+
 ## Carried into this phase from the founder's rulings of 2026-11-17
 
 - The family gives a house, empty, of a kind that depends on the family (D-3.13): the family table gains the kind of house in this phase's tunables, so that Phase 5 has it.
