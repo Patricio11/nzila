@@ -396,6 +396,7 @@ flowchart LR
 
 ### Task 4.5: Biscatos (starter jobs)
 - [ ] *(D-0.47, 2026-11-15: fishing is not allowed on the Marginal. The pescador biscato waits for the Ilha (11.2); until then there are three, or a fourth the founder names.)*
+- [ ] **Work or a biscato is the player's choice (founder, 2026-11-18).** A job is steady and has hours (Phase 9); a biscato is quick work taken on the spot. The founder's list, to begin with: **lavar pratos** at a restaurant or at the market, **levar carga** at the paragem (the roboteiro), and others as quick. Each is a place in the street, something done with the hands, and paid at once. A competitor's work is one tap on "Work" (`MARKET_NOTES.md` §1e): ours is never that.
 - [ ] Four jobs, each a 60 to 120 second minigame scored by `packages/sim` on the server: zungueiro or zungueira (sell from a bacia along the Marginal), roboteiro (carry loads at the market), pescador (fish from the pier), lavador de carros.
 - [ ] Pay from the system faucet by score; a daily soft cap that tapers, never a wall; the Biscatos app lists what is open nearby.
 - Depends on: 4.1, 4.4 · Unblocks: 4.7, 6.6, 9.2.
@@ -785,6 +786,8 @@ flowchart LR
 - Depends on: 10.10 · Unblocks: 10.13.
 
 ### Task 10.13: Namoro, casamento e família (D-0.34)
+- [ ] **Convidar para sair (founder, 2026-11-18).** One player asks another out, and they choose together where: the Marginal, a shopping, a restaurant, the cinema, the countryside (o campo), a hospedaria. They really go: on foot, by candongueiro, by taxi if neither has a car, in the car if one does, sitting side by side. Either may give the other a gift, chosen from what the shops sell (flowers, a perfume, a capulana, a phone) and paid for through the ledger; the gift is a real item that is then the other's. What the outing costs is real too: the fare, the table, the ticket, the room. Saying no is one tap and costs nothing; asking again is limited; block and report are on the same sheet (Rule 11). **18 or over only, both of them, and never across the age bands (D-0.34).** A hospedaria is a door that closes: nothing is shown or described.
+- [ ] **Giving a gift** is not only for romance: to a kamba, a neighbour, a mother. It is the smallest economy between two people and the easiest way to make a friend.
 - [ ] Namoro is declared by both players and shown on the BI only if both wish. Any two players who both agree may marry; there is no pedido and no alambamento for now (founder, 2026-11-14). Namoro and marriage exist only for players in the 18-or-over band (D-0.34, confirmed by the founder 2026-11-14).
 - [ ] The wedding: a date in the calendar, invitations by Mensagens, the ceremony (at the church of 10.12 or at the registry), the convoy with ribbons along the Marginal, the photographs against the bay (photo mode), the party in a quintal or a hired venue (a booking for a player's business).
 - [ ] Afterwards: a shared home with both names on the door, an optional joint account, a page in the Álbum. Separation is possible, private and without penalty beyond dividing what is shared by rule.
