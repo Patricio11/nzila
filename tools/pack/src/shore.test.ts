@@ -39,6 +39,12 @@ describe("how far the water is from land", () => {
     expect(field.levels[40 * field.width + 21]! / 10).toBe(1);
   });
 
+  test("beyond the district's grids is open sea, never a shore", () => {
+    const field = shoreField(ground, [0, 0, 40, 120]);
+    // Sixty metres past the grid's edge, still as far from land as can be told.
+    expect(field.levels[110 * field.width + 20]! / 10).toBe(SHORE_MOST_M);
+  });
+
   test("written as a greyscale PNG whose pixels are the field", () => {
     const field = shoreField(ground, [0, 0, 40, 60]);
     const bytes = shorePng(field);

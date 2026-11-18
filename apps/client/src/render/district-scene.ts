@@ -5,7 +5,7 @@
 
 import { type Obstacle } from "@nzila/sim";
 import { type TrafficState, seatObstacles, type Manifest } from "@nzila/world/client";
-import { type Mesh } from "three";
+import { LinearFilter, NoColorSpace, Texture, type Mesh, type PlaneGeometry, type ShaderMaterial } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { ChunkStream, type StreamState } from "./chunk-stream.ts";
 import { Crowd } from "./crowd.ts";
@@ -15,6 +15,7 @@ import { Outdoors } from "./outdoors.ts";
 import { People } from "./people.ts";
 import { Signs } from "./signs.ts";
 import { Traffic } from "./traffic.ts";
+import { setShore } from "./water.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
 /** Eye height above the road, standing on a pavement, in metres. */
@@ -26,7 +27,7 @@ const PERSON_RADIUS_MM = 230;
 export class DistrictScene {
   readonly chunks: ChunkStream;
   private readonly renderer: WorldRenderer;
-  private readonly waters: Mesh[] = [];
+  private readonly waters: Mesh<PlaneGeometry, ShaderMaterial>[] = [];
   private x = 0;
   private z = 0;
   /** The line the walks follow: the promenade when there is a bay, the middle of the district when not. */
@@ -101,7 +102,7 @@ export class DistrictScene {
     return (this.benches ??= seatObstacles(this.manifest.seats));
   }
 
-  private constructor(renderer: WorldRenderer, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null, crowd: Crowd | null, people: People | null) {
+  private constructor(renderer: WorldRenderer, base: string, chunks: ChunkStream, words: Readonly<Record<string, string>>, traffic: Traffic | null, crowd: Crowd | null, people: People | null) {
     this.people = people;
     this.traffic = traffic;
     this.crowd = crowd;
@@ -118,6 +119,8 @@ export class DistrictScene {
       water.position.set((minX + maxX) / 2, sheet.level, (minZ + maxZ) / 2);
       renderer.scene.add(water);
       this.waters.push(water);
+      // How far each part of it is from land: clear by the shore, deep further out, foam where it meets the land.
+      if (sheet.shore) void loadShore(base + sheet.shore).then((shore) => shore && setShore(water.material, shore, sheet.rect));
     }
     const bay = this.manifest.water[0];
     const { minZ, maxZ } = this.manifest.bounds;
@@ -132,7 +135,7 @@ export class DistrictScene {
     // The people's bodies, when they are built on this machine: the crowd and a van's passengers come from them.
     const people = await People.open(renderer).catch(() => null);
     const [traffic, crowd] = await Promise.all([Traffic.open(renderer, base, chunks.manifest, people), Crowd.open(renderer, base, chunks.manifest, people)]);
-    return new DistrictScene(renderer, chunks, words, traffic, crowd, people);
+    return new DistrictScene(renderer, base, chunks, words, traffic, crowd, people);
   }
 
   /** A word of the district, or the key itself when the pack does not have it. */
@@ -237,5 +240,24 @@ export class DistrictScene {
       this.renderer.scene.remove(water);
       water.geometry.dispose();
     }
+  }
+}
+
+/** A water's shore picture, as a texture of distances (not colours): null when it cannot be had. */
+async function loadShore(url: string): Promise<Texture | null> {
+  try {
+    const bytes = await meteredFetch(url);
+    // Rows as they are: the first row is the water's least Z, as the shader reads it.
+    const picture = await createImageBitmap(new Blob([bytes as BlobPart], { type: "image/png" }), { imageOrientation: "none", premultiplyAlpha: "none", colorSpaceConversion: "none" });
+    const texture = new Texture(picture);
+    texture.flipY = false;
+    texture.minFilter = LinearFilter;
+    texture.magFilter = LinearFilter;
+    texture.generateMipmaps = false;
+    texture.colorSpace = NoColorSpace;
+    texture.needsUpdate = true;
+    return texture;
+  } catch {
+    return null;
   }
 }

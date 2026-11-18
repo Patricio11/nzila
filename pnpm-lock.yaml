@@ -307,6 +307,12 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/games:
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/i18n:
     devDependencies:
       '@types/node':

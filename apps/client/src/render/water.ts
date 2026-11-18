@@ -69,16 +69,21 @@ export const WATER_FRAGMENT = /* glsl */ `
       wave(p, normalize(vec2(-0.33, -0.94)), 1.7, 2.9, 0.018, slope);
       wave(p, normalize(vec2(0.2, 0.98)), 0.9, 3.8, 0.008, slope);
     #endif
-    // A slow wobble over the whole bay, so no two places are alike.
-    slope += (vec2(noise(p * 0.21 + uTime * 0.05), noise(p * 0.21 - uTime * 0.04)) - 0.5) * 0.12;
+    // A slow wobble over the whole bay, so no two places are alike and the trains never line up as stripes.
+    slope += (vec2(noise(p * 0.21 + uTime * 0.05), noise(p * 0.21 - uTime * 0.04)) - 0.5) * 0.2;
+    slope += (vec2(noise(p * 0.73 - uTime * 0.11), noise(p * 0.67 + uTime * 0.09)) - 0.5) * 0.09;
+    // Far off, the small waves are lost to the eye and the water settles: seen as real water is, and no shimmer.
+    float far = length(cameraPosition - vWorld);
+    slope *= mix(1.0, 0.25, smoothstep(25.0, 220.0, far));
     vec3 normal = normalize(vec3(-slope.x, 1.0, -slope.y));
     vec3 view = normalize(cameraPosition - vWorld);
 
     // How far from land: shallow and clear by the wall and the sand, deep further out.
     vec2 uv = (p - uRect.xy) / (uRect.zw - uRect.xy);
     float metres = uHasShore > 0.5 ? texture2D(uShore, uv).r * 25.5 : 25.5;
-    float deep = smoothstep(0.6, 16.0, metres);
-    vec3 body = mix(uShallow * 1.18, uDeep, deep);
+    float deep = smoothstep(0.4, 11.0, metres);
+    // The bay's own colours: a clear green-blue over the shallows, a deep sea-blue beyond.
+    vec3 body = mix(mix(uShallow, uDeep, 0.25), uDeep * 0.92, deep);
     // The water keeps its own colour under any sky; the light only brightens or darkens it.
     vec3 lit = mix(vec3(dot(uLight, vec3(0.3, 0.6, 0.1))), uLight, 0.35);
     // Light through a wave's face: brighter where the surface turns toward the eye.
@@ -106,10 +111,11 @@ export const WATER_FRAGMENT = /* glsl */ `
     // into patches; and a thin line where each wave breaks a little further out.
     float swell = 0.55 + 0.45 * sin(uTime * 0.9 + p.x * 0.11 + p.y * 0.07);
     float torn = noise(p * 1.6 + vec2(uTime * 0.35, uTime * 0.21));
-    float band = smoothstep(1.5 * swell, 0.15, metres + (torn - 0.5) * 0.9);
-    float line = smoothstep(0.28, 0.0, abs(metres - (1.4 + 1.6 * swell))) * smoothstep(0.35, 0.75, torn);
-    float foam = clamp(band + line * 0.6, 0.0, 1.0) * uHasShore;
-    colour = mix(colour, uFoam * lit * 1.05, foam * 0.85);
+    float band = smoothstep(1.9 * swell + 0.4, 0.2, metres + (torn - 0.5) * 1.1);
+    float line = smoothstep(0.35, 0.0, abs(metres - (1.6 + 1.8 * swell))) * smoothstep(0.3, 0.7, torn);
+    float lace = smoothstep(0.66, 0.86, noise(p * 3.1 + vec2(uTime * 0.6, uTime * 0.2))) * smoothstep(3.0, 0.6, metres) * (0.5 + 0.5 * noise(p * 0.9));
+    float foam = clamp(band + line * 0.7 + lace * 0.45, 0.0, 1.0) * uHasShore;
+    colour = mix(colour, uFoam * lit * 1.1, foam * 0.9);
 
     gl_FragColor = vec4(colour, 1.0);
     #include <colorspace_fragment>

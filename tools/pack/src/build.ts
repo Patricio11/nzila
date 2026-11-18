@@ -18,8 +18,10 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   STREAM,
+  decodeWalkGrid,
   distanceToChunk,
   encodeWalkGrid,
+  groundOf,
   manifestSchema,
   schemaProblems,
   sourceManifestSchema,
@@ -29,7 +31,8 @@ import {
   type WalkGridSource,
 } from "@nzila/world";
 import { optimiseGlb } from "./assets.ts";
-import { glbStats, hashedName, packWalkGrid, transferBytes, type DrawStats } from "./files.ts";
+import { glbStats, hashedName, packWalkGrid, transferBytes, unpackWalkGrid, type DrawStats } from "./files.ts";
+import { shoreField, shorePng } from "./shore.ts";
 
 export class PackError extends Error {
   readonly problems: string[];
@@ -90,6 +93,7 @@ export async function buildPack(sourceDir: string, outDir: string, options: Buil
   };
 
   const chunks: Manifest["chunks"] = [];
+  const grids: Uint8Array[] = [];
   for (const chunk of source.chunks) {
     const lods = [];
     for (const lod of chunk.lods) lods.push(await emit(lod));
@@ -112,6 +116,21 @@ export async function buildPack(sourceDir: string, outDir: string, options: Buil
     total.normal += bytes.normal;
     total.alta += bytes.alta;
     chunks.push({ id: chunk.id, aabb: chunk.aabb, lods: lods.map((lod) => lod.name), walkGrid: walk.name, bytes, stats: { near, far } });
+    grids.push(walk.bytes);
+  }
+
+  // Each sheet of water with how far each metre of it is from land, from the walk grids just packed: the water is
+  // drawn clear by the shore and deep further out, and foams where it meets the land (tools/pack/src/shore.ts).
+  const water: Manifest["water"] = [];
+  if (source.water.length > 0) {
+    const ground = groundOf(grids.map((bytes) => decodeWalkGrid(unpackWalkGrid(bytes))));
+    for (const sheet of source.water) {
+      const bytes = shorePng(shoreField(ground, sheet.rect));
+      const name = hashedName(`shore-${sheet.id}.png`, bytes);
+      await writeFile(join(outDir, name), bytes);
+      addToAll(transferBytes(name, bytes));
+      water.push({ ...sheet, shore: name });
+    }
   }
 
   const strings = await emit(source.strings);
@@ -151,6 +170,7 @@ export async function buildPack(sourceDir: string, outDir: string, options: Buil
     ...source,
     ...(map ? { map: map.name } : {}),
     chunks,
+    water,
     routes,
     interiors,
     npc: { crowd: npcFiles.crowd?.name ?? null, vendors: npcFiles.vendors?.name ?? null, police: npcFiles.police?.name ?? null },

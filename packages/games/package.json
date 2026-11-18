@@ -1,0 +1,16 @@
+{
+  "name": "@nzila/games",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure TS, zero runtime deps. The rules of the table games: Não te irrites, damas, xadrez.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

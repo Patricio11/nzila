@@ -88,6 +88,7 @@ export async function checkPack(packDir: string, context: CheckContext): Promise
   const named = [
     ...manifest.chunks.flatMap((chunk) => [...chunk.lods, chunk.walkGrid]),
     ...manifest.routes.map((route) => route.spline),
+    ...manifest.water.flatMap((sheet) => (sheet.shore ? [sheet.shore] : [])),
     ...manifest.interiors.map((interior) => interior.file),
     manifest.strings,
     ...(manifest.map ? [manifest.map] : []),

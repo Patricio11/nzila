@@ -28,12 +28,11 @@ import {
   Scene,
   ShaderMaterial,
   SphereGeometry,
-  UniformsLib,
-  UniformsUtils,
   Vector3,
   WebGLRenderer,
 } from "three";
 import { lightingAt, type Lighting } from "./lighting.ts";
+import { waterMaterial } from "./water.ts";
 import { ATLAS_CELLS, ATLAS_CELL_PX, BLOB_SHADOW, BLOB_SHADOW_EDGE, WORLD, atlasGlowPixels, atlasPixels, type Rgb } from "@nzila/world/client";
 import { ResolutionGovernor, TIERS, type Tier, type TierName } from "./tiers.ts";
 
@@ -85,48 +84,6 @@ const SKY_FRAGMENT = /* glsl */ `
     #include <colorspace_fragment>
   }`;
 
-const WATER_VERTEX = /* glsl */ `
-  #include <fog_pars_vertex>
-  varying vec3 vWorld;
-  void main() {
-    vec4 world = modelMatrix * vec4(position, 1.0);
-    vWorld = world.xyz;
-    vec4 mvPosition = viewMatrix * world;
-    gl_Position = projectionMatrix * mvPosition;
-    #include <fog_vertex>
-  }`;
-
-// The bay: no reflections. Two slow swells move the colour between deep and
-// shallow; seen at a low angle it takes the colour of the sky at the horizon;
-// on the higher tiers a path of light runs toward the sun.
-const WATER_FRAGMENT = /* glsl */ `
-  #include <fog_pars_fragment>
-  uniform vec3 uDeep;
-  uniform vec3 uShallow;
-  uniform vec3 uHorizon;
-  uniform vec3 uSun;
-  uniform vec3 uSunDirection;
-  uniform vec3 uLight;
-  uniform float uTime;
-  uniform float uSparkle;
-  varying vec3 vWorld;
-  void main() {
-    vec3 view = normalize(cameraPosition - vWorld);
-    float swell = sin(vWorld.x * 0.31 + uTime * 0.8) * sin(vWorld.z * 0.23 - uTime * 0.6);
-    // The sea is lit by the day but keeps its own colour: under an orange sky it is still water,
-    // not sand. Only where it is seen nearly edge on does it take the colour of the sky.
-    vec3 lit = mix(vec3(dot(uLight, vec3(0.3, 0.6, 0.1))), uLight, 0.3);
-    vec3 colour = mix(uDeep, uShallow, 0.5 + 0.3 * swell) * lit;
-    float grazing = pow(1.0 - max(view.y, 0.0), 5.0);
-    colour = mix(colour, uHorizon * 0.92, grazing * 0.62);
-    vec3 halfway = normalize(view + uSunDirection);
-    float glint = pow(max(halfway.y, 0.0), 220.0);
-    float ripple = step(0.15, sin(vWorld.x * 2.9 + uTime * 2.1) * sin(vWorld.z * 2.2 - uTime * 1.6));
-    colour += uSun * glint * ripple * uSparkle;
-    gl_FragColor = vec4(colour, 1.0);
-    #include <colorspace_fragment>
-    #include <fog_fragment>
-  }`;
 
 export class WorldRenderer {
   readonly scene = new Scene();
@@ -217,7 +174,13 @@ export class WorldRenderer {
       shadow.map?.dispose();
       shadow.map = null;
     }
-    for (const water of this.waters) water.uniforms.uSparkle!.value = tier.waterSparkle ? 1.4 : 0;
+    for (const water of this.waters) {
+      water.uniforms.uSparkle!.value = tier.waterSparkle ? 1.4 : 0;
+      if (water.defines.WAVES !== (tier.waterSparkle ? 5 : 2)) {
+        water.defines.WAVES = tier.waterSparkle ? 5 : 2;
+        water.needsUpdate = true;
+      }
+    }
     this.camera.updateProjectionMatrix();
     this.applyLight();
   }
@@ -254,6 +217,7 @@ export class WorldRenderer {
     for (const water of this.waters) {
       const u = water.uniforms;
       paint(u.uHorizon!.value as Color, light.horizon);
+      paint(u.uZenith!.value as Color, light.zenith);
       paint(u.uSun!.value as Color, light.sun);
       (u.uSunDirection!.value as Vector3).copy(direction);
       // How lit the water is: bright by day, a deep blue at night, never black.
@@ -300,25 +264,9 @@ export class WorldRenderer {
   }
 
   /** A sheet of water. Add it to the scene where the bay is. */
-  createWater(width: number, depth: number): Mesh {
-    const material = new ShaderMaterial({
-      vertexShader: WATER_VERTEX,
-      fragmentShader: WATER_FRAGMENT,
-      fog: true,
-      uniforms: UniformsUtils.merge([
-        UniformsLib.fog,
-        {
-          uDeep: { value: paint(new Color(), WORLD.seaDeep) },
-          uShallow: { value: paint(new Color(), WORLD.seaShallow) },
-          uHorizon: { value: new Color() },
-          uSun: { value: new Color() },
-          uSunDirection: { value: new Vector3(0, 1, 0) },
-          uLight: { value: new Color() },
-          uTime: { value: 0 },
-          uSparkle: { value: this.tierValue.waterSparkle ? 1.4 : 0 },
-        },
-      ]),
-    });
+  createWater(width: number, depth: number): Mesh<PlaneGeometry, ShaderMaterial> {
+    // Real water (render/water.ts): five trains of waves and the sun's glitter where the phone can, two where it cannot.
+    const material = waterMaterial({ deep: paint(new Color(), WORLD.seaDeep), shallow: paint(new Color(), WORLD.seaShallow), foam: paint(new Color(), WORLD.paintWhite) }, this.tierValue.waterSparkle ? 5 : 2, this.tierValue.waterSparkle ? 1.4 : 0);
     this.waters.push(material);
     const mesh = new Mesh(new PlaneGeometry(width, depth), material);
     mesh.rotation.x = -Math.PI / 2;

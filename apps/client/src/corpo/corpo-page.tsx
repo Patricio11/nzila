@@ -13,7 +13,7 @@ import { Mesh, type Material } from "three";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { ground } from "../render/test-scene.ts";
+import { ground } from "../render/ground.ts";
 import { type TierName } from "../render/tiers.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";
 import { WORLD } from "@nzila/world/client";

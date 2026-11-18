@@ -15,7 +15,7 @@ import { WORLD } from "@nzila/world/client";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { DirectionalLight } from "three";
 import { type Person } from "../render/person.ts";
-import { ground } from "../render/test-scene.ts";
+import { ground } from "../render/ground.ts";
 import { type TierName } from "../render/tiers.ts";
 import { COLOURS, FIRST_LOOK, dress, fitted, saveLook, savedLook, takePhoto, wardrobe, type Look, type Wardrobe } from "../render/wardrobe.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";

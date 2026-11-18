@@ -8,9 +8,12 @@
 // whole world must be built to stay inside 120 draw calls on a cheap phone.
 
 import { createRng, rngInt, rngRange } from "@nzila/sim";
-import { BoxGeometry, BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, InstancedMesh, Matrix4, Mesh, MeshLambertMaterial, Quaternion, Vector3 } from "three";
-import { WORLD, atlasIndex, atlasUv, type Rgb } from "@nzila/world/client";
+import { BoxGeometry, Color, ConeGeometry, CylinderGeometry, InstancedMesh, Matrix4, MeshLambertMaterial, Quaternion, Vector3 } from "three";
+import { WORLD } from "@nzila/world/client";
+import { ground } from "./ground.ts";
 import { paint, type WorldRenderer } from "./world-renderer.ts";
+
+export { ground };
 
 export interface TestScene {
   /** Moves what moves and places the camera for `seconds` along the fixed path. The same time always gives the same picture. */
@@ -24,45 +27,6 @@ const LENGTH = 220;
 function place(mesh: InstancedMesh, index: number, x: number, y: number, z: number, sx: number, sy: number, sz: number, turn = 0): void {
   const matrix = new Matrix4().compose(new Vector3(x, y, z), new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), turn), new Vector3(sx, sy, sz));
   mesh.setMatrixAt(index, matrix);
-}
-
-interface Flat {
-  readonly colour: Rgb;
-  readonly width: number;
-  readonly depth: number;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
-
-/**
- * Flat pieces of ground as one mesh. Each piece takes its colour from its
- * square of the palette atlas, so however many there are they are one draw
- * call: this is how the models of a real district are coloured too.
- */
-export function ground(renderer: WorldRenderer, pieces: readonly Flat[]): Mesh {
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-  for (const piece of pieces) {
-    const first = positions.length / 3;
-    const [u, v] = atlasUv(atlasIndex(piece.colour));
-    for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
-      positions.push(piece.x + (sx * piece.width) / 2, piece.y, piece.z + (sz * piece.depth) / 2);
-      normals.push(0, 1, 0);
-      uvs.push(u, v);
-    }
-    indices.push(first, first + 2, first + 1, first, first + 3, first + 2);
-  }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new BufferAttribute(new Float32Array(positions), 3));
-  geometry.setAttribute("normal", new BufferAttribute(new Float32Array(normals), 3));
-  geometry.setAttribute("uv", new BufferAttribute(new Float32Array(uvs), 2));
-  geometry.setIndex(indices);
-  const mesh = new Mesh(geometry, renderer.paletteMaterial);
-  mesh.receiveShadow = true;
-  return mesh;
 }
 
 /** Builds the scene into the renderer. Z below zero is the bay; the city is at positive Z. */

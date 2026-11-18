@@ -19,8 +19,24 @@ const patient = {
   configurePreviewServer: (server: { httpServer: { keepAliveTimeout: number } }) => void (server.httpServer.keepAliveTimeout = 75_000),
 };
 
+// A shader's text travels to every phone as it is written. Its comments are for whoever reads the code, so in a
+// build they are taken out, and the indentation with them; a line of its own stays one (a #define, an #include
+// needs it). Only text marked /* glsl */ is touched (finding F-202: every byte of the way in counts).
+const lean = {
+  name: "nzila-lean-shaders",
+  apply: "build" as const,
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    if (!id.endsWith(".ts") || !code.includes("/* glsl */")) return null;
+    return code.replace(/\/\* glsl \*\/ `([^`]*)`/g, (_whole, body: string) => {
+      const lines = body.split("\n").map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith("//"));
+      return "/* glsl */ `" + lines.join("\n") + "`";
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [preact(), patient],
+  plugins: [preact(), patient, lean],
   // The packs are thousands of files rewritten by every build of a district, and the screenshots hundreds more: watching
   // them kept the dev server busy with a whole processor core, which the frame-rate bench then measured (finding F-146).
   server: { host: true, port: 5173, proxy: api, watch: { ignored: ["**/public/packs/**", "**/screenshots/**", "**/dist/**"] } },

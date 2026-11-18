@@ -22,6 +22,8 @@ export default defineConfig({
         "packages/economy/src/**": { lines: 100, statements: 100, functions: 100, branches: 100 },
         // packages/protocol reads bytes sent by machines we do not control. The same.
         "packages/protocol/src/**": { lines: 100, statements: 100, functions: 100, branches: 100 },
+        // packages/games decides who wins at a table, sometimes for Makuta. The same.
+        "packages/games/src/**": { lines: 100, statements: 100, functions: 100, branches: 100 },
       },
     },
     projects: [

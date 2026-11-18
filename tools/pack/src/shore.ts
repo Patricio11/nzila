@@ -32,7 +32,10 @@ export function shoreField(ground: Ground, rect: readonly [number, number, numbe
     for (let i = 0; i < width; i++) {
       const x = Math.round((minX + (i + 0.5) * metresPerPixel) * 1000);
       const z = Math.round((minZ + (j + 0.5) * metresPerPixel) * 1000);
-      const water = (ground.flagsAt(Math.floor(x / ground.cellMm), Math.floor(z / ground.cellMm)) & CELL_WATER) !== 0;
+      // Land is ground that is something and not water. Where the grids say nothing (beyond the district, out at
+      // sea) is open water: no foam is put out there.
+      const flags = ground.flagsAt(Math.floor(x / ground.cellMm), Math.floor(z / ground.cellMm));
+      const water = (flags & CELL_WATER) !== 0 || flags === 0;
       distance[j * width + i] = water ? far : 0;
     }
   }

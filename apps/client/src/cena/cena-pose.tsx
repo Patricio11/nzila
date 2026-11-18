@@ -11,7 +11,7 @@ import { WORLD } from "@nzila/world/client";
 import { useEffect, useRef } from "preact/hooks";
 import { loadDog, type Dog } from "../render/dog.ts";
 import { EMOTES, EMOTE_SECONDS, loadPerson, strideOf, type Emote, type Person, type Rest } from "../render/person.ts";
-import { ground } from "../render/test-scene.ts";
+import { ground } from "../render/ground.ts";
 import { type TierName } from "../render/tiers.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";
 import "./cena.css";
