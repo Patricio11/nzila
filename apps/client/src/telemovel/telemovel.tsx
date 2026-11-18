@@ -5,10 +5,11 @@
 // they are not here yet. Everything they show is asked of the WorldProvider.
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
-import { APP_GLYPHS, Button, Choice, DataMeter, EmptyState, PhoneSheet, Toggle, type PhoneApp, Pano, Swatches } from "@nzila/ui";
+import { APP_GLYPHS, Button, Choice, DataMeter, EmptyState, PhoneSheet, Receipt, Toggle, type PhoneApp, Pano, Swatches } from "@nzila/ui";
 import { WORLD } from "@nzila/world/client";
 import { type ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { account, bankMove, walletNow, type WalletLine } from "../world/account.ts";
 import { PANOS } from "../world/pano.ts";
 import { type DistrictMap, type MapLine, type WorldProvider } from "../world/provider.ts";
 import { Bi } from "./bi.tsx";
@@ -232,6 +233,121 @@ function Mapa({ world, marked, onMark }: { world: WorldProvider; marked: Marked 
   );
 }
 
+/** What a movement is called. One the game does not have a word for yet is a "Movimento". */
+const REASONS = ["grant", "bank_in", "bank_out"] as const;
+const reasonOf = (reason: string): string => tr.t(`bank.reason.${REASONS.find((one) => one === reason) ?? "other"}`);
+const day = (iso: string): string => new Date(iso).toLocaleString("pt-AO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/**
+ * The Banco (UX_UI_SPEC.md §4.3): what is in the Carteira, on the player and at risk, and what is in the Banco,
+ * safe. Money goes in and comes out only at a caixa: the zone decides whether the player is at one, and this
+ * offers the buttons only when the phone thinks so too.
+ */
+function Banco({ world }: { world: WorldProvider }) {
+  const [wallet, setWallet] = useState(account()?.wallet ?? { cash: 0, bank: 0 });
+  const [lines, setLines] = useState<WalletLine[] | null>(null);
+  const [amount, setAmount] = useState("");
+  const [said, setSaid] = useState<"done" | "far" | "short" | "offline" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [shown, setShown] = useState<WalletLine | null>(null);
+  const [near, setNear] = useState(world.atCaixa());
+  const read = async (): Promise<void> => {
+    const now = await walletNow();
+    if (!now) return setLines((had) => had ?? []);
+    setWallet({ cash: now.cash, bank: now.bank });
+    setLines(now.cashLines);
+  };
+  useEffect(() => {
+    void read();
+    const timer = window.setInterval(() => setNear(world.atCaixa()), 500);
+    return () => window.clearInterval(timer);
+  }, []);
+  const sum = Number(amount);
+  const move = async (way: "deposit" | "withdraw"): Promise<void> => {
+    setBusy(true);
+    setSaid(null);
+    const answer = await bankMove(way, sum);
+    setBusy(false);
+    setSaid(answer === "ok" ? "done" : answer);
+    if (answer !== "ok") return;
+    setAmount("");
+    await read();
+  };
+  if (shown) {
+    return (
+      <div class="tm-bank">
+        <Receipt title={reasonOf(shown.reason)} lines={[{ label: tr.t(shown.amount > 0 ? "bank.in" : "bank.out"), amount: Math.abs(shown.amount) }]} total={Math.abs(shown.amount)} at={day(shown.at)} place={tr.t("app.banco")} reference={shown.id.slice(0, 6).toUpperCase()} />
+        <Button kind="quiet" onPress={() => setShown(null)}>
+          {tr.t("player.close")}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div class="tm-bank">
+      <dl class="tm-bank-held">
+        <div class="tm-bank-risk">
+          <dt>{tr.t("bank.cash")}</dt>
+          <dd class="n-num">{tr.makuta(wallet.cash)}</dd>
+          <small>{tr.t("bank.cash.note")}</small>
+        </div>
+        <div class="tm-bank-safe">
+          <dt>{tr.t("bank.bank")}</dt>
+          <dd class="n-num">{tr.makuta(wallet.bank)}</dd>
+          <small>{tr.t("bank.bank.note")}</small>
+        </div>
+      </dl>
+      {near ? (
+        <form class="tm-bank-move" onSubmit={(event) => event.preventDefault()}>
+          <label class="tm-name-label" for="tm-amount">
+            {tr.t("bank.amount")}
+          </label>
+          <input id="tm-amount" class="tm-name-input" type="text" inputMode="numeric" autocomplete="off" value={amount} maxLength={12} onInput={(event) => setAmount(event.currentTarget.value.replace(/\D/g, "").replace(/^0+/, ""))} />
+          <div class="tm-keys">
+            <Button onPress={() => void move("deposit")} disabled={!(sum > 0) || sum > wallet.cash} busy={busy}>
+              {tr.t("bank.deposit")}
+            </Button>
+            <Button kind="quiet" onPress={() => void move("withdraw")} disabled={!(sum > 0) || sum > wallet.bank} busy={busy}>
+              {tr.t("bank.withdraw")}
+            </Button>
+          </div>
+          <div class="tm-keys">
+            <button type="button" class="tm-data-end" onClick={() => setAmount(String(wallet.cash || ""))}>
+              {tr.t("bank.all.cash")}
+            </button>
+            <button type="button" class="tm-data-end" onClick={() => setAmount(String(wallet.bank || ""))}>
+              {tr.t("bank.all.bank")}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <p class="tm-note">{tr.t("bank.far")}</p>
+      )}
+      <p class="tm-save-said" role="status">
+        {said ? tr.t(`bank.said.${said}`) : ""}
+      </p>
+      <h3 class="tm-data-title">{tr.t("bank.lines")}</h3>
+      {lines === null ? (
+        <p class="tm-note">{tr.t("bank.reading")}</p>
+      ) : lines.length === 0 ? (
+        <p class="tm-note">{tr.t("bank.none")}</p>
+      ) : (
+        <ul class="tm-bank-lines">
+          {lines.map((line) => (
+            <li>
+              <button type="button" onClick={() => setShown(line)}>
+                <span>{reasonOf(line.reason)}</span>
+                <time>{day(line.at)}</time>
+                <b class={line.amount > 0 ? "tm-bank-in n-num" : "tm-bank-out n-num"}>{tr.makuta(line.amount)}</b>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function Definicoes({ world }: { world: WorldProvider }) {
   const [, redraw] = useState(0);
   useEffect(() => world.watch(() => redraw((n) => n + 1)), []);
@@ -284,8 +400,10 @@ function Definicoes({ world }: { world: WorldProvider }) {
 export function Telemovel({ world, open, first, marked, onMark, onClose }: { world: WorldProvider; open: boolean; first?: string | null; marked: Marked | null; onMark: (place: Marked | null) => void; onClose: () => void }) {
   const [app, setApp] = useState<AppId | null>(APP_GLYPHS.find((id) => id === first) ?? null);
   useEffect(() => {
+    // Shut, it forgets where it was; opened by something that asks for an app (the caixa asks for the Banco), it opens there.
     if (!open) setApp(null);
-  }, [open]);
+    else if (first) setApp(APP_GLYPHS.find((id) => id === first) ?? null);
+  }, [open, first]);
   return (
     <PhoneSheet open={open} apps={APPS} app={app} onOpen={setApp} onBack={() => setApp(null)} onClose={onClose}>
       {app === "mapa" ? (
@@ -294,6 +412,8 @@ export function Telemovel({ world, open, first, marked, onMark, onClose }: { wor
         <Definicoes world={world} />
       ) : app === "bi" ? (
         <Bi world={world} />
+      ) : app === "banco" ? (
+        <Banco world={world} />
       ) : app ? (
         <EmptyState glyph={app} title={tr.t("state.soon")}>
           {tr.t(`app.${app}.soon`)}

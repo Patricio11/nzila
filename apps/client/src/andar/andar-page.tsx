@@ -78,7 +78,7 @@ interface InstallOffer extends Event {
   prompt?(): Promise<unknown>;
 }
 
-type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked";
+type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa";
 
 interface Hud {
   /** Whether talk is open where the player is; the last lines said near them; why their last line was not said. */
@@ -86,6 +86,8 @@ interface Hud {
   lines: readonly SaidLine[];
   refused: Refused | null;
   out: KeptOut | null;
+  /** What is in the Carteira, as the books last said. */
+  cash: number;
   /** Someone has just waved at the player, or the two have just met. */
   said: { kind: "met" | "waved" | "greeted"; name: string } | null;
   /** How it stands with the zone: the player is told when a line is being picked up, and when it could not be. */
@@ -111,6 +113,8 @@ export function Andar() {
   const leftHanded = settings.leftHanded;
   // `&telemovel` opens it at once, `&telemovel=mapa` on that app: for stills.
   const [phone, setPhone] = useState(params.has("telemovel"));
+  // Which app the Telemóvel opens on: the one the address asked for, or the Banco when the player uses a caixa.
+  const [phoneApp, setPhoneApp] = useState<string | null>(params.get("telemovel") || null);
   const [marked, setMarked] = useState<Marked | null>(null);
   // The browser's offer to install, kept until the first ride is over: never at the first second (Task 1.8).
   const offer = useRef<InstallOffer | null>(null);
@@ -129,7 +133,7 @@ export function Andar() {
   };
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
-  const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, said: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
+  const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, said: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
   const [missing, setMissing] = useState(false);
   /** The line being typed is open; and someone met, whose card is up. */
   const [composing, setComposing] = useState(false);
@@ -407,6 +411,12 @@ export function Andar() {
           emote = null;
         }
         // The gold button, a gesture asked for, and getting up by walking away.
+        if (asks.current.act && !seat && world.atCaixa() && !moving) {
+          // At a caixa the button opens the Banco.
+          asks.current.act = false;
+          setPhoneApp("banco");
+          setPhone(true);
+        }
         if (asks.current.act) {
           asks.current.act = false;
           seat = seat ? null : nearest();
@@ -641,7 +651,7 @@ export function Andar() {
           }
         }
 
-        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
+        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && world.atCaixa() ? "caixa" : !moving && nearest() ? "sit" : null;
         window.__andar = { at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
@@ -677,7 +687,7 @@ export function Andar() {
             else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { proxima: ahead });
           }
           // `&semrede` shows what a minute without a network looks like, for a still.
-          setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, said: said && performance.now() < said.until ? { kind: said.kind, name: said.name } : null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
+          setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, said: said && performance.now() < said.until ? { kind: said.kind, name: said.name } : null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
       }
       renderer.render(elapsed);
@@ -791,7 +801,7 @@ export function Andar() {
       {hud.ready ? (
         <div class="andar-hud n-on-dark">
           <div class="andar-top">
-            <WalletChip amount={account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0} />
+            <WalletChip amount={hud.cash} />
             <span class="andar-top-right">
               <Compass heading={hud.heading} marks={hud.marks} />
               <ClockChip secondOfDay={hud.second} />
@@ -844,7 +854,7 @@ export function Andar() {
             </span>
             {hud.action ? <ContextAction label={tr.t(`action.${hud.action}`)} disabled={hud.action === "stopAsked"} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>
-          <Telemovel world={world} open={phone} first={params.get("telemovel") || null} marked={marked} onMark={setMarked} onClose={() => setPhone(false)} />
+          <Telemovel world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} onClose={() => (setPhone(false), setPhoneApp(null))} />
           {/* The Telemóvel covers the foot of the screen: the chat bar steps aside while it is open, or it would lie over the sheet's last key. */}
           {phone || met ? null : <ChatLog lines={hud.lines} refused={hud.refused} raised={composing && hud.talk} />}
           {phone || met ? null : (

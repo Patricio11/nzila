@@ -1126,6 +1126,61 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("at a caixa the button opens the Banco: money is put in and taken out, the wallet on the screen follows, and every movement opens its receipt", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The bank was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 41);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    // Born into a family: its Makuta is in the Carteira.
+    const born = await page.evaluate(async () => {
+      const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+      return (await (await fetch("/api/v1/me/origin", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: "{}" })).json()) as { wallet: { cash: number } };
+    });
+    const had = born.wallet.cash;
+    const dotted = (amount: number): string => String(amount).replace(/\B(?=(\d{3})+$)/g, ".");
+    expect(had).toBeGreaterThanOrEqual(1500);
+    // The town's caixa is a few steps from where people arrive: standing still there, the button offers it.
+    await page.screenshot({ path: info.outputPath("caixa-rua.png") });
+    await page.getByRole("button", { name: "Usar a caixa" }).click();
+    const banco = page.getByRole("dialog", { name: "Telemóvel" });
+    await expect(banco.locator(".tm-bank-risk")).toContainText("Na carteira");
+    await expect(banco.locator(".tm-bank-risk dd")).toContainText(dotted(had));
+    await expect(banco.locator(".tm-bank-lines")).toContainText("Da tua família");
+    await page.screenshot({ path: info.outputPath("caixa-banco.png") });
+    // Nothing can be banked that is not held; five hundred can.
+    await banco.getByLabel("Quanto?").fill(String(had + 1));
+    await expect(banco.getByRole("button", { name: "Depositar" })).toBeDisabled();
+    await banco.getByLabel("Quanto?").fill("500");
+    await banco.getByRole("button", { name: "Depositar" }).click();
+    await expect(banco.getByRole("status")).toHaveText("Feito. Está nos movimentos.", { timeout: 10_000 });
+    await expect(banco.locator(".tm-bank-safe dd")).toContainText("500");
+    await expect(banco.locator(".tm-bank-lines li").first()).toContainText("Depósito no banco");
+    await page.screenshot({ path: info.outputPath("caixa-depositado.png") });
+    // A movement opens as its receipt.
+    await banco.locator(".tm-bank-lines li button").first().click();
+    await expect(banco.locator(".n-receipt")).toContainText("500");
+    await page.screenshot({ path: info.outputPath("caixa-recibo.png") });
+    await banco.getByRole("button", { name: "Fechar", exact: true }).last().click();
+    // Two hundred back out.
+    await banco.getByLabel("Quanto?").fill("200");
+    await banco.getByRole("button", { name: "Levantar" }).click();
+    await expect(banco.locator(".tm-bank-safe dd")).toContainText("300", { timeout: 10_000 });
+    // The books say the same, and the wallet on the street follows them.
+    const now = await page.evaluate(async () => {
+      const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+      return (await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cash: number; bank: number };
+    });
+    expect(now).toMatchObject({ cash: had - 300, bank: 300 });
+    await page.getByRole("button", { name: "Fechar" }).first().click();
+    await expect(page.locator(".n-chip").first()).toContainText(dotted(had - 300));
+    expect(seen.errors).toEqual([]);
+  });
+
   test("they talk: a line typed by one is a balloon over their head and a line in the other's log; dots while typing; a quick phrase on one tap; a rude word is said to nobody; a gesture is seen", async ({ page, browser, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Talk was not checked here." });

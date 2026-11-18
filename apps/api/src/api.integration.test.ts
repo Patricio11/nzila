@@ -230,6 +230,11 @@ describe("a lotaria da vida", () => {
     expect(await dealt((await guestOn(32)).token)).toEqual(first);
     // Another phone gets its own draw.
     expect(await dealt((await guestOn(33)).token)).toMatchObject({ tier: "ouro", makuta: 250000 });
+    // And a second account on that phone is born into the same rich family with the least any family begins
+    // with: one grant of a family's Makuta a phone. Its wallet holds what its card says.
+    const younger = await guestOn(33);
+    expect(await dealt(younger.token)).toMatchObject({ tier: "ouro", makuta: 1500 });
+    expect((await loaded.inject({ method: "GET", url: "/v1/me", headers: as(younger.token) })).json()).toMatchObject({ wallet: { cash: 1500, bank: 0 } });
     await loaded.close();
   });
 
@@ -1077,3 +1082,45 @@ describe("registering (D-4.12: everyone has an account)", () => {
     await shut.close();
   });
 });
+
+describe("the bank: into the Banco and out of it, at a caixa (Task 4.1)", () => {
+  const bank = (token: string | null, way: "deposit" | "withdraw", payload: Record<string, unknown>) => app.inject({ method: "POST", url: `/v1/bank/${way}`, ...(token ? { headers: as(token) } : {}), payload });
+  const born = async (n: number) => {
+    const guest = await newGuest(n);
+    const card = ((await app.inject({ method: "POST", url: "/v1/me/origin", headers: as(guest.token) })).json() as { origin: { makuta: number } }).origin;
+    return { ...guest, makuta: card.makuta };
+  };
+
+  test("only someone the zone says is standing at a caixa may bank; what goes in is safe, what comes out is on them; a second sending moves nothing", async () => {
+    const one = await born(800);
+    // Nowhere near a caixa, as far as any zone has said: the phone's word for it is not asked.
+    expect((await bank(one.token, "deposit", { amount: 500, key: "primeiro-01" })).json()).toEqual({ error: "not_at_caixa" });
+    await presence.mark(one.playerId, "caixa");
+    const put = await bank(one.token, "deposit", { amount: 500, key: "primeiro-01" });
+    expect(put.statusCode).toBe(200);
+    expect(put.json()).toMatchObject({ cash: one.makuta - 500, bank: 500 });
+    // The line dropped and the phone sends it again: the same answer, and nothing more moved.
+    expect((await bank(one.token, "deposit", { amount: 500, key: "primeiro-01" })).json()).toEqual(put.json());
+    // The same key for something else is refused, not recorded.
+    expect((await bank(one.token, "deposit", { amount: 700, key: "primeiro-01" })).json()).toEqual({ error: "invalid" });
+    // More than they hold, either way: said plainly, nothing moved.
+    expect((await bank(one.token, "deposit", { amount: one.makuta, key: "demais-0001" })).json()).toEqual({ error: "insufficient" });
+    expect((await bank(one.token, "withdraw", { amount: 501, key: "demais-0002" })).json()).toEqual({ error: "insufficient" });
+    const out = await bank(one.token, "withdraw", { amount: 200, key: "levantar-01" });
+    expect(out.json()).toMatchObject({ cash: one.makuta - 300, bank: 300 });
+    // Their statement says so, each side with its sign; and the Banco's own lines are its own.
+    const wallet = (await app.inject({ method: "GET", url: "/v1/me/wallet", headers: as(one.token) })).json() as { cash: number; bank: number; cashLines: { amount: number; reason: string }[]; bankLines: { amount: number; reason: string; with: string }[] };
+    expect(wallet).toMatchObject({ cash: one.makuta - 300, bank: 300 });
+    expect(wallet.bankLines.map((line) => [line.amount, line.reason, line.with])).toEqual([[-200, "bank_out", "player_cash"], [500, "bank_in", "player_cash"]]);
+    expect(wallet.cashLines.map((line) => [line.amount, line.reason])).toEqual([[200, "bank_out"], [-500, "bank_in"], [one.makuta, "grant"]]);
+    // Not an amount, not a key, nobody: nothing.
+    for (const payload of [{ amount: 0, key: "zero-00001" }, { amount: 1.5, key: "meio-00001" }, { amount: -5, key: "menos-0001" }, { amount: 100, key: "x" }, { amount: 100 }]) expect((await bank(one.token, "deposit", payload)).statusCode).toBe(400);
+    expect((await bank(null, "deposit", { amount: 100, key: "ninguem-001" })).statusCode).toBe(401);
+    // Someone else standing at a caixa banks their own, never this one's.
+    const two = await born(801);
+    await presence.mark(two.playerId, "caixa");
+    expect((await bank(two.token, "withdraw", { amount: 100, key: "alheio-0001" })).json()).toEqual({ error: "insufficient" });
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+});
+

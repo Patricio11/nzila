@@ -487,3 +487,46 @@ export async function changePassword(current: string, next: string): Promise<"ok
   const { status, answer, error } = await ask<{ ok: boolean }>("PUT", "/v1/me/password", { current, next }, mine.token);
   return answer ? "ok" : error === "wrong_login" ? "wrong" : error === "invalid" ? "invalid" : status === 429 ? "slow" : "offline";
 }
+
+/** One movement of the Carteira or the Banco, as the books have it. */
+export interface WalletLine {
+  readonly id: string;
+  readonly at: string;
+  /** Positive when it came in. */
+  readonly amount: number;
+  readonly reason: string;
+  readonly ref: string | null;
+}
+
+/** What the player holds and what moved, from the server's books; the balances are kept for the wallet on the screen. Null with no network. */
+export async function walletNow(): Promise<{ cash: number; bank: number; cashLines: WalletLine[]; bankLines: WalletLine[] } | null> {
+  const mine = account();
+  if (!mine?.token) return null;
+  const { answer } = await ask<{ cash: number; bank: number; cashLines: WalletLine[]; bankLines: WalletLine[] }>("GET", "/v1/me/wallet", undefined, mine.token);
+  if (answer) keep({ ...(account() ?? mine), wallet: { cash: answer.cash, bank: answer.bank } });
+  return answer;
+}
+
+/**
+ * Into the Banco or out of it, at a caixa. "far": the zone does not say the player is at one. "short": they do
+ * not hold that much. The key makes a second sending of the same tap harmless, so it is asked twice when the
+ * first answer is lost.
+ */
+export async function bankMove(way: "deposit" | "withdraw", amount: number): Promise<"ok" | "far" | "short" | "offline"> {
+  const mine = account();
+  if (!mine?.token) return "offline";
+  const key = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.padEnd(12, "0");
+  let said = await ask<{ cash: number; bank: number }>("POST", `/v1/bank/${way}`, { amount, key }, mine.token);
+  if (said.status === 0 || said.status >= 502) said = await ask<{ cash: number; bank: number }>("POST", `/v1/bank/${way}`, { amount, key }, mine.token);
+  // The zone's word that the player is at the caixa can be a moment behind their feet: asked once more, a little later.
+  if (said.error === "not_at_caixa") {
+    await new Promise((done) => setTimeout(done, 700));
+    said = await ask<{ cash: number; bank: number }>("POST", `/v1/bank/${way}`, { amount, key }, mine.token);
+  }
+  if (said.answer) {
+    keep({ ...(account() ?? mine), wallet: { cash: said.answer.cash, bank: said.answer.bank } });
+    return "ok";
+  }
+  return said.error === "not_at_caixa" ? "far" : said.error === "insufficient" ? "short" : "offline";
+}
+

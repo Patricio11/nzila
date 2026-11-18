@@ -72,6 +72,8 @@ export interface WorldProvider {
   channelNamed(): number | null;
   /** Where the player is, in metres, and the way they face, in degrees clockwise from north. */
   you(): { x: number; z: number; heading: number } | null;
+  /** Whether the player stands at a caixa, as this phone sees it: what the Banco offers. The zone decides for itself. */
+  atCaixa(): boolean;
   /** The other players in the street, as far as this phone is told of them. */
   people(): { x: number; z: number }[];
   /** The vans on the road now. */
@@ -110,6 +112,9 @@ function stored(): Partial<Settings> {
     return {};
   }
 }
+
+/** How near a caixa the Banco offers to bank: a little inside what the zone allows, so that an offer is never refused. */
+export const CAIXA_REACH_M = 3;
 
 /** The world as this device alone knows it. */
 export class LocalWorld implements WorldProvider {
@@ -176,6 +181,11 @@ export class LocalWorld implements WorldProvider {
 
   channelNamed(): number | null {
     return this.named;
+  }
+
+  atCaixa(): boolean {
+    const at = this.player;
+    return at !== null && (this.scene?.manifest.pois ?? []).some((place) => place.glyph === "banco" && Math.hypot(place.pos[0] - at.x, place.pos[2] - at.z) < CAIXA_REACH_M);
   }
 
   people(): { x: number; z: number }[] {

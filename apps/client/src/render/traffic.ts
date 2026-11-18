@@ -172,6 +172,18 @@ interface Moving {
 
 /** How much room two vehicles keep between their bodies at the least, in metres: they never touch. */
 const CLEAR_M = 0.3;
+/** Two vehicles found one inside the other, neither able to move without touching, are parted after this long. */
+export const KNOT_MS = 600;
+
+/**
+ * What a vehicle does that is inside another and cannot move (finding F-180). Two timetables, or a return to the
+ * road, can put one vehicle on top of another; "a body does not go where another body is" then holds both where
+ * they are for ever, each waiting for the other. After a moment: one of the other traffic leaves the road (it comes
+ * back when its place is clear and nobody is looking); a candongueiro, which people ride and wait for, drives on.
+ */
+export function untangle(roamer: boolean, knotMs: number): "wait" | "leave" | "push" {
+  return KNOT_MS > knotMs ? "wait" : roamer ? "leave" : "push";
+}
 
 /**
  * Whether the bodies of two vehicles overlap, each grown by `margin` all round. Two rectangles on
@@ -246,6 +258,8 @@ export class Traffic {
   private readonly stood = new Map<string, number>();
   /** Vehicles taken off the road for a while because they were in a knot that would not come undone (roamers only, by their key). */
   private readonly away = new Set<string>();
+  /** How long each vehicle has been inside another and held there. */
+  private readonly knot = new Map<string, number>();
   private moving: Moving[] = [];
   /** How many vehicles are slowing or standing for the viewer themself, at the last update: for the tests. */
   heeding = 0;
@@ -384,9 +398,23 @@ export class Traffic {
         // exactly where it is. (Two that timetables put on top of one another may still move apart.)
         const there = this.poseOf(me.key, nowMs, lag) ?? me;
         const others = this.moving.map((other) => placed.get(other.key) ?? other);
-        const stopped = others.some((other) => other.key !== me.key && touching(there, other, CLEAR_M) && !(touching(me, other, CLEAR_M) && Math.hypot(there.x - other.x, there.z - other.z) > Math.hypot(me.x - other.x, me.z - other.z)));
+        let stopped = others.some((other) => other.key !== me.key && touching(there, other, CLEAR_M) && !(touching(me, other, CLEAR_M) && Math.hypot(there.x - other.x, there.z - other.z) > Math.hypot(me.x - other.x, me.z - other.z)));
+        // Held, and already inside another: a knot. It is given a moment, then undone.
+        const inside = stopped && others.some((other) => other.key !== me.key && touching(me, other));
+        const knotted = inside ? (this.knot.get(me.key) ?? 0) + step : 0;
+        if (knotted > 0) this.knot.set(me.key, knotted);
+        else this.knot.delete(me.key);
+        const undo = inside ? untangle(me.key.startsWith("r"), knotted) : "wait";
+        if (undo === "push") stopped = false;
         if (stopped) lag = before + elapsedMs;
         placed.set(me.key, stopped ? me : there);
+        if (undo === "leave") {
+          this.away.add(me.key);
+          this.lag.delete(me.key);
+          this.stood.delete(me.key);
+          this.knot.delete(me.key);
+          continue;
+        }
         if (lag > 0) this.lag.set(me.key, lag);
         else this.lag.delete(me.key);
         // A knot that will not come undone: after its patience a roamer leaves the road, and comes back to its
@@ -405,6 +433,7 @@ export class Traffic {
       this.lag.clear();
       this.stood.clear();
       this.away.clear();
+      this.knot.clear();
     }
     const moving: Moving[] = [];
     // The other traffic first: where each is, and a rider for the nearest few that have one.

@@ -199,6 +199,14 @@ def poi(key, x, z, name, line, y=G):
     places["pois"].append({"id": key, "pos": [round(x, 2), y, round(z, 2)], "nameKey": f"l1.poi.{key}.name", "lineKey": f"l1.poi.{key}.line", "positive": True, "stamp": False, "glyph": POI_GLYPHS.get(key, "ponto")})
 
 
+def caixa(key, x, z, name):
+    """A cash machine (a caixa) on the pavement, facing south, and the place in front of it where someone stands to use it."""
+    kit.caixa(b, x, z, 0.0, G)
+    words[f"l1.poi.{key}.name"] = name
+    words[f"l1.poi.{key}.line"] = "Guarda aqui o que não queres perder na rua, e levanta quando precisares."
+    places["pois"].append({"id": key, "pos": [round(x, 2), G, round(z + 1.0, 2)], "nameKey": f"l1.poi.{key}.name", "lineKey": f"l1.poi.{key}.line", "positive": True, "stamp": False, "glyph": "banco"})
+
+
 def paragem(key, x, z, name, van_z, at):
     words[f"l1.paragem.{key}"] = name
     # The place as one is said to be at it: each takes its own preposition (founder, 2026-11-15).
@@ -379,6 +387,7 @@ poi("musicos", 150.0, shore(150) + 27.5, "Os músicos do palco", "Ao fim da tard
 for i in range(6):
     kx = 196.0 + i * 5.2
     block(kx, shore(kx) + 26.5, kb.quiosque(b, kx, shore(kx) + 26.5, rng, G + 0.03))
+caixa("caixa-marginal", 186.0, shore(186) + 15.5, "Caixa da Marginal")
 poi("gelados", 201.0, shore(201) + 23.0, "A esquina dos gelados", "O gelado de múcua acaba cedo. Vem antes das cinco.")
 kb.campo(b, 290.0, shore(290) + 21.0, 24.0, 13.0, "basquete", G + 0.03)
 kb.campo(b, 322.0, shore(322) + 21.5, 26.0, 14.0, "futebol", G + 0.03)
@@ -504,6 +513,7 @@ for i in range(11):
     block(tx, tz, kit.tree(b, tx, tz, rng, G, mix=("acacia", "acacia", "mangueira", "mangueira", "imbondeiro")))
     kit.bench(b, tx + 2.5, tz + 0.8, rng.uniform(0, math.pi), G)
     block(tx + 2.5, tz + 0.8, 0.5)
+caixa("caixa-largo", lx0 + 27.0, z0 + 13.0, "Caixa do Largo")
 poi("xadrez", lx0 + 21.0, z0 + 14.0, "As mesas de xadrez do Largo", "Os kotas jogam aqui desde manhã. Quem perde paga o café.")
 paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutamba")
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down

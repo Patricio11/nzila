@@ -776,6 +776,25 @@ def bench(b, x, z, yaw, ground=0.14):
     return 0.9
 
 
+def caixa(b, x, z, yaw, ground=0.14):
+    """A caixa: a cash machine in its own small kiosk on the pavement, facing `yaw`. The blue is the bank's, the screen glows."""
+    b.at(x, z)
+    b.level = FULL
+    # The body, a plinth under it, and a roof that reaches out over whoever is using it.
+    b.box((x, ground + 0.06, z), (1.0, 0.12, 0.8), "kerb", yaw=yaw, skip_bottom=False)
+    b.box((x, ground + 1.1, z), (0.86, 1.96, 0.62), "vanBlue", yaw=yaw)
+    b.box(_add((x, ground + 2.16, z), _turn((0.0, 0.0, 0.22), yaw)), (1.1, 0.1, 1.1), "vanWhite", yaw=yaw, skip_bottom=False)
+    # The face: a white panel, the screen in it, the keys under it, the slot where the notes come out.
+    b.box(_add((x, ground + 1.28, z), _turn((0.0, 0.0, 0.315), yaw)), (0.66, 0.92, 0.02), "vanWhite", yaw=yaw)
+    b.box(_add((x, ground + 1.46, z), _turn((0.0, 0.0, 0.33), yaw)), (0.44, 0.34, 0.02), "lamp", yaw=yaw)
+    b.box(_add((x, ground + 1.08, z), _turn((0.0, 0.0, 0.36), yaw)), (0.4, 0.05, 0.14), "metal", yaw=yaw, skip_bottom=False)
+    b.box(_add((x, ground + 0.92, z), _turn((0.0, 0.0, 0.33), yaw)), (0.3, 0.04, 0.02), "tarShade", yaw=yaw)
+    b.level = LIGHT
+    b.box((x, ground + 1.1, z), (0.86, 2.1, 0.62), "vanBlue", yaw=yaw)
+    b.level = BOTH
+    return 0.6
+
+
 def parasol(b, x, z, rng, ground=0.14):
     """A seller's sunshade in two colours, with crates under it."""
     b.at(x, z)

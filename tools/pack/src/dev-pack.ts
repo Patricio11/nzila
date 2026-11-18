@@ -66,6 +66,7 @@ interface DevLayout {
   spawn: [number, number, number];
   corners: [number, number, number][];
   paragens: [number, number, number][];
+  caixa: [number, number, number];
   seats: { pos: [number, number, number]; facing: number }[];
   water: { rect: [number, number, number, number]; level: number };
 }
@@ -84,7 +85,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
   const chunks = await exportChunks(join(src, "district.blend"), src, join(scripts, "export_chunks.py"));
 
   const layout = JSON.parse(await readFile(join(src, "layout.json"), "utf8")) as DevLayout;
-  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio" };
+  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares." };
   const manifest: SourceManifest = {
     id: "zz-dev/d1",
     province: "zz-dev",
@@ -96,11 +97,15 @@ export async function buildDevPack(workDir: string, outDir: string) {
     chunks: chunks.map((chunk) => ({ id: chunk.id, aabb: chunk.aabb, lods: chunk.lods, walkGrid: `chunks/${chunk.id}.walk.json` })),
     spawns: [{ id: "arrival", pos: layout.spawn, facing: 90, kind: "first_arrival" }],
     gateways: [],
-    pois: layout.corners.slice(4, 9).map((pos, n) => {
-      strings[`dev.poi.${n}.name`] = `Esquina ${n + 1}`;
-      strings[`dev.poi.${n}.line`] = `A esquina número ${n + 1} do bairro de ensaio.`;
-      return { id: `corner-${n + 1}`, pos, nameKey: `dev.poi.${n}.name`, lineKey: `dev.poi.${n}.line`, positive: true, stamp: false };
-    }),
+    pois: [
+      ...layout.corners.slice(4, 9).map((pos, n) => {
+        strings[`dev.poi.${n}.name`] = `Esquina ${n + 1}`;
+        strings[`dev.poi.${n}.line`] = `A esquina número ${n + 1} do bairro de ensaio.`;
+        return { id: `corner-${n + 1}`, pos, nameKey: `dev.poi.${n}.name`, lineKey: `dev.poi.${n}.line`, positive: true, stamp: false };
+      }),
+      // The town's one caixa: where money is put in the bank and taken out (Task 4.1).
+      { id: "caixa-1", pos: layout.caixa, nameKey: "dev.caixa.name", lineKey: "dev.caixa.line", positive: true, stamp: false, glyph: "banco" },
+    ],
     routes: [],
     paragens: layout.paragens.map((pos, n) => {
       strings[`dev.paragem.${n}`] = `Paragem ${n + 1}`;

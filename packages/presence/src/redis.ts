@@ -10,7 +10,7 @@
 
 import { randomBytes } from "node:crypto";
 import { createClient } from "redis";
-import { HELD_TTL_S, PLACE_TTL_S, SEAT_TTL_S, ZONE_TTL_S, type Presence, type Seat, type Standing, type ZoneCard } from "./presence.ts";
+import { HELD_TTL_S, AT_TTL_S, PLACE_TTL_S, SEAT_TTL_S, ZONE_TTL_S, type Presence, type Seat, type Standing, type ZoneCard } from "./presence.ts";
 
 export const DEFAULT_REDIS_URL = "redis://localhost:6380";
 
@@ -71,6 +71,8 @@ export async function redisPresence(url = redisUrl(), prefix = "nzila", log: (li
     stand: async (playerId, at) => void (await client.set(key("at", playerId), JSON.stringify(at), { expiration: { type: "EX", value: PLACE_TTL_S } })),
     standing: async (playerId) => read<Standing>(await client.get(key("at", playerId))),
     forget: async (playerId) => void (await client.del(key("at", playerId))),
+    mark: async (playerId, what) => void (await client.set(key("mark", playerId), what, { expiration: { type: "EX", value: AT_TTL_S } })),
+    marked: async (playerId) => await client.get(key("mark", playerId)),
     close: async () => {
       await client.close();
     },

@@ -4,8 +4,8 @@
 
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
-import { accountId } from "@nzila/economy";
-import { statementOf, walletOf } from "@nzila/db";
+import { MAX_TRANSFER, accountId } from "@nzila/economy";
+import { recordTransfer, statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
@@ -514,6 +514,28 @@ export function buildApp(deps: Deps): FastifyInstance {
       return { ok: true, report };
     },
   });
+
+  // ------------------------------------------------------------ the bank (Task 4.1)
+  // Into the Banco and out of it, at a caixa. The zone says whether the player is standing at one; the phone
+  // says how much and gives the key that makes a second sending harmless. What is in the Banco is safe; what is in
+  // the Carteira is on the player.
+  const banked = (kind: "bank_in" | "bank_out") => ({
+    method: "POST" as const,
+    url: kind === "bank_in" ? "/v1/bank/deposit" : "/v1/bank/withdraw",
+    guard: "player" as const,
+    body: z.strictObject({ amount: z.number().int().positive().max(MAX_TRANSFER), key: z.string().regex(/^[A-Za-z0-9_-]{8,40}$/) }),
+    perMinute: 20,
+    handler: async (body: { amount: number; key: string }, caller: { player: { id: string } }) => {
+      if ((await presence.marked(caller.player.id)) !== "caixa") throw new Refusal(409, "not_at_caixa");
+      const cash = accountId("player_cash", caller.player.id);
+      const bank = accountId("player_bank", caller.player.id);
+      const recorded = await recordTransfer(deps.sql, { debitAccount: kind === "bank_in" ? cash : bank, creditAccount: kind === "bank_in" ? bank : cash, amount: body.amount, reason: kind, actionId: `bank:${caller.player.id}:${body.key}` });
+      if (!recorded.ok) throw new Refusal(recorded.error === "insufficient_funds" ? 409 : 400, recorded.error === "insufficient_funds" ? "insufficient" : "invalid");
+      return { ...(await walletOf(deps.sql, caller.player.id)), transfer: recorded.transfer.id };
+    },
+  });
+  declare(app, gate, banked("bank_in"));
+  declare(app, gate, banked("bank_out"));
 
   studioRoutes(app, gate, { sql: deps.sql, presence });
 

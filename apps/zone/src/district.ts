@@ -20,6 +20,8 @@ export interface District {
   readonly arrival: Place;
   /** The paragens, by id: where someone who got off a van comes back into the street. */
   readonly paragens: ReadonlyMap<string, Place>;
+  /** The caixas: where money is put in the bank and taken out. Millimetres. */
+  readonly caixas?: readonly { readonly x: number; readonly z: number }[];
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -29,8 +31,13 @@ interface ManifestRead {
   readonly chunks: readonly { readonly walkGrid?: string }[];
   readonly seats?: readonly SeatPlace[];
   readonly paragens?: readonly { readonly id: string; readonly pos: readonly [number, number, number] }[];
+  readonly pois?: readonly { readonly pos: readonly [number, number, number]; readonly glyph?: string }[];
   readonly spawns: readonly { readonly pos: readonly [number, number, number]; readonly facing?: number; readonly kind: string }[];
 }
+
+/** The sign over a caixa, as a pack's manifest names it; and how near one a player must stand to use it, in millimetres. */
+export const CAIXA_GLYPH = "banco";
+export const CAIXA_REACH_MM = 3500;
 
 /** The name a district's rooms go by (the phones ask for it by the same function). */
 export const roomNameOf = zoneRoomOf;
@@ -51,5 +58,7 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     yaw: Math.round((spawn.facing ?? 0) * 100),
   };
   const paragens = new Map((manifest.paragens ?? []).map((one) => [one.id, { x: Math.round(one.pos[0] * 1000), y: Math.round(one.pos[1] * 1000), z: Math.round(one.pos[2] * 1000), yaw: 0 }]));
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: seatObstacles(manifest.seats ?? []), arrival, paragens };
+  // A place whose sign is the bank's is a caixa.
+  const caixas = (manifest.pois ?? []).filter((one) => one.glyph === CAIXA_GLYPH).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: seatObstacles(manifest.seats ?? []), arrival, paragens, caixas };
 }

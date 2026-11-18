@@ -3,9 +3,9 @@
 // packages/economy. What is recorded is the card; the Makuta on it is paid
 // through the ledger when the ledger has its API (Task 4.1).
 //
-// No rerolls: a card belongs to the device's first guest. A second guest
-// made on a device that already has one is dealt the same card, not a new
-// one. (A device id is only what a phone says of itself, so this stops the
+// No rerolls: a family belongs to the device's first account. A second account
+// made on a device that already has one is born into the same family, and
+// begins with the least any family begins with. (A device id is only what a phone says of itself, so this stops the
 // easy reroll and not the determined one: see docs/SECURITY.md.)
 
 import { drawOrigin, originOf, type Origin, type OriginTable } from "@nzila/economy";
@@ -61,7 +61,12 @@ export async function dealOrigin(sql: Sql, table: OriginTable, roll: () => numbe
       FROM player_origins o JOIN devices d ON d.player_id = o.player_id
       WHERE d.device_hash IN (SELECT device_hash FROM devices WHERE player_id = ${playerId})
       ORDER BY o.drawn_at LIMIT 1`;
-    const card = first ? read(table, first) : drawOrigin(table, roll);
+    // The first account of a phone is dealt from the whole table. A later one is born into the same family (no
+    // rerolls) with the least any family begins with: a household that shares a phone has a second child who is not
+    // born with nothing, and a phone cannot make accounts to collect a rich family's Makuta (the founder, 2026-11-18).
+    const least = Math.min(...table.families.map((family) => family.min));
+    const elder = first ? read(table, first) : null;
+    const card = elder ? { ...elder, makuta: Math.min(elder.makuta, least) } : drawOrigin(table, roll);
     await tx`
       INSERT INTO player_origins (player_id, family, province, bairro, makuta, table_version)
       VALUES (${playerId}, ${card.family}, ${card.province}, ${card.bairro}, ${card.makuta}, ${card.version})`;

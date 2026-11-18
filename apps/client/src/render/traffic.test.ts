@@ -97,3 +97,14 @@ describe("two bodies", () => {
     expect(touching(van, car("b", 0, 0, 0, 6.4))).toBe(false);
   });
 });
+
+describe("two vehicles found one inside the other (F-180)", () => {
+  test("are given a moment, and then undone: other traffic leaves the road, a candongueiro drives on", async () => {
+    const { KNOT_MS, untangle } = await import("./traffic.ts");
+    expect(untangle(true, 0)).toBe("wait");
+    expect(untangle(false, KNOT_MS - 1)).toBe("wait");
+    expect(untangle(true, KNOT_MS)).toBe("leave");
+    expect(untangle(false, KNOT_MS)).toBe("push");
+  });
+});
+

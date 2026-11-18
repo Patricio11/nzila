@@ -45,7 +45,9 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
     ["conversa", { x: -60_000, y: 0, z: -60_000, yaw: 0 }],
     ["conversa-10", { x: -50_000, y: 0, z: -60_000, yaw: 0 }],
     ["conversa-30", { x: -30_000, y: 0, z: -60_000, yaw: 0 }],
-  ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 } };
+  ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 },
+  // A caixa two metres from where people arrive.
+  caixas: [{ x: 2000, z: 0 }] };
 // A town the database has never heard of: played in, and nobody's place in it is kept.
 const rehearsal: District = { ...district, id: "zz-dev/d1", provinceId: "zz-dev" };
 const presence = memoryPresence();
@@ -751,6 +753,21 @@ describe("a client that misbehaves", () => {
     expect(health.rooms[0]!.meanMs).toBeLessThan(5);
     expect((await fetch(`http://127.0.0.1:${port}/anything-else`)).status).toBe(404);
     await one.leave();
+  });
+
+  test("whoever stands at a caixa is said to be there, within a second or so, and nobody else is: the API banks on the zone's word", async () => {
+    const near = await player();
+    const far = await player();
+    const a = await phone(near.token);
+    const b = await phone(far.token, PROTOCOL_VERSION, "conversa");
+    let said: string | null = null;
+    await until(() => {
+      void presence.marked(near.id).then((what) => void (said = what));
+      return said === "caixa";
+    });
+    expect(await presence.marked(far.id)).toBeNull();
+    await a.leave();
+    await b.leave();
   });
 
   // What staff do in the Estúdio is carried out here (Task 3.8): the zone asks every few seconds.

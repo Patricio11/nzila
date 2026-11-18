@@ -59,6 +59,8 @@ export const ZONE_SAYS_EVERY_S = 3;
 export const SEAT_TTL_S = 30;
 /** A player whose line dropped keeps their place this long. */
 export const HELD_TTL_S = 60;
+/** That a player is at a place where something may be done (a caixa) is believed this long after the zone last said so. */
+export const AT_TTL_S = 6;
 /** Where a player stood is kept this long after it was last written: a day. */
 export const PLACE_TTL_S = 86_400;
 
@@ -81,5 +83,12 @@ export interface Presence {
   stand(playerId: string, at: Standing): Promise<void>;
   standing(playerId: string): Promise<Standing | null>;
   forget(playerId: string): Promise<void>;
+  /**
+   * The zone says a player is standing at a place where something may be done ("caixa"), and the API reads it
+   * before it records what is done there: the zone decides where a player is, never the phone. Believed for a few
+   * seconds; said again while they stand there.
+   */
+  mark(playerId: string, what: string): Promise<void>;
+  marked(playerId: string): Promise<string | null>;
   close(): Promise<void>;
 }

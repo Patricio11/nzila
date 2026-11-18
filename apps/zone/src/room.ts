@@ -14,7 +14,7 @@ import { EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClie
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
-import { type District } from "./district.ts";
+import { CAIXA_REACH_MM, type District } from "./district.ts";
 import { Talk, reached } from "./talk.ts";
 
 /** How many people one channel holds when nobody says otherwise (the tunable `channels.cap`; held by the swarm of 3.7). */
@@ -37,6 +37,8 @@ export const STRIKES = 5;
 export const HOLD_MS = 60_000;
 /** A gesture a second, at the most, is passed on. */
 const GESTURE_GAP_MS = 1000;
+const STEPS_A_LOOK = 5;
+const MARK_EVERY_MS = 1000;
 /**
  * A greeting is answered when the other greets within this long, standing within this far. Long enough to type
  * "Tudo bem, e tu?" with one thumb. The wave is the first of the gestures.
@@ -88,6 +90,8 @@ interface Held {
   /** When they last waved, and whom they have met in this stay (by entity): two people meet once. */
   wavedAt: number;
   readonly met: Set<number>;
+  /** When they were last said to be standing at a caixa. */
+  markedAt: number;
 }
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
@@ -276,7 +280,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0 });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -300,7 +304,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set() });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0 });
     this.lineOfEntity.set(entityId, line);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
@@ -518,6 +522,18 @@ export class ChannelRoom {
       void this.writeDown();
       void this.heed();
       if (tick % STEPS_A_CHECKPOINT === 0 && this.talk) void this.reread();
+    }
+    // Whoever stands at a caixa is said to be there, so that the API will bank for them (Task 4.1): looked for four
+    // times a second, so that someone who has just walked up is not told to come closer, and said once a second.
+    if (tick % STEPS_A_LOOK === 0 && this.presence && (this.district.caixas?.length ?? 0) > 0) {
+      const now = Date.now();
+      for (const held of this.held.values()) {
+        if (now - held.markedAt < MARK_EVERY_MS) continue;
+        const at = this.channel.placeOf(held.entityId);
+        if (!at || !this.district.caixas!.some((caixa) => Math.hypot(caixa.x - at.x, caixa.z - at.z) <= CAIXA_REACH_MM)) continue;
+        held.markedAt = now;
+        void this.presence.mark(held.playerId, "caixa").catch(() => {});
+      }
     }
     // Where each player stands is written down once every five seconds, and where it lasts once every thirty: each
     // in a step of their own, not all eighty in one: no step carries the whole channel's writing (finding F-182).

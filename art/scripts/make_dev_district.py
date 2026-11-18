@@ -408,6 +408,12 @@ for cx in range(ACROSS):
                 px, pz = ox + rng.uniform(6, 58), oz + hi + rng.uniform(5, 9)
                 block(px, pz, kit.parasol(b, px, pz, rng, KERB))
 
+# A caixa (cash machine) a few steps from where people arrive, facing south, and the place in front of it (Task 4.1).
+_cx, _cy, _cz = places["corners"][3]
+b.level = kit.BOTH
+kit.caixa(b, _cx + 2.4, _cz - 1.2, 0.0, KERB)
+places["caixa"] = [round(_cx + 2.4, 2), KERB, round(_cz - 0.2, 2)]
+
 # Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
 # a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
 def _flag_at(ix, iz):
@@ -464,6 +470,7 @@ layout = {
     "spawn": places["corners"][3],
     "corners": places["corners"],
     "paragens": places["paragens"],
+    "caixa": places["caixa"],
     "seats": [{"pos": [round(x, 2), round(y, 2), round(z, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for x, y, z, yaw in b.seats],
     # The bay: from the foot of the sea wall out past the edge of what is modelled.
     "water": {"rect": [-300, sea_wall + 0.6, ACROSS * CHUNK + 300, DOWN * CHUNK + 400], "level": -0.45},
