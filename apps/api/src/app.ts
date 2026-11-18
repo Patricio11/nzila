@@ -5,8 +5,8 @@
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId } from "@nzila/economy";
-import { buy, giveThings, heldBy, receiptsOf, useOne } from "@nzila/db";
-import { BASE_CATALOGUE, BASE_SHOPS, priceBasket, unitsCarried } from "@nzila/economy";
+import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take, useOne } from "@nzila/db";
+import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
 import { lastGift, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
@@ -584,6 +584,7 @@ export function buildApp(deps: Deps): FastifyInstance {
   // ------------------------------------------------------------ things (Tasks 4.2 and 4.3)
   const catalogue = BASE_CATALOGUE;
   const shops = BASE_SHOPS;
+  const recados = BASE_RECADOS;
   const fits = (more: number) => (held: readonly { item: string; quantity: number }[]): boolean => unitsCarried(catalogue, held) + more <= catalogue.carryUnits;
   const keyShape = z.string().regex(/^[A-Za-z0-9_-]{8,40}$/);
   const itemShape = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/);
@@ -613,7 +614,7 @@ export function buildApp(deps: Deps): FastifyInstance {
         units: unitsCarried(catalogue, held),
         carryUnits: catalogue.carryUnits,
         receipts: await receiptsOf(deps.sql, caller.player.id, 10),
-        shop: at && stock ? { id: at, stock: stock.map((line) => ({ item: line.item, price: line.price })) } : null,
+        shop: at && stock ? { id: at, stock: stock.map((line) => ({ item: line.item, price: line.price })), card: { stamps: Math.min(new Set(await cardDays(deps.sql, caller.player.id, at)).size, recados.cartao.stamps), of: recados.cartao.stamps, gift: recados.cartao.gift } } : null,
         // What the Carteira holds now: the gold button says whether it is enough.
         ...(await walletOf(deps.sql, caller.player.id)),
       };
@@ -634,9 +635,18 @@ export function buildApp(deps: Deps): FastifyInstance {
       // The kind of shop is the first word of the place's name in the pack: "cantina-largo" is a cantina.
       const priced = priceBasket(shops, catalogue, body.shop.split("-")[0]!, body.lines);
       if (!priced.ok) throw new Refusal(400, priced.error);
+      // The card before this purchase: the days stamped since the last full one.
+      const days = await cardDays(deps.sql, caller.player.id, body.shop);
       const bought = await buy(deps.sql, { playerId: caller.player.id, shop: body.shop, key: body.key, lines: priced.lines, total: priced.total }, fits(priced.units));
       if (!bought.ok) throw new Refusal(409, bought.error === "insufficient_funds" ? "insufficient" : bought.error === "too_heavy" ? "too_heavy" : "invalid");
-      return { receipt: bought.receipt, ...(await walletOf(deps.sql, caller.player.id)), items: await heldBy(deps.sql, caller.player.id) };
+      const card = stampsOf(recados, days, dayOf(Date.now()));
+      let gift: string | null = null;
+      if (!bought.replay && card.fills) {
+        // Seven days' stamps: the card is full, the gift is the dona's, and a new card begins.
+        await fillCard(deps.sql, caller.player.id, body.shop);
+        if (await giveGift(deps.sql, caller.player.id, recados.cartao.gift, fits(catalogue.items.get(recados.cartao.gift)?.size ?? 0))) gift = recados.cartao.gift;
+      }
+      return { receipt: bought.receipt, ...(await walletOf(deps.sql, caller.player.id)), items: await heldBy(deps.sql, caller.player.id), card: { stamps: card.stamps, of: recados.cartao.stamps, filled: !bought.replay && card.fills, gift } };
     },
   });
 
@@ -670,7 +680,113 @@ export function buildApp(deps: Deps): FastifyInstance {
       if (!catalogue.items.has(body.item)) throw new Refusal(400, "invalid");
       const given = await giveThings(deps.sql, caller.player.id, to, body.item, body.quantity, fits(0));
       if (given !== "ok") throw new Refusal(409, given === "none" ? "none" : "too_heavy");
-      return { items: await heldBy(deps.sql, caller.player.id) };
+      // The errand for two (a gasosa shared): paid once a day to the one who gave, and a little to the one given
+      // it; never between two accounts of the same phone.
+      let aDois = false;
+      if (body.item === recados.aDois.item && !(await samePhone(deps.sql, caller.player.id, to))) {
+        const day = dayOf(Date.now());
+        const districtId = (await presence.standing(caller.player.id))?.districtId ?? null;
+        aDois = (await markDone(deps.sql, { playerId: caller.player.id, day, n: 8, kind: "adois", pay: recados.aDois.pay, districtId })) === "ok";
+        if (aDois) await markDone(deps.sql, { playerId: to, day, n: 7, kind: "recebeu", pay: recados.aDois.received, districtId });
+      }
+      return { items: await heldBy(deps.sql, caller.player.id), aDois };
+    },
+  });
+
+  // ------------------------------------------------------------ os recados do dia (the founder, 2026-11-18)
+  /** Monday and Sunday of the week a day is in. */
+  const weekBounds = (day: string): [string, string] => {
+    const date = new Date(`${day}T00:00:00Z`);
+    const monday = new Date(date.getTime() - ((date.getUTCDay() + 6) % 7) * 86_400_000);
+    return [monday.toISOString().slice(0, 10), new Date(monday.getTime() + 6 * 86_400_000).toISOString().slice(0, 10)];
+  };
+
+  // Today's errands and what else the day holds: the family's money, the errand for two, whether the light goes
+  // tonight in the bairro, and how its festa is coming on. The errands follow by rule; only what is done is read.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/recados",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async (_body, caller) => {
+      const day = dayOf(Date.now());
+      const done = await doneOn(deps.sql, caller.player.id, day);
+      const has = (n: number): boolean => done.some((one) => one.n === n);
+      const districtId = (await presence.standing(caller.player.id))?.districtId ?? null;
+      const origin = await originOfPlayer(deps.sql, origins, caller.player.id);
+      const [from, to] = weekBounds(day);
+      return {
+        day,
+        recados: recadosFor(recados, caller.player.id, day).map((one) => ({ ...one, done: has(one.n) })),
+        next: payFor(recados, done.filter((one) => one.n <= 2).length),
+        aDois: { item: recados.aDois.item, pay: recados.aDois.pay, done: has(8) },
+        familia: { amount: origin ? recados.familia[origin.tier] : 0, done: has(9), mae: origin?.mae ?? null },
+        apagao: districtId ? apagaoOn(recados, day, districtId) : false,
+        apagaoHoras: [recados.apagao.fromGameS, recados.apagao.toGameS],
+        festa: { week: weekOf(day), done: districtId ? await doneInDistrict(deps.sql, districtId, from, to) : 0, goal: recados.festa.goal },
+      };
+    },
+  });
+
+  // An errand done. The zone's word on where the player stands, what the Mochila holds and what the books say
+  // decide it; it is paid once, from the neighbours' faucet, in the same transaction that writes it down.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/recados/feito",
+    guard: "player",
+    // `tentativa`: the phone asks by itself (after a deposit, after a meeting) whether the errand is done now; "not
+    // yet" is then an answer, not a refusal.
+    body: z.strictObject({ n: z.number().int().min(0).max(5), tentativa: z.boolean().optional() }),
+    perMinute: 30,
+    handler: async (body, caller) => {
+      const day = dayOf(Date.now());
+      const one = recadosFor(recados, caller.player.id, day).find((each) => each.n === body.n);
+      const notYet = (why: string): { done: false; why: string } => {
+        if (body.tentativa) return { done: false, why };
+        throw new Refusal(409, why);
+      };
+      if (!one) throw new Refusal(404, "not_found");
+      const done = await doneOn(deps.sql, caller.player.id, day);
+      if (done.some((each) => each.n === body.n)) throw new Refusal(409, "done");
+      const pay = payFor(recados, done.filter((each) => each.n <= 2).length);
+      const districtId = (await presence.standing(caller.player.id))?.districtId ?? null;
+      const at = async (): Promise<boolean> => {
+        const [index, count] = ((await presence.marked(caller.player.id, "lugar")) ?? "").split("/").map(Number);
+        return count !== undefined && Number.isInteger(index) && Number.isInteger(count) && placeOf(one.place ?? 0, count) === index;
+      };
+      let before: ((t: Sql) => Promise<boolean>) | undefined;
+      if (one.kind === "traz" || one.kind === "vaiver") {
+        if (!(await at())) throw new Refusal(409, "not_there");
+        // The thing goes from the Mochila with the errand, or stays with it.
+        if (one.kind === "traz") before = (t) => take(t, caller.player.id, one.item!, 1);
+      } else if (one.kind === "guarda") {
+        if ((await bankedOn(deps.sql, caller.player.id, day)) < (one.amount ?? 0)) return notYet("not_yet");
+      } else {
+        const met = ((await presence.marked(caller.player.id, "conheceu")) ?? "").split(",").filter((id) => id && id !== caller.player.id);
+        if ((await newcomersAmong(deps.sql, met, 3)).length === 0) return notYet("not_yet");
+      }
+      const result = await markDone(deps.sql, { playerId: caller.player.id, day, n: body.n, kind: one.kind, pay, districtId }, before);
+      if (result === "done") throw new Refusal(409, "done");
+      if (result === "none") throw new Refusal(409, "none");
+      return { done: true, pay, ...(await walletOf(deps.sql, caller.player.id)) };
+    },
+  });
+
+  // The family's money for the taxi, once a day: what a family gives depends on how it lives.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/familia",
+    guard: "player",
+    body: nothing,
+    perMinute: 10,
+    handler: async (_body, caller) => {
+      const origin = await originOfPlayer(deps.sql, origins, caller.player.id);
+      if (!origin) throw new Refusal(409, "no_family");
+      const amount = recados.familia[origin.tier];
+      const result = await markDone(deps.sql, { playerId: caller.player.id, day: dayOf(Date.now()), n: 9, kind: "familia", pay: amount });
+      if (result === "done") throw new Refusal(409, "done");
+      return { amount, ...(await walletOf(deps.sql, caller.player.id)) };
     },
   });
 

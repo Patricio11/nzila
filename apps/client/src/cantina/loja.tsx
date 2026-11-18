@@ -8,12 +8,17 @@
 // machine. The phone proposes the basket; the zone says the player is at the grille; the server prices it.
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
+import { ptAOLater } from "@nzila/i18n/later";
 import { Button, EmptyState, Receipt, SpeechBalloon } from "@nzila/ui";
 import { type ComponentChildren } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { account, buyThings, thingsNow, useThing, type BuySaid, type Bought, type Held, type Things } from "../world/account.ts";
+import { account } from "../world/account.ts";
+import { buyThings, thingsNow, useThing, type BuySaid, type Bought, type Held, type Things } from "../world/money.ts";
 import { Coisa } from "./coisas.tsx";
 import "./cantina.css";
+
+// The words of this sheet came with it (F-195).
+tr.extend(ptAOLater);
 
 /** The most of one thing in one purchase; the server says the same (packages/economy, MOST_OF_ONE). */
 const MOST_OF_ONE = 20;
@@ -82,6 +87,8 @@ export function Cantina({ shop, second, place, onClose }: { shop: { id: string; 
   const hello = tr.t(hour < 12 ? "cantina.hello.dia" : hour < 19 ? "cantina.hello.tarde" : "cantina.hello.noite");
   const [chat] = useState(() => tr.t(`cantina.chat.${pick(CHATS)}` as "cantina.chat.0"));
   const [thanks, setThanks] = useState(0);
+  // The cantina's card: a stamp for each day of buying here; the seventh, and the bread is the dona's.
+  const [stamps, setStamps] = useState<{ stamps: number; of: number; filled: boolean } | null>(null);
 
   // The shelves, from the server: asked again a moment later when the zone has not yet said the player is here.
   useEffect(() => {
@@ -90,7 +97,10 @@ export function Cantina({ shop, second, place, onClose }: { shop: { id: string; 
       for (let tries = 0; tries < 4 && alive; tries++) {
         const now = await thingsNow();
         if (!alive) return;
-        if (now?.shop?.id === shop.id) return setThings(now);
+        if (now?.shop?.id === shop.id) {
+          if (now.shop.card) setStamps({ stamps: now.shop.card.stamps, of: now.shop.card.of, filled: false });
+          return setThings(now);
+        }
         if (!now) break;
         await new Promise((done) => setTimeout(done, 700));
       }
@@ -125,6 +135,7 @@ export function Cantina({ shop, second, place, onClose }: { shop: { id: string; 
     if (answer.said !== "ok" || !answer.receipt) return setSaid(answer.said);
     setReceipt(answer.receipt);
     setThanks(pick(THANKS));
+    if (answer.card) setStamps({ stamps: answer.card.stamps, of: answer.card.of, filled: answer.card.filled });
     setBasket(new Map());
     if (things && answer.items) setThings({ ...things, items: answer.items, units: unitsOf(things.about, answer.items.map((one) => [one.item, one.quantity] as const)) });
   };
@@ -137,8 +148,18 @@ export function Cantina({ shop, second, place, onClose }: { shop: { id: string; 
           <span>{shop.name}</span>
         </h2>
         <div class="ct-grille">
-          <SpeechBalloon text={receipt ? tr.t(`cantina.thanks.${thanks}` as "cantina.thanks.0") : far ? tr.t("cantina.far") : things ? `${hello} ${chat}` : tr.t("cantina.reading")} />
+          <SpeechBalloon text={receipt ? (stamps?.filled ? tr.t("cantina.cartao.cheio") : tr.t(`cantina.thanks.${thanks}` as "cantina.thanks.0")) : far ? tr.t("cantina.far") : things ? `${hello} ${chat}` : tr.t("cantina.reading")} />
         </div>
+        {stamps ? (
+          <div class="ct-card" aria-label={tr.t("cantina.cartao.diz", { stamps: stamps.filled ? stamps.of : stamps.stamps, of: stamps.of })}>
+            <span class="ct-card-name">{tr.t("cantina.cartao")}</span>
+            <span class="ct-card-stamps" aria-hidden="true">
+              {Array.from({ length: stamps.of }, (_, n) => (
+                <i key={n} class={n < stamps.stamps ? (n === stamps.stamps - 1 && receipt ? "ct-stamp ct-stamp-new" : "ct-stamp") : ""} />
+              ))}
+            </span>
+          </div>
+        ) : null}
       </header>
       {receipt ? (
         <div class="ct-printed">

@@ -28,8 +28,9 @@ export interface CharacterParams {
 
 export const DEFAULT_CHARACTER: CharacterParams = {
   radiusMm: 300,
-  walkMmPerS: 1500,
-  runMmPerS: 4200,
+  // A brisk walk and a good run: a real person's 1,5 m/s felt slow in the street (the founder, 2026-11-18).
+  walkMmPerS: 2300,
+  runMmPerS: 5200,
   stepUpMm: 350,
   maxDropMm: 1000,
   jumpSteps: 12,

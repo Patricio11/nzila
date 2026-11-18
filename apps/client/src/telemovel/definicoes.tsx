@@ -6,6 +6,10 @@ import { Choice, DataMeter, Pano, Swatches, Toggle } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { PANOS } from "../world/pano.ts";
 import { type WorldProvider } from "../world/provider.ts";
+import { ptAOLater } from "@nzila/i18n/later";
+
+// The words of this app came with it (F-195).
+tr.extend(ptAOLater);
 
 /** The token each pano's ground is painted with. */
 const PANO_TOKEN = { vermelho: "vermelho", azul: "azul", preto: "noite-2", dourado: "dourado" } as const;

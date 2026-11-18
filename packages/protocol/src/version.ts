@@ -9,10 +9,11 @@
 // every client ever shipped can send the first and read the second.
 
 /** The version this build speaks. */
-export const PROTOCOL_VERSION = 1;
+// 2 (2026-11-18): a look on the wire names each thing by its own number (WIRE_IDS), not its place in a list.
+export const PROTOCOL_VERSION = 2;
 
 /** The oldest client version the zone still accepts. */
-export const MIN_CLIENT_VERSION = 1;
+export const MIN_CLIENT_VERSION = 2;
 
 export type VersionVerdict = "ok" | "client_too_old" | "client_too_new";
 

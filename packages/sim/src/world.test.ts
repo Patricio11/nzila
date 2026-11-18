@@ -48,7 +48,8 @@ describe("a step", () => {
     addVehicle(world, 3, "car", van(20_000, 20_000));
     stepWorld(world, map, { moves: new Map([[1, { dx: 0, dz: 127, run: false }]]) });
     expect(world.tick).toBe(1);
-    expect(world.characters[0]!.state.z).toBe(5075);
+    // A walk's step: 2,3 m a second, twenty steps a second.
+    expect(world.characters[0]!.state.z).toBe(5115);
     expect(world.characters[1]!.state).toEqual(person(8000, 5000));
     expect(world.vehicles[0]!.state).toEqual(van(20_000, 20_000));
     stepWorld(world, map);
@@ -86,7 +87,7 @@ describe("a step", () => {
     addCharacter(world, 2, person(5000, 6000));
     const moves = new Map([[1, { dx: 0, dz: 127, run: false }]]);
     for (let i = 0; i < 40; i++) stepWorld(world, map, { moves });
-    expect(world.characters[0]!.state.z).toBe(8000);
+    expect(world.characters[0]!.state.z).toBe(5000 + 40 * 115);
   });
 });
 

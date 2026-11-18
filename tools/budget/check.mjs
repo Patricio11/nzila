@@ -24,7 +24,7 @@ const SHELL_BUDGET_BYTES = 300 * 1024;
 const ON_DEMAND_BUDGET_BYTES = 20 * 1024;
 // What is opened later: the apps of the Telemóvel, each its own file, the sheet of someone tapped, and the cantina's
 // grille with the Mochila. The shell that lists them is part of the way in.
-const ON_DEMAND = /src\/(telemovel\/(?!telemovel\.tsx$)[\w-]+|conversa\/sheet|cantina\/loja)\.tsx$/;
+const ON_DEMAND = /src\/(telemovel\/(?!telemovel\.tsx$)[\w-]+|conversa\/sheet|cantina\/loja|recados\/rua)\.tsx?$/;
 const root = process.cwd();
 const dist = join(root, "apps", "client", "dist");
 const counted = new Set([".html", ".css", ".js", ".woff2"]);
@@ -50,6 +50,10 @@ if (!existsSync(dist)) {
 // nothing on the way in reaches it except through one of the apps.
 const onDemand = new Map();
 const manifestPath = join(dist, ".vite", "manifest.json");
+// The team's pages, by where their source is: the styleguide, the bench, the scenes and the body pages (/corpo, /pose).
+const TEAM_PAGES = /src\/(styleguide|bench|cena|corpo)\//;
+/** Every file a player's pages reach, the on-demand ones included; null when the build kept no account of it. */
+let playerFiles = null;
 if (existsSync(manifestPath)) {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const filesOf = (key) => [manifest[key].file, ...(manifest[key].css ?? [])];
@@ -64,7 +68,9 @@ if (existsSync(manifestPath)) {
     return seen;
   };
   const entries = Object.keys(manifest).filter((key) => manifest[key].isEntry);
-  const wayInKeys = reach(entries, (key) => ON_DEMAND.test(key));
+  // The team's own pages are reached from the same entry, and a player never opens them: nor anything that only they use.
+  const wayInKeys = reach(entries, (key) => ON_DEMAND.test(key) || TEAM_PAGES.test(key));
+  playerFiles = new Set([...reach(entries, (key) => TEAM_PAGES.test(key))].flatMap(filesOf));
   const wayIn = new Set([...wayInKeys].flatMap(filesOf));
   // What each app brings that the way in did not: itself and whatever it alone imports outright.
   const alone = (app) => {
@@ -95,7 +101,7 @@ for (const file of walk(dist)) {
     const app = onDemand.get(file);
     later.set(app, (later.get(app) ?? 0) + size);
     console.log("  " + kb(size).padStart(7) + " KB  " + name + `  (on demand: ${app})`);
-  } else if (teamOnly.test(name)) {
+  } else if (teamOnly.test(name) || (playerFiles && /^assets[\\/]/.test(name) && !name.endsWith(".woff2") && !playerFiles.has(name.replaceAll("\\", "/")))) {
     team += size;
     console.log("  " + kb(size).padStart(7) + " KB  " + name + "  (team page, not counted)");
   } else {

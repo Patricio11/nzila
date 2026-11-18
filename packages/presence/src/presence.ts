@@ -88,7 +88,7 @@ export interface Presence {
    * the zone decides where a player is, never the phone. "caixa": they are at one. "com": the players standing
    * with them, as ids with commas between. Believed for a few seconds; said again while it is so.
    */
-  mark(playerId: string, kind: string, value?: string): Promise<void>;
+  mark(playerId: string, kind: string, value?: string, ttlS?: number): Promise<void>;
   marked(playerId: string, kind: string): Promise<string | null>;
   close(): Promise<void>;
 }

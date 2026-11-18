@@ -17,6 +17,8 @@ export interface CrowdActor {
   readonly offset: number;
   /** Height of the feet, when it is not the ground's (someone on a bench). */
   readonly y?: number;
+  /** Only there on the night of the bairro's festa (os recados do dia): dancing on the Largo, or clapping round. */
+  readonly festa?: boolean;
   readonly keys: readonly CrowdKey[];
 }
 

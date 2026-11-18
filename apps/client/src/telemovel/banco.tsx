@@ -3,11 +3,17 @@
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { Button, Choice, Receipt } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
-import { account, bankMove, walletNow, type WalletLine } from "../world/account.ts";
+import { account } from "../world/account.ts";
+import { bankMove, walletNow, type WalletLine } from "../world/money.ts";
 import { type WorldProvider } from "../world/provider.ts";
+import { tentar, today } from "../recados/recados.ts";
+import { ptAOLater } from "@nzila/i18n/later";
+
+// The words of this app came with it (F-195).
+tr.extend(ptAOLater);
 
 /** What a movement is called. One the game does not have a word for yet is a "Movimento". */
-const REASONS = ["grant", "bank_in", "bank_out", "purchase", "p2p"] as const;
+const REASONS = ["grant", "bank_in", "bank_out", "purchase", "p2p", "errand", "family"] as const;
 const reasonOf = (reason: string): string => tr.t(`bank.reason.${REASONS.find((one) => one === reason) ?? "other"}`);
 const day = (iso: string): string => new Date(iso).toLocaleString("pt-AO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -48,6 +54,11 @@ export function Banco({ world }: { world: WorldProvider }) {
     if (answer !== "ok") return;
     setAmount("");
     await read();
+    // Today's errand may have been to put money in the bank: said done, when it is.
+    if (way === "deposit") {
+      const errand = (await today(true))?.recados.find((one) => one.kind === "guarda" && !one.done);
+      if (errand) void tentar(errand.n);
+    }
   };
   if (shown) {
     return (

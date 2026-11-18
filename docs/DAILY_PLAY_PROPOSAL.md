@@ -1,6 +1,6 @@
 # What brings a player back tomorrow: a proposal
 
-For the founder, 2026-11-18. Asked: "daily missions, really fun and great, that will keep the user coming back". Nothing here is decided. Each part says what it needs that is not built yet, and the questions at the end are the founder's to answer.
+For the founder, 2026-11-18. Asked: "daily missions, really fun and great, that will keep the user coming back". **The founder approved all of it the same day ("I love it, build them all"); what is built is Task 4.6b in `ROADMAP.md`.** Each part below says what it needs that is not built yet.
 
 ## The rule this has to keep
 

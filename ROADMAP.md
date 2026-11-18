@@ -413,6 +413,16 @@ flowchart LR
 - [ ] `docs/ECONOMY.md`.
 - Depends on: 0.3, 3.8, 4.1 · Unblocks: 12.4.
 
+### Task 4.6b: Os recados do dia (the founder, 2026-11-18: "I love it, build them all")
+*What brings a player back tomorrow, as `docs/DAILY_PLAY_PROPOSAL.md` sets it out: errands the bairro asks, not boxes to tick.*
+- [x] **Os recados do dia.** Three a day from the people of the bairro, by message in Mensagens; each done in the street in under three minutes (bring a thing from the cantina, go and see, put money in the bank, greet a newcomer). They follow by rule from the player and the date (`packages/economy/src/recados.ts`); the zone says which of the district's places a player stands at and whom they have met; the API pays from the faucet of errands, once each, less for each after the first. In the street: a gold mark on the compass for each, the neighbour waiting at the place on open ground and turning to whoever comes, and the gold button ("Entregar", "Procurar") once the thing asked for is carried. *(2026-11-18.)*
+- [x] **The family's money for the taxi**, once a day, as much as the family can, by message in Mensagens. *(2026-11-18; the plate of food at home comes with the house, Phase 5.)*
+- [x] **O cartão da casa** at the cantina: a stamp for each day of buying there; on the seventh, a pão on the dona, in the Mochila. *(2026-11-18.)*
+- [x] **A missão a dois**: a gasosa given to someone beside you pays both, once a day; never between two accounts of one phone. *(2026-11-18. Riding together and a game for two join it with their tasks.)*
+- [x] **Hoje na banda**: on some evenings the light goes in the bairro (the same evenings for everyone in it); a player carrying velas walks in a candle's glow. *(2026-11-18.)*
+- [ ] **A festa do bairro**: the errands done in a bairro in a week count toward its festa; when they reach the goal, on the Saturday evening the Largo fills with people dancing kuduro and others clapping round (built 2026-11-18). Not ticked: the music (D-0.18: from real people, licensed; the founder asked on 2026-11-18 for old kuduro, semba and kizomba, which are still protected), and the photograph of everyone who helped (the Álbum, 10.10).
+- Depends on: 4.1, 4.2, 4.3 · Unblocks: 4B (the alpha measures what brings people back).
+
 ### Task 4.7: Wiring, verification, doc convention
 - [ ] Invariants: the ledger sums to zero after a 10 000-transfer fuzz; a replayed purchase charges once; no Makuta literal in code.
 - [ ] A new player's first hour is written out with its expected earnings and costs and checked against a played session.
@@ -444,6 +454,8 @@ The phases below keep their numbers and their tasks. **The order they are built 
 - [ ] Played for the table's ranking (and for Respeito from 10.10). A table is opened either "a brincar" (no stake) or with a Makuta stake everyone sees before sitting (D-0.32). Stakes go to escrow at the first move and are settled by the server; a small cut goes to a sink; per-game and per-day caps in tunables, shared with the transfer cap of 4.1. A player in the 15 to 17 band sees and joins only tables without a stake. A player who leaves a staked game forfeits to the others, so leaving cannot be used to cancel a loss.
 - [ ] Watched in the Estúdio: pairs of accounts that only ever lose to each other (stakes used to pass Makuta).
 - [ ] The table framework is general (seats, turns, spectators, reconnect in the middle of a game) so damas and sueca in 10.11 are rules and a board, not new plumbing.
+- [ ] **Each game its own table and its own rules, done well (the founder, 2026-11-18: "the tables were all the same for dama and xadrez").** Damas played with caricas on a board painted on the table, as in the street; xadrez with its pieces; Não te irrites on its coloured board; the rules of damas as played in Angola (the founder confirms which). Xadrez and damas join Não te irrites here rather than waiting for 10.11.
+- [ ] **Inviting someone to play (the founder, 2026-11-18).** On a player's sheet, "Convidar para jogar": the game, and the table (the nearest free one, or one the player names); the other is asked plainly and accepts or not; both are shown the way and the seats are held for ten minutes, then let go. A kamba who is elsewhere is invited by message in Mensagens, with the way there, and the trip when the table is in another bairro (the candongueiro, a taxi). A player may also open a table and wait for whoever comes, and later a small tournament of the bairro on the Largo's board. Blocking someone stops their invitations; invitations are limited per hour; one to a house only between kambas; a player under 18 sees only tables without a stake.
 - Depends on: 3.3, 3.5 · Unblocks: 10.11.
 
 ### Task 4B.2: Kambas, brought forward
@@ -481,6 +493,7 @@ The phases below keep their numbers and their tasks. **The order they are built 
 - [ ] Residential buildings in the pack hold many units; a unit's interior is its own small instance from a layout template (quarto, T1, T2, vivenda). The address is building and number, the same in every channel.
 - [ ] **Houses on plots (founder, 2026-11-14: most of Angola lives in houses).** A casa de chapa, a casa de bloco or a vivenda stands on its own plot with a wall or fence, a gate and a quintal; the quintal is part of the home, open to the sky and to the street's sound. The first rung of the ladder is a room or a casa de chapa, not a flat.
 - [ ] **Three ways to be inside (D-0.41).** Through the door at eye level, with no loading screen where the budget allows and the street visible through the window; the cut-away from above (roof off, near walls low) for furnishing and for seeing a whole gathering; and seated, through the player's own eyes, from any seat, bed or window. One button changes between them and the game remembers the choice per home.
+- [ ] **Doors that are doors (founder, 2026-11-18: "open and close the door, the door handle, pay attention to details").** Every door of a home, a gate of a quintal and a shop's door opens and closes on its hinges, swung by a hand on its handle (the hand reaches, the handle turns, the door follows), and stays as it was left; a door is solid when shut and nobody walks through it; a locked one rattles. Everyone near sees it open and close (the zone decides, D-0.43: a forced door is the alarm). The cantina's barred gate (`kit.cantina`) is the first to be given hinges.
 - Depends on: 4.1 · Unblocks: 5.2 to 5.5, 8.1.
 
 - [ ] **The family gives the house (founder, 2026-11-17, D-3.13).** With the card of origin comes a house in the family's bairro, empty, of a kind that depends on the family: a room, a casa de chapa, a casa de bloco, and for the very few a vivenda (in tunables, beside the families). It costs nothing and cannot be lost; furnishing it is the player's first long want.
@@ -704,6 +717,7 @@ The phases below keep their numbers and their tasks. **The order they are built 
 - [ ] Branches in the world with invented names (two rival banks with different looks and slightly different terms); a queue ticket, a counter, a manager NPC.
 - [ ] Poupança: a savings account that locks Makuta for a chosen time and pays a little, funded from a sink so it does not print money.
 - [ ] Crédito: a loan against collateral (a vehicle, stock, a lease), with a clear schedule shown before signing. Missed payments take the collateral after notices, never more. Limits grow with a clean record and close with a fresh ficha.
+- [ ] **When the game is at fault, the player never pays for it (from the leading game's players, 2026-11-18, `MARKET_NOTES.md` §1f: a business that could not be managed, and a bank loan behind it).** A loan's payments pause while what it paid for cannot run because of a fault of the game; Makuta lost to such a fault is given back through the books by support (the tool of F-15), with a line in the statement saying why; and every business can always be managed, from the Negócio app and at its place.
 - [ ] Insurance (7.5) moves here as a product.
 - Depends on: 4.1, 7.5, 8.5 · Unblocks: 8B.5.
 

@@ -102,12 +102,13 @@ describe("on foot", () => {
       stepCharacter(drunk, swayMove({ dx: 0, dz: 127, run: false }, 900, tick, 5), ground, []);
       farthest = Math.max(farthest, Math.abs(drunk.x));
     }
-    expect(sober).toMatchObject({ x: 0, z: 31_000 });
+    // Four hundred steps of a walk's 115 mm.
+    expect(sober).toMatchObject({ x: 0, z: 47_000 });
     // The drunk zig-zags metres to either side and gets less far down the street.
     expect(farthest).toBeGreaterThan(1500);
     expect(drunk.z).toBeLessThan(sober.z - 1000);
     expect(drunk.z).toBeGreaterThan(20_000);
-    expect([drunk.x, drunk.z]).toEqual([-1716, 29_286]);
+    expect([drunk.x, drunk.z]).toEqual([-2617, 44_469]);
   });
 });
 

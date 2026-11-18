@@ -12,7 +12,7 @@ import { Vector3, type Object3D } from "three";
 const at = new Vector3();
 import { type Seen } from "../net/others.ts";
 import { type Named } from "./names.ts";
-import { EMOTE_SECONDS, type Emote, type Person } from "./person.ts";
+import { EMOTE_SECONDS, strideOf, type Emote, type Person } from "./person.ts";
 import { FIRST_LOOK, dress } from "./wardrobe.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
@@ -132,7 +132,7 @@ export class Players {
       body.speed += (one.speed - body.speed) * Math.min(1, elapsedMs / 110);
       const flying = one.anim === DOING.air;
       body.air += ((flying ? 1 : 0) - body.air) * Math.min(1, elapsedMs / 120);
-      const strideM = (body.speed > 2.2 ? 2.5 : 1.42) * (person.height / 1.7) * (person.skirt ? 0.8 : 1);
+      const strideM = strideOf(body.speed, person.height, person.skirt);
       if (!flying) body.phase += ((body.speed * elapsedMs) / 1000 / strideM) * Math.PI * 2;
       // The zone turns a body at once; the picture turns it as a person turns.
       body.facing = body.facing === null ? one.facing : body.facing + Math.atan2(Math.sin(one.facing - body.facing), Math.cos(one.facing - body.facing)) * Math.min(1, elapsedMs / 90);

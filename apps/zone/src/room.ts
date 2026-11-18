@@ -18,7 +18,7 @@ import {
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
-import { CAIXA_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
+import { CAIXA_REACH_MM, MET_TTL_S, PLACE_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
 import { Talk, reached } from "./talk.ts";
 
 /** How many people one channel holds when nobody says otherwise (the tunable `channels.cap`; held by the swarm of 3.7). */
@@ -109,6 +109,9 @@ interface Held {
   withAt: number;
   nudgedAt: number;
   shopAt: number;
+  placeAt: number;
+  /** The players this one has met in this channel, by their ids: the API asks whether one of them is new. */
+  metPlayers: Set<string>;
 }
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
@@ -301,7 +304,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0 });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -325,7 +328,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0 });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set() });
     this.lineOfEntity.set(entityId, line);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
@@ -513,6 +516,11 @@ export class ChannelRoom {
       if (!there || Math.hypot(there.x - here.x, there.z - here.z) > GREETING_WITHIN_MM) continue;
       held.met.add(other.entityId);
       other.met.add(held.entityId);
+      // Said where the API can read it, for a while: "cumprimenta quem chegou" asks whether one was new.
+      held.metPlayers.add(other.playerId);
+      other.metPlayers.add(held.playerId);
+      void this.presence?.mark(held.playerId, "conheceu", [...held.metPlayers].slice(-20).join(","), MET_TTL_S).catch(() => {});
+      void this.presence?.mark(other.playerId, "conheceu", [...other.metPlayers].slice(-20).join(","), MET_TTL_S).catch(() => {});
       line.send(encodeEvent({ kind: EVENT.MET, tick, subject: held.entityId, args: [], text: "" }));
       this.lineOfEntity.get(held.entityId)?.send(encodeEvent({ kind: EVENT.MET, tick, subject: other.entityId, args: [], text: "" }));
     }
@@ -647,6 +655,20 @@ export class ChannelRoom {
         if (!shop) continue;
         held.shopAt = now;
         void this.presence.mark(held.playerId, "loja", shop.id).catch(() => {});
+      }
+    }
+    // And which of the district's places a player stands at, as "<its number>/<how many there are>": an errand at a
+    // place is done only where the zone says the player is (os recados do dia).
+    if (tick % STEPS_A_LOOK === 0 && this.presence && (this.district.places?.length ?? 0) > 0) {
+      const now = Date.now();
+      const places = this.district.places!;
+      for (const held of this.held.values()) {
+        if (now - held.placeAt < MARK_EVERY_MS) continue;
+        const at = this.channel.placeOf(held.entityId);
+        const index = at && !this.channel.ridingOf(held.entityId) ? places.findIndex((one) => Math.hypot(one.x - at.x, one.z - at.z) <= PLACE_REACH_MM) : -1;
+        if (index < 0) continue;
+        held.placeAt = now;
+        void this.presence.mark(held.playerId, "lugar", `${index}/${places.length}`).catch(() => {});
       }
     }
     // And whoever stands close to another is said to be with them, so that the API will let one hand the other

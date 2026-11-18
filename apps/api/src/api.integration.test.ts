@@ -1218,9 +1218,11 @@ describe("things, and the cantina (Tasks 4.2 and 4.3)", () => {
     await presence.mark(one.playerId, "loja", "cantina-largo");
     expect((await shopping(one.token, [{ item: "carro", quantity: 1 }], "nada-00001")).json()).toEqual({ error: "not_sold" });
     expect((await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: "pao", quantity: 1, price: 1 }], key: "preco-0001" })).statusCode).toBe(400);
-    // More than the Carteira holds: nothing paid, nothing carried.
-    const dear = Math.ceil(one.cash / 1800) + 1;
-    if (dear <= 20) expect((await shopping(one.token, [{ item: "oleo", quantity: dear }], "caro-00001")).json()).toEqual({ error: "insufficient" });
+    // More than the Carteira holds: nothing paid, nothing carried. (All but 100 Mk put in the bank first, whatever
+    // the family dealt, so that one bottle of oil is more than is held.)
+    await presence.mark(one.playerId, "caixa");
+    await post(one.token, "/v1/bank/deposit", { amount: one.cash - 100, key: "caro-banco-01" });
+    expect((await shopping(one.token, [{ item: "oleo", quantity: 1 }], "caro-00001")).json()).toEqual({ error: "insufficient" });
     // More than a Mochila holds: carvão is six units a bag.
     await presence.mark(one.playerId, "loja", "cantina-largo");
     expect((await shopping(one.token, [{ item: "carvao", quantity: 5 }], "pesado-001")).json()).toEqual({ error: "too_heavy" });
@@ -1239,7 +1241,8 @@ describe("things, and the cantina (Tasks 4.2 and 4.3)", () => {
     // A gasosa to someone beside you.
     expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ error: "not_together" });
     await presence.mark(one.playerId, "com", two.playerId);
-    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ items: [{ item: "gasosa", quantity: 1 }, { item: "arroz", quantity: 1 }] });
+    // (A gasosa given is the day's errand for two as well.)
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ items: [{ item: "gasosa", quantity: 1 }, { item: "arroz", quantity: 1 }], aDois: true });
     expect((await app.inject({ method: "GET", url: "/v1/me/items", headers: as(two.token) })).json()).toMatchObject({ items: [{ item: "gasosa", quantity: 1 }] });
     // More than is held, and something that is not a thing.
     expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 5 })).json()).toEqual({ error: "none" });
@@ -1247,5 +1250,117 @@ describe("things, and the cantina (Tasks 4.2 and 4.3)", () => {
     // Once the other has shut them out, nothing is given.
     await post(two.token, "/v1/blocks", { biNumber: one.biNumber });
     expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ error: "not_found" });
+  });
+});
+
+describe("os recados do dia, the family's money, the errand for two, the cantina's card", () => {
+  const post = (token: string, url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: as(token), payload });
+  const get = (token: string, url: string) => app.inject({ method: "GET", url, headers: as(token) });
+  const born = async (n: number) => {
+    const guest = await newGuest(n);
+    const cash = ((await post(guest.token, "/v1/me/origin", {})).json() as { wallet: { cash: number } }).wallet.cash;
+    await presence.stand(guest.playerId, { districtId: "lda/recados", x: 0, y: 0, z: 0, yaw: 0 });
+    return { ...guest, cash };
+  };
+  type Day = { day: string; recados: { n: number; kind: string; who: number; item?: string; place?: number; amount?: number; done: boolean }[]; next: number; aDois: { done: boolean; pay: number }; familia: { amount: number; done: boolean }; apagao: boolean; festa: { done: number; goal: number } };
+
+  test("three a day, each done only when it really is, paid once from the neighbours, less for each after the first; the festa counts them", async () => {
+    const one = await born(1400);
+    const day = (await get(one.token, "/v1/recados")).json() as Day;
+    expect(day.recados).toHaveLength(3);
+    expect(day.recados.every((each) => !each.done)).toBe(true);
+    expect(day.next).toBe(300);
+    expect(typeof day.apagao).toBe("boolean");
+    const festaBefore = day.festa.done;
+    let cash = one.cash;
+    let paid = 0;
+    for (const each of day.recados) {
+      if (each.kind === "traz" || each.kind === "vaiver") {
+        // Not at the place: refused. At it (the zone says so): done.
+        await presence.mark(one.playerId, "lugar", `${(each.place! + 1) % 10}/10`);
+        expect((await post(one.token, "/v1/recados/feito", { n: each.n })).json()).toEqual({ error: "not_there" });
+        await presence.mark(one.playerId, "lugar", `${each.place! % 10}/10`);
+        if (each.kind === "traz") {
+          // Without the thing in the Mochila, there is nothing to hand over.
+          expect((await post(one.token, "/v1/recados/feito", { n: each.n })).json()).toEqual({ error: "none" });
+          await presence.mark(one.playerId, "loja", "cantina-largo");
+          const bought = (await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: each.item, quantity: 1 }], key: `recado-${each.n}-0001` })).json() as { cash: number };
+          cash = bought.cash;
+          await presence.mark(one.playerId, "lugar", `${each.place! % 10}/10`);
+        }
+      } else if (each.kind === "guarda") {
+        expect((await post(one.token, "/v1/recados/feito", { n: each.n })).json()).toEqual({ error: "not_yet" });
+        // Asked by the phone itself, after a deposit that was not enough: an answer, not a refusal.
+        expect((await post(one.token, "/v1/recados/feito", { n: each.n, tentativa: true })).json()).toEqual({ done: false, why: "not_yet" });
+        await presence.mark(one.playerId, "caixa");
+        cash = ((await post(one.token, "/v1/bank/deposit", { amount: each.amount, key: `guarda-${each.n}-0001` })).json() as { cash: number }).cash;
+      } else {
+        expect((await post(one.token, "/v1/recados/feito", { n: each.n })).json()).toEqual({ error: "not_yet" });
+        // Met someone new to the bairro: done.
+        const newcomer = await born(1401);
+        await presence.mark(one.playerId, "conheceu", `${one.playerId},${newcomer.playerId}`, 600);
+      }
+      const done = await post(one.token, "/v1/recados/feito", { n: each.n });
+      expect(done.statusCode).toBe(200);
+      const said = done.json() as { pay: number; cash: number };
+      expect(said.pay).toBe([300, 250, 200][paid]);
+      expect(said.cash).toBe(cash + said.pay);
+      cash = said.cash;
+      paid += 1;
+      expect((await post(one.token, "/v1/recados/feito", { n: each.n })).json()).toEqual({ error: "done" });
+    }
+    const after = (await get(one.token, "/v1/recados")).json() as Day;
+    expect(after.recados.every((each) => each.done)).toBe(true);
+    expect(after.festa.done).toBe(festaBefore + 3);
+    expect((await post(one.token, "/v1/recados/feito", { n: 5 })).json()).toEqual({ error: "not_found" });
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+
+  test("the family gives for the taxi once a day, as much as it can", async () => {
+    const one = await born(1410);
+    const day = (await get(one.token, "/v1/recados")).json() as Day;
+    expect(day.familia.amount).toBeGreaterThan(0);
+    const given = (await post(one.token, "/v1/familia")).json() as { amount: number; cash: number };
+    expect(given).toMatchObject({ amount: day.familia.amount, cash: one.cash + day.familia.amount });
+    expect((await post(one.token, "/v1/familia")).json()).toEqual({ error: "done" });
+    expect(((await get(one.token, "/v1/recados")).json() as Day).familia.done).toBe(true);
+  });
+
+  test("a gasosa given to someone beside you is the errand for two: paid once a day to both", async () => {
+    const one = await born(1420);
+    const two = await born(1421);
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: "gasosa", quantity: 2 }], key: "adois-0001" });
+    const before = ((await get(two.token, "/v1/me/wallet")).json() as { cash: number }).cash;
+    await presence.mark(one.playerId, "com", two.playerId);
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toMatchObject({ aDois: true });
+    expect(((await get(two.token, "/v1/me/wallet")).json() as { cash: number }).cash).toBe(before + 100);
+    expect(((await get(one.token, "/v1/recados")).json() as Day).aDois.done).toBe(true);
+    // A second gasosa the same day is a kindness, and not paid for.
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toMatchObject({ aDois: false });
+  });
+
+  test("the cantina's card: a stamp a day, and on the seventh day the dona gives a loaf", async () => {
+    const one = await born(1430);
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    const first = (await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: "agua", quantity: 1 }], key: "cartao-0001" })).json() as { card: { stamps: number; filled: boolean }; receipt: { id: number } };
+    expect(first.card).toMatchObject({ stamps: 1, filled: false });
+    // Six days of buying there before today, as the receipts would have them.
+    const [receipt] = await sql<{ transfer_id: string }[]>`SELECT transfer_id FROM receipts WHERE id = ${first.receipt.id}`;
+    for (let d = 1; d <= 6; d++) await sql`INSERT INTO receipts (at, player_id, shop, lines, total, transfer_id, key) VALUES (now() - ${`${d} days`}::interval, ${one.playerId}, 'cantina-largo', '[]', 100, ${receipt!.transfer_id}, ${`passado-${d}`})`;
+    // Today again: no new stamp for a second purchase on a day.
+    const again = (await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: "agua", quantity: 1 }], key: "cartao-0002" })).json() as { card: { stamps: number; filled: boolean } };
+    expect(again.card).toMatchObject({ stamps: 7, filled: false });
+    // Without today's purchases, the card shows six; the purchase that makes the seventh day fills it.
+    await sql`DELETE FROM receipts WHERE player_id = ${one.playerId} AND at > now() - interval '12 hours'`;
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    const looked = (await get(one.token, "/v1/me/items")).json() as { shop: { card: { stamps: number; of: number } } };
+    expect(looked.shop.card).toMatchObject({ stamps: 6, of: 7 });
+    const seventh = (await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: "agua", quantity: 1 }], key: "cartao-0003" })).json() as { card: { stamps: number; filled: boolean; gift: string | null }; items: { item: string; quantity: number }[] };
+    expect(seventh.card).toEqual({ stamps: 7, of: 7, filled: true, gift: "pao" });
+    expect(seventh.items).toContainEqual({ item: "pao", quantity: 1 });
+    // A new card begins.
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    expect(((await get(one.token, "/v1/me/items")).json() as { shop: { card: { stamps: number } } }).shop.card.stamps).toBe(0);
   });
 });

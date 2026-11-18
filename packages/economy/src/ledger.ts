@@ -44,6 +44,8 @@ export const TRANSFER_REASONS = [
   "stake",
   "fee",
   "utilities",
+  "errand", // a neighbour paying for an errand done (os recados do dia)
+  "family", // the family's money for the taxi
 ] as const;
 export type TransferReason = (typeof TRANSFER_REASONS)[number];
 

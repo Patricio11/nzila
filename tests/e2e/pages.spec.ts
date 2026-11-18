@@ -776,8 +776,8 @@ test.describe("a person", () => {
     await page.goto("/andar?auto&tier=poupanca&hour=12");
     await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
     const start = await page.evaluate(() => window.__andar!.x);
-    // The scripted turn begins by walking east at a metre and a half a second.
-    await page.waitForFunction((from) => window.__andar!.x > from + 2, start, { timeout: 20_000 });
+    // The scripted turn begins by walking east (2,3 m a second).
+    await page.waitForFunction((from) => window.__andar!.x > from + 4, start, { timeout: 20_000 });
     // Every foot that came down asked for its sound.
     expect(await page.evaluate(() => window.__andar!.sounds)).toBeGreaterThan(2);
     const moving = await page.evaluate(() => window.__andar!);
@@ -935,7 +935,6 @@ test.describe("two phones in the same street", () => {
   test.afterEach(async () => {
     for (const left of seconds.splice(0)) await left.context().close().catch(() => {});
   });
-  /** A guest made by the API, kept on the phone as the door would have kept it. */
   /**
    * Taps another player standing in the street, as a person would: the view is turned a little while they are behind
    * the camera or under a button, the finger lands only on the street, and the sheet's code (fetched on the first
@@ -964,6 +963,7 @@ test.describe("two phones in the same street", () => {
     }
     return false;
   };
+  /** A guest made by the API, kept on the phone as the door would have kept it. */
   const comeIn = async (page: Page, n: number): Promise<string> => {
     const deviceId = `two-phones-${n}-${Date.now()}-abcdefgh`;
     const made = await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } });
@@ -1213,9 +1213,16 @@ test.describe("two phones in the same street", () => {
     }
     // A van stands at the paragem: both get on it.
     for (const one of [page, other]) await one.waitForFunction(() => window.__andar!.action === "board", undefined, { timeout: 260_000, polling: 200 });
-    await page.keyboard.press("e");
-    await other.keyboard.press("e");
-    for (const one of [page, other]) await one.waitForFunction(() => window.__andar!.riding !== null && window.__andar!.myRide !== null, undefined, { timeout: 10_000 });
+    // On, as anyone gets on: and if the zone said no (the van pulling away that instant, a seat just taken), again.
+    for (const one of [page, other]) {
+      let on = false;
+      for (let tries = 0; tries < 3 && !on; tries++) {
+        await one.keyboard.press("e");
+        on = await one.waitForFunction(() => window.__andar!.riding !== null && window.__andar!.myRide !== null, undefined, { timeout: 10_000 }).then(() => true, () => false);
+        if (!on) await one.waitForFunction(() => window.__andar!.action === "board", undefined, { timeout: 30_000 }).catch(() => {});
+      }
+      expect(on, `on the van (the zone said no ${await one.evaluate(() => window.__andar!.rideRefusals)} times)`).toBe(true);
+    }
     const [mine, theirs] = await Promise.all([page.evaluate(() => window.__andar!.myRide!), other.evaluate(() => window.__andar!.myRide!)]);
     // The same van, two seats.
     expect(mine.vehicle).toBe(theirs.vehicle);
@@ -1314,11 +1321,24 @@ test.describe("two phones in the same street", () => {
       const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
       return (await (await fetch("/api/v1/me/origin", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: "{}" })).json()) as { wallet: { cash: number } };
     });
-    const had = born.wallet.cash;
+    let had = born.wallet.cash;
     const dotted = (amount: number): string => String(amount).replace(/\B(?=(\d{3})+$)/g, ".");
     expect(had).toBeGreaterThanOrEqual(1500);
     // The town's caixa is a few steps from where people arrive: standing still there, the button offers it.
     await page.screenshot({ path: info.outputPath("caixa-rua.png") });
+    // Today's errand may be at the caixa itself: its button comes first, and when it is done the caixa's comes back.
+    await page.waitForFunction(() => ["caixa", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 });
+    if (await page.evaluate(() => window.__andar!.action !== "caixa")) {
+      await page.waitForTimeout(1200);
+      await page.keyboard.press("e");
+      await page.waitForFunction(() => window.__andar!.action === "caixa", undefined, { timeout: 15_000 });
+    }
+    // (The errand done before the bank was opened, if there was one: what it paid is in the Carteira too.)
+    const before = await page.evaluate(async () => {
+      const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+      return ((await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cash: number }).cash;
+    });
+    had += before - had;
     await page.getByRole("button", { name: "Usar a caixa" }).click();
     const banco = page.getByRole("dialog", { name: "Telemóvel" });
     await expect(banco.locator(".tm-bank-risk")).toContainText("Na carteira");
@@ -1348,9 +1368,12 @@ test.describe("two phones in the same street", () => {
       const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
       return (await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cash: number; bank: number };
     });
-    expect(now).toMatchObject({ cash: had - 300, bank: 300 });
+    // Putting money in may have done the day's errand to do so, which the neighbour paid for (300 Mk at most).
+    expect(now.bank).toBe(300);
+    expect(now.cash - (had - 300)).toBeGreaterThanOrEqual(0);
+    expect(now.cash - (had - 300)).toBeLessThanOrEqual(300);
     await page.getByRole("button", { name: "Fechar" }).first().click();
-    await expect(page.locator(".n-chip").first()).toContainText(dotted(had - 300));
+    await expect(page.locator(".n-chip").first()).toContainText(dotted(now.cash));
     expect(seen.errors).toEqual([]);
   });
 
@@ -1368,7 +1391,7 @@ test.describe("two phones in the same street", () => {
       const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
       return (await (await fetch("/api/v1/me/origin", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: "{}" })).json()) as { wallet: { cash: number } };
     });
-    const had = born.wallet.cash;
+    let had = born.wallet.cash;
     const dotted = (amount: number): string => String(amount).replace(/\B(?=(\d{3})+$)/g, ".");
     // The town's cantina is along the pavement east of where people arrive: going there, the button offers it.
     await page.keyboard.down("Shift");
@@ -1376,13 +1399,26 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__andar!.shop !== null, undefined, { timeout: 20_000 });
     await page.keyboard.up("d");
     await page.keyboard.up("Shift");
-    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "buy", undefined, { timeout: 10_000 });
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && ["buy", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 10_000 });
+    // Today's errand may be at the cantina itself: its button comes first, and when it is done the cantina's comes back.
+    if (await page.evaluate(() => window.__andar!.action !== "buy")) {
+      await page.waitForTimeout(1200);
+      await page.keyboard.press("e");
+      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 15_000 });
+      // What the errand paid is in the Carteira now.
+      had = await page.evaluate(async () => {
+        const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+        return ((await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cash: number }).cash;
+      });
+    }
     await page.screenshot({ path: info.outputPath("cantina-rua.png") });
     await page.getByRole("button", { name: "Comprar" }).click();
     const cantina = page.getByRole("dialog", { name: "Cantina de Ensaio" });
     // The dona greets by the hour, through her grille; nothing in the basket, nothing to pay.
     await expect(cantina.locator(".ct-grille")).toContainText("Bom dia, querido.", { timeout: 10_000 });
     await expect(cantina.getByRole("button", { name: "Escolhe o que levas" })).toBeDisabled();
+    // The card of the house, with no stamp yet: the first comes with today's purchase.
+    await expect(cantina.locator(".ct-card .ct-stamp")).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("cantina-grade.png") });
     // Two loaves and a gasosa: 350 on the gold button.
     await cantina.locator('.ct-pick[data-item="pao"]').click();
@@ -1409,6 +1445,7 @@ test.describe("two phones in the same street", () => {
     await expect(cantina.locator(".n-receipt")).toContainText("2 × Pão", { timeout: 10_000 });
     await expect(cantina.locator(".n-receipt")).toContainText("Gasosa");
     await expect(cantina.locator(".n-receipt-total")).toContainText("350");
+    await expect(cantina.locator(".ct-card .ct-stamp")).toHaveCount(1);
     await page.waitForTimeout(1300);
     await page.screenshot({ path: info.outputPath("cantina-recibo.png") });
     await cantina.getByRole("button", { name: "Já está" }).click();
@@ -1431,6 +1468,95 @@ test.describe("two phones in the same street", () => {
     });
     expect(books.cash).toBe(had - 350);
     expect(books.cashLines[0]).toMatchObject({ reason: "purchase", amount: -350 });
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("os recados do dia: the neighbours' messages in Mensagens, the family's money for the taxi, and an errand walked and done in the street, paid at once", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The errands were not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    // Somebody whose first errand of the day is near where people arrive: at the caixa or at the cantina (the
+    // rehearsal town's places 5 and 6 of 7), so that the test walks a few steps and not across the town.
+    type Day = { recados: { n: number; kind: string; who: number; item?: string; place?: number; done: boolean }[]; familia: { amount: number } };
+    let chosen: { guest: { playerId: string; token: string; name: string; biNumber: string; arrivedAt: string }; deviceId: string; day: Day } | null = null;
+    for (let n = 0; n < 40 && !chosen; n++) {
+      const deviceId = `recados-${n}-${Date.now()}-abcdefgh`;
+      const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { playerId: string; token: string; name: string; biNumber: string; arrivedAt: string };
+      const day = (await (await page.request.get("/api/v1/recados", { headers: { authorization: `Bearer ${guest.token}` } })).json()) as Day;
+      if ([5, 6].includes(day.recados[0]!.place! % 7)) chosen = { guest, deviceId, day };
+    }
+    expect(chosen, "a player whose first errand is near").not.toBeNull();
+    const { guest, deviceId, day } = chosen!;
+    await page.addInitScript((kept) => localStorage.setItem("nzila.conta", JSON.stringify(kept)), { deviceId, ageBand: "18_plus", ...guest });
+    await page.goto("/andar?tier=poupanca&hour=10");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const headers = { authorization: `Bearer ${guest.token}` };
+    await page.request.post("/api/v1/me/origin", { headers, data: {} });
+    // Mensagens: the family, the three neighbours, the errand for two, what the bairro has today.
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    await page.getByRole("button", { name: "Mensagens" }).click();
+    const phone = page.getByRole("dialog", { name: "Telemóvel" });
+    await expect(phone.locator(".ms-msg")).toHaveCount(5, { timeout: 10_000 });
+    await expect(phone.locator(".ms-familia")).toContainText("Toma, para o táxi");
+    await expect(phone.locator(".ms-banda")).toContainText("Hoje na banda");
+    await page.screenshot({ path: info.outputPath("recados-mensagens.png") });
+    await phone.locator(".ms-familia").getByRole("button").click();
+    await expect(phone.locator(".ms-familia [role=status]")).toContainText("da tua família", { timeout: 10_000 });
+    await phone.locator(".ms-banda").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath("recados-banda.png") });
+    const first = day.recados[0]!;
+    // The first errand's place on the map, for the compass.
+    await phone.locator(`.ms-msg[data-kind="${first.kind}"]`).getByRole("button", { name: /Mostrar no mapa/ }).click();
+    await expect(phone.locator(`.ms-msg[data-kind="${first.kind}"] .ms-place-on`)).toBeVisible();
+    await page.screenshot({ path: info.outputPath("recados-marcado.png") });
+    await page.getByRole("button", { name: "Fechar" }).first().click();
+    const target = ((await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { pos: [number, number, number] }[] }).pois[first.place! % 7]!.pos;
+    const walkTo = async (x: number): Promise<void> => {
+      const key = (await page.evaluate(() => window.__andar!.x)) < x ? "d" : "a";
+      await page.keyboard.down(key);
+      await page.waitForFunction((tx) => Math.abs(window.__andar!.x - tx) < 0.7, x, { timeout: 20_000 });
+      await page.keyboard.up(key);
+      await page.waitForFunction(() => window.__andar!.speed < 0.05, undefined, { timeout: 5_000 });
+    };
+    if (first.kind === "traz") {
+      // To the cantina first, for the thing asked for: with nothing to hand over yet, its button is the cantina's.
+      await walkTo(58.3);
+      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 10_000 });
+      await page.keyboard.press("e");
+      const cantina = page.getByRole("dialog", { name: "Cantina de Ensaio" });
+      await cantina.locator(`.ct-pick[data-item="${first.item}"]`).click();
+      await cantina.getByRole("button", { name: /^Pagar/ }).click();
+      await cantina.getByRole("button", { name: "Já está" }).click();
+    }
+    await walkTo(target[0]);
+    // At the place: the neighbour (or the nephew) is there, and the gold button offers the errand.
+    await page.waitForFunction(() => window.__andar!.action === "entregar" || window.__andar!.action === "procurar", undefined, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("recados-no-sitio.png") });
+    // Turned round to the place: whoever waits there is standing in it.
+    const size = page.viewportSize()!;
+    for (let n = 0; n < 2; n++) {
+      await page.mouse.move(size.width * 0.2, size.height * 0.3);
+      await page.mouse.down();
+      await page.mouse.move(size.width * 0.2 + 230, size.height * 0.3, { steps: 8 });
+      await page.mouse.up();
+    }
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: info.outputPath("recados-quem-espera.png") });
+    // A moment at the place, as anyone takes, before handing over.
+    await page.waitForTimeout(1500);
+    await page.keyboard.press("e");
+    await expect(page.getByText(/agradece\. Recebeste 300\s*Mk\./)).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("recados-feito.png") });
+    const after = (await (await page.request.get("/api/v1/recados", { headers })).json()) as Day;
+    expect(after.recados[0]!.done).toBe(true);
+    // An evening the light goes: the lamps and the windows of the bairro dark.
+    await page.goto("/andar?tier=normal&hour=19.6&apagao");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: info.outputPath("recados-apagao.png") });
     expect(seen.errors).toEqual([]);
   });
 

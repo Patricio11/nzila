@@ -38,6 +38,8 @@ export interface District {
   readonly caixas?: readonly { readonly x: number; readonly z: number }[];
   /** The shops, by the pack's name for each: where things are bought. Millimetres. */
   readonly shops?: readonly { readonly id: string; readonly x: number; readonly z: number }[];
+  /** Every place of the district in the pack's order: an errand names one by its number, which every phone counts the same way. */
+  readonly places?: readonly { readonly x: number; readonly z: number }[];
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -59,6 +61,10 @@ export const CAIXA_REACH_MM = 3500;
 /** The signs of shops; and how near a shop's place a player must stand to buy (at its grille or its counter). */
 export const SHOP_GLYPHS = ["cantina"];
 export const SHOP_REACH_MM = 3500;
+/** How near a place a player must stand for an errand there to be done. */
+export const PLACE_REACH_MM = 4500;
+/** That a player met someone is believed this long, in seconds: long enough to be told "chegou gente nova" and go. */
+export const MET_TTL_S = 1800;
 
 /** The name a district's rooms go by (the phones ask for it by the same function). */
 export const roomNameOf = zoneRoomOf;
@@ -83,7 +89,8 @@ export async function loadDistrict(packDir: URL): Promise<District> {
   const caixas = (manifest.pois ?? []).filter((one) => one.glyph === CAIXA_GLYPH).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   // A place whose sign is a shop's is one: a player standing at it may buy what it sells.
   const shops = (manifest.pois ?? []).filter((one) => SHOP_GLYPHS.includes(one.glyph ?? "")).map((one) => ({ id: one.id, x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: seatObstacles(manifest.seats ?? []), arrival, paragens, caixas, shops, ...(await trafficOf(manifest, packDir)) };
+  const places = (manifest.pois ?? []).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: seatObstacles(manifest.seats ?? []), arrival, paragens, caixas, shops, places, ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

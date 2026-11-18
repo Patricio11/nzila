@@ -6,6 +6,7 @@
   "description": "pt-AO catalog (base), glossary, ICU helpers.",
   "exports": {
     ".": "./src/index.ts",
+    "./later": "./src/pt-AO-later.ts",
     "./server": "./src/server.ts"
   },
   "scripts": {

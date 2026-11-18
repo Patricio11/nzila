@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { CATALOGUE, COLOURS, COVERS, LOOK_BYTES, arrivalLook, checkLook, packLook, unpackLook, type Look } from "./look.ts";
+import { CATALOGUE, COLOURS, LOOK_BYTES, WIRE_IDS, arrivalLook, checkLook, packLook, unpackLook, type Look } from "./look.ts";
 
 const her: Look = { sex: "f", skin: 2, hair: "trancas", hairColour: "hairBlack", top: "blusa", topColour: "awningGold", bottom: "pano", bottomColour: "awningTeal", bands: "awningGold", shoe: "shoeTan" };
 const him: Look = { sex: "m", skin: 3, hair: "galo", hairColour: "hairBlond", top: "tshirt", topColour: "paintWhite", bottom: "trousers", bottomColour: "jeansDark", bands: "awningGold", shoe: "shoeWhite", extras: ["oculos", "bigode"], tall: 1, broad: -1 };
@@ -99,37 +99,60 @@ describe("a look on the wire", () => {
     expect(unpackLook(packLook(her))).toEqual(her);
   });
 
-  test("bytes that are not a look are nobody's look", () => {
+  test("bytes that are not a look are nobody's look; a thing this phone does not have is drawn as the nearest it does", () => {
     const good = packLook(checkLook(arrivalLook(1))!);
     expect(unpackLook(good.slice(0, 11))).toBeNull();
     expect(unpackLook(new Uint8Array(13))).toBeNull();
-    for (let n = 0; n < LOOK_BYTES; n++) {
+    // Neither a woman nor a man, or a build out of its nine: not a look.
+    for (const n of [0, 11]) {
       const bad = good.slice();
       bad[n] = 250;
       expect(unpackLook(bad), `byte ${n}`).toBeNull();
     }
-    // A look that could not be dressed is packed without complaint and unpacks to nothing: nothing invented travels.
-    const invented = { ...arrivalLook(1), hair: "moicano", extras: ["monoculo"] };
-    expect(unpackLook(packLook(invented))).toBeNull();
-    expect(unpackLook(packLook({ ...arrivalLook(1), topColour: "ultravioleta" }))).toBeNull();
+    // Any one thing a newer wardrobe has and this one does not: that thing as the nearest this phone has, the rest as sent.
+    for (let n = 1; n < 11; n++) {
+      const newer = good.slice();
+      newer[n] = 250;
+      const seen = unpackLook(newer);
+      expect(seen, `byte ${n}`).not.toBeNull();
+      expect(checkLook(seen)).toEqual(seen);
+    }
+    const unknownHair = good.slice();
+    unknownHair[2] = 200;
+    expect(unpackLook(unknownHair)!.hair).toBe("baixo");
+    // Extras by their own bits: none, known ones, and one this phone has never heard of.
+    const plain = checkLook({ ...arrivalLook(2), sex: "m", top: "tshirt", bottom: "shorts", hair: "baixo", hairColour: "hairBlack" })!;
+    expect(packLook({ ...plain, extras: [] })[10]).toBe(0);
+    expect(packLook({ ...arrivalLook(2) })[10]).toBe(0);
+    expect(packLook({ ...plain, extras: ["bigode", "brincos"] })[10]).toBe((1 << 3) | (1 << 0));
+    expect(packLook({ ...plain, extras: ["capacete"] })[10]).toBe(0);
+        // A look with an invented thing travels as the nearest real one: nothing invented is drawn.
+    expect(unpackLook(packLook({ ...arrivalLook(1), hair: "moicano", extras: ["monoculo"] }))!.hair).toBe("baixo");
   });
 
-  test("THE LISTS ARE WIRE FORMAT: things are added at the end, never moved and never removed", () => {
-    // If this fails because something was added at the end of a list, add it here. If it fails for any other
-    // reason, every player's look would change on every phone that has not reloaded: do not do it.
-    expect(CATALOGUE.f.hair).toEqual(["baixo", "careca", "afro", "cachos", "trancas", "bob", "puxinho", "dreads", "lenco", "bone"]);
-    expect(CATALOGUE.m.hair).toEqual(["baixo", "careca", "afro", "galo", "dreads", "trancas", "bone"]);
-    expect(Object.keys(CATALOGUE.f.tops)).toEqual(["tshirt", "blusa", "alcas", "vestido"]);
-    expect(Object.keys(CATALOGUE.m.tops)).toEqual(["tshirt", "long", "alcas"]);
-    expect(CATALOGUE.f.extras).toEqual(["brincos", "oculos"]);
-    expect(CATALOGUE.m.extras).toEqual(["barba", "bigode", "oculos", "brincos"]);
-    expect(COVERS).toEqual(["lenco", "bone"]);
-    expect(COLOURS).toEqual({
-      hair: ["hairBlack", "hairBrown", "hairCopper", "hairRed", "hairBlond", "hairGrey"],
-      cloth: ["paintWhite", "clothBlack", "awningRed", "awningGold", "awningTeal", "zincBlue", "vanBlue", "person1", "person3", "person4", "khaki", "jeans"],
-      bottom: ["jeans", "jeansDark", "clothBlack", "khaki", "paintWhite", "awningRed", "awningTeal", "zincBlue", "person2", "awningGold"],
-      bands: ["awningGold", "paintWhite", "clothBlack", "cloth", "awningRed"],
-      shoe: ["shoe", "shoeWhite", "shoeTan", "clothBlack"],
+  test("THE NUMBERS ARE WIRE FORMAT: each thing keeps its number for ever; the order things are shown in is free", () => {
+    // If this fails because a new thing took the next number, add it here. If it fails for any other reason,
+    // every player's look would change on every phone that has not reloaded: do not do it.
+    expect(WIRE_IDS).toEqual({
+      hair: { baixo: 0, careca: 1, afro: 2, cachos: 3, trancas: 4, bob: 5, puxinho: 6, dreads: 7, lenco: 8, bone: 9, galo: 10 },
+      top: { tshirt: 0, blusa: 1, alcas: 2, vestido: 3, long: 4, camisa: 5, camisola: 6, fato: 7 },
+      bottom: { trousers: 0, shorts: 1, skirt: 2, pano: 3, none: 4 },
+      colour: {
+        paintWhite: 0, clothBlack: 1, awningRed: 2, awningGold: 3, awningTeal: 4, zincBlue: 5, vanBlue: 6, person1: 7, person3: 8, person4: 9, khaki: 10, jeans: 11,
+        jeansDark: 12, person2: 13, cloth: 14, hairBlack: 15, hairBrown: 16, hairCopper: 17, hairRed: 18, hairBlond: 19, hairGrey: 20, shoe: 21, shoeWhite: 22, shoeTan: 23,
+      },
+      extra: { brincos: 0, oculos: 1, barba: 2, bigode: 3 },
     });
+    // No number is given twice, and everything the wardrobe offers has one.
+    for (const table of Object.values(WIRE_IDS)) expect(new Set(Object.values(table)).size).toBe(Object.values(table).length);
+    for (const sex of ["f", "m"] as const) {
+      for (const hair of CATALOGUE[sex].hair) expect(WIRE_IDS.hair, hair).toHaveProperty(hair);
+      for (const [top, below] of Object.entries(CATALOGUE[sex].tops)) {
+        expect(WIRE_IDS.top, top).toHaveProperty(top);
+        for (const bottom of below) expect(WIRE_IDS.bottom, bottom).toHaveProperty(bottom);
+      }
+      for (const extra of CATALOGUE[sex].extras) expect(WIRE_IDS.extra, extra).toHaveProperty(extra);
+    }
+    for (const list of Object.values(COLOURS)) for (const colour of list) expect(WIRE_IDS.colour, colour).toHaveProperty(colour);
   });
 });

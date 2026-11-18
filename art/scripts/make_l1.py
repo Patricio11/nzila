@@ -507,8 +507,12 @@ for sx_, sz_ in [(lx0 + 2, z0 + 1), (lx1 - 2, z0 + 1), (lx0 + 2, z1 - 1), (lx1 -
 for i in range(4):
     px_, pz_ = lx0 + 8 + i * 15 + rng.uniform(-2, 2), z1 - 6 + rng.uniform(-2, 1)
     block(px_, pz_, kit.parasol(b, px_, pz_, rng, G))
+# Where the bairro's festa is danced: kept clear of trees and benches.
+FESTA_AT = (lx0 + 30.0, z0 + 24.0)
 for i in range(11):
     tx, tz = lx0 + rng.uniform(6, lx1 - lx0 - 6), z0 + rng.uniform(18, z1 - z0 - 4)
+    if math.hypot(tx - FESTA_AT[0], tz - FESTA_AT[1]) < 9.0:
+        continue
     # The largo's trees: acácias and mangueiras, and here and there an imbondeiro older than the square.
     block(tx, tz, kit.tree(b, tx, tz, rng, G, mix=("acacia", "acacia", "mangueira", "mangueira", "imbondeiro")))
     kit.bench(b, tx + 2.5, tz + 0.8, rng.uniform(0, math.pi), G)
@@ -802,6 +806,57 @@ stroll("zungueira", 410.0, 246.0, 5.6, 0.95, rests=[(380.0, 14.0, ""), (330.0, 1
 for who, (x0, x1, lane, pace) in enumerate([(120.0, 260.0, 3.4, 1.3), (300.0, 150.0, 4.6, 1.2), (210.0, 400.0, 3.0, 1.4), (420.0, 280.0, 7.2, 1.15), (160.0, 330.0, 7.4, 1.25), (360.0, 200.0, 2.6, 1.35)]):
     stroll("any", x0, x1, lane, pace, who=who)
 stroll("any", 112.0, 430.0, 4.0, 3.1, who=6)
+
+
+def together(x0, x1, lane, pace, rests=()):
+    """The stages of a walk along the promenade and back, as `stroll` makes them, for two who walk it together."""
+    step = 10.0 if x1 > x0 else -10.0
+    xs = [x0 + step * k for k in range(int(abs(x1 - x0) // 10) + 1)] + [x1]
+    out = [("at", x0, shore(x0) + lane)]
+    for way in (xs[1:], list(reversed(xs))[1:]):
+        for px in way:
+            out.append(("go", px, shore(px) + lane, pace))
+            for rx, seconds, pose in rests:
+                if abs(px - rx) < 5.0:
+                    out.append(("stay", seconds, pose, 180.0))
+        out.append(("stay", 6.0, "", 180.0))
+    return out
+
+
+def beside(stages, by):
+    """The same walk a little to one side."""
+    return [(st[0], st[1], st[2] + by) + tuple(st[3:]) if st[0] in ("at", "go") else st for st in stages]
+
+
+# Two children on their way to school in their white batas, side by side; and a boy out on his own.
+walk = together(150.0, 330.0, 5.0, 1.05)
+start = round(crowd_rng.uniform(0, timetable(walk)[-1][0]), 1)
+actors.append({"role": "crianca", "who": 0, "offset": start, "keys": timetable(walk)})
+actors.append({"role": "crianca", "who": 1, "offset": start, "keys": timetable(beside(walk, 0.75))})
+stroll("crianca", 260.0, 170.0, 3.6, 1.5, who=2)
+# Someone out with their dog: the dog keeps beside and a little behind, its own pace the same.
+walk = together(330.0, 180.0, 4.3, 1.2, rests=[(250.0, 10.0, "")])
+start = round(crowd_rng.uniform(0, timetable(walk)[-1][0]), 1)
+actors.append({"role": "any", "who": 7, "offset": start, "keys": timetable(walk)})
+actors.append({"role": "cao", "who": 0, "offset": round(start - 0.7, 1), "keys": timetable(beside(walk, 0.65))})
+# The festa of the bairro, on a Saturday night when the bairro's errands have earned it: a ring of people dancing
+# on the Largo, each to the music in their own time, and more round them clapping. They come only for the festa.
+festa_x, festa_z = FESTA_AT
+for k in range(9):
+    angle = 2 * math.pi * k / 9
+    px, pz = festa_x + 3.2 * math.cos(angle), festa_z + 3.2 * math.sin(angle)
+    face = (math.degrees(math.atan2(festa_x - px, festa_z - pz)) + 360) % 360
+    actors.append({"role": "any", "who": k % 8, "offset": round(k * 1.37, 2), "festa": True, "keys": [[0.0, round(px, 2), round(pz, 2), "dancar", round(face, 1)], [600.0, round(px, 2), round(pz, 2), "dancar", round(face, 1)]]})
+for k in range(8):
+    angle = 2 * math.pi * (k + 0.5) / 8
+    px, pz = festa_x + 6.4 * math.cos(angle), festa_z + 6.4 * math.sin(angle)
+    face = (math.degrees(math.atan2(festa_x - px, festa_z - pz)) + 360) % 360
+    actors.append({"role": "crianca" if k % 4 == 0 else "any", "who": k, "offset": round(k * 0.71, 2), "festa": True, "keys": [[0.0, round(px, 2), round(pz, 2), "aplaudir", round(face, 1)], [600.0, round(px, 2), round(pz, 2), "aplaudir", round(face, 1)]]})
+
+# Dogs of the street, lying in the shade of the promenade and getting up now and then to go somewhere else.
+for n, (dx, lane) in enumerate([(205.0, 7.6), (372.0, 7.9)]):
+    keys = timetable([("at", dx, shore(dx) + lane), ("stay", 70.0 + 25.0 * n, "", 200.0), ("go", dx + 14.0, shore(dx + 14.0) + lane - 0.4, 0.9), ("stay", 50.0, "", 120.0), ("go", dx, shore(dx) + lane, 0.9)])
+    actors.append({"role": "cao", "who": n + 1, "offset": round(n * 31.0, 1), "keys": keys})
 # People on the benches, on every third one.
 for n, (sx, sy, sz, yaw) in enumerate(b.seats):
     if n % 3 == 1:

@@ -1,0 +1,28 @@
+/* Mensagens: messages from the bairro, as the chat everyone uses looks. */
+.ms { display: flex; flex-direction: column; gap: var(--s-3); width: min(100%, 380px); margin: 0 auto; }
+.ms-msg { display: flex; gap: var(--s-3); align-items: flex-start; }
+.ms-face { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: var(--type-press); color: var(--n-tinta); box-shadow: 0 0 0 2px var(--n-noite), 0 0 0 3.5px var(--n-linha); }
+.ms-tone-0 { background: var(--n-dourado); }
+.ms-tone-1 { background: var(--n-calor-2); }
+.ms-tone-2 { background: var(--n-mar); color: var(--n-luz); }
+.ms-tone-3 { background: var(--n-azul-claro); color: var(--n-luz); }
+.ms-tone-4 { background: var(--n-vermelho); color: var(--n-luz); }
+.ms-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.ms-body b { font: var(--type-label); }
+/* The bubble: paper, its corner where it came from. */
+.ms-bubble { margin: 0; padding: var(--s-2) var(--s-3); border-radius: 4px 16px 16px 16px; background: var(--n-papel); color: var(--n-tinta); font: var(--type-body); line-height: 1.35; box-shadow: 0 2px 0 var(--n-sombra); }
+.ms-feito .ms-bubble { opacity: 0.62; }
+.ms-familia .ms-bubble { background: var(--n-dourado-claro); }
+.ms-body .n-button { min-height: 40px; margin: 0; }
+.ms-place { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 6px var(--s-3); border: 0; border-radius: var(--r-button); background: var(--n-noite-2); color: var(--n-dourado); font: var(--type-label); text-align: left; cursor: pointer; box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.ms-place span { font: var(--type-small); color: var(--n-luz); }
+.ms-place-on { box-shadow: inset 0 0 0 2px var(--n-dourado); }
+.ms-pay { font: var(--type-label); color: var(--n-dourado); }
+.ms-done { font: var(--type-label); color: var(--n-ganho); }
+.ms-said { font: var(--type-small); color: var(--n-dourado); }
+/* What the bairro has today, and its festa. */
+.ms-banda { display: flex; flex-direction: column; gap: var(--s-2); padding: 0 0 var(--s-3); border-radius: var(--r-button); background: var(--n-noite-2); overflow: hidden; }
+.ms-banda h3 { margin: var(--s-2) var(--s-3) 0; font: var(--type-label); color: var(--n-dourado); text-transform: uppercase; letter-spacing: 0.05em; font-size: 13px; }
+.ms-banda p { margin: 0 var(--s-3); font: var(--type-small); color: var(--n-luz); }
+.ms-festa { margin: 0 var(--s-3); height: 10px; border-radius: var(--r-chip); background: var(--n-noite); box-shadow: inset 0 0 0 1px var(--n-linha); overflow: hidden; }
+.ms-festa i { display: block; height: 100%; background: repeating-linear-gradient(135deg, var(--n-dourado) 0 8px, var(--n-vermelho) 8px 16px); }

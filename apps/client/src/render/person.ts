@@ -48,7 +48,23 @@ export interface Doing {
   readonly hold?: "cana" | "bacia" | "guiador";
   /** 0 to 1: seated low, on a little bench or a kerb, knees up and forearms on them. Over and above `sit`. */
   readonly low?: number;
+  /**
+   * How the arms rest, asked for outright (the pose page does). Left out, a body still for a few seconds finds
+   * its own: standing, the arms crossed or the hands on the hips; seated, the hands on the thighs, the arms
+   * crossed, the elbows on the knees. Each person in their own order and time.
+   */
+  readonly rest?: Rest | null;
 }
+
+/** The ways arms rest. "coxas", "joelhos" only seated. */
+export type Rest = "cruzados" | "cintura" | "coxas" | "joelhos";
+/** What a standing body and a seated one turn to, in turn; null is the arms simply hanging. */
+const STANDING_RESTS: readonly (Rest | null)[] = [null, "cruzados", null, "cintura", null, "cruzados"];
+const SEATED_RESTS: readonly Rest[] = ["coxas", "cruzados", "coxas", "joelhos", "coxas", "cruzados"];
+/** Seconds still before a body first rests its arms; how long each way of resting lasts; how long a change takes. */
+const REST_AFTER_S = 3.5;
+const REST_EACH_S = 9;
+const REST_EASE_S = 0.7;
 
 interface Joint {
   readonly bone: Bone;
@@ -70,6 +86,17 @@ const ease = (u: number): number => {
   return c * c * (3 - 2 * c);
 };
 
+/** Above this speed (metres a second) a body runs; at or below it, it walks. */
+export const RUNS_ABOVE_M_S = 3.2;
+
+/**
+ * How far a body goes in one stride (two steps), in metres: longer for a taller body, shorter in a skirt, much
+ * longer at a run. The legs are posed by how far the body has gone over this, so the feet keep to the ground.
+ */
+export function strideOf(speed: number, height: number, skirt: boolean): number {
+  return (speed > RUNS_ABOVE_M_S ? 2.8 : 1.62) * (height / 1.7) * (skirt ? 0.8 : 1);
+}
+
 export class Person {
   readonly root = new Group();
   /** Metres. */
@@ -82,6 +109,10 @@ export class Person {
 
   /** A woman's Dançar works the hips (founder, 2026-11-15). */
   female = false;
+  /** Makes this body's ways of resting its own: two people side by side do not cross their arms together. */
+  seed = 0;
+  /** When this body last moved, in its own seconds; and how it rests now, eased. */
+  private stillFrom: number | null = null;
 
   constructor(scene: Group, mesh: SkinnedMesh, height: number, skirt: boolean) {
     this.height = height;
@@ -120,7 +151,8 @@ export class Person {
   /** Puts the body in the pose of this moment. */
   pose(gait: Gait, doing: Doing = {}): void {
     const walk = Math.min(1, gait.speed / 1.3);
-    const run = Math.min(1, Math.max(0, (gait.speed - 1.9) / 2.0));
+    // A brisk walk is still a walk: the run begins above it.
+    const run = Math.min(1, Math.max(0, (gait.speed - 2.6) / 2.4));
     const still = 1 - walk;
     const stride = (0.4 * walk + 0.36 * run) * (this.skirt ? 0.62 : 1);
     const t = gait.time;
@@ -147,11 +179,13 @@ export class Person {
       this.set(`shin${tag}`, knee);
       // The foot stays near level, the toe lifting a little as the heel comes down.
       this.set(`foot${tag}`, -(thigh + knee) * 0.55 - 0.12 * walk * Math.max(0, s) * (1 - lifting));
-      // The arm: down from where it was made, swinging against its own leg, the elbow bending more at a run.
-      const swing = stride * (0.75 + 0.35 * run) * s;
-      this.set(`upperArm${tag}`, swing + 0.03 * still * Math.sin(t * 1.5 + side), 0, -side * (0.2 - 0.03 * run));
-      this.set(`lowerArm${tag}`, -(0.16 + 0.1 * walk + 1.0 * run) - 0.3 * stride * Math.max(0, -s));
-      this.set(`hand${tag}`, -0.1, 0, side * 0.06);
+      // The arm: down from where it was made, swinging against its own leg from the shoulder; the forearm follows a
+      // moment late, bending as the arm comes forward and opening as it goes back; more of all of it at a run.
+      const swing = stride * (0.8 + 0.4 * run) * s;
+      const late = Math.sin(phase - 0.45);
+      this.set(`upperArm${tag}`, swing + 0.03 * still * Math.sin(t * 1.5 + side), side * 0.05 * walk * s, -side * (0.2 - 0.04 * run));
+      this.set(`lowerArm${tag}`, -(0.2 + 0.18 * walk + 1.05 * run) - (0.42 * walk + 0.25 * run) * Math.max(0, -late) * (stride / 0.4), -side * 0.12 * walk);
+      this.set(`hand${tag}`, -0.12 - 0.08 * walk * Math.max(0, -late), side * 0.1, side * 0.06);
     }
 
     // Seated: thighs level, shins down, hands on the knees, the back a little eased.
@@ -164,8 +198,10 @@ export class Person {
         this.toward(`thigh${tag}`, sit, -1.5, 0, side * (this.skirt ? 0.02 : 0.1));
         this.toward(`shin${tag}`, sit, 1.45);
         this.toward(`foot${tag}`, sit, 0.05);
-        this.toward(`upperArm${tag}`, sit, -0.42, 0, -side * 0.16);
-        this.toward(`lowerArm${tag}`, sit, -0.95, -side * 0.25);
+        // The hands lie on the thighs: the upper arm nearly straight down, the forearm down and forward to the lap.
+        this.toward(`upperArm${tag}`, sit, -0.26, 0, -side * 0.1);
+        this.toward(`lowerArm${tag}`, sit, -0.85, 0, -side * 0.32);
+        this.toward(`hand${tag}`, sit, -0.35, 0, -side * 0.1);
       }
     }
 
@@ -183,6 +219,43 @@ export class Person {
         this.toward(`upperArm${tag}`, low, -0.78, 0, -side * 0.1);
         this.toward(`lowerArm${tag}`, low, -0.7, -side * 0.35);
       }
+    }
+
+    // The arms at rest, when the body is still: crossed, on the hips, on the thighs, on the knees.
+    const resting = this.rested(gait, doing, sit, low);
+    if (resting) {
+      const [rest, r] = resting;
+      if (rest === "cruzados") {
+        // Folded over the chest, the forearms one above the other, each hand on the other arm.
+        for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+          this.toward(`upperArm${tag}`, r, -0.5, 0, side * 0.12);
+          this.toward(`lowerArm${tag}`, r, side > 0 ? -1.62 : -1.5, -side * 1.3, 0);
+          this.toward(`hand${tag}`, r, 0.1, 0, side * 0.2);
+        }
+        this.toward("chest", r * 0.5, -0.03);
+        this.toward("head", r * 0.5, -0.04, 0.04 * Math.sin(t * 0.3));
+      } else if (rest === "cintura") {
+        // Hands on the hips, the elbows out: someone waiting, and not in a hurry.
+        for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+          this.toward(`upperArm${tag}`, r, 0.12, 0, side * 0.62);
+          this.toward(`lowerArm${tag}`, r, -0.35, 0, -side * 1.45);
+          this.toward(`hand${tag}`, r, 0, 0, -side * 0.35);
+        }
+        this.toward("hips", r * 0.6, 0, 0.04, 0.04);
+        this.toward("head", r * 0.5, -0.05, -0.08);
+      } else if (rest === "joelhos") {
+        // Leaning forward, the elbows on the knees and the hands together in front.
+        this.toward("spine", r, 0.38);
+        this.toward("chest", r, 0.18);
+        this.toward("neck", r, -0.3);
+        this.toward("head", r, -0.12);
+        for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+          this.toward(`upperArm${tag}`, r, -0.12, 0, -side * 0.02);
+          this.toward(`lowerArm${tag}`, r, -1.55, -side * 0.55, 0);
+          this.toward(`hand${tag}`, r, -0.2, side * 0.2, 0);
+        }
+      }
+      // "coxas" is the seated pose itself.
     }
 
     // A gesture, eased in and out over whatever the body was doing.
@@ -364,6 +437,32 @@ export class Person {
       if (x !== 0) turn.multiply(step.setFromAxisAngle(X, x));
       joint.bone.quaternion.copy(joint.rest).multiply(joint.worldInverse).multiply(turn).multiply(joint.world);
     }
+  }
+
+  /**
+   * How this body rests its arms now, and how far into it: asked for, or found by itself when it has been still
+   * long enough. Null when the arms are doing something else (walking, a gesture, holding something, the air).
+   */
+  private rested(gait: Gait, doing: Doing, sit: number, low: number): [Rest, number] | null {
+    const busy = gait.speed > 0.15 || doing.emote !== undefined || doing.hold !== undefined || ((doing.jump ?? 0) > 0 && (doing.jump ?? 0) < 1) || low > 0.05;
+    if (doing.rest !== undefined) return doing.rest && !busy ? [doing.rest, 1] : null;
+    if (busy || (sit > 0.05 && sit < 0.95)) {
+      this.stillFrom = null;
+      return null;
+    }
+    this.stillFrom ??= gait.time;
+    const still = gait.time - this.stillFrom - REST_AFTER_S;
+    if (still < 0) return null;
+    const turns = sit >= 0.95 ? SEATED_RESTS : STANDING_RESTS;
+    // Each person starts somewhere of their own in the turn, and takes a little more or less over each.
+    const each = REST_EACH_S * (0.8 + 0.4 * ((this.seed * 0.618) % 1));
+    const at = still / each + this.seed;
+    const rest = turns[Math.floor(at) % turns.length] ?? null;
+    if (!rest) return null;
+    const into = (at % 1) * each;
+    // Into it gently after the first rest, and out of it before the next.
+    const r = Math.min(ease(into / REST_EASE_S), ease((each - into) / REST_EASE_S), still < REST_EASE_S ? ease(still / REST_EASE_S) : 1);
+    return [rest, r];
   }
 
   /** Whether the body casts a shadow where the tier draws real ones. */

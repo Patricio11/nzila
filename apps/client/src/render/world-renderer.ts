@@ -223,6 +223,9 @@ export class WorldRenderer {
   }
 
   /** The time of the game day, as the world clock gives it. */
+  /** 1 with the light on; 0 in an apagão, when the lamps and the windows of the bairro go dark. */
+  power = 1;
+
   setTime(secondOfDay: number): void {
     this.light = lightingAt(secondOfDay);
     this.applyLight();
@@ -247,7 +250,7 @@ export class WorldRenderer {
     sky.uSunDisc!.value = light.sunUp ? 2.4 : 0.8;
     // The moon has no glow to speak of; the low sun has the most.
     sky.uSunGlow!.value = light.sunUp ? 0.35 + (1 - Math.min(1, light.sunDirection[1] * 2.2)) * 1.55 : 0.12;
-    if (this.palette) this.palette.emissiveIntensity = light.night;
+    if (this.palette) this.palette.emissiveIntensity = light.night * this.power;
     for (const water of this.waters) {
       const u = water.uniforms;
       paint(u.uHorizon!.value as Color, light.horizon);

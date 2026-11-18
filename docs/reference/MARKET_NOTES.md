@@ -97,6 +97,15 @@ The founder sent a player's video ("testei o novo jogo angolano: Vida na Banda",
 
 **What it adds up to.** They built wide and shallow, fast: fifty jobs, twenty homes, nineteen places, and almost every one of them a button and a number. It is live, free, in three languages and people are talking about it. We will not out-count them. What they cannot easily become is a place where the thing is really done: the plate is really washed, the load really carried, the taxi really ridden with the person you asked out sitting beside you. Every feature we build should be judged by that, and the first hour has to show it.
 
+## 1f. Vida na Banda, what its players say (comments on its update post, supplied by the founder, 2026-11-18)
+
+| They said | What it means for us |
+|---|---|
+| "A day in the game is a day in real life: it should be shorter, days as hours, or two game days to one real one." | Ours already is: a game day is one real hour (D-0.x clock, `packages/sim` DEFAULT_CLOCK), so a session sees a sunrise and a sunset. What returns daily are the reasons to come back (os recados, the family's money, the cantina's card, the apagão), on real days. Keep that split. |
+| "Choose the sex and give the real age from the start." | Ours does: the year of birth at the door (only the band is kept), then the character, man or woman, before the family. |
+| "The new graphics are lovely." | Their players notice looks; ours were raised the same day (F-198). |
+| "I came running to see if the taxi business could be managed now. I am losing money, and I took a bank loan to open it." | **The worst a game can do: a player's money lost to the game's fault, with a loan behind it.** For ours (Phases 8 and 8B): a business can always be managed, from the Negócio app and at its place; Makuta lost to our fault is given back through the books (the support tool of F-15 before businesses ship); a loan pauses while what it paid for cannot run because of us; every money flow has a browser test before it ships; and "O que mudou" in the Telemóvel after each update, so a player knows they were heard. |
+
 ## 2. Mwangolé (mwangole.ao)
 
 | Seen | Source | What it means for us |

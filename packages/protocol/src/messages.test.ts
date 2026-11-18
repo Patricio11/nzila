@@ -106,8 +106,8 @@ describe("who someone is", () => {
     expect(encodeWho(who).length).toBeLessThanOrEqual(3 + 1 + 9 + 1 + 11 + 1 + 12);
     // One whose look is not known has none to send.
     expect(decodeZoneMessage(encodeWho({ entityId: 1, name: "Caluanda 7", bi: "", look: null }))).toEqual({ type: "who", entityId: 1, name: "Caluanda 7", bi: "", look: null });
-    // A look that could not be dressed arrives as no look, never as something to draw.
-    expect(decodeZoneMessage(encodeWho({ ...who, look: { ...who.look, hair: "moicano" } }))).toEqual({ type: "who", entityId: 412, name: "Dona Xepa", bi: "00000412-LA", look: null });
+    // A thing this phone has no model for arrives as the nearest thing it has, never as something invented.
+    expect(decodeZoneMessage(encodeWho({ ...who, look: { ...who.look, hair: "moicano" } }))).toEqual({ type: "who", entityId: 412, name: "Dona Xepa", bi: "00000412-LA", look: { ...who.look, hair: "baixo" } });
     // A client never says who anyone is.
     expect(() => decodeClientMessage(encodeWho(who))).toThrow(ProtocolError);
   });

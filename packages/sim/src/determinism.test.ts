@@ -106,7 +106,7 @@ test("golden: 80 people and 24 vehicles in a town for a simulated minute", () =>
   expect(far(world.characters, peopleStart)).toBeGreaterThan(40);
   expect(far(world.vehicles, vehiclesStart)).toBeGreaterThan(12);
   expect(impacts).toBeGreaterThan(10);
-  expect(checkpoints).toEqual([2198959080, 3602634158, 2813532314, 1210332714, 2247322046, 3719770136]);
+  expect(checkpoints).toEqual([1131274224, 2572268622, 4031354217, 995247579, 3856680571, 3105769859]);
   // Under a second on its own; given room for a busy machine measuring coverage.
 }, 60_000);
 

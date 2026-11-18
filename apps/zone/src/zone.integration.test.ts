@@ -47,7 +47,9 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
     ["conversa-30", { x: -30_000, y: 0, z: -60_000, yaw: 0 }],
   ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 },
   // A caixa two metres from where people arrive.
-  caixas: [{ x: 2000, z: 0 }] };
+  caixas: [{ x: 2000, z: 0 }],
+  // The district's places, in the pack's order: one beside where people arrive, one where people talk.
+  places: [{ x: 1500, z: 0 }, { x: -60_000, z: -60_000 }] };
 // A town the database has never heard of: played in, and nobody's place in it is kept.
 const rehearsal: District = { ...district, id: "zz-dev/d1", provinceId: "zz-dev" };
 const presence = memoryPresence();
@@ -498,6 +500,41 @@ describe("talk in the street", () => {
     expect(near.state.typing[3]).toEqual({ from: aId, typing: false });
     await near.leave();
     await far.leave();
+  });
+
+  test("which of the district's places a player stands at, and whom they have met, are said where the API can read them (os recados do dia)", async () => {
+    const here = await player();
+    const there = await player();
+    const other = await player();
+    const a = await phone(here.token);
+    const b = await phone(there.token, PROTOCOL_VERSION, "conversa");
+    const c = await phone(other.token, PROTOCOL_VERSION, "conversa");
+    let at: string | null = null;
+    await until(() => {
+      void presence.marked(here.id, "lugar").then((what) => void (at = what));
+      return at !== null;
+    });
+    // The first of two places; the other two stand at the second.
+    expect(at).toBe("0/2");
+    let atThere: string | null = null;
+    await until(() => {
+      void presence.marked(there.id, "lugar").then((what) => void (atThere = what));
+      return atThere !== null;
+    });
+    expect(atThere).toBe("1/2");
+    // The two at the second place wave to each other: each is said to have met the other, for a good while.
+    send(b, encodeEmote({ emote: 0 }));
+    await pause(200);
+    send(c, encodeEmote({ emote: 0 }));
+    let met: string | null = null;
+    await until(() => {
+      void presence.marked(there.id, "conheceu").then((what) => void (met = what));
+      return met !== null;
+    });
+    expect(met).toBe(other.id);
+    expect(await presence.marked(other.id, "conheceu")).toBe(there.id);
+    expect(await presence.marked(here.id, "conheceu")).toBeNull();
+    for (const one of [a, b, c]) await one.leave();
   });
 
   test("a wave answered by a wave, close by, is a meeting: both are told, once; a wave from afar or one never answered is only a wave", async () => {

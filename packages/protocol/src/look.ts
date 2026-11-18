@@ -51,12 +51,12 @@ const BELOW_HIM = ["trousers", "shorts"];
 /** What there is to wear, by sex. */
 export const CATALOGUE: Readonly<Record<"f" | "m", Sex>> = {
   f: {
-    tops: { tshirt: BELOW_HER, blusa: BELOW_HER, alcas: BELOW_HER, vestido: ["none"] },
+    tops: { tshirt: BELOW_HER, blusa: BELOW_HER, alcas: BELOW_HER, vestido: ["none"], camisa: BELOW_HER, camisola: BELOW_HER, fato: BELOW_HER },
     hair: ["baixo", "careca", "afro", "cachos", "trancas", "bob", "puxinho", "dreads", "lenco", "bone"],
     extras: ["brincos", "oculos"],
   },
   m: {
-    tops: { tshirt: BELOW_HIM, long: BELOW_HIM, alcas: BELOW_HIM },
+    tops: { tshirt: BELOW_HIM, long: BELOW_HIM, alcas: BELOW_HIM, camisa: BELOW_HIM, camisola: BELOW_HIM, fato: BELOW_HIM },
     hair: ["baixo", "careca", "afro", "galo", "dreads", "trancas", "bone"],
     extras: ["barba", "bigode", "oculos", "brincos"],
   },
@@ -121,35 +121,45 @@ export function arrivalLook(seed: number): Look {
 
 // ---------------------------------------------------------------- A look on the wire
 
-/** Everything that can be worn below, in one list: what a look's `bottom` is counted in on the wire. */
-const BOTTOMS = ["trousers", "shorts", "skirt", "pano", "none"];
+/**
+ * Every thing a look can name has its own number on the wire, given once and never changed, never given to
+ * another thing (the founder, 2026-11-18: the wardrobe must be free to grow and be rearranged). The order things
+ * are shown in is the catalogue's above, and may change as freely as their names in the catalog of words. A new
+ * thing takes the next number; a thing taken out keeps its number, unused, for ever.
+ */
+export const WIRE_IDS = {
+  hair: { baixo: 0, careca: 1, afro: 2, cachos: 3, trancas: 4, bob: 5, puxinho: 6, dreads: 7, lenco: 8, bone: 9, galo: 10 },
+  top: { tshirt: 0, blusa: 1, alcas: 2, vestido: 3, long: 4, camisa: 5, camisola: 6, fato: 7 },
+  bottom: { trousers: 0, shorts: 1, skirt: 2, pano: 3, none: 4 },
+  colour: {
+    paintWhite: 0, clothBlack: 1, awningRed: 2, awningGold: 3, awningTeal: 4, zincBlue: 5, vanBlue: 6, person1: 7, person3: 8, person4: 9, khaki: 10, jeans: 11,
+    jeansDark: 12, person2: 13, cloth: 14, hairBlack: 15, hairBrown: 16, hairCopper: 17, hairRed: 18, hairBlond: 19, hairGrey: 20, shoe: 21, shoeWhite: 22, shoeTan: 23,
+  },
+  /** Each extra is a bit of its own. */
+  extra: { brincos: 0, oculos: 1, barba: 2, bigode: 3 },
+} as const satisfies Record<string, Readonly<Record<string, number>>>;
+
 const NOT_THERE = 255;
-const at = (list: readonly string[], value: string): number => {
-  const index = list.indexOf(value);
-  return index < 0 ? NOT_THERE : index;
-};
+const idOf = (table: Readonly<Record<string, number>>, value: string): number => table[value] ?? NOT_THERE;
+const nameOf = (table: Readonly<Record<string, number>>, id: number): string | undefined => Object.keys(table).find((name) => table[name] === id);
 
 /**
- * A look as twelve bytes: each choice is its place in the catalogue's lists, not its name. A player's look is
- * sent to everyone who comes to see them, and as text it was two hundred bytes each time (finding F-165).
- *
- * THE LISTS ABOVE ARE THEREFORE WIRE FORMAT: new things to wear are added at the end of a list, never in the
- * middle, and nothing is taken out. A test holds the lists as they are today.
+ * A look as twelve bytes: each choice by its own number (WIRE_IDS), not its name. A player's look is sent to
+ * everyone who comes to see them, and as text it was two hundred bytes each time (finding F-165).
  */
 export function packLook(look: Look): Uint8Array {
-  const has = CATALOGUE[look.sex];
-  const extras = (look.extras ?? []).reduce((bits, extra) => bits | (has.extras.includes(extra) ? 1 << has.extras.indexOf(extra) : 0), 0);
+  const extras = (look.extras ?? []).reduce((bits, extra) => bits | (extra in WIRE_IDS.extra ? 1 << WIRE_IDS.extra[extra as keyof typeof WIRE_IDS.extra] : 0), 0);
   return Uint8Array.from([
     look.sex === "f" ? 0 : 1,
     look.skin & 0xff,
-    at(has.hair, look.hair),
-    at(COVERS.includes(look.hair) ? COLOURS.cloth : COLOURS.hair, look.hairColour),
-    at(Object.keys(has.tops), look.top),
-    at(COLOURS.cloth, look.topColour),
-    at(BOTTOMS, look.bottom),
-    at(COLOURS.bottom, look.bottomColour),
-    at(COLOURS.bands, look.bands),
-    at(COLOURS.shoe, look.shoe),
+    idOf(WIRE_IDS.hair, look.hair),
+    idOf(WIRE_IDS.colour, look.hairColour),
+    idOf(WIRE_IDS.top, look.top),
+    idOf(WIRE_IDS.colour, look.topColour),
+    idOf(WIRE_IDS.bottom, look.bottom),
+    idOf(WIRE_IDS.colour, look.bottomColour),
+    idOf(WIRE_IDS.colour, look.bands),
+    idOf(WIRE_IDS.colour, look.shoe),
     extras,
     ((look.tall ?? 0) + 1) * 3 + ((look.broad ?? 0) + 1),
   ]);
@@ -157,28 +167,38 @@ export function packLook(look: Look): Uint8Array {
 
 export const LOOK_BYTES = 12;
 
-/** The look twelve bytes describe, when it is one the wardrobe can dress; null for anything else. They came over a wire. */
+/**
+ * The look twelve bytes describe. They came over a wire, perhaps from a phone with a newer wardrobe than this
+ * one: anything this phone does not have is drawn as the nearest thing it does (a cap it has never seen is the
+ * short hair beneath it), so a stranger is always drawn, and never as somebody else. Null only for bytes that
+ * cannot be a look at all.
+ */
 export function unpackLook(bytes: Uint8Array): Look | null {
   if (bytes.length !== LOOK_BYTES) return null;
-  const [sexAt, skin, hairAt, hairColourAt, topAt, topColourAt, bottomAt, bottomColourAt, bandsAt, shoeAt, extraBits, build] = bytes as unknown as number[];
+  const [sexAt, skin, hairId, hairColourId, topId, topColourId, bottomId, bottomColourId, bandsId, shoeId, extraBits, build] = bytes as unknown as number[];
   if (sexAt! > 1 || build! > 8) return null;
   const sex = sexAt === 0 ? "f" : "m";
   const has = CATALOGUE[sex];
-  const hair = has.hair[hairAt!];
-  if (hair === undefined || extraBits! >= 1 << has.extras.length) return null;
-  // Whatever is out of a list is undefined here, and a look with anything undefined is refused whole below.
+  const named = (table: Readonly<Record<string, number>>, id: number, offered: readonly string[], otherwise: string): string => {
+    const name = nameOf(table, id);
+    return name !== undefined && offered.includes(name) ? name : otherwise;
+  };
+  const hair = named(WIRE_IDS.hair, hairId!, has.hair, "baixo");
+  const tops = Object.keys(has.tops);
+  const top = named(WIRE_IDS.top, topId!, tops, tops[0]!);
+  const below = has.tops[top]!;
   return checkLook({
     sex,
-    skin,
+    skin: skin! <= 4 ? skin! : 0,
     hair,
-    hairColour: (COVERS.includes(hair) ? COLOURS.cloth : COLOURS.hair)[hairColourAt!],
-    top: Object.keys(has.tops)[topAt!],
-    topColour: COLOURS.cloth[topColourAt!],
-    bottom: BOTTOMS[bottomAt!],
-    bottomColour: COLOURS.bottom[bottomColourAt!],
-    bands: COLOURS.bands[bandsAt!],
-    shoe: COLOURS.shoe[shoeAt!],
-    extras: has.extras.filter((_, n) => (extraBits! & (1 << n)) !== 0),
+    hairColour: named(WIRE_IDS.colour, hairColourId!, COVERS.includes(hair) ? COLOURS.cloth : COLOURS.hair, (COVERS.includes(hair) ? COLOURS.cloth : COLOURS.hair)[0]!),
+    top,
+    topColour: named(WIRE_IDS.colour, topColourId!, COLOURS.cloth, COLOURS.cloth[0]),
+    bottom: named(WIRE_IDS.bottom, bottomId!, below, below[0]!),
+    bottomColour: named(WIRE_IDS.colour, bottomColourId!, COLOURS.bottom, COLOURS.bottom[0]),
+    bands: named(WIRE_IDS.colour, bandsId!, COLOURS.bands, COLOURS.bands[0]),
+    shoe: named(WIRE_IDS.colour, shoeId!, COLOURS.shoe, COLOURS.shoe[0]),
+    extras: has.extras.filter((extra) => (extraBits! & (1 << WIRE_IDS.extra[extra as keyof typeof WIRE_IDS.extra])) !== 0),
     tall: Math.floor(build! / 3) - 1,
     broad: (build! % 3) - 1,
   });

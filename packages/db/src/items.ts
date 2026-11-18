@@ -82,7 +82,7 @@ class Refused extends Error {
 }
 
 /** Takes some of a thing out of a Mochila: the row goes with the last of it (a row never holds none). False when there is not that much. */
-async function take(t: Sql, owner: string, item: string, quantity: number): Promise<boolean> {
+export async function take(t: Sql, owner: string, item: string, quantity: number): Promise<boolean> {
   const [row] = await t<{ quantity: number }[]>`SELECT quantity FROM items WHERE owner_id = ${owner} AND place = 'mochila' AND item = ${item} FOR UPDATE`;
   if (!row || row.quantity < quantity) return false;
   if (row.quantity === quantity) await t`DELETE FROM items WHERE owner_id = ${owner} AND place = 'mochila' AND item = ${item}`;
@@ -120,4 +120,23 @@ export async function giveThings(sql: Sql, from: string, to: string, item: strin
 export async function receiptsOf(sql: Sql, playerId: string, limit = 30): Promise<Receipt[]> {
   const rows = await sql<{ id: string; at: Date; shop: string; lines: Receipt["lines"]; total: string }[]>`SELECT id, at, shop, lines, total FROM receipts WHERE player_id = ${playerId} ORDER BY at DESC, id DESC LIMIT ${limit}`;
   return rows.map(readReceipt);
+}
+
+/** Puts a thing in a Mochila as a gift (the cantina's full card): only when it fits. True when it went in. */
+export async function giveGift(sql: Sql, playerId: string, item: string, fits: (held: readonly Held[]) => boolean): Promise<boolean> {
+  return sql.begin(async (tx) => {
+    const t = tx as unknown as Sql;
+    await t`SELECT id FROM players WHERE id = ${playerId} FOR UPDATE`;
+    if (!fits(await heldBy(t, playerId))) return false;
+    await t`
+      INSERT INTO items (owner_id, place, item, quantity) VALUES (${playerId}, 'mochila', ${item}, 1)
+      ON CONFLICT (owner_id, place, item) DO UPDATE SET quantity = items.quantity + 1, updated_at = now()`;
+    return true;
+  }) as Promise<boolean>;
+}
+
+/** Whether two players have ever played from the same phone: what one gives the other is not paid for as an errand. */
+export async function samePhone(sql: Sql, one: string, other: string): Promise<boolean> {
+  const rows = await sql`SELECT 1 FROM devices a JOIN devices b ON a.device_hash = b.device_hash WHERE a.player_id = ${one} AND b.player_id = ${other} LIMIT 1`;
+  return rows.length > 0;
 }

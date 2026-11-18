@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "perDay": 3,
+  "pay": [300, 250, 200],
+  "neighbours": 10,
+  "traz": ["carvao", "pao", "velas", "sabao", "acucar", "oleo", "fosforos", "sal"],
+  "guarda": [500, 1000, 1500],
+  "aDois": { "item": "gasosa", "pay": 400, "received": 100 },
+  "familia": { "aperto": 200, "remediado": 400, "bem": 1000, "ouro": 3000 },
+  "cartao": { "stamps": 7, "gift": "pao" },
+  "apagao": { "daysOutOf7": 2, "fromGameS": 68400, "toGameS": 75600 },
+  "festa": { "goal": 60 }
+}

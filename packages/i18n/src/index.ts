@@ -15,7 +15,8 @@ export { ptAO, type MessageKey };
 export * from "./filter.ts";
 export * from "./greetings.ts";
 
-export type Catalog = Readonly<Record<MessageKey, string>>;
+/** A catalog's words. The base one has those of the way in; the words fetched later are added to it. */
+export type Catalog = Readonly<Partial<Record<MessageKey, string>>>;
 
 /** How a language counts and writes numbers. */
 export interface LocaleRules {
@@ -40,8 +41,10 @@ export const PT_AO: LocaleRules = {
 
 export interface Translator {
   readonly locale: string;
-  /** A message from the catalog, with its arguments filled in. */
+  /** A message from the catalog, with its arguments filled in; a word not loaded yet is its key. */
   t(key: MessageKey, params?: Params): string;
+  /** Adds words fetched later (pt-AO-later.ts) to the catalog. */
+  extend(more: Catalog): void;
   /** A whole number: "950", "15.000". */
   number(n: number): string;
   /** An amount of Makuta: "1.500 Mk". */
@@ -58,9 +61,14 @@ export function createTranslator(catalog: Catalog, rules: LocaleRules): Translat
     return n < 0 ? `-${digits}` : digits;
   };
   const formatters: Formatters = { plural: rules.plural, number };
+  const words: Partial<Record<MessageKey, string>> = { ...catalog };
   return {
     locale: rules.locale,
-    t: (key, params = {}) => formatMessage(catalog[key], params, formatters),
+    t: (key, params = {}) => {
+      const text = words[key];
+      return text === undefined ? key : formatMessage(text, params, formatters);
+    },
+    extend: (more) => void Object.assign(words, more),
     number,
     makuta: (amount) => `${number(amount)}${NBSP}Mk`,
     dataSize: (bytes) => {

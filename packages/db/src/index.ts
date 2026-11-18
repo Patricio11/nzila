@@ -11,3 +11,4 @@ export * from "./talk.ts";
 export * from "./studio.ts";
 export * from "./ledger.ts";
 export * from "./items.ts";
+export * from "./recados.ts";

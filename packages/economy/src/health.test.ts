@@ -44,7 +44,7 @@ test("golden: a small day in the economy", () => {
   ok(reversalOf(overpaid, "clawback"));
 
   const health = economyHealth(book.transfers.slice(before), supplyStart);
-  expect(health.faucets).toEqual({ wage: 2000, npc_customer: 500, insurance_payout: 0, grant: 0 });
+  expect(health.faucets).toEqual({ wage: 2000, npc_customer: 500, insurance_payout: 0, grant: 0, errand: 0, family: 0 });
   expect(health.sinks).toMatchObject({ fare: 150, npc_shop: 600, tax: 0 });
   expect(health.faucetTotal).toBe(2500);
   expect(health.sinkTotal).toBe(750);

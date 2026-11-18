@@ -71,7 +71,7 @@ export async function redisPresence(url = redisUrl(), prefix = "nzila", log: (li
     stand: async (playerId, at) => void (await client.set(key("at", playerId), JSON.stringify(at), { expiration: { type: "EX", value: PLACE_TTL_S } })),
     standing: async (playerId) => read<Standing>(await client.get(key("at", playerId))),
     forget: async (playerId) => void (await client.del(key("at", playerId))),
-    mark: async (playerId, kind, value = "1") => void (await client.set(key(`mark:${kind.replace(/[^a-z]/g, "")}`, playerId), value, { expiration: { type: "EX", value: AT_TTL_S } })),
+    mark: async (playerId, kind, value = "1", ttlS = AT_TTL_S) => void (await client.set(key(`mark:${kind.replace(/[^a-z]/g, "")}`, playerId), value, { expiration: { type: "EX", value: ttlS } })),
     marked: async (playerId, kind) => await client.get(key(`mark:${kind.replace(/[^a-z]/g, "")}`, playerId)),
     close: async () => {
       await client.close();

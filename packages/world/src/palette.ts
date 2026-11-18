@@ -165,11 +165,13 @@ export const WORLD = {
   lampPool: hex("#D9C7A6"), // the pavement under a lamp: pavement by day, a pool of light at night
   walls: [hex("#E8D6B8"), hex("#F2C9A0"), hex("#E7A08A"), hex("#F3E3C2"), hex("#C9D6DA"), hex("#F0B6C0"), hex("#E9C46A"), hex("#B9C7B0")],
   person: [hex("#D9483B"), hex("#F2A93B"), hex("#1E63C4"), hex("#FBF8F1"), hex("#17877F")],
-  skin: [hex("#5A3B2A"), hex("#7A5238"), hex("#3F2A1E"), hex("#4B3021"), hex("#8E6748")],
+  // Skin as it is seen in daylight, warm brown with the light on it (2026-11-18): the first values were the
+  // colour of skin in shade, and in the game's light every face read almost black and lost its shape.
+  skin: [hex("#80553A"), hex("#9A6646"), hex("#63402B"), hex("#714A33"), hex("#AD7E58")],
   /** The lips that go with each skin: a shade deeper and redder. */
-  lip: [hex("#4E2B25"), hex("#693A31"), hex("#38211C"), hex("#42261F"), hex("#7A4A3D")],
+  lip: [hex("#6A3A31"), hex("#7E453A"), hex("#54302A"), hex("#5E3530"), hex("#8F5646")],
   /** The upper lip, which is always the darker of the two. */
-  lipDark: [hex("#3A1F1A"), hex("#4E2A23"), hex("#281613"), hex("#2F1A15"), hex("#5C362C")],
+  lipDark: [hex("#4F2A24"), hex("#5F3229"), hex("#3E221D"), hex("#462620"), hex("#6E3E33")],
 } as const;
 
 /**

@@ -152,7 +152,8 @@ describe("the channel decides where everyone is", () => {
     channel.tick();
     const one = channel.placeOf(a)!.z;
     // A few frames in the first step, at the most: never the whole burst at once.
-    expect(one).toBeLessThan(80 * FRAMES_A_STEP_AT_MOST);
+    // (A walk's step is 115 mm.)
+    expect(one).toBeLessThan(120 * FRAMES_A_STEP_AT_MOST);
     expect(decodeSnapshot(channel.snapshotFor(a)!, () => undefined).lastInputSeq).toBe(FRAMES_A_STEP_AT_MOST);
     channel.tick();
     expect(decodeSnapshot(channel.snapshotFor(a)!, () => undefined).lastInputSeq).toBe(6);

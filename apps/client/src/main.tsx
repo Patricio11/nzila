@@ -38,6 +38,10 @@ if (path === "/bench") {
   // The card a new player is dealt: the family they were born into.
   const { Origem } = await import("./origem/origem-page.tsx");
   render(<Origem />, app);
+} else if (path === "/pose") {
+  // The people moving: a page for judging the movement.
+  const { Pose } = await import("./cena/cena-pose.tsx");
+  render(<Pose />, app);
 } else if (path === "/corpo") {
   // The people, to look at before they are given a skeleton.
   const { Corpo } = await import("./corpo/corpo-page.tsx");

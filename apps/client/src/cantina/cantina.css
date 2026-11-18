@@ -19,6 +19,15 @@
 .ct-grille .n-balloon { max-width: 300px; animation: ct-say 300ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 @keyframes ct-say { from { transform: scale(0.85); opacity: 0; } }
 
+/* The card of the house: a paper strip with a circle for each day, stamped in red. */
+.ct-card { align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: 6px var(--s-3); border-radius: 3px; background: var(--n-papel); color: var(--n-tinta); transform: rotate(0.6deg); box-shadow: 0 2px 0 var(--n-dourado-fundo); }
+.ct-card-name { font: 700 13px/1 var(--font-display); }
+.ct-card-stamps { display: inline-flex; gap: 5px; }
+.ct-card-stamps i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--n-tinta-suave); }
+.ct-card-stamps i.ct-stamp { background: var(--n-vermelho); box-shadow: inset 0 0 0 2px var(--n-vermelho-fundo); transform: rotate(-12deg); }
+.ct-card-stamps i.ct-stamp-new { animation: ct-stamp 520ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes ct-stamp { from { transform: scale(2.2) rotate(-40deg); opacity: 0; } }
+
 /* The shelves. */
 .ct-shelves { flex: 1; overflow: auto; padding: var(--s-2) var(--s-3) var(--s-3); }
 .ct-shelf h3 { margin: var(--s-3) var(--s-1) var(--s-2); font: var(--type-label); color: var(--n-dourado); text-transform: uppercase; letter-spacing: 0.06em; font-size: 13px; }
@@ -79,5 +88,5 @@
   background: var(--n-dourado); color: var(--n-tinta); font: 700 13px/1 var(--font-ui); box-shadow: 0 0 0 2px var(--n-noite-2); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ct-sheet, .ct-grille .n-balloon, .ct-print .n-receipt, .ct-stepper output, .ct-wait i, .ct-held-used .k-coisa { animation: none; }
+  .ct-sheet, .ct-grille .n-balloon, .ct-print .n-receipt, .ct-stepper output, .ct-wait i, .ct-held-used .k-coisa, .ct-card-stamps i.ct-stamp-new { animation: none; }
 }

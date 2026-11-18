@@ -200,7 +200,8 @@ export class DistrictScene {
     this.traffic?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, onFoot);
     this.crowd?.update(this.trafficAt ?? Date.now() + this.shift, elapsed, this.x, this.z, this.chunks.ground());
     const say = this.nameOf;
-    const people: Named[] = say ? (this.crowd?.seen ?? []).map((person) => ({ ...say(person), x: person.x, y: person.top, z: person.z, still: person.speed === 0 })) : [];
+    // A dog has no name over its head.
+    const people: Named[] = say ? (this.crowd?.seen ?? []).filter((person) => person.role !== "cao").map((person) => ({ ...say(person), x: person.x, y: person.top, z: person.z, still: person.speed === 0 })) : [];
     this.names?.update(this.renderer.camera, [...people, ...this.others], this.x, this.z);
     this.lastUpdate = now;
   }

@@ -7,6 +7,10 @@
 // The words of a letter are the catalog's, like every word a player reads.
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
+import { ptAOLater } from "@nzila/i18n/later";
+
+// The words of this app came with it (F-195).
+tr.extend(ptAOLater);
 
 export interface Letter {
   readonly to: string;

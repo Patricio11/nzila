@@ -6,7 +6,11 @@ import { Mesh, SkinnedMesh, type BufferGeometry, type Group, type Material, type
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { meteredFetch } from "../net/data-meter.ts";
+import { Dog } from "./dog.ts";
 import { Person } from "./person.ts";
+
+/** A body of the street: a person, or a dog. */
+export type Body = Person | Dog;
 import { type WorldRenderer } from "./world-renderer.ts";
 
 const PEOPLE = "/packs/dev-people/";
@@ -18,6 +22,8 @@ export interface Listed {
   readonly height: number;
   readonly skirt: boolean;
   readonly female?: boolean;
+  /** "cao" for a dog. */
+  readonly animal?: string;
 }
 
 export class People {
@@ -25,6 +31,8 @@ export class People {
   private readonly list: readonly Listed[];
   private readonly models = new Map<string, Promise<Object3D>>();
   private readonly geometries = new Set<BufferGeometry>();
+  /** How many bodies have been made: each takes its own turn at resting, lying down and so on. */
+  private made = 0;
 
   private constructor(renderer: WorldRenderer, list: readonly Listed[]) {
     this.renderer = renderer;
@@ -48,6 +56,12 @@ export class People {
    * fifth of the triangles and a third of the download, for the far side of the street (D-0.30).
    */
   async make(who: Listed, light = false): Promise<Person | null> {
+    const body = await this.makeBody(who, light);
+    return body instanceof Person ? body : null;
+  }
+
+  /** A body for anyone of the street, a dog included. */
+  async makeBody(who: Listed, light = false): Promise<Body | null> {
     const file = light ? who.model.replace(/\.glb$/, "-leve.glb") : who.model;
     let loading = this.models.get(file);
     if (!loading) {
@@ -71,8 +85,15 @@ export class People {
     const body = found[0];
     if (!body) return null;
     this.geometries.add(body.geometry);
+    this.made += 1;
+    if (who.animal) {
+      const dog = new Dog(scene, body, who.height);
+      dog.seed = this.made * 1.618;
+      return dog;
+    }
     const person = new Person(scene, body, who.height, who.skirt);
     person.female = who.female === true;
+    person.seed = this.made * 1.618;
     return person;
   }
 

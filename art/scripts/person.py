@@ -32,8 +32,15 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     bands = spec.get("bands")  # a second colour for a pano's stripes
     shoe = spec.get("shoe", "shoe")
     b.level = BOTH
+    # The head and everything on it are made a little larger than life, grown about where it meets the neck: a
+    # face, a head of hair and a cap that read across a street (2026-11-18, against the leading game's people).
+    head_scale = spec.get("head_scale", 1.08)
+    pivot = (0.0, 1.536, 0.014)
+    growing = [False]
 
     def T(p):
+        if growing[0]:
+            p = (pivot[0] + (p[0] - pivot[0]) * head_scale, pivot[1] + (p[1] - pivot[1]) * head_scale, pivot[2] + (p[2] - pivot[2]) * head_scale)
         return _add((x, ground, z), _turn((p[0] * s, p[1] * s, p[2] * s), yaw))
 
     def ring(cx, y, cz, rx, rz, n):
@@ -102,11 +109,11 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     chest_z, waist_z, hip_z = chest_z * build, waist_z * build, hip_z * build
     n = 14
     covered = top != "none"
-    long_top = top in ("dress", "vestido")
-    hem = 0.93 if top in ("tshirt", "shirt", "blusa") else 0.80
+    long_top = top in ("dress", "vestido", "bata")
+    hem = 0.93 if top in ("tshirt", "shirt", "blusa", "camisa") else 0.86 if top == "camisola" else 0.80
     puff = 1.05 if covered else 1.0
     torso_colour = top_colour if covered else skin
-    low_colour = bottom_colour if bottom in ("trousers", "shorts") else (top_colour if long_top else bottom_colour)
+    low_colour = top_colour if top == "bata" else bottom_colour if bottom in ("trousers", "shorts") else (top_colour if long_top else bottom_colour)
     stations = [
         (0.80, hip * 0.86, hip_z * 0.94, hip_off, 1.0, low_colour),
         (0.90, hip, hip_z, hip_off, 1.0, low_colour),
@@ -128,7 +135,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     b.part = "skirt"
     if bottom in ("skirt", "pano") or long_top:
         colour = top_colour if long_top else bottom_colour
-        length = 0.50 if bottom == "skirt" or (long_top and spec.get("short")) else 0.30
+        length = 0.50 if bottom == "skirt" or top == "bata" or (long_top and spec.get("short")) else 0.30
         flare = 1.16 if bottom == "pano" else 1.30
         levels = 5
         skirt = []
@@ -141,8 +148,23 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
             rz = (waist_z + (hip_z - waist_z) * min(1.0, t_ * 3.2)) * wide
             skirt.append(ring(0.0, y, hip_off * min(1.0, t_ * 3), rx, rz, n))
         skirt.reverse()
-        stripes = [colour if (bands is None or i % 2 == 0) else bands for i in range(levels)]
-        loft(skirt, stripes, two_sided=True)
+        if spec.get("pattern") == "losangos" and bands:
+            # Each band of the cloth is cut along its diagonals, the halves in the two colours, the diagonals turning
+            # from one band to the next: zigzags that close into diamonds.
+            for i in range(len(skirt) - 1):
+                low, high = skirt[i], skirt[i + 1]
+                middle = centre(low + high)
+                for k in range(n):
+                    j = (k + 1) % n
+                    if (k + i) % 2 == 0:
+                        b.face([low[k], low[j], high[j]], colour, away_from=middle, two_sided=True)
+                        b.face([low[k], high[j], high[k]], bands, away_from=middle, two_sided=True)
+                    else:
+                        b.face([low[k], low[j], high[k]], bands, away_from=middle, two_sided=True)
+                        b.face([low[j], high[j], high[k]], colour, away_from=middle, two_sided=True)
+        else:
+            stripes = [colour if (bands is None or i % 2 == 0) else bands for i in range(levels)]
+            loft(skirt, stripes, two_sided=True)
 
     # ------------------------------------------------------------------- legs
     for side in (-1, 1):
@@ -178,7 +200,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
             box((lx, 0.008, 0.045), (0.102, 0.016, 0.27), "shoeSole")
 
     # ------------------------------------------------------------------- arms
-    sleeve = {"tshirt": 1.25, "shirt": 1.25, "blusa": 1.33, "dress": 1.31, "vestido": 1.31, "long": 0.90, "alcas": 9.0, "none": 9.0}[top]
+    sleeve = {"tshirt": 1.25, "shirt": 1.25, "blusa": 1.33, "dress": 1.31, "vestido": 1.31, "long": 0.90, "camisa": 0.95, "camisola": 0.90, "fato": 0.90, "bata": 1.25, "alcas": 9.0, "none": 9.0}[top]
     for side in (-1, 1):
         b.part = "arm.L" if side > 0 else "arm.R"
         joints = [(side * shoulder * 0.93, 1.405), (side * (shoulder * 0.93 + 0.070), 1.145), (side * (shoulder * 0.93 + 0.118), 0.895)]
@@ -207,7 +229,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         # The hand: a palm, the fingers together, and a thumb forward of them.
         wx = arm_x(0.895) + side * 0.012
         b.part = "hand.L" if side > 0 else "hand.R"
-        hand = refine([(0.895, 0.024, 0.030, 0.0), (0.862, 0.017, 0.040, 0.004), (0.815, 0.015, 0.042, 0.006), (0.765, 0.012, 0.036, 0.004), (0.735, 0.007, 0.022, 0.002)], 1)
+        hand = refine([(0.895, 0.025, 0.032, 0.0), (0.862, 0.019, 0.045, 0.004), (0.810, 0.017, 0.047, 0.006), (0.758, 0.014, 0.040, 0.004), (0.725, 0.008, 0.025, 0.002)], 1)
         hand.reverse()
         hand_rings = [ring(wx + side * (0.895 - y) * 0.10, y, off, rx, rz, 8) for (y, rx, rz, off) in hand]
         loft(hand_rings, [skin] * (len(hand_rings) - 1))
@@ -217,7 +239,11 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         loft(thumb, [skin, skin])
         cap(thumb[0], skin, T((wx, 0.84, 0.03)))
 
+    # ------------------------------------------------------------- what is worn on the body
+    clothes(b, T, ring, loft, top, top_colour, spec, chest, chest_z, waist, waist_z, puff, yaw)
+
     b.part = "head"
+    growing[0] = True
     # ------------------------------------------------------------------- head
     yc, zc = 1.640, 0.014
     jaw = 1.0 if female else 1.12
@@ -236,8 +262,9 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
 
     def is_hair(points):
         c = centre(points)
-        # Undo the placing, to ask where on the head this face is.
+        # Undo the placing and the growing, to ask where on the head this face is.
         local = _turn(_mul((c[0] - x, c[1] - ground, c[2] - z), 1.0 / s), -yaw)
+        local = tuple(pivot[i] + (local[i] - pivot[i]) / head_scale for i in range(3))
         dy, lz, lx = local[1] - yc, local[2] - zc, abs(local[0])
         return hairline and (dy > 0.062 or (lz < -0.015 and dy > -0.055) or (lx > 0.055 and dy > 0.02 and lz < 0.045))
 
@@ -303,11 +330,12 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         # The brow: an arch, thicker toward the nose.
         brow = [(-0.016, -0.004), (-0.010, 0.0035), (0.002, 0.0055), (0.017, 0.001), (0.017, -0.0015), (0.002, 0.0015), (-0.010, -0.0005)]
         shape(ex, 0.031 if not female else 0.033, [(side * ox, oy) for ox, oy in brow], spec.get("brow_colour", hair_colour), out=0.0034)
-        # The ear: small, flat to the head, behind the cheek.
-        box((side * 0.080, yc - 0.004, zc - 0.012), (0.008, 0.032, 0.018), skin)
+        # The ear: its rim standing a little off the head, taller than wide, behind the cheek; the lobe below.
+        box((side * 0.082, yc - 0.002, zc - 0.014), (0.012, 0.040, 0.024), skin)
+        box((side * 0.081, yc - 0.024, zc - 0.010), (0.010, 0.012, 0.016), skin)
     # The nose: a ridge that widens to the nostrils.
-    bridge, tip = T((0.0, yc + 0.014, front(0.014, 0.0) + 0.003)), T((0.0, yc - 0.027, front(-0.027, 0.0) + 0.022))
-    wing = 0.021 if not female else 0.0185
+    bridge, tip = T((0.0, yc + 0.014, front(0.014, 0.0) + 0.003)), T((0.0, yc - 0.028, front(-0.028, 0.0) + 0.026))
+    wing = 0.023 if not female else 0.020
     left, right_wing = T((-wing, yc - 0.034, front(-0.034, wing) + 0.003)), T((wing, yc - 0.034, front(-0.034, wing) + 0.003))
     under = T((0.0, yc - 0.039, front(-0.039, 0.0) + 0.006))
     inside = T((0.0, yc - 0.02, zc))
@@ -371,10 +399,17 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         afro = [ring(0.0, yc + dy, zc - 0.022, rx, rz, 10) for (dy, rx, rz) in shell]
         loft(afro, [hair_colour] * 4)
         cap(afro[-1], hair_colour, T((0.0, yc, zc)))
+        # Its curls: knots of hair standing out of the round all over it, so that it is hair and not a hat.
+        for dy, r, count in [(0.035, 0.112, 11), (0.09, 0.117, 12), (0.135, 0.09, 9), (0.16, 0.04, 4)]:
+            for k in range(count):
+                angle = 2 * math.pi * (k + 0.5 * (dy > 0.09)) / count
+                if math.sin(angle) > 0.55 and dy < 0.06:
+                    continue  # the brow is left open
+                b.gem(T((math.cos(angle) * r * size, yc + dy * size, zc - 0.022 + math.sin(angle) * r * size * 1.04)), (0.024 * size * s, 0.022 * size * s, 0.024 * size * s), 5, hair_colour, rng, rough=0.25)
     elif style in ("trancas", "dreads"):
         b.part = "hairfall"
-        thick = 0.0085 if style == "trancas" else 0.015
-        count = 22 if style == "trancas" else 13
+        thick = 0.0085 if style == "trancas" else 0.0115
+        count = 24 if style == "trancas" else 22
         reach = spec.get("hair_length", 1.20 if style == "trancas" else 1.38)
         for i in range(count):
             # Round the back of the head from one temple to the other.
@@ -387,12 +422,12 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
             shoulder_z = 0.05 if forward else -0.085
             rest = (start[0] * 1.55 + sway, 1.43, shoulder_z + rng.uniform(-0.01, 0.01))
             fall = (rest[0] + sway, end_y, shoulder_z + (0.03 if forward else -0.02))
-            b.tube([T(start), T(middle), T(rest), T(fall)], [thick * s, thick * s, thick * s, thick * 0.7 * s], 3, hair_colour, cap=False)
+            b.tube([T(start), T(middle), T(rest), T(fall)], [thick * s, thick * 1.05 * s, thick * s, thick * 0.75 * s], 5, hair_colour, cap=True)
         if style == "dreads":
             for i in range(5):
                 angle = math.radians(20 + 140 * i / 4)
                 start, fall = scalp(angle, 0.085, 1.0), scalp(angle, 0.03 - 0.03 * rng.random(), 1.1)
-                b.tube([T(start), T(fall)], [thick * s, thick * 0.8 * s], 3, hair_colour, cap=False)
+                b.tube([T(start), T(fall)], [thick * s, thick * 0.85 * s], 5, hair_colour, cap=True)
     elif style == "puxinho":
         b.gem(T((0.0, yc + 0.105, zc - 0.062)), (0.05 * s, 0.05 * s, 0.05 * s), 6, hair_colour, rng, rough=0.08)
     elif style == "lenco":
@@ -445,6 +480,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         loft(band, [spec["belt"]])
         b.face([T((-0.02, 0.992, waist_z * 1.14)), T((0.02, 0.992, waist_z * 1.14)), T((0.02, 1.024, waist_z * 1.14)), T((-0.02, 1.024, waist_z * 1.14))], "rim", toward=_turn((0.0, 0.0, 1.0), yaw))
 
+    growing[0] = False
     # ------------------------------------------------------------ what is carried
     b.piece = "body"
     if spec.get("bebe"):
@@ -462,9 +498,18 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         b.gem(T((0.0, 1.425, -chest_z - 0.062)), (0.055 * s, 0.03 * s, 0.055 * s), 6, "hairBlack", rng, rough=0.05)
         for side in (1, -1):
             b.tube([T((side * 0.11, 1.1, -chest_z - 0.03)), T((side * 0.165, 1.04, -chest_z + 0.03))], [0.024 * s, 0.02 * s], 5, skin)
+    if spec.get("mochila_costas"):
+        # A school bag on the back, its two straps over the shoulders.
+        b.part = "torso"
+        bag = spec["mochila_costas"]
+        box((0.0, 1.2, -chest_z - 0.06), (0.24, 0.3, 0.12), bag)
+        box((0.0, 1.08, -chest_z - 0.128), (0.18, 0.1, 0.03), "tarShade")
+        for side in (-1, 1):
+            b.tube([T((side * 0.07, 1.36, -chest_z - 0.01)), T((side * 0.085, 1.43, 0.0)), T((side * 0.08, 1.33, chest_z + 0.02)), T((side * 0.075, 1.18, chest_z + 0.01))], [0.011 * s] * 4, 4, bag, cap=False)
     if spec.get("bacia"):
         # The zungueira's bacia, on a rolled cloth on the head, heaped with what she sells.
         b.part = "head"
+        growing[0] = True
         base = yc + (0.165 if style == "lenco" else 0.145)
         b.tube([T((0.0, base, zc)), T((0.0, base + 0.035, zc))], [0.07 * s, 0.075 * s], 8, "cloth", cap=False)
         basin = [ring(0.0, base + dy, zc, r, r, 10) for dy, r in [(0.03, 0.15), (0.075, 0.215), (0.13, 0.25)]]
@@ -474,6 +519,7 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
             angle = 2 * math.pi * k / 6 + 0.4
             reach = 0.12 if k else 0.0
             b.gem(T((reach * math.cos(angle), base + 0.14, zc + reach * math.sin(angle))), (0.075 * s, 0.06 * s, 0.075 * s), 5, spec.get("goods", ["awningGold", "acaciaFlower", "awningGold", "acaciaLeaf", "awningGold", "roofTile"])[k], rng, rough=0.1)
+        growing[0] = False
     if spec.get("cana"):
         # A fishing rod in the right hand. The arm hangs as the body is made, so the rod is made pointing
         # down and forward: with the forearm brought up to hold it, it points out over the water.
@@ -488,6 +534,169 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     b.part = None
     b.piece = None
     return height
+
+
+def clothes(b, T, ring, loft, top, colour, spec, chest, chest_z, waist, waist_z, puff, yaw):
+    """
+    What makes a top more than a colour: a shirt's collar and buttons, a camisola's hood, pocket and cords, a
+    jacket's lapels with the shirt and the tie between them. Laid on the torso as it was made.
+    """
+    forward = _turn((0.0, 0.0, 1.0), yaw)
+    right = _turn((1.0, 0.0, 0.0), yaw)
+    up = (0.0, 1.0, 0.0)
+
+    def on_front(px, py, depth, w, h, paint, out=0.006):
+        """A flat piece on the front of the chest at this height, `depth` being how far forward the chest is there."""
+        b.rect(T((px, py, depth + out)), right, up, w, h, paint)
+
+    def chest_at(y):
+        # How far forward the front of the clothed chest is at a height, between the waist and the chest.
+        u = min(1.0, max(0.0, (y - 1.07) / 0.2))
+        return (waist_z + (chest_z - waist_z) * u) * puff
+
+    b.part = "torso"
+    if top in ("camisa", "fato", "bata"):
+        # The collar: a band round the neck, and its two points lying on the chest.
+        band = [ring(0.0, y, 0.004, 0.066 * grow, 0.064 * grow, 12) for y, grow in [(1.445, 1.18), (1.49, 1.1)]]
+        loft(band, ["paintWhite" if top == "fato" else colour])
+        for side in (-1, 1):
+            tip = T((side * 0.032, 1.405, chest_at(1.40) + 0.012))
+            b.face([T((side * 0.004, 1.455, 0.068)), T((side * 0.06, 1.462, 0.04)), tip], "paintWhite" if top == "fato" else colour, two_sided=True)
+    if top in ("camisa", "bata"):
+        # The placket down the front, and its buttons.
+        on_front(0.0, 1.17, chest_at(1.17), 0.016, 0.42, colour, out=0.004)
+        for k in range(5):
+            y = 1.38 - k * 0.085
+            on_front(0.0, y, chest_at(y), 0.009, 0.009, "paintWhite", out=0.007)
+    elif top == "camisola":
+        # The hood lying on the upper back, open toward the neck.
+        hood = [ring(0.0, y, -0.06, rx, rz, 10) for y, rx, rz in [(1.40, 0.11, 0.07), (1.47, 0.12, 0.085), (1.53, 0.085, 0.07)]]
+        for i in range(len(hood) - 1):
+            low, high = hood[i], hood[i + 1]
+            middle = T((0.0, 1.47, -0.06))
+            for k in range(10):
+                j = (k + 1) % 10
+                # Only the half behind the neck.
+                if k in (1, 2, 3):
+                    continue
+                b.face([low[k], low[j], high[j], high[k]], colour, away_from=middle, two_sided=True)
+        # The pocket across the belly, its edge in a darker thread, and the two cords from the neck.
+        on_front(0.0, 1.03, chest_at(1.03), 0.2, 0.11, "tarShade", out=0.005)
+        on_front(0.0, 1.03, chest_at(1.03), 0.19, 0.10, colour, out=0.0065)
+        for side in (-1, 1):
+            on_front(side * 0.03, 1.36, chest_at(1.36), 0.006, 0.12, "paintWhite", out=0.008)
+        # A band at the hem.
+        hem = [ring(0.0, y, -0.004, waist * 1.12 * puff, waist_z * 1.12 * puff, 14) for y in (0.855, 0.895)]
+        loft(hem, ["tarShade"])
+    elif top == "fato":
+        # Between the lapels, the shirt and the tie; the lapels themselves a shade darker; two buttons.
+        b.face([T((-0.05, 1.44, chest_at(1.40) + 0.009)), T((0.05, 1.44, chest_at(1.40) + 0.009)), T((0.0, 1.17, chest_at(1.17) + 0.009))], "paintWhite", toward=forward)
+        tie = spec.get("bands") or "clothBlack"
+        b.face([T((-0.012, 1.425, chest_at(1.40) + 0.012)), T((0.012, 1.425, chest_at(1.40) + 0.012)), T((0.016, 1.22, chest_at(1.22) + 0.012)), T((0.0, 1.19, chest_at(1.19) + 0.012)), T((-0.016, 1.22, chest_at(1.22) + 0.012))], tie, toward=forward)
+        for side in (-1, 1):
+            b.face([T((side * 0.05, 1.44, chest_at(1.40) + 0.01)), T((side * 0.085, 1.40, chest_at(1.38) + 0.01)), T((side * 0.02, 1.15, chest_at(1.15) + 0.01)), T((side * 0.004, 1.17, chest_at(1.17) + 0.01))], "tarShade", toward=forward)
+        for k in range(2):
+            y = 1.1 - k * 0.07
+            on_front(0.0, y, chest_at(y), 0.012, 0.012, "clothBlack", out=0.008)
+    b.part = None
+
+
+# ==================================================================== the dog
+# A rafeiro: the dog of every Luandan street and quintal. Short coat, tan, often with a darker saddle and a
+# pale chest; ears that stand; a tail carried in a curl. Made in real metres (about 0.5 m at the shoulder),
+# facing +Z, from rings across the body the way a person is made from rings along it.
+
+def cao(b, x, z, yaw, spec, rng, ground=0.0):
+    """Builds one dog standing. Returns its height at the head."""
+    coat = spec.get("coat", "shoeTan")
+    saddle = spec.get("saddle", coat)
+    pale = spec.get("pale", "sand")
+    b.level = BOTH
+
+    def T(p):
+        return _add((x, ground, z), _turn(p, yaw))
+
+    def across(cx, cy, cz, rx, ry, n=8):
+        """A ring standing across the body at `cz`: x to the side, y up."""
+        return [T((cx + rx * math.cos(2 * math.pi * k / n), cy + ry * math.sin(2 * math.pi * k / n), cz)) for k in range(n)]
+
+    def centre(points):
+        return _mul(tuple(sum(p[i] for p in points) for i in range(3)), 1.0 / len(points))
+
+    def loft(rings, paints):
+        for i in range(len(rings) - 1):
+            low, high = rings[i], rings[i + 1]
+            middle = centre(low + high)
+            n = len(low)
+            for k in range(n):
+                j = (k + 1) % n
+                # The upper half of a ring is the coat's saddle where there is one; the lower half its paler belly.
+                top = (math.sin(2 * math.pi * (k + 0.5) / n) > 0.35)
+                under = (math.sin(2 * math.pi * (k + 0.5) / n) < -0.5)
+                b.face([low[k], low[j], high[j], high[k]], saddle if top and paints[i] == coat else (pale if under and paints[i] == coat else paints[i]), away_from=middle)
+
+    # The body: from the haunch to the chest, deepest at the chest, a tuck at the belly.
+    b.part = "torso"
+    body = [(-0.27, 0.41, 0.066, 0.075), (-0.22, 0.41, 0.09, 0.105), (-0.12, 0.40, 0.084, 0.094), (0.0, 0.41, 0.09, 0.105), (0.12, 0.42, 0.1, 0.125), (0.21, 0.43, 0.095, 0.115), (0.26, 0.46, 0.072, 0.085)]
+    rings = [across(0.0, y, cz, rx, ry) for cz, y, rx, ry in body]
+    loft(rings, [coat] * (len(rings) - 1))
+    b.face(rings[0], coat, away_from=T((0.0, 0.41, 0.0)))
+    # The neck up and forward to the head.
+    b.part = "neck"
+    neck = [across(0.0, 0.46, 0.25, 0.07, 0.08), across(0.0, 0.54, 0.29, 0.062, 0.068), across(0.0, 0.6, 0.32, 0.056, 0.06)]
+    loft(neck, [coat, coat])
+    # The head: the skull, the stop, the muzzle narrowing to the nose.
+    b.part = "head"
+    head = [(0.30, 0.625, 0.06, 0.062), (0.355, 0.638, 0.071, 0.07), (0.405, 0.627, 0.06, 0.06), (0.437, 0.602, 0.04, 0.04), (0.497, 0.595, 0.03, 0.031), (0.525, 0.597, 0.021, 0.022)]
+    hr = [across(0.0, y, cz, rx, ry) for cz, y, rx, ry in head]
+    loft(hr, [coat, coat, coat, pale, pale])
+    b.face(hr[0], coat, away_from=T((0.0, 0.62, 0.4)))
+    b.face(hr[-1], "clothBlack", away_from=T((0.0, 0.6, 0.45)))
+    # The ears, standing; the eyes; the nose.
+    for side in (-1, 1):
+        b.face([T((side * 0.025, 0.685, 0.335)), T((side * 0.064, 0.672, 0.352)), T((side * 0.056, 0.765, 0.33))], saddle, two_sided=True)
+        b.face([T((side * 0.034, 0.648, 0.405)), T((side * 0.05, 0.648, 0.398)), T((side * 0.049, 0.661, 0.398)), T((side * 0.035, 0.662, 0.405))], "eyeDark", toward=_turn((side * 0.6, 0.0, 0.8), yaw))
+    b.gem(T((0.0, 0.607, 0.53)), (0.016, 0.013, 0.013), 5, "clothBlack", rng, rough=0.05)
+    # The legs, each in two: the upper with the coat's colour, the lower paler; and the paws.
+    for tag, lx, lz, top_y in [("FL", 0.05, 0.19, 0.40), ("FR", -0.05, 0.19, 0.40), ("BL", 0.055, -0.2, 0.40), ("BR", -0.055, -0.2, 0.40)]:
+        back = tag[0] == "B"
+        knee = (lx, 0.22, lz - (0.025 if back else -0.005))
+        b.part = f"leg.{tag}"
+        b.tube([T((lx, top_y, lz)), T(knee)], [0.042 if back else 0.034, 0.025], 6, coat, cap=False)
+        b.part = f"paw.{tag}"
+        b.tube([T(knee), T((lx, 0.035, lz + 0.005))], [0.024, 0.019], 6, pale if back else coat, cap=False)
+        b.box(T((lx, 0.019, lz + 0.024)), (0.042, 0.038, 0.058), pale, yaw=yaw, skip_bottom=False)
+    # The tail, carried up in a curl over the back.
+    b.part = "tail"
+    b.tube([T((0.0, 0.46, -0.27)), T((0.0, 0.54, -0.32)), T((0.0, 0.63, -0.3)), T((0.0, 0.66, -0.24))], [0.022, 0.02, 0.016, 0.01], 5, coat, cap=True)
+    b.part = None
+    return 0.73
+
+
+def ossos_cao(spec):
+    """The dog's bones as (name, parent, head, tail), in metres, in the game's axes."""
+    bones = [
+        ("body", None, (0.0, 0.41, -0.22), (0.0, 0.42, 0.2)),
+        ("neck", "body", (0.0, 0.46, 0.22), (0.0, 0.6, 0.31)),
+        ("head", "neck", (0.0, 0.6, 0.31), (0.0, 0.6, 0.5)),
+        ("tail", "body", (0.0, 0.46, -0.27), (0.0, 0.62, -0.31)),
+    ]
+    for tag, lx, lz in [("FL", 0.05, 0.19), ("FR", -0.05, 0.19), ("BL", 0.055, -0.2), ("BR", -0.055, -0.2)]:
+        back = tag[0] == "B"
+        knee = (lx, 0.22, lz - (0.025 if back else -0.005))
+        bones += [(f"leg.{tag}", "body", (lx, 0.40, lz), knee), (f"paw.{tag}", f"leg.{tag}", knee, (lx, 0.02, lz + 0.01))]
+    return bones
+
+
+def pesos_cao(spec, x=0.0, z=0.0, ground=0.0):
+    """Which bones move a point of the dog."""
+    def weigh(part, point):
+        if part is None or part == "torso":
+            return [("body", 1.0)]
+        if part in ("neck", "head", "tail"):
+            return [(part, 1.0)]
+        return [(part, 1.0)]
+    return weigh
 
 
 # ==================================================================== the skeleton

@@ -22,6 +22,8 @@ export const FAUCETS = [
   "npc_customer", // NPCs buying from players and from player businesses
   "insurance_payout",
   "grant", // the first Makuta of a new player; a restoration by support
+  "errand", // os recados do dia: what the neighbours pay for an errand done
+  "family", // the family's money for the taxi, once a day
 ] as const;
 export type FaucetKind = (typeof FAUCETS)[number];
 

@@ -32,15 +32,16 @@ describe("on open ground", () => {
   });
 
   test("runs at running speed", () => {
-    const state = walk(at(5000, 5000), { dx: 0, dz: -127, run: true }, 20);
-    expect(state.z).toBe(5000 - DEFAULT_CHARACTER.runMmPerS);
+    const state = walk(at(5000, 15000), { dx: 0, dz: -127, run: true }, 20);
+    expect(state.z).toBe(15000 - DEFAULT_CHARACTER.runMmPerS);
     expect(state.yaw).toBe(18000);
   });
 
   test("a half-pushed stick walks at half speed", () => {
     const state = walk(at(5000, 5000), { dx: 0, dz: 64, run: false }, 20);
-    expect(state.z - 5000).toBeGreaterThanOrEqual(740);
-    expect(state.z - 5000).toBeLessThanOrEqual(760);
+    // Half of a walk's 2,3 m in a second, and a little under for the stick's rounding.
+    expect(state.z - 5000).toBeGreaterThanOrEqual(DEFAULT_CHARACTER.walkMmPerS * 0.49);
+    expect(state.z - 5000).toBeLessThanOrEqual(DEFAULT_CHARACTER.walkMmPerS * 0.51);
   });
 
   test("a stick in the corner is no faster than a stick pushed straight", () => {
@@ -185,7 +186,7 @@ test("golden: a fixed walk ends in a fixed place", () => {
     [{ dx: 127, dz: -127, run: true }, 40],
   ];
   for (const [input, steps] of legs) walk(state, input, steps, ground, obstacles);
-  expect(state).toEqual({ x: 19093, y: 150, z: 8509, yaw: 13500 });
+  expect(state).toEqual({ x: 19656, y: 150, z: 4463, yaw: 13500 });
 });
 
 describe("jumping", () => {

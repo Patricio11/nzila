@@ -2,7 +2,12 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { PT_AO, argumentsOf, createTranslator, formatMessage, messageKeys, ptAO, ptAOTranslator, t, type Catalog } from "./index.ts";
+import { PT_AO, argumentsOf, createTranslator, formatMessage, ptAO as base, ptAOTranslator, t, type Catalog, type MessageKey } from "./index.ts";
+import { ptAOLater } from "./pt-AO-later.ts";
+
+// Both catalogs, the way in and the words fetched later, read as one.
+const ptAO = { ...base, ...ptAOLater } as Readonly<Record<MessageKey, string>>;
+const messageKeys = Object.keys(ptAO) as MessageKey[];
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 

@@ -2,7 +2,7 @@
 // ../migrations are the source of truth for what exists in the database; an
 // integration test fails when a column here and a column there disagree.
 
-import { bigint, boolean, customType, integer, jsonb, pgTable, primaryKey, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, customType, date, integer, jsonb, pgTable, primaryKey, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 const at = (name: string) => timestamp(name, { withTimezone: true });
 const bytea = customType<{ data: Uint8Array }>({ dataType: () => "bytea" });
@@ -219,6 +219,24 @@ export const receipts = pgTable("receipts", {
   key: text("key").notNull(),
 });
 
+export const recadosFeitos = pgTable("recados_feitos", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  playerId: uuid("player_id").notNull(),
+  day: date("day", { mode: "string" }).notNull(),
+  n: smallint("n").notNull(),
+  kind: text("kind").notNull(),
+  districtId: text("district_id"),
+  transferId: uuid("transfer_id"),
+  at: at("at").notNull().defaultNow(),
+});
+
+export const cartoesCheios = pgTable("cartoes_cheios", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  playerId: uuid("player_id").notNull(),
+  shop: text("shop").notNull(),
+  at: at("at").notNull().defaultNow(),
+});
+
 export const staffRoles = pgTable(
   "staff_roles",
   {
@@ -304,6 +322,8 @@ export const tables = {
   sanctions,
   items,
   receipts,
+  recadosFeitos,
+  cartoesCheios,
   staffRoles,
   auditLog,
   featureFlags,

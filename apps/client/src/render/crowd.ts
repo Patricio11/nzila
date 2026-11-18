@@ -9,8 +9,8 @@ import { type Manifest } from "@nzila/world/client";
 import { Group } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { actorAt, type ActorMoment, type CrowdActor, type CrowdFile } from "./crowd-plan.ts";
-import { type Listed, type People } from "./people.ts";
-import { EMOTES, EMOTE_SECONDS, type Emote, type Person } from "./person.ts";
+import { type Body, type Listed, type People } from "./people.ts";
+import { EMOTES, EMOTE_SECONDS, strideOf, type Emote } from "./person.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
 /** Nobody further than this from the viewer is given a body, in metres. */
@@ -23,9 +23,9 @@ interface Walker {
   readonly actor: CrowdActor;
   readonly who: Listed;
   /** The light body, which everyone has from the start. */
-  readonly person: Person;
+  readonly person: Body;
   /** The whole body, fetched the first time they come near. */
-  whole: Person | null;
+  whole: Body | null;
   fetching: boolean;
   yaw: number;
   shown: boolean;
@@ -52,6 +52,8 @@ export class Crowd {
   private people: People | null = null;
   /** Those with a body at the last update. */
   seen: PersonSeen[] = [];
+  /** The night of the bairro's festa: those who come only for it are in the street. */
+  festa = false;
 
   private constructor(renderer: WorldRenderer) {
     this.renderer = renderer;
@@ -69,7 +71,7 @@ export class Crowd {
       await Promise.all(
         file.actors.map(async (actor, n) => {
           const who = people.pick(actor.role, actor.who ?? n);
-          const person = who ? await people.make(who, true) : null;
+          const person = who ? await people.makeBody(who, true) : null;
           if (!who || !person) return;
           person.root.visible = false;
           person.shadow = false;
@@ -94,6 +96,12 @@ export class Crowd {
     const most = Math.round(this.renderer.tier.crowd * 0.75);
     const near: { walker: Walker; at: ActorMoment; far: number }[] = [];
     for (const walker of this.walkers) {
+      if (walker.actor.festa && !this.festa) {
+        walker.person.root.visible = false;
+        if (walker.whole) walker.whole.root.visible = false;
+        walker.shown = false;
+        continue;
+      }
       const at = actorAt(walker.actor, seconds);
       const far = Math.hypot(at.x - viewerX, at.z - viewerZ);
       walker.person.root.visible = false;
@@ -111,7 +119,7 @@ export class Crowd {
       // Near enough for the whole body: it is fetched once, and the light one stands in until it has come.
       if (n < wholes && !walker.whole && !walker.fetching && this.people) {
         walker.fetching = true;
-        void this.people.make(walker.who).then((whole) => {
+        void this.people.makeBody(walker.who).then((whole) => {
           if (!whole) return;
           whole.root.visible = false;
           this.root.add(whole.root);
@@ -131,7 +139,7 @@ export class Crowd {
       person.shadow = n < SHADOWS && person === walker.whole;
       person.root.position.set(at.x, y, at.z);
       person.root.rotation.y = walker.yaw;
-      const stride = (at.speed > 2.2 ? 2.5 : 1.42) * (person.height / 1.7) * (person.skirt ? 0.8 : 1);
+      const stride = strideOf(at.speed, person.height, person.skirt);
       const gesture: Emote | undefined = EMOTES.find((kind) => kind === at.pose || `baixo-${kind}` === at.pose);
       person.pose(
         { speed: at.speed, phase: (at.travelled / stride) * Math.PI * 2, time: seconds + walker.actor.offset },

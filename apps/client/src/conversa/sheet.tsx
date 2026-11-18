@@ -2,13 +2,17 @@
 // sheet. Fetched the first time someone is tapped, not before (the megabytes rule, F-188).
 
 import { ptAO, ptAOTranslator as tr } from "@nzila/i18n";
+import { ptAOLater } from "@nzila/i18n/later";
 import { Button, Glyph, IdCard } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { arrivedOn } from "../telemovel/bi.tsx";
 import { Coisa } from "../cantina/coisas.tsx";
-import { giveThing, thingsNow, type GaveThing, type Held, payPlayer, type Paid, blockPlayer, playerCard, reportPlayer, type PlayerCard, type ReportReason } from "../world/account.ts";
+import { giveThing, thingsNow, type GaveThing, type Held, payPlayer, type Paid, blockPlayer, playerCard, reportPlayer, type PlayerCard, type ReportReason } from "../world/money.ts";
 import { type Met } from "./conversa.tsx";
 import "./conversa.css";
+
+// The words of this sheet came with it (F-195).
+tr.extend(ptAOLater);
 
 const REASONS: readonly ReportReason[] = ["insults", "harassment", "sexual", "scam", "cheating", "name", "other"];
 
