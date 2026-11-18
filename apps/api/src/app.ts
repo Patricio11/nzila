@@ -5,6 +5,8 @@
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId } from "@nzila/economy";
+import { buy, giveThings, heldBy, receiptsOf, useOne } from "@nzila/db";
+import { BASE_CATALOGUE, BASE_SHOPS, priceBasket, unitsCarried } from "@nzila/economy";
 import { lastGift, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
@@ -576,6 +578,99 @@ export function buildApp(deps: Deps): FastifyInstance {
       const recorded = await recordTransfer(deps.sql, { debitAccount: accountId("player_cash", caller.player.id), creditAccount: accountId("player_cash", payee), amount: body.amount, reason: "p2p", actionId: `pay:${caller.player.id}:${body.key}` });
       if (!recorded.ok) throw new Refusal(recorded.error === "insufficient_funds" ? 409 : 400, recorded.error === "insufficient_funds" ? "insufficient" : "invalid");
       return { ...(await walletOf(deps.sql, caller.player.id)), transfer: recorded.transfer.id };
+    },
+  });
+
+  // ------------------------------------------------------------ things (Tasks 4.2 and 4.3)
+  const catalogue = BASE_CATALOGUE;
+  const shops = BASE_SHOPS;
+  const fits = (more: number) => (held: readonly { item: string; quantity: number }[]): boolean => unitsCarried(catalogue, held) + more <= catalogue.carryUnits;
+  const keyShape = z.string().regex(/^[A-Za-z0-9_-]{8,40}$/);
+  const itemShape = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/);
+
+  // What a kind of thing is, as a phone needs it to draw it and say what can be done with it.
+  const aboutOf = (ids: readonly string[]): Record<string, { kind: string; size: number; use: string | null }> =>
+    Object.fromEntries(ids.flatMap((id) => {
+      const kind = catalogue.items.get(id);
+      return kind ? [[id, { kind: kind.kind, size: kind.size, use: kind.use }]] : [];
+    }));
+
+  // What the player carries, how much room it takes, and their last receipts; and, when the zone says they stand
+  // at a shop, that shop and what it sells at the server's prices. A phone never prices anything itself.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/me/items",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async (_body, caller) => {
+      const held = await heldBy(deps.sql, caller.player.id);
+      const at = await presence.marked(caller.player.id, "loja");
+      const stock = at ? shops.shops.get(at.split("-")[0]!) : undefined;
+      return {
+        items: held,
+        about: aboutOf([...held.map((one) => one.item), ...(stock ?? []).map((line) => line.item)]),
+        units: unitsCarried(catalogue, held),
+        carryUnits: catalogue.carryUnits,
+        receipts: await receiptsOf(deps.sql, caller.player.id, 10),
+        shop: at && stock ? { id: at, stock: stock.map((line) => ({ item: line.item, price: line.price })) } : null,
+        // What the Carteira holds now: the gold button says whether it is enough.
+        ...(await walletOf(deps.sql, caller.player.id)),
+      };
+    },
+  });
+
+  // Buying at a shop, through its grille or at its counter. The zone says which shop the player stands at; the
+  // phone proposes a basket; the price is the server's (tunables/shops.json), paid through the ledger, and the
+  // things are in the Mochila with a receipt, all at once. The same purchase sent twice is the first one.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/shop/buy",
+    guard: "player",
+    body: z.strictObject({ shop: z.string().regex(/^[a-z0-9-]{1,40}$/), lines: z.array(z.strictObject({ item: itemShape, quantity: z.number().int().min(1).max(99) })).min(1).max(30), key: keyShape }),
+    perMinute: 30,
+    handler: async (body, caller) => {
+      if ((await presence.marked(caller.player.id, "loja")) !== body.shop) throw new Refusal(409, "not_at_shop");
+      // The kind of shop is the first word of the place's name in the pack: "cantina-largo" is a cantina.
+      const priced = priceBasket(shops, catalogue, body.shop.split("-")[0]!, body.lines);
+      if (!priced.ok) throw new Refusal(400, priced.error);
+      const bought = await buy(deps.sql, { playerId: caller.player.id, shop: body.shop, key: body.key, lines: priced.lines, total: priced.total }, fits(priced.units));
+      if (!bought.ok) throw new Refusal(409, bought.error === "insufficient_funds" ? "insufficient" : bought.error === "too_heavy" ? "too_heavy" : "invalid");
+      return { receipt: bought.receipt, ...(await walletOf(deps.sql, caller.player.id)), items: await heldBy(deps.sql, caller.player.id) };
+    },
+  });
+
+  // Eating or drinking something carried. (What it gives back to Fome and Energia arrives with Task 4.4.)
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/items/use",
+    guard: "player",
+    body: z.strictObject({ item: itemShape }),
+    perMinute: 30,
+    handler: async (body, caller) => {
+      const kind = catalogue.items.get(body.item);
+      if (!kind?.use) throw new Refusal(400, "invalid");
+      if (!(await useOne(deps.sql, caller.player.id, body.item))) throw new Refusal(409, "none");
+      return { used: kind.use, items: await heldBy(deps.sql, caller.player.id) };
+    },
+  });
+
+  // Giving something carried to someone beside you: a sweet, a soft drink, a bag of charcoal for a mother. The
+  // zone says the two stand together; nothing is given across a block; the other must have room for it.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/items/give",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape, item: itemShape, quantity: z.number().int().min(1).max(99) }),
+    perMinute: 20,
+    handler: async (body, caller) => {
+      const to = await other(body.biNumber, caller.player.id);
+      if ((await shutOutOf(deps.sql, caller.player.id)).includes(to)) throw new Refusal(404, "not_found");
+      if (!((await presence.marked(caller.player.id, "com")) ?? "").split(",").includes(to)) throw new Refusal(409, "not_together");
+      if (!catalogue.items.has(body.item)) throw new Refusal(400, "invalid");
+      const given = await giveThings(deps.sql, caller.player.id, to, body.item, body.quantity, fits(0));
+      if (given !== "ok") throw new Refusal(409, given === "none" ? "none" : "too_heavy");
+      return { items: await heldBy(deps.sql, caller.player.id) };
     },
   });
 

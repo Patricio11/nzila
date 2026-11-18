@@ -7,7 +7,9 @@
 // zone stops speaking of them.
 
 import { DOING, type Who } from "@nzila/protocol";
-import { type Object3D } from "three";
+import { Vector3, type Object3D } from "three";
+
+const at = new Vector3();
 import { type Seen } from "../net/others.ts";
 import { type Named } from "./names.ts";
 import { EMOTE_SECONDS, type Emote, type Person } from "./person.ts";
@@ -85,7 +87,15 @@ export class Players {
   /** Where the top of each body's head is: for what hangs over it, and for a finger. */
   heads(): { id: number; x: number; y: number; z: number }[] {
     const out: { id: number; x: number; y: number; z: number }[] = [];
-    for (const [id, body] of this.bodies) if (body.person) out.push({ id, x: body.x, y: body.y + body.person.height, z: body.z });
+    for (const [id, body] of this.bodies) {
+      const person = body.person;
+      if (!person) continue;
+      // Seated in a van: where the body really is on the picture, its head lower by the sitting.
+      if (person.root.parent && person.root.parent !== this.renderer.scene) {
+        person.root.getWorldPosition(at);
+        out.push({ id, x: at.x, y: at.y + person.height * 0.74, z: at.z });
+      } else out.push({ id, x: body.x, y: body.y + person.height, z: body.z });
+    }
     return out;
   }
 

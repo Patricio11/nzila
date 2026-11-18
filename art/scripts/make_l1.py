@@ -521,6 +521,14 @@ kit.balcao(b, balcao_x, balcao_z, 0.0, G)
 words["l1.poi.balcao-largo.name"] = "Balcão do banco, no Largo"
 words["l1.poi.balcao-largo.line"] = "O banco de porta para a rua. Guarda, levanta, e pergunta o que quiseres."
 places["pois"].append({"id": "balcao-largo", "pos": [round(balcao_x, 2), G, round(balcao_z + 2.0, 2)], "nameKey": "l1.poi.balcao-largo.name", "lineKey": "l1.poi.balcao-largo.line", "positive": True, "stamp": False, "glyph": "banco"})
+# The bairro's cantina, on the Largo by the paragem, its front to the street and the people off the vans, and in
+# the sun: in Luanda the sun is to the north. Through its grille, the everyday things.
+cantina_x, cantina_z = lx0 + 58.0, z0 + 13.0
+kit.cantina(b, cantina_x, cantina_z, math.pi, G)
+block(cantina_x, cantina_z, 2.6)
+words["l1.poi.cantina-largo.name"] = "Cantina do Largo"
+words["l1.poi.cantina-largo.line"] = "Pão, gasosa, arroz, sabão, velas. Tudo pela grade, e a dona conhece toda a gente."
+places["pois"].append({"id": "cantina-largo", "pos": [round(cantina_x - 0.8, 2), G, round(cantina_z - 3.2, 2)], "nameKey": "l1.poi.cantina-largo.name", "lineKey": "l1.poi.cantina-largo.line", "positive": True, "stamp": False, "glyph": "cantina"})
 poi("xadrez", lx0 + 21.0, z0 + 14.0, "As mesas de xadrez do Largo", "Os kotas jogam aqui desde manhã. Quem perde paga o café.")
 paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutamba")
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down
@@ -805,6 +813,9 @@ for who, (pace, lane) in enumerate([(1.3, 6.0), (1.2, 8.0), (1.4, 7.0)]):
     actors.append({"role": "any", "who": who + 3, "offset": round(crowd_rng.uniform(0, keys[-1][0]), 1), "keys": keys})
 sell_x, sell_z = largo[0] + 52.5, largo[1] + 4.0
 actors.append({"role": "zungueira", "who": 1, "offset": 0.0, "keys": timetable([("at", sell_x, sell_z), ("stay", 20.0, "", 0.0), ("stay", 2.4, "chamar", 0.0), ("go", sell_x - 6.0, sell_z + 0.6, 0.9), ("stay", 18.0, "", 0.0), ("go", sell_x, sell_z, 0.9)])})
+
+# The dona of the cantina: behind her grille all day, and now and then calling to whoever passes.
+actors.append({"role": "any", "who": 4, "offset": 0.0, "keys": timetable([("at", cantina_x - 0.8, cantina_z - 1.2), ("stay", 30.0, "", 0.0), ("stay", 2.2, "chamar", 0.0), ("stay", 24.0, "", 0.0)])})
 
 # Whoever serves at the bank's counter: behind it all day, facing the street, now and then calling the next one.
 actors.append({"role": "any", "who": 2, "offset": 0.0, "keys": timetable([("at", balcao_x, balcao_z + 0.25), ("stay", 26.0, "", 0.0), ("stay", 2.2, "chamar", 0.0), ("stay", 18.0, "", 0.0)])})

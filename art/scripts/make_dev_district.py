@@ -413,6 +413,26 @@ _cx, _cy, _cz = places["corners"][3]
 b.level = kit.BOTH
 kit.caixa(b, _cx + 2.4, _cz - 1.2, 0.0, KERB)
 places["caixa"] = [round(_cx + 2.4, 2), KERB, round(_cz - 0.2, 2)]
+# And a cantina a few steps along the same pavement (Task 4.3).
+
+
+def _paved(x0, z0, x1, z1):
+    """Whether every cell of a rectangle is open pavement: no road, no trunk, no lamp, no bench."""
+    for iz in range(math.floor(z0 / CELL), math.ceil(z1 / CELL)):
+        for ix in range(math.floor(x0 / CELL), math.ceil(x1 / CELL)):
+            if not (0 <= ix < ACROSS * CELLS and 0 <= iz < DOWN * CELLS) or flags[(ix // CELLS, iz // CELLS)][iz % CELLS][ix % CELLS] != ".":
+                return False
+    return True
+
+
+# Its front (to the north) 2.4 m in from the line of trees and lamps along the kerb: the popcorn table and the place
+# to stand at the grille are on open pavement, and people walking past the arrival pass in front of it.
+_spots = [(_cx + dx * 0.5, _cz + 4.2 + dz * 0.5) for dz in range(0, 9) for dx in range(6, 60)]
+_spot = next((x, z) for x, z in sorted(_spots, key=lambda p: math.hypot(p[0] - _cx, p[1] - _cz)) if _paved(x - 2.3 - 2.5, z - 1.8 - 2.0, x + 2.3 + 3.5, z + 1.8 + 2.5)
+             # Where people arrive, and the caixa, are not on the walk grid yet: kept clear by hand.
+             and math.hypot(x - _cx, z - _cz) > 7.5 and math.hypot(x - _cx - 2.4, z - _cz + 1.2) > 6.5)
+kit.cantina(b, _spot[0], _spot[1], math.pi, KERB)
+places["cantina"] = [round(_spot[0] - 0.8, 2), KERB, round(_spot[1] - 3.2, 2)]
 
 # Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
 # a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
@@ -471,6 +491,7 @@ layout = {
     "corners": places["corners"],
     "paragens": places["paragens"],
     "caixa": places["caixa"],
+    "cantina": places["cantina"],
     "seats": [{"pos": [round(x, 2), round(y, 2), round(z, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for x, y, z, yaw in b.seats],
     # The bay: from the foot of the sea wall out past the edge of what is modelled.
     "water": {"rect": [-300, sea_wall + 0.6, ACROSS * CHUNK + 300, DOWN * CHUNK + 400], "level": -0.45},

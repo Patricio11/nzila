@@ -12,12 +12,13 @@ import { TrafficRules, actorAt } from "@nzila/world";
 import { faceOf, keepChatLines, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { type ChatFilter } from "@nzila/i18n";
 import {
+  type EntityState,
   type RideAsked,
   encodeTraffic, EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, CHAT_REFUSAL } from "@nzila/protocol";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
-import { CAIXA_REACH_MM, type District } from "./district.ts";
+import { CAIXA_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
 import { Talk, reached } from "./talk.ts";
 
 /** How many people one channel holds when nobody says otherwise (the tunable `channels.cap`; held by the swarm of 3.7). */
@@ -107,6 +108,7 @@ interface Held {
   withWhom: string;
   withAt: number;
   nudgedAt: number;
+  shopAt: number;
 }
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
@@ -299,7 +301,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0 });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0 });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -323,7 +325,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0 });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0 });
     this.lineOfEntity.set(entityId, line);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
@@ -412,7 +414,7 @@ export class ChannelRoom {
       this.said.push({ ...where, said: false, heardBy: 0 });
       return;
     }
-    const hearers = reached(this.channel.entities(), held.entityId, this.apart);
+    const hearers = reached(this.together(held.entityId), held.entityId, this.apart);
     for (const one of hearers) this.lineOfEntity.get(one.id)?.send(encodeChatHeard({ from: held.entityId, tick, text: one.reads ? verdict.text : "" }));
     this.said.push({ ...where, said: true, heardBy: hearers.filter((one) => one.reads).length - 1 });
     // "Bom dia", "Tudo bem?" and the like greet whoever is close, as a wave does (the founder, 2026-11-17).
@@ -426,7 +428,7 @@ export class ChannelRoom {
     if (!this.talk || held.typing === typing) return;
     held.typing = typing;
     const bytes = encodeChatTyping({ from: held.entityId, typing });
-    for (const one of reached(this.channel.entities(), held.entityId, this.apart)) if (one.id !== held.entityId) this.lineOfEntity.get(one.id)?.send(bytes);
+    for (const one of reached(this.together(held.entityId), held.entityId, this.apart)) if (one.id !== held.entityId) this.lineOfEntity.get(one.id)?.send(bytes);
   }
 
   /** A gesture, for whoever has the one who makes it in sight. */
@@ -437,6 +439,17 @@ export class ChannelRoom {
     const bytes = encodeEvent({ kind: EVENT.EMOTE, tick: this.channel.world.tick, subject: held.entityId, args: [emote], text: "" });
     for (const [other, seeing] of this.held) if (seeing !== held && this.channel.seenBy(seeing.entityId).includes(held.entityId)) other.send(bytes);
     if (emote === WAVE) this.greets(held, now);
+  }
+
+  /**
+   * Who is in the same room as someone, for talk (the spec's "the van is its own chat room"): riders of the same van
+   * hear one another and nobody else, whatever the street says; people on foot hear people on foot. A van is small:
+   * everyone in it is within reading.
+   */
+  private together(entityId: number): EntityState[] {
+    const everyone = this.channel.entities();
+    const on = this.channel.ridingOf(entityId)?.vehicle ?? null;
+    return everyone.filter((one) => one.vehicleId === on);
   }
 
   /** "Look in your wallet", from someone who has just handed something over, to someone beside them; once a second at most. */
@@ -624,6 +637,18 @@ export class ChannelRoom {
         void this.presence.mark(held.playerId, "caixa").catch(() => {});
       }
     }
+    // And whoever stands at a shop, which one: the API sells only to someone the zone says is at it (Task 4.3).
+    if (tick % STEPS_A_LOOK === 0 && this.presence && (this.district.shops?.length ?? 0) > 0) {
+      const now = Date.now();
+      for (const held of this.held.values()) {
+        if (now - held.shopAt < MARK_EVERY_MS) continue;
+        const at = this.channel.placeOf(held.entityId);
+        const shop = at && !this.channel.ridingOf(held.entityId) ? this.district.shops!.find((one) => Math.hypot(one.x - at.x, one.z - at.z) <= SHOP_REACH_MM) : undefined;
+        if (!shop) continue;
+        held.shopAt = now;
+        void this.presence.mark(held.playerId, "loja", shop.id).catch(() => {});
+      }
+    }
     // And whoever stands close to another is said to be with them, so that the API will let one hand the other
     // Makuta (Task 4.1): the few nearest within arm's reach, said when it changes and once a second while it is so.
     if (tick % STEPS_A_LOOK === 0 && this.presence && this.held.size > 1) {
@@ -632,7 +657,7 @@ export class ChannelRoom {
       for (const me of places) {
         if (!me.at) continue;
         const near = places
-          .filter((other) => other !== me && other.at && !this.apart(me.held.entityId, other.held.entityId))
+          .filter((other) => other !== me && other.at && !this.apart(me.held.entityId, other.held.entityId) && (this.channel.ridingOf(other.held.entityId)?.vehicle ?? null) === (this.channel.ridingOf(me.held.entityId)?.vehicle ?? null))
           .map((other) => ({ id: other.held.playerId, far: Math.hypot(other.at!.x - me.at!.x, other.at!.z - me.at!.z) }))
           .filter((other) => other.far <= HAND_REACH_MM)
           .sort((a, b) => a.far - b.far)

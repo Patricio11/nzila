@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "shops": {
+    "cantina": {
+      "stock": [
+        { "item": "pao", "price": 50 },
+        { "item": "pipocas", "price": 100 },
+        { "item": "ginguba", "price": 150 },
+        { "item": "bolachas", "price": 250 },
+        { "item": "rebucados", "price": 20 },
+        { "item": "chocolate", "price": 400 },
+        { "item": "agua", "price": 100 },
+        { "item": "sumo", "price": 200 },
+        { "item": "gasosa", "price": 250 },
+        { "item": "ovos", "price": 700 },
+        { "item": "arroz", "price": 900 },
+        { "item": "fuba", "price": 700 },
+        { "item": "massa", "price": 500 },
+        { "item": "oleo", "price": 1800 },
+        { "item": "acucar", "price": 800 },
+        { "item": "sal", "price": 200 },
+        { "item": "sardinha", "price": 450 },
+        { "item": "tomate", "price": 300 },
+        { "item": "leite", "price": 2500 },
+        { "item": "sabao", "price": 350 },
+        { "item": "velas", "price": 100 },
+        { "item": "fosforos", "price": 50 },
+        { "item": "pilhas", "price": 400 },
+        { "item": "carvao", "price": 1500 }
+      ]
+    }
+  }
+}

@@ -52,7 +52,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { tap?: string; shop: string | null; othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -95,7 +95,18 @@ function LazySheet(props: Parameters<typeof import("../conversa/sheet.tsx").Play
   return fetchedSheet ? fetchedSheet(props) : null;
 }
 
-type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa";
+/** The cantina's grille and the Mochila, fetched the first time either is opened (F-188). */
+type Loja = typeof import("../cantina/loja.tsx");
+let fetchedLoja: Loja | null = null;
+function LazyLoja({ show }: { show: (module: Loja) => preact.JSX.Element }) {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    if (!fetchedLoja) void import("../cantina/loja.tsx").then((module) => ((fetchedLoja = module), redraw((n) => n + 1)));
+  }, []);
+  return fetchedLoja ? show(fetchedLoja) : null;
+}
+
+type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy";
 
 interface Hud {
   /** Whether talk is open where the player is; the last lines said near them; why their last line was not said. */
@@ -133,6 +144,9 @@ export function Andar() {
   // Which app the Telemóvel opens on: the one the address asked for, or the Banco when the player uses a caixa.
   const [phoneApp, setPhoneApp] = useState<string | null>(params.get("telemovel") || null);
   const [marked, setMarked] = useState<Marked | null>(null);
+  // The cantina whose grille the player is at, and the Mochila, when open.
+  const [shop, setShop] = useState<{ id: string; name: string } | null>(null);
+  const [bag, setBag] = useState(false);
   // The browser's offer to install, kept until the first ride is over: never at the first second (Task 1.8).
   const offer = useRef<InstallOffer | null>(null);
   const [install, setInstall] = useState(false);
@@ -457,6 +471,14 @@ export function Andar() {
           setPhoneApp("banco");
           setPhone(true);
         }
+        // The shop the player is at; the button offers it once they stand still.
+        const shopHere = !seat && !ride ? world.atShop() : null;
+        const atShop = moving ? null : shopHere;
+        if (asks.current.act && atShop) {
+          // At a cantina's grille the button opens it.
+          asks.current.act = false;
+          setShop(atShop);
+        }
         if (asks.current.act) {
           asks.current.act = false;
           seat = seat ? null : nearest();
@@ -718,14 +740,15 @@ export function Andar() {
           }
         }
 
-        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && world.atCaixa() ? "caixa" : !moving && nearest() ? "sit" : null;
-        // Where each other player's chest is on the screen, in CSS pixels: for the tests that tap someone.
+        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : !moving && nearest() ? "sit" : null;
+        // Where each other player's chest is on the screen, in CSS pixels: for the tests that tap someone. Only those in
+        // front of the camera: one behind it would project, mirrored, onto an empty part of the screen.
         const box = canvas.current?.getBoundingClientRect();
-        const onScreen = box ? (session?.heads() ?? []).map((one) => {
+        const onScreen = box ? (session?.heads() ?? []).flatMap((one) => {
           const point = new Vector3(one.x, one.y - 0.6, one.z).project(renderer.camera);
-          return { x: box.left + ((point.x + 1) / 2) * box.width, y: box.top + ((1 - point.y) / 2) * box.height };
+          return point.z > 1 ? [] : [{ x: box.left + ((point.x + 1) / 2) * box.width, y: box.top + ((1 - point.y) / 2) * box.height }];
         }) : [];
-        window.__andar = { othersOnScreen: onScreen, shoulder, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { ...(window.__andar?.tap ? { tap: window.__andar.tap } : {}), shop: shopHere?.id ?? null, othersOnScreen: onScreen, shoulder, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -798,10 +821,16 @@ export function Andar() {
       touches.delete(event.pointerId);
       if (touch?.kind === "stick") Object.assign(stick, { x: 0, y: 0, active: false });
       // A tap, not a drag: on a player, it opens their BI, with everything that can be done about them (Rule 11).
+      // What came of the last one is kept for the tests: "stick", "long", "moved", "nobody", "unknown" or "opened".
+      const tap = (why: string): void => void (window.__andar && (window.__andar.tap = why));
+      if (touch && touch.kind !== "look") tap("stick");
+      else if (touch && performance.now() - touch.at >= 350) tap("long");
+      else if (touch && Math.hypot(event.clientX - touch.fromX, event.clientY - touch.fromY) >= 10) tap("moved");
       if (touch?.kind === "look" && session && performance.now() - touch.at < 350 && Math.hypot(event.clientX - touch.fromX, event.clientY - touch.fromY) < 10) {
         const rect = element.getBoundingClientRect();
         const entity = touched(renderer.camera, session.heads(), event.clientX - rect.left, event.clientY - rect.top, rect.width, rect.height);
         const who = entity === null ? null : session.who(entity);
+        tap(entity === null ? "nobody" : who ? "opened" : "unknown");
         if (entity !== null && who) setMet({ entity, name: who.name, bi: who.bi });
       }
     };
@@ -916,7 +945,10 @@ export function Andar() {
           ) : null}
           <Joystick {...hud.stick} />
           <div class="andar-buttons">
-            <HudButton glyph="telemovel" label={tr.t("hud.phone")} on={phone} onPress={() => setPhone(!phone)} />
+            <span class="andar-pair">
+              <HudButton glyph="mochila" label={tr.t("hud.mochila")} on={bag} onPress={() => (setShop(null), setBag(!bag))} />
+              <HudButton glyph="telemovel" label={tr.t("hud.phone")} on={phone} onPress={() => setPhone(!phone)} />
+            </span>
             <span class="andar-pair">
               <span class="andar-wheel-anchor">
                 <EmoteWheel open={wheel} emotes={EMOTE_LIST} onPick={(id) => ((asks.current.emote = id), setWheel(false))} />
@@ -929,8 +961,8 @@ export function Andar() {
           </div>
           <Telemovel world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} onClose={() => (setPhone(false), setPhoneApp(null))} />
           {/* The Telemóvel covers the foot of the screen: the chat bar steps aside while it is open, or it would lie over the sheet's last key. */}
-          {phone || met ? null : <ChatLog lines={hud.lines} refused={hud.refused} raised={composing && hud.talk} />}
-          {phone || met ? null : (
+          {phone || met || shop || bag ? null : <ChatLog lines={hud.lines} refused={hud.refused} raised={composing && hud.talk} />}
+          {phone || met || shop || bag ? null : (
             <div class="andar-chat">
               {composing && hud.talk ? (
                 <Composer onSay={(text) => net.current?.say(text)} onTyping={(on) => net.current?.typing(on)} onClose={() => setComposing(false)} />
@@ -939,6 +971,8 @@ export function Andar() {
               )}
             </div>
           )}
+          {shop ? <LazyLoja show={(loja) => <loja.Cantina shop={shop} second={hud.second} place={hud.place} onClose={() => setShop(null)} />} /> : null}
+          {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila onClose={() => setBag(false)} />} /> : null}
           {met ? (
             <LazySheet
               met={met}

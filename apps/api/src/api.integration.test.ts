@@ -1169,3 +1169,83 @@ describe("handing Makuta to another player, in person (Task 4.1, D-4.11)", () =>
     expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
   });
 });
+
+describe("things, and the cantina (Tasks 4.2 and 4.3)", () => {
+  const post = (token: string, url: string, payload: Record<string, unknown>) => app.inject({ method: "POST", url, headers: as(token), payload });
+  const born = async (n: number) => {
+    const guest = await newGuest(n);
+    const cash = ((await post(guest.token, "/v1/me/origin", {})).json() as { wallet: { cash: number } }).wallet.cash;
+    return { ...guest, cash };
+  };
+  const shopping = (token: string, lines: { item: string; quantity: number }[], key: string, shop = "cantina-largo") => post(token, "/v1/shop/buy", { shop, lines, key });
+
+  test("bought at the grille of a cantina the zone says the player stands at: paid through the ledger, in the Mochila, on a receipt; sent twice, bought once", async () => {
+    const one = await born(1300);
+    expect((await shopping(one.token, [{ item: "pao", quantity: 2 }], "compra-0001")).json()).toEqual({ error: "not_at_shop" });
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    // At another shop than the one asked for, nothing is sold.
+    expect((await shopping(one.token, [{ item: "pao", quantity: 2 }], "compra-0001", "cantina-marginal")).json()).toEqual({ error: "not_at_shop" });
+    const bought = await shopping(one.token, [{ item: "pao", quantity: 2 }, { item: "sumo", quantity: 1 }], "compra-0001");
+    expect(bought.statusCode).toBe(200);
+    const said = bought.json() as { receipt: { id: number; shop: string; total: number; lines: unknown[] }; cash: number; items: { item: string; quantity: number }[] };
+    expect(said.receipt).toMatchObject({ shop: "cantina-largo", total: 300, lines: [{ item: "pao", quantity: 2, price: 50, amount: 100 }, { item: "sumo", quantity: 1, price: 200, amount: 200 }] });
+    expect(said.cash).toBe(one.cash - 300);
+    expect(said.items).toEqual([{ item: "pao", quantity: 2 }, { item: "sumo", quantity: 1 }]);
+    // A phone on a bad line sends it again: the same receipt, nothing more paid or carried.
+    const again = (await shopping(one.token, [{ item: "pao", quantity: 2 }, { item: "sumo", quantity: 1 }], "compra-0001")).json() as { receipt: { id: number }; cash: number; items: unknown[] };
+    expect(again.receipt.id).toBe(said.receipt.id);
+    expect(again.cash).toBe(one.cash - 300);
+    expect(again.items).toEqual(said.items);
+    // Twenty at the same instant with one key: one purchase.
+    const burst = await Promise.all(Array.from({ length: 10 }, () => shopping(one.token, [{ item: "agua", quantity: 1 }], "compra-0002")));
+    expect(new Set(burst.map((res) => (res.json() as { receipt: { id: number } }).receipt.id)).size).toBe(1);
+    const mochila = (await app.inject({ method: "GET", url: "/v1/me/items", headers: as(one.token) })).json() as { items: { item: string; quantity: number }[]; units: number; carryUnits: number; receipts: { id: number }[] };
+    expect(mochila.items).toEqual([{ item: "pao", quantity: 2 }, { item: "sumo", quantity: 1 }, { item: "agua", quantity: 1 }]);
+    // Standing at the cantina, the phone is told what it sells and at what price, and what each thing is.
+    const looked = (await app.inject({ method: "GET", url: "/v1/me/items", headers: as(one.token) })).json() as { shop: { id: string; stock: { item: string; price: number }[] } | null; about: Record<string, { kind: string; size: number; use: string | null }> };
+    expect(looked.shop?.id).toBe("cantina-largo");
+    expect(looked.shop?.stock).toContainEqual({ item: "pao", price: 50 });
+    expect(looked.about.pao).toEqual({ kind: "comida", size: 1, use: "comer" });
+    expect(looked.about.carvao).toEqual({ kind: "casa", size: 6, use: null });
+    expect(looked).toMatchObject({ cash: one.cash - 400, bank: 0 });
+    expect(mochila.units).toBe(4);
+    expect(mochila.receipts).toHaveLength(2);
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+
+  test("what is not sold, more than is held, more than a Mochila holds, and a price the phone names are refused", async () => {
+    const one = await born(1310);
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    expect((await shopping(one.token, [{ item: "carro", quantity: 1 }], "nada-00001")).json()).toEqual({ error: "not_sold" });
+    expect((await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: "pao", quantity: 1, price: 1 }], key: "preco-0001" })).statusCode).toBe(400);
+    // More than the Carteira holds: nothing paid, nothing carried.
+    const dear = Math.ceil(one.cash / 1800) + 1;
+    if (dear <= 20) expect((await shopping(one.token, [{ item: "oleo", quantity: dear }], "caro-00001")).json()).toEqual({ error: "insufficient" });
+    // More than a Mochila holds: carvão is six units a bag.
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    expect((await shopping(one.token, [{ item: "carvao", quantity: 5 }], "pesado-001")).json()).toEqual({ error: "too_heavy" });
+    expect((await app.inject({ method: "GET", url: "/v1/me/items", headers: as(one.token) })).json()).toMatchObject({ items: [], units: 0 });
+  });
+
+  test("eaten and drunk one at a time; given to someone beside you, never across a block, never more than they can carry", async () => {
+    const one = await born(1320);
+    const two = await born(1321);
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    await shopping(one.token, [{ item: "pao", quantity: 1 }, { item: "gasosa", quantity: 2 }, { item: "arroz", quantity: 1 }], "comer-0001");
+    expect((await post(one.token, "/v1/items/use", { item: "pao" })).json()).toEqual({ used: "comer", items: [{ item: "gasosa", quantity: 2 }, { item: "arroz", quantity: 1 }] });
+    expect((await post(one.token, "/v1/items/use", { item: "pao" })).json()).toEqual({ error: "none" });
+    // Rice is cooked at home, not eaten in the street.
+    expect((await post(one.token, "/v1/items/use", { item: "arroz" })).json()).toEqual({ error: "invalid" });
+    // A gasosa to someone beside you.
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ error: "not_together" });
+    await presence.mark(one.playerId, "com", two.playerId);
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ items: [{ item: "gasosa", quantity: 1 }, { item: "arroz", quantity: 1 }] });
+    expect((await app.inject({ method: "GET", url: "/v1/me/items", headers: as(two.token) })).json()).toMatchObject({ items: [{ item: "gasosa", quantity: 1 }] });
+    // More than is held, and something that is not a thing.
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 5 })).json()).toEqual({ error: "none" });
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "unicornio", quantity: 1 })).json()).toEqual({ error: "invalid" });
+    // Once the other has shut them out, nothing is given.
+    await post(two.token, "/v1/blocks", { biNumber: one.biNumber });
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ error: "not_found" });
+  });
+});

@@ -36,6 +36,8 @@ export interface District {
   };
   /** The caixas: where money is put in the bank and taken out. Millimetres. */
   readonly caixas?: readonly { readonly x: number; readonly z: number }[];
+  /** The shops, by the pack's name for each: where things are bought. Millimetres. */
+  readonly shops?: readonly { readonly id: string; readonly x: number; readonly z: number }[];
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -45,7 +47,7 @@ interface ManifestRead {
   readonly chunks: readonly { readonly walkGrid?: string }[];
   readonly seats?: readonly SeatPlace[];
   readonly paragens?: readonly { readonly id: string; readonly pos: readonly [number, number, number] }[];
-  readonly pois?: readonly { readonly pos: readonly [number, number, number]; readonly glyph?: string }[];
+  readonly pois?: readonly { readonly id: string; readonly pos: readonly [number, number, number]; readonly glyph?: string }[];
   readonly routes?: readonly { readonly id: string; readonly kind: string; readonly spline: string; readonly stopPoints: readonly number[]; readonly headwaySeconds: number }[];
   readonly npc?: { readonly crowd: string | null };
   readonly spawns: readonly { readonly pos: readonly [number, number, number]; readonly facing?: number; readonly kind: string }[];
@@ -54,6 +56,9 @@ interface ManifestRead {
 /** The sign over a caixa, as a pack's manifest names it; and how near one a player must stand to use it, in millimetres. */
 export const CAIXA_GLYPH = "banco";
 export const CAIXA_REACH_MM = 3500;
+/** The signs of shops; and how near a shop's place a player must stand to buy (at its grille or its counter). */
+export const SHOP_GLYPHS = ["cantina"];
+export const SHOP_REACH_MM = 3500;
 
 /** The name a district's rooms go by (the phones ask for it by the same function). */
 export const roomNameOf = zoneRoomOf;
@@ -76,7 +81,9 @@ export async function loadDistrict(packDir: URL): Promise<District> {
   const paragens = new Map((manifest.paragens ?? []).map((one) => [one.id, { x: Math.round(one.pos[0] * 1000), y: Math.round(one.pos[1] * 1000), z: Math.round(one.pos[2] * 1000), yaw: 0 }]));
   // A place whose sign is the bank's is a caixa.
   const caixas = (manifest.pois ?? []).filter((one) => one.glyph === CAIXA_GLYPH).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: seatObstacles(manifest.seats ?? []), arrival, paragens, caixas, ...(await trafficOf(manifest, packDir)) };
+  // A place whose sign is a shop's is one: a player standing at it may buy what it sells.
+  const shops = (manifest.pois ?? []).filter((one) => SHOP_GLYPHS.includes(one.glyph ?? "")).map((one) => ({ id: one.id, x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: seatObstacles(manifest.seats ?? []), arrival, paragens, caixas, shops, ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

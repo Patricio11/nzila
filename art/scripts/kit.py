@@ -636,6 +636,8 @@ def lamp(b, x, z, toward, ground=0.14, pool=True):
     b.tube([(x, ground + 5.6, z), head], [0.05, 0.05], 4, "metal")
     b.level = LIGHT
     b.tube([(x, ground, z), (x, ground + 5.6, z)], [0.09, 0.06], 3, "metal", cap=False)
+    # The arm too: without it, on the lightest picture, the head would hang in the air beside its pole.
+    b.tube([(x, ground + 5.6, z), head], [0.05, 0.05], 3, "metal", cap=False)
     b.level = BOTH
     b.box(head, (0.5, 0.16, 0.5), "lamp", skip_bottom=False)
     if pool:
@@ -793,6 +795,75 @@ def caixa(b, x, z, yaw, ground=0.14):
     b.box((x, ground + 1.1, z), (0.86, 2.1, 0.62), "vanBlue", yaw=yaw)
     b.level = BOTH
     return 0.6
+
+
+def cantina(b, x, z, yaw, ground=0.14):
+    """
+    The bairro's cantina (LUANDA_REFERENCE.md, the founder's photographs): a small block shop whose whole front is
+    painted yellow, its name band lettered in red and blue along the top, a window behind a white iron grille that
+    things are sold through, a barred door standing open, a band of pierced blocks under the roof for air, and the
+    popcorn machine on a wooden table outside. Its front faces local +Z, turned by `yaw`. Whoever buys stands at
+    the grille. Returns how far it reaches from its middle.
+    """
+    b.at(x, z)
+    wide, deep, high = 4.6, 3.6, 2.9
+
+    def at(lx, ly, lz):
+        return _add((x, ground, z), _turn((lx, ly, lz), yaw))
+
+    right = _turn((1.0, 0.0, 0.0), yaw)
+    up = (0.0, 1.0, 0.0)
+    front = deep / 2
+    b.level = BOTH
+    # The block itself, yellow all round, and the lower strip darker where feet and rain reach it.
+    b.box(at(0.0, high / 2, 0.0), (wide, high, deep), "muralYellow", yaw=yaw, top="roofZinc")
+    b.box(at(0.0, 0.3, 0.0), (wide + 0.04, 0.6, deep + 0.04), "awningGold", yaw=yaw, top="awningGold")
+    # The name band: red lettering on a white board, underlined in blue (the letters themselves are the board's paint).
+    b.rect(at(0.0, high - 0.32, front + 0.03), right, up, wide - 0.2, 0.42, "paintWhite")
+    for n in range(5):
+        b.rect(at(-wide / 2 + 0.55 + n * 0.82, high - 0.3, front + 0.04), right, up, 0.5, 0.24, "awningRed" if n % 2 == 0 else "signBlue")
+    b.rect(at(0.0, high - 0.56, front + 0.04), right, up, wide - 0.4, 0.06, "signBlue")
+    # The pierced blocks under the roof: a row of dark holes.
+    for n in range(7):
+        b.rect(at(-wide / 2 + 0.4 + n * 0.63, high - 0.82, front + 0.03), right, up, 0.36, 0.16, "tarShade")
+    # The window things are sold through, lit from inside, and its white grille.
+    wx = 0.8
+    b.rect(at(wx, 1.45, front + 0.03), right, up, 1.8, 1.05, "windowLit")
+    b.level = FULL
+    for n in range(7):
+        b.box(at(wx - 0.81 + n * 0.27, 1.45, front + 0.07), (0.035, 1.05, 0.035), "paintWhite", yaw=yaw)
+    for ly in (1.0, 1.45, 1.9):
+        b.box(at(wx, ly, front + 0.07), (1.8, 0.035, 0.035), "paintWhite", yaw=yaw)
+    # The sill people lean on to pay, and a few things on show on it.
+    b.box(at(wx, 0.95, front + 0.16), (1.9, 0.07, 0.3), "concrete", yaw=yaw, skip_bottom=False)
+    for n, colour in enumerate(["awningRed", "signBlue", "paintMint", "awningGold"]):
+        b.box(at(wx - 0.6 + n * 0.38, 1.08, front + 0.12), (0.12, 0.2, 0.12), colour, yaw=yaw)
+    b.level = BOTH
+    # The door, dark inside, and its barred iron gate standing open against the wall.
+    dx = -1.35
+    b.rect(at(dx, 1.05, front + 0.03), right, up, 0.95, 2.1, "tarShade")
+    b.level = FULL
+    hinge = at(dx - 0.48, 0.0, front + 0.05)
+    out = _turn((0.0, 0.0, 1.0), yaw)
+    for n in range(5):
+        foot = _add(hinge, _mul(out, 0.08 + n * 0.2))
+        b.box(_add(foot, (0.0, 1.05, 0.0)), (0.035, 2.1, 0.035), "metal", yaw=yaw)
+    for ly in (0.15, 1.05, 1.95):
+        b.box(_add(_add(hinge, _mul(out, 0.48)), (0.0, ly, 0.0)), (0.035, 0.035, 0.9), "metal", yaw=yaw)
+    # A step at the door; crates of empties beside it.
+    b.box(at(dx, 0.08, front + 0.32), (1.2, 0.16, 0.5), "concrete", yaw=yaw)
+    for n in range(3):
+        b.box(at(dx - 0.95, 0.18 + n * 0.32, front + 0.5), (0.5, 0.3, 0.36), "awningRed" if n != 1 else "signBlue", yaw=yaw + 0.1 * n, skip_bottom=False)
+    # The popcorn machine on its wooden table, on the other side of the window: a glass box on legs, a red roof.
+    px = wide / 2 + 0.55
+    b.box(at(px, 0.42, front + 0.55), (0.75, 0.06, 0.55), "wood", yaw=yaw, skip_bottom=False)
+    for sx in (-0.32, 0.32):
+        for sz in (-0.22, 0.22):
+            b.box(at(px + sx, 0.2, front + 0.55 + sz), (0.05, 0.4, 0.05), "wood", yaw=yaw)
+    b.box(at(px, 0.72, front + 0.55), (0.42, 0.5, 0.36), "windowLit", yaw=yaw, skip_bottom=False)
+    b.box(at(px, 1.0, front + 0.55), (0.48, 0.08, 0.42), "awningRed", yaw=yaw, skip_bottom=False)
+    b.level = BOTH
+    return 2.6
 
 
 def balcao(b, x, z, yaw, ground=0.14):
@@ -1001,6 +1072,8 @@ def poste(b, x, z, rng, lamp=False):
     b.box(_add(top, (0.0, -0.5, 0.0)), (1.5, 0.1, 0.1), "pole", yaw=rng.uniform(0, math.pi), skip_bottom=False)
     if lamp:
         head = _add(top, (0.9, -1.2, 0.3))
+        # Held out on an arm from the pole, never hanging in the air beside it.
+        b.tube([_add(top, (-lean[0] / 6.0, -1.2, -lean[2] / 6.0)), _add(head, (0.0, 0.05, 0.0))], [0.04, 0.04], 3, "pole", cap=False)
         b.box(head, (0.45, 0.14, 0.3), "lamp", skip_bottom=False)
         b.disc((x + 0.9, 0.02, z + 0.3), 3.0, 10, "lampPoolSand")
     return [_add(top, (0.0, -0.45, 0.0)), _add(top, (0.0, -0.9, 0.0))]

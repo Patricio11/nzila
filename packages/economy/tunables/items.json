@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "carryUnits": 24,
+  "items": [
+    { "id": "pao", "kind": "comida", "size": 1, "use": "comer", "fome": 900, "energia": 0 },
+    { "id": "pipocas", "kind": "comida", "size": 1, "use": "comer", "fome": 400, "energia": 0 },
+    { "id": "ginguba", "kind": "comida", "size": 1, "use": "comer", "fome": 600, "energia": 100 },
+    { "id": "bolachas", "kind": "comida", "size": 1, "use": "comer", "fome": 900, "energia": 0 },
+    { "id": "rebucados", "kind": "mimo", "size": 0, "use": "comer", "fome": 100, "energia": 100 },
+    { "id": "chocolate", "kind": "mimo", "size": 1, "use": "comer", "fome": 700, "energia": 300 },
+    { "id": "agua", "kind": "bebida", "size": 1, "use": "beber", "fome": 0, "energia": 400 },
+    { "id": "sumo", "kind": "bebida", "size": 1, "use": "beber", "fome": 200, "energia": 500 },
+    { "id": "gasosa", "kind": "bebida", "size": 1, "use": "beber", "fome": 100, "energia": 700 },
+    { "id": "ovos", "kind": "cozinha", "size": 2, "use": null, "fome": 0, "energia": 0 },
+    { "id": "arroz", "kind": "cozinha", "size": 3, "use": null, "fome": 0, "energia": 0 },
+    { "id": "fuba", "kind": "cozinha", "size": 3, "use": null, "fome": 0, "energia": 0 },
+    { "id": "massa", "kind": "cozinha", "size": 2, "use": null, "fome": 0, "energia": 0 },
+    { "id": "oleo", "kind": "cozinha", "size": 3, "use": null, "fome": 0, "energia": 0 },
+    { "id": "acucar", "kind": "cozinha", "size": 2, "use": null, "fome": 0, "energia": 0 },
+    { "id": "sal", "kind": "cozinha", "size": 1, "use": null, "fome": 0, "energia": 0 },
+    { "id": "sardinha", "kind": "cozinha", "size": 1, "use": null, "fome": 0, "energia": 0 },
+    { "id": "tomate", "kind": "cozinha", "size": 1, "use": null, "fome": 0, "energia": 0 },
+    { "id": "leite", "kind": "cozinha", "size": 2, "use": null, "fome": 0, "energia": 0 },
+    { "id": "sabao", "kind": "casa", "size": 1, "use": null, "fome": 0, "energia": 0 },
+    { "id": "velas", "kind": "casa", "size": 1, "use": null, "fome": 0, "energia": 0 },
+    { "id": "fosforos", "kind": "casa", "size": 0, "use": null, "fome": 0, "energia": 0 },
+    { "id": "pilhas", "kind": "casa", "size": 1, "use": null, "fome": 0, "energia": 0 },
+    { "id": "carvao", "kind": "casa", "size": 6, "use": null, "fome": 0, "energia": 0 }
+  ]
+}

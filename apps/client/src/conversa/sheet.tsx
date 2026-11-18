@@ -5,7 +5,8 @@ import { ptAO, ptAOTranslator as tr } from "@nzila/i18n";
 import { Button, Glyph, IdCard } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { arrivedOn } from "../telemovel/bi.tsx";
-import { payPlayer, type Paid, blockPlayer, playerCard, reportPlayer, type PlayerCard, type ReportReason } from "../world/account.ts";
+import { Coisa } from "../cantina/coisas.tsx";
+import { giveThing, thingsNow, type GaveThing, type Held, payPlayer, type Paid, blockPlayer, playerCard, reportPlayer, type PlayerCard, type ReportReason } from "../world/account.ts";
 import { type Met } from "./conversa.tsx";
 import "./conversa.css";
 
@@ -27,6 +28,28 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
   const [giving, setGiving] = useState(false);
   const [amount, setAmount] = useState("");
   const [gave, setGave] = useState<{ said: Paid; days?: number; left?: number; amount?: number } | null>(null);
+  // Handing them a thing from the Mochila: what is carried, and what came of it.
+  const [offering, setOffering] = useState<readonly Held[] | null>(null);
+  const [handed, setHanded] = useState<{ said: GaveThing; item: string } | null>(null);
+  const offer = async (): Promise<void> => {
+    setSaid(null);
+    setGave(null);
+    setHanded(null);
+    setOffering([]);
+    const now = await thingsNow();
+    setOffering(now ? now.items : []);
+    if (!now) setHanded({ said: "offline", item: "" });
+  };
+  const hand = async (item: string): Promise<void> => {
+    setBusy(true);
+    const answer = await giveThing(met.bi, item);
+    setBusy(false);
+    setHanded({ said: answer.said, item });
+    if (answer.said === "ok") {
+      onGave();
+      setOffering(null);
+    }
+  };
   const give = async (): Promise<void> => {
     setBusy(true);
     const sum = Number(amount);
@@ -80,7 +103,34 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
               {tr.t(`pay.said.${gave.said}`, { name: met.name, amount: tr.makuta(gave.amount ?? 0), days: gave.days ?? 0, left: tr.makuta(gave.left ?? 0) })}
             </p>
           ) : null}
-          {giving ? (
+          {handed ? (
+            <p class="cv-said" role="status">
+              {tr.t(`give.said.${handed.said}`, { name: met.name, item: handed.item ? tr.t(`item.${handed.item}` as "item.pao") : "" })}
+            </p>
+          ) : null}
+          {offering ? (
+            <div class="cv-report">
+              <h3>{tr.t("give.title", { name: met.name })}</h3>
+              {offering.length === 0 ? (
+                <p class="cv-said">{tr.t("give.none")}</p>
+              ) : (
+                <div class="cv-things">
+                  {offering.map((one) => (
+                    <button key={one.item} type="button" class="cv-thing" disabled={busy} onClick={() => void hand(one.item)} data-item={one.item}>
+                      <Coisa item={one.item} size={40} />
+                      <span>{tr.t(`item.${one.item}` as "item.pao")}</span>
+                      <b class="n-num">{one.quantity}</b>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div class="cv-keys">
+                <Button kind="quiet" onPress={() => setOffering(null)}>
+                  {tr.t("report.cancel")}
+                </Button>
+              </div>
+            </div>
+          ) : giving ? (
             <div class="cv-report">
               <h3>{tr.t("pay.title", { name: met.name })}</h3>
               <input class="cv-note" type="text" inputMode="numeric" autocomplete="off" aria-label={tr.t("bank.amount")} placeholder={tr.t("bank.amount")} value={amount} maxLength={12} onInput={(event) => setAmount(event.currentTarget.value.replace(/\D/g, "").replace(/^0+/, ""))} onKeyDown={(event) => event.stopPropagation()} onKeyUp={(event) => event.stopPropagation()} />
@@ -117,8 +167,11 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
           ) : (
             <div class="cv-actions">
               <Button onPress={onTalk}>{tr.t("action.talk")}</Button>
-              <Button kind="quiet" onPress={() => (setSaid(null), setGave(null), setGiving(true))}>
+              <Button kind="quiet" onPress={() => (setSaid(null), setGave(null), setHanded(null), setGiving(true))}>
                 {tr.t("pay.open")}
+              </Button>
+              <Button kind="quiet" onPress={() => void offer()}>
+                {tr.t("give.open")}
               </Button>
               <Button kind="quiet" disabled>
                 {tr.t("player.add")}

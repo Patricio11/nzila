@@ -67,6 +67,7 @@ interface DevLayout {
   corners: [number, number, number][];
   paragens: [number, number, number][];
   caixa: [number, number, number];
+  cantina: [number, number, number];
   seats: { pos: [number, number, number]; facing: number }[];
   water: { rect: [number, number, number, number]; level: number };
 }
@@ -85,7 +86,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
   const chunks = await exportChunks(join(src, "district.blend"), src, join(scripts, "export_chunks.py"));
 
   const layout = JSON.parse(await readFile(join(src, "layout.json"), "utf8")) as DevLayout;
-  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares." };
+  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares.", "dev.cantina.name": "Cantina de Ensaio", "dev.cantina.line": "Pão, gasosa, arroz, sabão, velas. Tudo pela grade." };
   const manifest: SourceManifest = {
     id: "zz-dev/d1",
     province: "zz-dev",
@@ -105,6 +106,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
       }),
       // The town's one caixa: where money is put in the bank and taken out (Task 4.1).
       { id: "caixa-1", pos: layout.caixa, nameKey: "dev.caixa.name", lineKey: "dev.caixa.line", positive: true, stamp: false, glyph: "banco" },
+      { id: "cantina-ensaio", pos: layout.cantina, nameKey: "dev.cantina.name", lineKey: "dev.cantina.line", positive: true, stamp: false, glyph: "cantina" },
     ],
     routes: [],
     paragens: layout.paragens.map((pos, n) => {

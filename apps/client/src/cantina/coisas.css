@@ -1,0 +1,21 @@
+/* The paints of the pictures of things (coisas.tsx): the house's tokens, nothing else. */
+.k-coisa { flex: none; display: block; }
+.k-coisa path { stroke: var(--n-tinta); stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; }
+.k-linha { fill: none; }
+.k-papel { fill: var(--n-papel-2); }
+.k-luz { fill: var(--n-luz); }
+.k-pao { fill: var(--n-calor-1); }
+.k-ouro { fill: var(--n-dourado); }
+.k-oleo { fill: var(--n-dourado-claro); }
+.k-laranja { fill: var(--n-calor-2); }
+.k-vermelho { fill: var(--n-vermelho); }
+.k-azul { fill: var(--n-azul); }
+.k-agua { fill: var(--n-escudo); }
+.k-mar { fill: var(--n-mar); }
+.k-terra { fill: var(--n-terra); }
+.k-chocolate { fill: var(--n-vermelho-fundo); }
+.k-ganho { fill: var(--n-ganho); }
+.k-noite { fill: var(--n-noite-2); }
+.k-prata { fill: var(--n-luz-suave); }
+.k-ovo { fill: var(--n-papel); }
+.k-saco { fill: var(--n-luz-fundo); }

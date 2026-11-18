@@ -554,6 +554,27 @@ describe("talk in the street", () => {
     for (const one of [a, b, c]) await one.leave();
   });
 
+  test("a van is a room of its own: riders of the same van hear one another wherever it is, and the street does not hear them, nor they the street", async () => {
+    const a = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const b = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const street = await phone((await player()).token, PROTOCOL_VERSION, "conversa");
+    const ids = [a, b, street].map((one) => one.state.accepted!.entityId);
+    // The test's district runs no traffic: the two are seated in a van by hand, as the room would on their asking.
+    const room = zone.rooms();
+    expect(room, "the zone lets a test reach its rooms").toBeDefined();
+    room![0]!.channel.ride(ids[0]!, 3, 6);
+    room![0]!.channel.ride(ids[1]!, 3, 2);
+    send(a, encodeChatSend({ messageId: 1, text: "bora, motorista" }));
+    await until(() => b.state.heard.length === 1);
+    expect(b.state.heard[0]).toEqual({ from: ids[0], text: "bora, motorista" });
+    await pause(300);
+    expect(street.state.heard).toEqual([]);
+    send(street, encodeChatSend({ messageId: 1, text: "ei, esperem" }));
+    await pause(400);
+    expect(a.state.heard.map((one) => one.text)).toEqual(["bora, motorista"]);
+    for (const one of [a, b, street]) await one.leave();
+  });
+
   test("two who have shut each other out do not hear each other, whoever did the shutting; everyone else hears both", async () => {
     const one = await player();
     const two = await player();

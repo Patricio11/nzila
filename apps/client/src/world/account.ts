@@ -565,3 +565,94 @@ export async function balanceNow(): Promise<{ amount: number; from: string | nul
   return { amount: answer.got.amount, from: answer.got.from };
 }
 
+
+/** A kind of thing, as the server says: what it is, the room it takes in a Mochila, and whether it is eaten or drunk. */
+export interface ThingAbout {
+  readonly kind: "comida" | "bebida" | "mimo" | "cozinha" | "casa";
+  readonly size: number;
+  readonly use: "comer" | "beber" | null;
+}
+
+export interface Held {
+  readonly item: string;
+  readonly quantity: number;
+}
+
+/** A purchase as its receipt has it. */
+export interface Bought {
+  readonly id: number;
+  readonly at: string;
+  readonly shop: string;
+  readonly lines: readonly { readonly item: string; readonly quantity: number; readonly price: number; readonly amount: number }[];
+  readonly total: number;
+}
+
+/** What the player carries, and the shop the zone says they stand at, with its prices. */
+export interface Things {
+  readonly items: readonly Held[];
+  readonly about: Readonly<Record<string, ThingAbout>>;
+  readonly units: number;
+  readonly carryUnits: number;
+  readonly receipts: readonly Bought[];
+  readonly shop: { readonly id: string; readonly stock: readonly { readonly item: string; readonly price: number }[] } | null;
+  readonly cash: number;
+  readonly bank: number;
+}
+
+/** The Mochila, and the shop being stood at. Null with no network. */
+export async function thingsNow(): Promise<Things | null> {
+  const mine = account();
+  if (!mine?.token) return null;
+  const { answer } = await ask<Things>("GET", "/v1/me/items", undefined, mine.token);
+  // The Carteira as the books say it now: the wallet on the screen follows.
+  if (answer) keep({ ...(account() ?? mine), wallet: { cash: answer.cash, bank: answer.bank } });
+  return answer;
+}
+
+const newKey = (): string => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.padEnd(12, "0");
+
+/** What buying came to. "far": the zone does not say the player is at the shop. "heavy": it would not go in the Mochila. */
+export type BuySaid = "ok" | "far" | "short" | "heavy" | "offline";
+
+/** Buys a basket at a shop. The key makes a second sending of the same tap the same purchase. */
+export async function buyThings(shop: string, lines: readonly Held[]): Promise<{ said: BuySaid; receipt?: Bought; items?: readonly Held[] }> {
+  const mine = account();
+  if (!mine?.token) return { said: "offline" };
+  const key = newKey();
+  const body = { shop, lines, key };
+  let said = await ask<{ receipt: Bought; cash: number; bank: number; items: Held[] }>("POST", "/v1/shop/buy", body, mine.token);
+  if (said.status === 0 || said.status >= 502) said = await ask<{ receipt: Bought; cash: number; bank: number; items: Held[] }>("POST", "/v1/shop/buy", body, mine.token);
+  // The zone's word that the player is at the grille can be a moment behind their feet.
+  if (said.error === "not_at_shop") {
+    await new Promise((done) => setTimeout(done, 700));
+    said = await ask<{ receipt: Bought; cash: number; bank: number; items: Held[] }>("POST", "/v1/shop/buy", body, mine.token);
+  }
+  if (said.answer) {
+    keep({ ...(account() ?? mine), wallet: { cash: said.answer.cash, bank: said.answer.bank } });
+    return { said: "ok", receipt: said.answer.receipt, items: said.answer.items };
+  }
+  return { said: said.error === "not_at_shop" ? "far" : said.error === "insufficient" ? "short" : said.error === "too_heavy" ? "heavy" : "offline" };
+}
+
+/** Eats or drinks one of a thing carried. What is left, or null when it could not be done. */
+export async function useThing(item: string): Promise<readonly Held[] | null> {
+  const mine = account();
+  if (!mine?.token) return null;
+  return (await ask<{ used: string; items: Held[] }>("POST", "/v1/items/use", { item }, mine.token)).answer?.items ?? null;
+}
+
+/** What handing a thing to someone came to. "together": the zone does not say the two stand together. */
+export type GaveThing = "ok" | "together" | "heavy" | "none" | "offline";
+
+/** Hands one of a thing to the player with this BI, beside you. */
+export async function giveThing(biNumber: string, item: string): Promise<{ said: GaveThing; items?: readonly Held[] }> {
+  const mine = account();
+  if (!mine?.token) return { said: "offline" };
+  let said = await ask<{ items: Held[] }>("POST", "/v1/items/give", { biNumber, item, quantity: 1 }, mine.token);
+  if (said.error === "not_together") {
+    await new Promise((done) => setTimeout(done, 700));
+    said = await ask<{ items: Held[] }>("POST", "/v1/items/give", { biNumber, item, quantity: 1 }, mine.token);
+  }
+  if (said.answer) return { said: "ok", items: said.answer.items };
+  return { said: said.error === "not_together" ? "together" : said.error === "too_heavy" ? "heavy" : said.error === "none" ? "none" : "offline" };
+}

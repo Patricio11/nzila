@@ -24,6 +24,8 @@ export const GLYPHS = {
   poupanca: "M5 19c0-8 5-13 14-14 0 9-5 14-13 14 M5 19c3-5 6-8 10-10",
   fome: "M4 11h16a8 8 0 0 1-16 0z M9 5c0 1.5 1 1.5 1 3 M14 5c0 1.5 1 1.5 1 3",
   energia: "M13 3L5 13h6l-1 8 8-10h-6l1-8z",
+  // The Mochila: a backpack, its flap and a strap.
+  mochila: "M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7 M6 9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z M6 12h12 M10 12v2h4v-2",
   // The nine apps of the Telemóvel
   mapa: "M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2V6z M9 4v14 M15 6v14",
   mensagens: "M4 6h16v12H4z M4 7l8 6 8-6",
@@ -47,6 +49,8 @@ export const GLYPHS = {
   xadrez: "M12 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6z M9 10h6 M10 10l-2 8h8l-2-8 M6 20h12",
   megafone: "M4 10v4l10 4V6z M14 9a4 4 0 0 1 0 6 M7 15l1 5",
   cinema: "M4 5h16v14H4z M8 5v14 M16 5v14 M4 9h4 M4 15h4 M16 9h4 M16 15h4",
+  // A cantina: its awning in stripes, the grille of its window, the door beside it.
+  cantina: "M3 9l2-5h14l2 5 M3 9a2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0A2.25 2.25 0 0 0 21 9 M5 11.5V20h14v-8.5 M7.5 13h4v4h-4z M9.5 13v4 M7.5 15h4 M14.5 20v-6h2.5v6",
   pintura: "M12 4a8 8 0 1 0 0 16c1.5 0 2-1 1.5-2.2-.6-1.4.3-2.8 2-2.8H18a3 3 0 0 0 3-3c0-4.4-4-8-9-8z M8 11h.01 M11 8h.01 M15 9h.01",
 } as const;
 

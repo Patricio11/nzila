@@ -74,6 +74,8 @@ export interface WorldProvider {
   you(): { x: number; z: number; heading: number } | null;
   /** Whether the player stands at a caixa, as this phone sees it: what the Banco offers. The zone decides for itself. */
   atCaixa(): boolean;
+  /** The shop the player stands at, as this phone sees it: its place in the pack and its painted name. The zone decides for itself. */
+  atShop(): { id: string; name: string } | null;
   /** The other players in the street, as far as this phone is told of them. */
   people(): { x: number; z: number }[];
   /** The vans on the road now. */
@@ -115,6 +117,10 @@ function stored(): Partial<Settings> {
 
 /** How near a caixa the Banco offers to bank: a little inside what the zone allows, so that an offer is never refused. */
 export const CAIXA_REACH_M = 3;
+/** A little inside the zone's own reach, so that what the phone offers the zone also allows. */
+export const SHOP_REACH_M = 3;
+/** The signs of shops, as the zone knows them. */
+const SHOP_GLYPHS = ["cantina"];
 
 /** The world as this device alone knows it. */
 export class LocalWorld implements WorldProvider {
@@ -186,6 +192,12 @@ export class LocalWorld implements WorldProvider {
   atCaixa(): boolean {
     const at = this.player;
     return at !== null && (this.scene?.manifest.pois ?? []).some((place) => place.glyph === "banco" && Math.hypot(place.pos[0] - at.x, place.pos[2] - at.z) < CAIXA_REACH_M);
+  }
+
+  atShop(): { id: string; name: string } | null {
+    const at = this.player;
+    const shop = at === null ? undefined : (this.scene?.manifest.pois ?? []).find((place) => SHOP_GLYPHS.includes(place.glyph ?? "") && Math.hypot(place.pos[0] - at.x, place.pos[2] - at.z) < SHOP_REACH_M);
+    return shop ? { id: shop.id, name: this.word(shop.nameKey) } : null;
   }
 
   people(): { x: number; z: number }[] {

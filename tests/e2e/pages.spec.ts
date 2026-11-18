@@ -936,6 +936,34 @@ test.describe("two phones in the same street", () => {
     for (const left of seconds.splice(0)) await left.context().close().catch(() => {});
   });
   /** A guest made by the API, kept on the phone as the door would have kept it. */
+  /**
+   * Taps another player standing in the street, as a person would: the view is turned a little while they are behind
+   * the camera or under a button, the finger lands only on the street, and the sheet's code (fetched on the first
+   * tap) is waited for, since a second tap before it arrives would land on its backdrop and shut it. True when
+   * their sheet opened.
+   */
+  const tapSomeone = async (page: Page, name: string): Promise<boolean> => {
+    const size = page.viewportSize()!;
+    const onStreet = (x: number, y: number): Promise<boolean> => page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName === "CANVAS", { x, y });
+    for (let turn = 0; turn < 8; turn++) {
+      const there = (await page.evaluate(() => window.__andar!.othersOnScreen))[0];
+      if (there && there.x > 20 && there.x < size.width - 20) {
+        for (const [dx, dy] of [[0, 0], [0, -0.04], [0, 0.04], [0.03, 0], [-0.03, 0], [0, -0.08]] as const) {
+          const x = there.x + size.width * dx;
+          const y = there.y + size.height * dy;
+          if (!(await onStreet(x, y))) continue;
+          await page.mouse.click(x, y);
+          if (await page.getByRole("dialog", { name }).waitFor({ timeout: 3000 }).then(() => true, () => false)) return true;
+        }
+      }
+      await page.mouse.move(size.width * 0.5, size.height * 0.3);
+      await page.mouse.down();
+      await page.mouse.move(size.width * 0.5 - 60, size.height * 0.3, { steps: 6 });
+      await page.mouse.up();
+      await page.waitForTimeout(500);
+    }
+    return false;
+  };
   const comeIn = async (page: Page, n: number): Promise<string> => {
     const deviceId = `two-phones-${n}-${Date.now()}-abcdefgh`;
     const made = await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } });
@@ -1196,6 +1224,66 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__andar!.othersRiding === 1, undefined, { timeout: 10_000 });
     await other.waitForFunction(() => window.__andar!.othersRiding === 1, undefined, { timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("juntos-na-carrinha.png") });
+    // The van is a room of its own: what one says inside, the other reads.
+    await page.getByRole("button", { name: "Escreve aqui" }).click();
+    await page.getByRole("button", { name: "Tudo fixe?" }).click();
+    await expect(other.locator(".cv-log")).toContainText("Tudo fixe?", { timeout: 10_000 });
+    // And someone seated beside you can be tapped: their BI opens, with everything that can be done.
+    const size = page.viewportSize()!;
+    let opened = false;
+    // Seated, the view is turned with a finger as anyone would: toward the other, until they are in the open middle
+    // of the screen (the top is the van's band), and then they are tapped.
+    const drag = async (dx: number, dy: number): Promise<void> => {
+      await page.mouse.move(size.width * 0.5, size.height * 0.55);
+      await page.mouse.down();
+      await page.mouse.move(size.width * 0.5 + dx, size.height * 0.55 + dy, { steps: 6 });
+      await page.mouse.up();
+      await page.waitForTimeout(150);
+    };
+    let upSign = 1;
+    // What each try saw, said when none opened the sheet.
+    const tries: string[] = [];
+    for (let attempt = 0; attempt < 24 && !opened; attempt++) {
+      const there = (await page.evaluate(() => window.__andar!.othersOnScreen))[0];
+      tries.push(there ? `${Math.round(there.x)},${Math.round(there.y)}` : "none");
+      // Nobody in front: they sit behind, and the view is turned round toward them.
+      if (!there) {
+        await drag(90, 0);
+        continue;
+      }
+      const wantY = size.height * 0.6;
+      // Only where a finger would land on the street itself, never on a button over it.
+      const onStreet = (x: number, y: number): Promise<boolean> => page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName === "CANVAS", { x, y });
+      // Their chest, or a little round it where the cobrador's words or a button are not in the way.
+      const near = [[0, 0], [0, 0.04], [0, -0.04], [0.03, 0], [-0.03, 0], [0, 0.07]] as const;
+      const free: (readonly [number, number])[] = [];
+      for (const [dx, dy] of near) if (await onStreet(there.x + size.width * dx, there.y + size.height * dy)) free.push([dx, dy]);
+      if (there.x > 40 && there.x < size.width - 40 && there.y > size.height * 0.2 && there.y < size.height * 0.75 && free.length > 0) {
+        for (const [dx, dy] of free) {
+          await page.mouse.click(there.x + size.width * dx, there.y + size.height * dy);
+          tries.push(`tap:${await page.evaluate(() => window.__andar!.tap ?? "-")}`);
+          // The sheet's code is fetched on the first tap: a second tap before it arrives would land on its backdrop and shut it.
+          if (await page.getByRole("dialog").filter({ has: page.locator(".n-bi-name") }).waitFor({ timeout: 3000 }).then(() => true, () => false)) {
+            opened = true;
+            break;
+          }
+        }
+        if (!opened) await drag(0, upSign * 20);
+        continue;
+      }
+      // Dragging right turns the view so that what is seen moves left: the other is brought toward the middle (and out
+      // from under the buttons, when that is where they were).
+      const dx = Math.max(-80, Math.min(80, (there.x - size.width / 2) * 0.25)) || 30;
+      const dy = Math.max(-60, Math.min(60, (there.y - wantY) * 0.25)) * upSign;
+      await drag(Math.abs(there.x - size.width / 2) > 40 ? dx : 0, Math.abs(there.y - wantY) > 60 ? dy : 0);
+      const after = (await page.evaluate(() => window.__andar!.othersOnScreen))[0];
+      // A vertical drag that took them further from where they are wanted means up and down are the other way round;
+      // one that did not move them at all met the end of how far the view tilts, and the other way is tried.
+      if (after && dy !== 0 && Math.abs(after.y - wantY) > Math.abs(there.y - wantY) - 2) upSign = -upSign;
+    }
+    expect(opened, `a tap on the other, seated in the van, opened their BI (tries: ${tries.join(" ")})`).toBe(true);
+    await page.screenshot({ path: info.outputPath("juntos-bi-na-carrinha.png") });
+    await page.getByRole("dialog").filter({ has: page.locator(".n-bi-name") }).getByRole("button", { name: "Fechar" }).click();
     // It drives off with both: what each phone says of where it is, and what the zone says of the other, go together.
     const start = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
     await page.waitForFunction((from) => Math.hypot(window.__andar!.x - from.x, window.__andar!.z - from.z) > 25, start, { timeout: 60_000 });
@@ -1263,6 +1351,86 @@ test.describe("two phones in the same street", () => {
     expect(now).toMatchObject({ cash: had - 300, bank: 300 });
     await page.getByRole("button", { name: "Fechar" }).first().click();
     await expect(page.locator(".n-chip").first()).toContainText(dotted(had - 300));
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("at the cantina's grille: the dona greets, the basket is priced on the gold button, too much for the Carteira or the Mochila is said, the receipt prints; the Mochila holds it, and bread is eaten", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The cantina was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 43);
+    await page.goto("/andar?tier=poupanca&hour=10");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const born = await page.evaluate(async () => {
+      const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+      return (await (await fetch("/api/v1/me/origin", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: "{}" })).json()) as { wallet: { cash: number } };
+    });
+    const had = born.wallet.cash;
+    const dotted = (amount: number): string => String(amount).replace(/\B(?=(\d{3})+$)/g, ".");
+    // The town's cantina is along the pavement east of where people arrive: going there, the button offers it.
+    await page.keyboard.down("Shift");
+    await page.keyboard.down("d");
+    await page.waitForFunction(() => window.__andar!.shop !== null, undefined, { timeout: 20_000 });
+    await page.keyboard.up("d");
+    await page.keyboard.up("Shift");
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "buy", undefined, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("cantina-rua.png") });
+    await page.getByRole("button", { name: "Comprar" }).click();
+    const cantina = page.getByRole("dialog", { name: "Cantina de Ensaio" });
+    // The dona greets by the hour, through her grille; nothing in the basket, nothing to pay.
+    await expect(cantina.locator(".ct-grille")).toContainText("Bom dia, querido.", { timeout: 10_000 });
+    await expect(cantina.getByRole("button", { name: "Escolhe o que levas" })).toBeDisabled();
+    await page.screenshot({ path: info.outputPath("cantina-grade.png") });
+    // Two loaves and a gasosa: 350 on the gold button.
+    await cantina.locator('.ct-pick[data-item="pao"]').click();
+    await cantina.locator('.ct-pick[data-item="pao"]').click();
+    await cantina.locator('.ct-pick[data-item="gasosa"]').click();
+    await expect(cantina.getByRole("button", { name: /^Pagar 350\s*Mk$/ })).toBeEnabled();
+    await page.screenshot({ path: info.outputPath("cantina-cesto.png") });
+    // Four bags of charcoal would not go in a Mochila.
+    await cantina.locator('.ct-pick[data-item="carvao"]').click();
+    for (let n = 0; n < 3; n++) await cantina.getByRole("button", { name: "Mais um" }).last().click();
+    await expect(cantina.getByRole("button", { name: "Não cabe na mochila" })).toBeDisabled();
+    await page.screenshot({ path: info.outputPath("cantina-pesado.png") });
+    for (let n = 0; n < 4; n++) await cantina.locator('.ct-row:has([data-item="carvao"])').getByRole("button", { name: "Menos um" }).click();
+    // More than the Carteira holds says what is missing, and is not gold.
+    if (had < 350 + 20 * 400) {
+      await cantina.locator('.ct-pick[data-item="chocolate"]').click();
+      for (let n = 1; n < 20; n++) await cantina.locator('.ct-row:has([data-item="chocolate"])').getByRole("button", { name: "Mais um" }).click();
+      await expect(cantina.getByRole("button", { name: new RegExp(`^Faltam ${dotted(350 + 20 * 400 - had)}\\s*Mk$`) })).toBeDisabled();
+      await page.screenshot({ path: info.outputPath("cantina-faltam.png") });
+      for (let n = 0; n < 20; n++) await cantina.locator('.ct-row:has([data-item="chocolate"])').getByRole("button", { name: "Menos um" }).click();
+    }
+    await cantina.getByRole("button", { name: /^Pagar 350\s*Mk$/ }).click();
+    // The receipt prints; the dona thanks.
+    await expect(cantina.locator(".n-receipt")).toContainText("2 × Pão", { timeout: 10_000 });
+    await expect(cantina.locator(".n-receipt")).toContainText("Gasosa");
+    await expect(cantina.locator(".n-receipt-total")).toContainText("350");
+    await page.waitForTimeout(1300);
+    await page.screenshot({ path: info.outputPath("cantina-recibo.png") });
+    await cantina.getByRole("button", { name: "Já está" }).click();
+    await expect(page.locator(".n-chip").first()).toContainText(dotted(had - 350), { timeout: 5_000 });
+    // In the Mochila: the bread and the gasosa. A loaf is eaten.
+    await page.getByRole("button", { name: "Mochila" }).click();
+    const mochila = page.getByRole("dialog", { name: "Mochila" });
+    await expect(mochila.locator(".ct-held-row")).toHaveCount(2, { timeout: 10_000 });
+    await expect(mochila.locator(".ct-held-row").first()).toContainText("Pão");
+    await expect(mochila.locator(".ct-held-row").first().locator(".ct-count")).toHaveText("2");
+    await page.screenshot({ path: info.outputPath("cantina-mochila.png") });
+    await mochila.locator(".ct-held-row").first().getByRole("button", { name: "Comer" }).click();
+    await expect(mochila.getByRole("status")).toHaveText("Hum. Soube bem.", { timeout: 10_000 });
+    await expect(mochila.locator(".ct-held-row").first().locator(".ct-count")).toHaveText("1");
+    await page.screenshot({ path: info.outputPath("cantina-comeu.png") });
+    // The purchase is in the Banco's movements, as a purchase.
+    const books = await page.evaluate(async () => {
+      const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+      return (await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cash: number; cashLines: { reason: string; amount: number }[] };
+    });
+    expect(books.cash).toBe(had - 350);
+    expect(books.cashLines[0]).toMatchObject({ reason: "purchase", amount: -350 });
     expect(seen.errors).toEqual([]);
   });
 
@@ -1360,18 +1528,7 @@ test.describe("two phones in the same street", () => {
     await other.goto("/andar?tier=poupanca&hour=12");
     await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
     await page.waitForFunction(() => window.__andar!.players === 1 && window.__andar!.names >= 1, undefined, { timeout: 20_000 });
-    const size = page.viewportSize()!;
-    let opened = false;
-    // Where the other is on the screen, then a few places round it, as a finger lands.
-    const there = (await page.evaluate(() => window.__andar!.othersOnScreen))[0] ?? { x: size.width * 0.5, y: size.height * 0.6 };
-    for (const [dx, dy] of [[0, 0], [0, -0.04], [0, 0.04], [0.03, 0], [-0.03, 0], [0, -0.08]] as const) {
-      await page.mouse.click(there.x + size.width * dx, there.y + size.height * dy);
-      if (await page.getByRole("dialog", { name: otherName }).isVisible().catch(() => false)) {
-        opened = true;
-        break;
-      }
-    }
-    expect(opened, "a tap on the other player opened their card").toBe(true);
+    expect(await tapSomeone(page, otherName), "a tap on the other player opened their card").toBe(true);
     const sheet = page.getByRole("dialog", { name: otherName });
     await sheet.getByRole("button", { name: "Dar Makuta" }).click();
     await sheet.getByRole("textbox", { name: "Quanto?" }).fill("300");
@@ -1383,6 +1540,12 @@ test.describe("two phones in the same street", () => {
     await other.screenshot({ path: info.outputPath("recebeu-makuta.png") });
     // And the books say so.
     expect(await (await page.request.get("/api/v1/me/wallet", { headers })).json()).toMatchObject({ cash: had - 300 });
+    // A thing from the Mochila can be handed over too; with nothing in it, the sheet says so.
+    await sheet.getByRole("button", { name: "Dar uma coisa" }).click();
+    await expect(sheet.getByText(`O que dás a ${otherName}?`)).toBeVisible();
+    await expect(sheet.getByText("Não levas nada na mochila.")).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("dar-coisa-vazia.png") });
+    await sheet.getByRole("button", { name: "Deixar estar" }).click();
     expect(seen.errors).toEqual([]);
   });
 
@@ -1403,19 +1566,8 @@ test.describe("two phones in the same street", () => {
     await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.talk && window.__andar.players === 1, undefined, { timeout: 45_000 });
     await page.waitForFunction(() => window.__andar!.players === 1 && window.__andar!.names >= 1, undefined, { timeout: 20_000 });
 
-    // The other stands a step ahead, in the middle of the picture: a tap on their body.
-    const size = page.viewportSize()!;
-    let opened = false;
-    // Where the other is on the screen, then a few places round it, as a finger lands.
-    const there = (await page.evaluate(() => window.__andar!.othersOnScreen))[0] ?? { x: size.width * 0.5, y: size.height * 0.6 };
-    for (const [dx, dy] of [[0, 0], [0, -0.04], [0, 0.04], [0.03, 0], [-0.03, 0], [0, -0.08]] as const) {
-      await page.mouse.click(there.x + size.width * dx, there.y + size.height * dy);
-      if (await page.getByRole("dialog", { name: otherName }).isVisible().catch(() => false)) {
-        opened = true;
-        break;
-      }
-    }
-    expect(opened, "a tap on the other player opened their card").toBe(true);
+    // The other stands a step ahead: a tap on their body.
+    expect(await tapSomeone(page, otherName), "a tap on the other player opened their card").toBe(true);
     const sheet = page.getByRole("dialog", { name: otherName });
     await expect(sheet.locator(".n-bi-name")).toHaveText(otherName);
     await expect(sheet.locator(".n-bi-fields")).toContainText("-LA");

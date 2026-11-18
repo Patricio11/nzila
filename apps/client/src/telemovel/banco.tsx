@@ -7,7 +7,7 @@ import { account, bankMove, walletNow, type WalletLine } from "../world/account.
 import { type WorldProvider } from "../world/provider.ts";
 
 /** What a movement is called. One the game does not have a word for yet is a "Movimento". */
-const REASONS = ["grant", "bank_in", "bank_out"] as const;
+const REASONS = ["grant", "bank_in", "bank_out", "purchase", "p2p"] as const;
 const reasonOf = (reason: string): string => tr.t(`bank.reason.${REASONS.find((one) => one === reason) ?? "other"}`);
 const day = (iso: string): string => new Date(iso).toLocaleString("pt-AO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 

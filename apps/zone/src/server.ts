@@ -70,6 +70,8 @@ export interface Zone {
   readonly id: string;
   /** The names a client asks for to be put in a channel of each district. */
   readonly roomNames: readonly string[];
+  /** Every channel this zone has open: for its tests. */
+  rooms(): readonly ChannelRoom[];
   readonly port: number;
   close(): Promise<void>;
 }
@@ -259,6 +261,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
   return {
     id,
     roomNames: [...running.keys()],
+    rooms: () => [...running.values()].flatMap((district) => district.channels),
     port,
     close: async () => {
       closing = true;

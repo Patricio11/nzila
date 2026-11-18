@@ -199,6 +199,26 @@ export const sanctions = pgTable("sanctions", {
   liftReason: text("lift_reason"),
 });
 
+export const items = pgTable("items", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  ownerId: uuid("owner_id").notNull(),
+  place: text("place").notNull().default("mochila"),
+  item: text("item").notNull(),
+  quantity: integer("quantity").notNull(),
+  updatedAt: at("updated_at").notNull().defaultNow(),
+});
+
+export const receipts = pgTable("receipts", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  at: at("at").notNull().defaultNow(),
+  playerId: uuid("player_id").notNull(),
+  shop: text("shop").notNull(),
+  lines: jsonb("lines").notNull(),
+  total: bigint("total", { mode: "number" }).notNull(),
+  transferId: uuid("transfer_id").notNull(),
+  key: text("key").notNull(),
+});
+
 export const staffRoles = pgTable(
   "staff_roles",
   {
@@ -282,6 +302,8 @@ export const tables = {
   staff,
   staffSessions,
   sanctions,
+  items,
+  receipts,
   staffRoles,
   auditLog,
   featureFlags,
