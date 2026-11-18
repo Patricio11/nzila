@@ -38,7 +38,7 @@ beforeAll(async () => {
   await migrate(sql, await loadMigrations());
   await seed(sql, await loadWorldSeed());
   // Limits wide open here: they have their own test, and these tests make many guests from one address.
-  app = buildApp({ sql, pepper, keyring, sender, mailer, phoneCodes: true, limiter: { allow: () => true }, presence });
+  app = buildApp({ guests: true, sql, pepper, keyring, sender, mailer, phoneCodes: true, limiter: { allow: () => true }, presence });
   // A database made, migrated and seeded, while the other suites make theirs: more than the ten seconds a hook is given.
 }, 60_000);
 
@@ -125,7 +125,7 @@ describe("a guest", () => {
 });
 
 test("an address that makes guests by the dozen is told to slow down", async () => {
-  const limited = buildApp({ sql, pepper, keyring, mailer, limiter: memoryLimiter() });
+  const limited = buildApp({ guests: true, sql, pepper, keyring, mailer, limiter: memoryLimiter() });
   const codes: number[] = [];
   for (let n = 100; n < 108; n++) codes.push((await limited.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(n), ageBand: "15_17" } })).statusCode);
   expect(codes).toEqual([201, 201, 201, 201, 201, 201, 429, 429]);
@@ -221,7 +221,7 @@ describe("a lotaria da vida", () => {
   test("no rerolls: a second guest on the same device is dealt the first one's card", async () => {
     // Dice that would deal the poorest family first and the richest ever after.
     let rolls = 0;
-    const loaded = buildApp({ sql, pepper, keyring, mailer, limiter: { allow: () => true }, roll: () => (rolls++ < 4 ? 0 : 0.9999) });
+    const loaded = buildApp({ guests: true, sql, pepper, keyring, mailer, limiter: { allow: () => true }, roll: () => (rolls++ < 4 ? 0 : 0.9999) });
     const guestOn = async (n: number) => (await loaded.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(n), ageBand: "18_plus" } })).json() as { token: string };
     const dealt = async (token: string) => ((await loaded.inject({ method: "POST", url: "/v1/me/origin", headers: as(token) })).json() as { origin: { family: string; makuta: number } }).origin;
     const first = await dealt((await guestOn(32)).token);
@@ -642,7 +642,7 @@ describe("an email address proved, a password forgotten, a password changed", ()
   }, 30_000);
 
   test("a letter that cannot be sent does not undo the saving, and is not the player's problem", async () => {
-    const broken = buildApp({ sql, pepper, keyring, mailer: { send: async () => Promise.reject(new Error("the post office is shut")) }, limiter: { allow: () => true } });
+    const broken = buildApp({ guests: true, sql, pepper, keyring, mailer: { send: async () => Promise.reject(new Error("the post office is shut")) }, limiter: { allow: () => true } });
     const guest = (await broken.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(90), ageBand: "18_plus" } })).json() as { token: string };
     const res = await broken.inject({ method: "POST", url: "/v1/me/email", headers: as(guest.token), payload: { email: "sem.correio@exemplo.ao", password: "funje com peixe" } });
     expect(res.statusCode).toBe(200);
@@ -652,7 +652,7 @@ describe("an email address proved, a password forgotten, a password changed", ()
 });
 
 test("with no provider paid to send codes, a BI is not saved with a phone number: the routes refuse", async () => {
-  const off = buildApp({ sql, pepper, keyring, mailer, limiter: { allow: () => true } });
+  const off = buildApp({ guests: true, sql, pepper, keyring, mailer, limiter: { allow: () => true } });
   const guest = (await off.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(91), ageBand: "18_plus" } })).json() as { token: string };
   for (const res of [
     await off.inject({ method: "POST", url: "/v1/codes", payload: { phone: "923456091" } }),
@@ -1027,5 +1027,53 @@ describe("the Estúdio (Task 3.8)", () => {
     expect(await standingAgainst(sql, [guest.playerId])).toEqual([]);
     expect((await sql`SELECT 1 FROM audit_log WHERE kind = 'player.kick' AND subject_id = ${guest.playerId} AND reason = 'preso numa parede'`).length).toBe(1);
     await presence.retire("zone-c");
+  });
+});
+
+describe("registering (D-4.12: everyone has an account)", () => {
+  const register = (payload: Record<string, unknown>, on = app) => on.inject({ method: "POST", url: "/v1/register", payload });
+  const form = (n: number, more: Record<string, unknown> = {}) => ({ deviceId: device(n), platform: "android", ageBand: "18_plus", email: `nova${n}@exemplo.ao`, password: "uma frase que so eu sei", ...more });
+
+  test("an address and a password, and the player exists: linked, in a session, with a BI, and a letter with the code on its way; the address is not yet proved", async () => {
+    const res = await register(form(700));
+    expect(res.statusCode).toBe(201);
+    const made = res.json() as { playerId: string; token: string; name: string; biNumber: string; kind: string; ageBand: string };
+    expect(made).toMatchObject({ kind: "linked", ageBand: "18_plus" });
+    const me = (await app.inject({ method: "GET", url: "/v1/me", headers: as(made.token) })).json() as { kind: string; savedWith: Record<string, boolean>; biNumber: string };
+    expect(me).toMatchObject({ kind: "linked", biNumber: made.biNumber, savedWith: { email: true, emailVerified: false } });
+    expect(letters.get("nova700@exemplo.ao")).toHaveLength(1);
+    // They prove it when they like, with the code that was sent.
+    expect((await app.inject({ method: "POST", url: "/v1/me/email/verify", headers: as(made.token), payload: { code: mailedCode("nova700@exemplo.ao") } })).statusCode).toBe(200);
+    // And come back in on another phone with what they registered with.
+    expect((await app.inject({ method: "POST", url: "/v1/signin/email", payload: { email: "NOVA700@exemplo.ao", password: "uma frase que so eu sei", deviceId: device(701) } })).statusCode).toBe(200);
+    // Neither the address nor the password is kept as written.
+    const kept = JSON.stringify(await sql`SELECT * FROM players WHERE id = ${made.playerId}`);
+    expect(kept).not.toContain("nova700");
+    expect(kept).not.toContain("uma frase");
+  });
+
+  test("an address already used makes nobody; nor does an address that is not one, or a password not worth the name", async () => {
+    await register(form(710));
+    const before = await sql`SELECT count(*)::int AS n FROM players`;
+    expect((await register(form(711, { email: "nova710@exemplo.ao" }))).json()).toEqual({ error: "has_account" });
+    expect((await register(form(712, { email: "isto não é" }))).json()).toEqual({ error: "invalid" });
+    expect((await register(form(713, { password: "curta" }))).json()).toEqual({ error: "invalid" });
+    expect((await register({ email: "x@exemplo.ao", password: "uma frase que so eu sei" })).statusCode).toBe(400);
+    expect(await sql`SELECT count(*)::int AS n FROM players`).toEqual(before);
+    // Two at the same instant with one address: one player.
+    const holders = async (): Promise<number> => (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM players WHERE email_hash IS NOT NULL AND status = 'active'`)[0]!.n;
+    const held = await holders();
+    const both = await Promise.all([register(form(714, { email: "gemeos@exemplo.ao" })), register(form(715, { email: "gemeos@exemplo.ao" }))]);
+    expect(both.map((res) => res.statusCode).sort()).toEqual([201, 409]);
+    // One more player holds an address, not two; and nobody was left behind as a player without one.
+    expect(await holders()).toBe(held + 1);
+    expect(await sql`SELECT count(*)::int AS n FROM players p JOIN devices d ON d.player_id = p.id WHERE p.status = 'active' AND p.email_hash IS NULL AND p.created_at > now() - interval '3 seconds' AND p.kind = 'guest' AND p.name IS NOT NULL AND d.platform = 'android' AND p.id NOT IN (SELECT player_id FROM player_sessions)`).toEqual([{ n: 0 }]);
+  });
+
+  test("nobody plays without registering: the door for guests is shut unless a server is started with it open", async () => {
+    const shut = buildApp({ sql, pepper, keyring, mailer, limiter: { allow: () => true } });
+    expect((await shut.inject({ method: "POST", url: "/v1/guests", payload: { deviceId: device(720), ageBand: "18_plus" } })).json()).toEqual({ error: "forbidden" });
+    expect((await register(form(721), shut)).statusCode).toBe(201);
+    await shut.close();
   });
 });

@@ -12,9 +12,9 @@ import { ptAOTranslator as tr } from "@nzila/i18n";
 import { checkEmail, checkPassword } from "@nzila/protocol";
 import { Button, Choice } from "@nzila/ui";
 import { useState } from "preact/hooks";
-import { forgotPassword, linkEmail, linkPhone, mailVerifyCode, phoneOffered, resetPassword, sendCode, signInEmail, signInPhone, verifyEmail } from "../world/account.ts";
+import { forgotPassword, linkEmail, linkPhone, mailVerifyCode, phoneOffered, register, resetPassword, sendCode, signInEmail, signInPhone, verifyEmail } from "../world/account.ts";
 
-type Said = "badphone" | "slow" | "wrong" | "none" | "offline" | "bademail" | "short" | "long" | "obvious" | "wronglogin" | "taken" | "mailed" | "verified" | null;
+type Said = "badphone" | "slow" | "wrong" | "none" | "offline" | "bademail" | "short" | "long" | "obvious" | "wronglogin" | "taken" | "registered" | "mailed" | "verified" | null;
 type Way = "phone" | "email";
 /** One step's work: what pressing its button does. */
 interface Act {
@@ -23,8 +23,9 @@ interface Act {
 /** Where the player is in it: giving a number, typing its code, told the number has an account; giving an address and a password, proving the address, asking for a new password, choosing it. */
 type Step = "phone" | "code" | "has" | "email" | "verify" | "forgot" | "reset";
 
-export function Guardar({ mode, onDone, onBack, first = "email" }: { mode: "link" | "signin"; onDone: () => void; onBack: () => void; first?: Way | "verify" }) {
-  const offered = phoneOffered();
+export function Guardar({ mode, onDone, onBack, first = "email" }: { mode: "link" | "signin" | "register"; onDone: () => void; onBack: () => void; first?: Way | "verify" }) {
+  // Registering is by an address and a password, and by nothing else.
+  const offered = phoneOffered() && mode !== "register";
   const [step, setStep] = useState<Step>(first === "verify" ? "verify" : first === "phone" && offered ? "phone" : "email");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -65,12 +66,13 @@ export function Guardar({ mode, onDone, onBack, first = "email" }: { mode: "link
         const address = checkEmail(email);
         if (!address) return setSaid("bademail");
         // Coming back in, any password is tried as it is; choosing one, it must be worth the name.
-        const fault = mode === "link" ? checkPassword(password, address) : null;
+        const fault = mode === "signin" ? null : checkPassword(password, address);
         if (fault) return setSaid(fault);
-        const answer = mode === "link" ? await linkEmail(address, password) : await signInEmail(address, password);
-        // Saved: a letter has gone to the address with the code that proves it.
+        const answer = mode === "link" ? await linkEmail(address, password) : mode === "register" ? await register(address, password) : await signInEmail(address, password);
+        // Saved: a letter has gone to the address with the code that proves it. Someone registering goes straight
+        // in: the code is asked for later, in the BI, before they send Makuta.
         if (answer === "ok") return mode === "link" ? to("verify", "mailed") : onDone();
-        setSaid(answer === "wrong" ? "wronglogin" : answer === "has" ? "taken" : answer === "invalid" ? "bademail" : answer);
+        setSaid(answer === "wrong" ? "wronglogin" : answer === "has" ? (mode === "register" ? "registered" : "taken") : answer === "invalid" ? "bademail" : answer);
       }),
     verify: () =>
       during(async () => {
@@ -118,9 +120,9 @@ export function Guardar({ mode, onDone, onBack, first = "email" }: { mode: "link
   const sixDigits = /^\d{6}$/.test(code);
   const ready = { phone: phone.replace(/\D/g, "").length >= 9, code: sixDigits, email: email.includes("@") && password.length > 0, verify: sixDigits, forgot: email.includes("@"), reset: sixDigits && password.length > 0 }[step];
   const go = () => void acts[step]();
-  const title = step === "verify" ? "bi.verify" : step === "forgot" || step === "reset" ? "bi.forgot" : mode === "link" ? "bi.save" : "signin.title";
-  const press = { phone: "bi.save.send", code: "bi.save.confirm", email: mode === "link" ? "bi.save.keep" : "bi.save.enter", verify: "bi.verify.confirm", forgot: "bi.save.send", reset: "bi.forgot.keep" }[step] as "bi.save.send";
-  const hint = step === "email" && mode === "link" ? "bi.save.password.rule" : step === "phone" && mode === "link" ? "bi.save.why" : step === "reset" ? "bi.save.password.rule" : null;
+  const title = step === "verify" ? "bi.verify" : step === "forgot" || step === "reset" ? "bi.forgot" : mode === "link" ? "bi.save" : mode === "register" ? "register.title" : "signin.title";
+  const press = { phone: "bi.save.send", code: "bi.save.confirm", email: mode === "link" ? "bi.save.keep" : mode === "register" ? "register.go" : "bi.save.enter", verify: "bi.verify.confirm", forgot: "bi.save.send", reset: "bi.forgot.keep" }[step] as "bi.save.send";
+  const hint = step === "email" && mode === "register" ? "register.why" : step === "email" && mode === "link" ? "bi.save.password.rule" : step === "phone" && mode === "link" ? "bi.save.why" : step === "reset" ? "bi.save.password.rule" : null;
   const codeField = (
     <>
       <label class="tm-name-label" for="tm-code">
@@ -177,7 +179,7 @@ export function Guardar({ mode, onDone, onBack, first = "email" }: { mode: "link
       ) : step === "email" ? (
         <>
           {emailField}
-          {passwordField(mode === "link")}
+          {passwordField(mode !== "signin")}
         </>
       ) : step === "verify" ? (
         codeField

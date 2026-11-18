@@ -258,6 +258,30 @@ export async function linkEmail(sql: Sql, keyring: Keyring, pepper: Uint8Array, 
   }
 }
 
+/**
+ * Registers a player (the founder, 2026-11-18, D-4.12: everyone has an account; nobody plays as a guest). An
+ * address and a password, and they are in: the address is proved later, with the code sent to it, before they may
+ * send Makuta or ask someone out. `make` makes the player and opens their session (sessions.ts).
+ */
+export async function registerPlayer<T extends { playerId: string }>(sql: Sql, keyring: Keyring, pepper: Uint8Array, emailInput: string, password: string, make: () => Promise<T>): Promise<{ made: T; email: string }> {
+  const email = checkEmail(emailInput);
+  if (!email || checkPassword(password, email) !== null) throw new Refusal(400, "invalid");
+  // Asked before anyone is made, so that an address already used makes nobody.
+  const [taken] = await sql`SELECT 1 FROM players WHERE email_hash = ${hashEmail(email, pepper)}`;
+  if (taken) throw new Refusal(409, "has_account");
+  const made = await make();
+  try {
+    await linkEmail(sql, keyring, pepper, made.playerId, email, password);
+  } catch (error) {
+    // Two registered the same address at the same instant, and this is the one who lost: they are nobody.
+    await sql`DELETE FROM player_sessions WHERE player_id = ${made.playerId}`;
+    await sql`DELETE FROM devices WHERE player_id = ${made.playerId}`;
+    await sql`UPDATE players SET status = 'deleted', deleted_at = now(), name = NULL, name_key = NULL, bi_number = NULL WHERE id = ${made.playerId}`;
+    throw error;
+  }
+  return { made, email };
+}
+
 /** Comes into the account an address belongs to, on this device. As with a number: every older session ends. */
 export async function signInEmail(sql: Sql, pepper: Uint8Array, emailInput: string, password: string, deviceId: string, platform: string | null): Promise<{ playerId: string; token: string }> {
   const email = checkEmail(emailInput);

@@ -29,7 +29,7 @@ await seed(sql, await loadWorldSeed());
 const keyring = parseKeyring(`1:${Buffer.alloc(32, 6).toString("base64")}`);
 // The zone of the tests (apps/zone/src/e2e-server.ts) says where it is under the same keys, and nobody else's.
 const presence = await redisPresence(redisUrl(), "nzila-e2e");
-const app = buildApp({ presence, sql, pepper: new Uint8Array(32).fill(5), keyring, limiter: { allow: () => true }, sender: { send: async () => {} }, mailer: { send: async () => {} }, phoneCodes: true, newCode: () => "246810" });
+const app = buildApp({ guests: true, presence, sql, pepper: new Uint8Array(32).fill(5), keyring, limiter: { allow: () => true }, sender: { send: async () => {} }, mailer: { send: async () => {} }, phoneCodes: true, newCode: () => "246810" });
 // The staff of the tests (tests/e2e/studio.spec.ts): a moderator and someone from support, in a database that lives one run.
 const staffPassword = await hashPassword("palavra-passe-dos-testes");
 await putStaff(sql, { email: "moderacao@nzila.test", name: "Moderadora dos Testes", passwordHash: staffPassword, roles: ["moderador"] });

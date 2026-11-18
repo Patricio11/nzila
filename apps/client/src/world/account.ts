@@ -16,6 +16,8 @@ const KEY = "nzila.conta";
 const API = "/api";
 /** How long the server is waited for: at the door, before the game goes on without it; and for something the player asked for, on a slow network. */
 const DOOR_PATIENCE_MS = 4000;
+/** `?convidado` in the address asks the server for a guest, where the server allows it: for the browser tests. */
+const GUESTS = new URLSearchParams(location.search).has("convidado");
 const PATIENCE_MS = 12_000;
 
 export interface Account {
@@ -143,6 +145,9 @@ export async function ensureGuest(): Promise<Account | null> {
   const mine = account();
   // An account shown in the address is a picture of one: nothing is asked of the server in its name.
   if (!mine || mine.token || mine.deviceId === "shown") return mine;
+  // Nobody is made by walking in: a player registers at the door (D-4.12). Only where a server still lets guests
+  // in (the tests) is one asked for here.
+  if (!GUESTS) return mine;
   const { answer } = await ask<{ playerId: string; token: string; name: string; biNumber: string; arrivedAt: string }>("POST", "/v1/guests", { deviceId: mine.deviceId, platform: platform(), ageBand: mine.ageBand }, undefined, DOOR_PATIENCE_MS);
   return answer?.token ? keep({ ...mine, playerId: answer.playerId, token: answer.token, name: answer.name, nameFree: true, biNumber: answer.biNumber, arrivedAt: answer.arrivedAt }) : mine;
 }
@@ -399,6 +404,22 @@ export async function linkEmail(email: string, password: string): Promise<"ok" |
   if (answer) {
     changes++;
     keep({ ...mine, kind: "linked", savedWith: { email: true, emailVerified: false, phoneNumber: mine.savedWith?.phoneNumber ?? false } });
+    return "ok";
+  }
+  return error === "has_account" ? "has" : error === "invalid" ? "invalid" : "offline";
+}
+
+/**
+ * Registers: an address and a password make the player (D-4.12). The phone must already know the age band
+ * (`comeIn`). "has": the address has an account already, and the way in is by the other door.
+ */
+export async function register(email: string, password: string): Promise<"ok" | "has" | "invalid" | "offline"> {
+  const mine = account();
+  if (!mine) return "offline";
+  const { answer, error } = await ask<{ playerId: string; token: string; name: string; biNumber: string; arrivedAt: string }>("POST", "/v1/register", { deviceId: mine.deviceId, platform: platform(), ageBand: mine.ageBand, email, password }, undefined, DOOR_PATIENCE_MS * 3);
+  if (answer?.token) {
+    changes++;
+    keep({ ...mine, playerId: answer.playerId, token: answer.token, name: answer.name, nameFree: true, biNumber: answer.biNumber, arrivedAt: answer.arrivedAt, kind: "linked", savedWith: { email: true, emailVerified: false, phoneNumber: false } });
     return "ok";
   }
   return error === "has_account" ? "has" : error === "invalid" ? "invalid" : "offline";

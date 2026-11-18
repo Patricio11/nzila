@@ -14,7 +14,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
 import { memoryLimiter, type Limiter } from "./limiter.ts";
-import { changePassword, consoleSender, forgotPassword, linkEmail, linkPhone, mailCode, mailVerifyCode, resetPassword, sendCode, signIn, signInEmail, verifyEmail, type CodeSender } from "./linking.ts";
+import { changePassword, consoleSender, forgotPassword, registerPlayer, linkEmail, linkPhone, mailCode, mailVerifyCode, resetPassword, sendCode, signIn, signInEmail, verifyEmail, type CodeSender } from "./linking.ts";
 import { consoleMailer, type Mailer } from "./mail.ts";
 import { choicesOf, deleteAccount, exportOf } from "./mydata.ts";
 import { askName, FREE_NAME_CHANGES, loadNameFilter, rename } from "./names.ts";
@@ -45,6 +45,11 @@ export interface Deps {
   readonly roll?: () => number;
   /** Where the zones say they are and seats are reserved: Redis (index.ts), or this process's memory when none is given. */
   readonly presence?: Presence;
+  /**
+   * Whether someone may play without registering. Off unless asked for: every player has an account (the founder,
+   * 2026-11-18, D-4.12). The tests and the swarm ask for it, to have players without typing addresses.
+   */
+  readonly guests?: boolean;
   /** How full a channel is filled and what it holds: the tunables unless a test brings others. */
   readonly channels?: ChannelRules;
 }
@@ -121,9 +126,26 @@ export function buildApp(deps: Deps): FastifyInstance {
     // Few: an address that makes guests by the dozen is not the phone of a family.
     perMinute: 6,
     handler: async (body, _caller, reply) => {
+      if (deps.guests !== true) throw new Refusal(403, "forbidden");
       const guest = await createGuest(deps.sql, deps.pepper, body.deviceId, body.platform ?? null, body.ageBand);
       void reply.status(201);
       return { ...guest, ageBand: body.ageBand };
+    },
+  });
+
+  // The door (D-4.12): an address and a password, and the player exists. Nothing is typed back before the first
+  // step; the address is proved later with the code that is sent to it now.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/register",
+    guard: "public",
+    body: z.strictObject({ deviceId: deviceShape, platform: platformShape, ageBand: z.enum(["15_17", "18_plus"]), email: z.string().max(254), password: z.string().max(512) }),
+    perMinute: 6,
+    handler: async (body, _caller, reply) => {
+      const { made, email } = await registerPlayer(deps.sql, deps.keyring, deps.pepper, body.email, body.password, () => createGuest(deps.sql, deps.pepper, body.deviceId, body.platform ?? null, body.ageBand));
+      await mailCode(deps.sql, deps.pepper, mailer, newCode, email, "verify").catch(() => undefined);
+      void reply.status(201);
+      return { ...made, ageBand: body.ageBand, kind: "linked" };
     },
   });
 

@@ -372,6 +372,12 @@ flowchart LR
 
 **Dependency gate:** Phase 3 complete.
 
+### Task 4.0: Everyone registers (founder, 2026-11-18, D-4.12)
+- [x] No guests. At the door, after the year of birth: an address and a password, and the player exists and walks straight on to make their character and be dealt their family. Nothing is typed back on the way in; the address is proved later with the code sent to it. *(2026-11-18: `POST /v1/register`; `POST /v1/guests` answers "forbidden" unless a server is started with guests allowed, which only the tests and the swarm do. The door: `Guardar` in its third way, "register". An address already used is told so and shown "Já tenho conta".)*
+- [ ] The address must be proved before a player sends Makuta to another or asks someone out. *(Waits for those two to exist.)*
+- [ ] One grant of starting Makuta a phone. *(Not built: a household that shares one phone, which is common, would have a second child born with nothing. F-186, the founder's to look at again.)*
+- Depends on: 2.1, 2.2 · Unblocks: 4.1.
+
 ### Task 4.1: The ledger live, the wallet and the bank
 - [ ] `POST /ledger/transfer` (internal only) applying `packages/economy`; balances cached and verified; the nightly `ledger-audit` job; an alarm when the sum is not zero. *(2026-11-18: the ledger is live. `packages/db/src/ledger.ts`: `recordTransfer` records a transfer once (the same key and the same transfer asked again moves nothing; the same key on another is refused), refuses an overdraft by the rule and, when two arrive together, by the database; `walletOf`, `statementOf`, `auditLedger`. It is a function the API calls, not a route: nothing outside the API can ask for a transfer (D-4.2). **The Makuta of the card of origin is real** (D-4.1): paid once from the faucet of grants into the Carteira as the card is dealt, and to anyone dealt a card before, the next time it is asked for; the card says by which transfer. The wallet a phone shows is the books' (`/v1/me`, `GET /v1/me/wallet` with its lines). `pnpm ledger:audit` proves the books and exits with an error when they do not balance. Held by a fuzz of ten thousand transfers, eight at a time, with refusals and retries. Not ticked: nothing runs the audit every night yet, and nothing raises an alarm.)*
 - [ ] Carteira (cash on hand, at risk) and Banco (safe); deposit and withdraw at a caixa in the world or a branch; the Banco app with a statement where every line opens its receipt.
@@ -486,6 +492,7 @@ The phases below keep their numbers and their tasks. **The order they are built 
 - Depends on: 5.1 · Unblocks: 5.6.
 
 ### Task 5.3: Furnishing
+- [ ] **The founder, 2026-11-18:** the things of a house (a television, a bed, a table and everything else) are bought at the shopping or at the market, carried home, and **put wherever in the house the player wants**. Nothing about it may glitch: a thing never sinks into a wall or floats, never vanishes on the way home, and stays exactly where it was left for the owner and for every visitor. The cheap way and the dear way to furnish both exist (the market and the shopping), as they do in Luanda.
 - [ ] Build mode: place, rotate, move and store furniture on a grid with one thumb; furniture shops; the look includes real Angolan homes (the sofa set, the wall unit, the esteira, the generator on the balcony).
 - Depends on: 4.2, 5.1 · Unblocks: 5.5, 8.2.
 

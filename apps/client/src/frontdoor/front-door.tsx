@@ -3,8 +3,9 @@
 // the district is not built on this machine it says, honestly, that the game
 // is still being made.
 //
-// Someone new is asked the year they were born on the way in (Task 2.6), and
-// the server is asked for their guest (Task 2.1) before the game opens.
+// Someone new is asked the year they were born on the way in (Task 2.6), then
+// registers with an address and a password (D-4.12: nobody plays as a guest),
+// then makes their character, then is dealt the family they were born into.
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { type AgeBand } from "@nzila/protocol";
@@ -31,6 +32,8 @@ export function FrontDoor() {
   const params = new URLSearchParams(location.search);
   const [asking, setAsking] = useState<{ poupanca: boolean } | null>(() => (turnedAway() || params.has("ano") || params.has("cedo") ? { poupanca: false } : null));
   const [going, setGoing] = useState(false);
+  // Someone whose age is known and who has no account yet: they register (D-4.12). `?registar` shows it, for the stills.
+  const [registering, setRegistering] = useState(params.has("registar"));
   // Someone whose saved BI was opened on another phone is told, once, and shown the way back in.
   const [putOut] = useState(wasPutOut);
   const [returning, setReturning] = useState(putOut || params.has("entrar"));
@@ -53,19 +56,35 @@ export function FrontDoor() {
   };
   /** By the main door, or by the light one. Someone never seen here is asked their age first. */
   const enter = (poupanca: boolean): void => {
-    if (account()) void go(poupanca);
+    new LocalWorld().change({ poupanca });
+    // Known here and with an account: straight in. Known and with none: the account. Never seen: their age first.
+    // (`?convidado` goes in as the tests do, where the server makes guests.)
+    if (account()?.token || (account() && params.has("convidado"))) void go(poupanca);
+    else if (account()) setRegistering(true);
     else setAsking({ poupanca });
   };
   const old = (band: AgeBand): void => {
     comeIn(band);
-    void go(asking?.poupanca ?? false);
+    if (params.has("convidado")) return void go(asking?.poupanca ?? false);
+    setAsking(null);
+    setRegistering(true);
   };
 
   return (
     <div class="frontdoor n-on-dark">
       <i class="n-pano-faixa n-pano-faixa-vermelha frontdoor-edge" aria-hidden="true" />
-      <Wordmark width={asking || returning ? 150 : 220} />
-      {returning ? (
+      <Wordmark width={asking || returning || registering ? 150 : 220} />
+      {registering && !returning ? (
+        <>
+          <div class="frontdoor-card">
+            <Postal />
+          </div>
+          <Guardar mode="register" onBack={() => setRegistering(false)} onDone={() => void go(new LocalWorld().settings.poupanca)} />
+          <a class="frontdoor-quiet" href="/?entrar" onClick={(event) => (event.preventDefault(), setRegistering(false), setReturning(true))}>
+            {tr.t("frontdoor.have")}
+          </a>
+        </>
+      ) : returning ? (
         <>
           <div class="frontdoor-card">
             <Postal />
@@ -90,7 +109,7 @@ export function FrontDoor() {
               <a class="frontdoor-quiet" href={`/andar?pack=${front.pack}`} onClick={(event) => (event.preventDefault(), enter(true))}>
                 {tr.t("frontdoor.poupanca", { size: tr.dataSize(front.firstView.poupanca) })}
               </a>
-              {account() ? null : (
+              {account()?.token ? null : (
                 <a class="frontdoor-quiet" href="/?entrar" onClick={(event) => (event.preventDefault(), setReturning(true))}>
                   {tr.t("frontdoor.have")}
                 </a>

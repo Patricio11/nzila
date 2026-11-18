@@ -31,7 +31,7 @@ test.describe("the front door", () => {
     const slowed = await slowPhone(page);
     const seen = watch(page);
     const started = Date.now();
-    await page.goto("/", { waitUntil: "networkidle" });
+    await page.goto("/?convidado", { waitUntil: "networkidle" });
     const seconds = (Date.now() - started) / 1000;
 
     await expect(page.getByRole("img", { name: "Nzila" })).toBeVisible();
@@ -61,7 +61,7 @@ test.describe("going in", () => {
       return;
     }
     const seen = watch(page);
-    await page.goto("/");
+    await page.goto("/?convidado");
     await expect(page.locator(".frontdoor-cost")).toContainText(/A primeira entrada gasta \d+,\d\sMB de dados/);
     await expect(page.getByRole("link", { name: /Entrar em Modo Poupança \(\d+,\d\sMB\)/ })).toBeVisible();
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
@@ -90,7 +90,7 @@ test.describe("going in", () => {
 
     // The light door: Modo Poupança is chosen for this device before the game opens.
     // And someone who has a look already goes straight in.
-    await page.goto("/");
+    await page.goto("/?convidado");
     await page.getByRole("link", { name: /Entrar em Modo Poupança/ }).click();
     await page.waitForURL(/\/andar\?pack=l1/);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("nzila.settings") ?? "{}").poupanca)).toBe(true);
@@ -98,7 +98,7 @@ test.describe("going in", () => {
   });
 
   test("once visited, the door opens with the network gone, and the game can be put on the phone's screen", async ({ page, context }) => {
-    await page.goto("/");
+    await page.goto("/?convidado");
     await expect(page.getByRole("img", { name: "Nzila" })).toBeVisible();
     // Installable: a manifest with the game's name and its icons.
     const manifest = await (await page.request.get("/manifest.webmanifest")).json();
@@ -125,7 +125,7 @@ test.describe("the age question", () => {
     const seen = watch(page);
     const asked: string[] = [];
     page.on("request", (sent) => void (sent.url().includes("/api/") && asked.push(sent.url())));
-    await page.goto("/");
+    await page.goto("/?convidado");
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
     // A year that is no year is said to be wrong, and can be typed again.
     await bornIn(page, "1800");
@@ -138,7 +138,7 @@ test.describe("the age question", () => {
     expect(await page.evaluate(() => localStorage.getItem("nzila.conta"))).toBeNull();
     expect(asked).toEqual([]);
     // Coming back to the door on the same visit does not ask again.
-    await page.goto("/");
+    await page.goto("/?convidado");
     await expect(page.getByRole("heading", { name: "Ainda não é a tua vez" })).toBeVisible();
     await expectNoSidewaysScroll(page);
     expect(seen.errors).toEqual([]);
@@ -153,7 +153,7 @@ test.describe("the BI", () => {
       return;
     }
     const seen = watch(page);
-    await page.goto("/");
+    await page.goto("/?convidado");
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
     await bornIn(page, "2009");
     await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
@@ -240,7 +240,7 @@ test.describe("saving the BI", () => {
     // One number a browser. The browser tests' API sends every number the same code, to nobody.
     const phone = info.project.name === "phone" ? "923 000 101" : "923 000 102";
     const code = "246810";
-    await page.goto("/");
+    await page.goto("/?convidado");
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
     await bornIn(page, "1988");
     await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
@@ -274,8 +274,8 @@ test.describe("saving the BI", () => {
     const other = await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" });
     await other.addInitScript(() => localStorage.setItem("nzila.numero", "1"));
     const second = await other.newPage();
-    await second.goto("/");
-    await second.getByRole("link", { name: "Já tenho um BI guardado" }).click();
+    await second.goto("/?convidado");
+    await second.getByRole("link", { name: "Já tenho conta" }).click();
     await second.getByRole("radio", { name: "Número" }).click();
     await second.getByLabel("O teu número de telemóvel").fill(phone);
     await second.getByRole("button", { name: "Enviar código" }).click();
@@ -293,7 +293,7 @@ test.describe("saving the BI", () => {
     // One active session a player, the newer wins: the first phone finds out the next time it asks, forgets the account, and the door says why.
     await page.goto("/andar?pack=l1&telemovel=bi");
     await page.waitForFunction(() => localStorage.getItem("nzila.conta") === null, undefined, { timeout: 30_000 });
-    await page.goto("/");
+    await page.goto("/?convidado");
     await expect(page.getByText("O teu BI foi aberto noutro telemóvel. Para jogar neste, entra outra vez.")).toBeVisible();
     await expect(page.getByLabel("O teu e-mail")).toBeVisible();
     await expectNoSidewaysScroll(page);
@@ -314,7 +314,7 @@ test.describe("saving the BI with an email", () => {
     const password = "funje com peixe grelhado";
     // The browser tests' API puts the same code in every letter, and sends the letter nowhere.
     const code = "246810";
-    await page.goto("/");
+    await page.goto("/?convidado");
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
     await bornIn(page, "1995");
     await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
@@ -363,8 +363,8 @@ test.describe("saving the BI with an email", () => {
     // A second phone, and the password forgotten: a wrong one is told one thing only; then a code to the address and a new password bring the player whole.
     const other = await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" });
     const second = await other.newPage();
-    await second.goto("/");
-    await second.getByRole("link", { name: "Já tenho um BI guardado" }).click();
+    await second.goto("/?convidado");
+    await second.getByRole("link", { name: "Já tenho conta" }).click();
     await second.getByLabel("O teu e-mail").fill(email.toUpperCase());
     await second.getByLabel("A tua palavra-passe").fill("outra coisa qualquer");
     await second.getByRole("button", { name: "Entrar", exact: true }).click();
@@ -404,7 +404,7 @@ test.describe("first play", () => {
     const slowed = await slowPhone(page);
     const seen = watch(page);
     const started = Date.now();
-    await page.goto("/");
+    await page.goto("/?convidado");
     await page.getByRole("button", { name: "Entrar em Luanda" }).click();
     // First play is the whole of it: the door, the age question, choosing a look, and arriving.
     await bornIn(page, "1990");
@@ -869,6 +869,62 @@ test.describe("the bench", () => {
     const result = await page.evaluate(() => window.__bench!);
     expect(result.standIn).toBe(true);
     expect(result.draws).toBeUndefined();
+  });
+});
+
+test.describe("the door (D-4.12: everyone registers)", () => {
+  test("someone new says their age, registers with an address and a password, makes their character, is dealt a family, and is in the street with its Makuta; the address is proved later", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/front.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). The door was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(180_000);
+    const seen = watch(page);
+    const email = `porta-${info.project.name}-${Date.now()}@exemplo.ao`;
+    await page.goto("/");
+    await page.getByRole("button", { name: "Entrar em Luanda" }).click();
+    await bornIn(page, "1995");
+    // No guest is made by walking in: the account is asked for, and nothing else.
+    await expect(page.getByRole("heading", { name: "Cria a tua conta" })).toBeVisible();
+    expect(await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token?: string }).token)).toBeUndefined();
+    await page.screenshot({ path: info.outputPath("porta-registar.png") });
+    await page.getByLabel("O teu e-mail").fill(email);
+    await page.getByLabel("Escolhe uma palavra-passe").fill("curta");
+    await page.getByRole("button", { name: "Criar conta" }).click();
+    await expect(page.locator(".tm-save-said")).not.toHaveText(/Um e-mail e uma palavra-passe/);
+    await page.getByLabel("Escolhe uma palavra-passe").fill("uma frase que so eu sei");
+    await page.getByRole("button", { name: "Criar conta" }).click();
+    // Straight on: the character, then the family, then the street. No code is typed on the way.
+    await page.waitForFunction(() => window.__provador?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Está bom" }).click();
+    await turnCard(page);
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    const token = await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token?: string }).token);
+    const me = (await (await page.request.get("/api/v1/me", { headers: { authorization: `Bearer ${token}` } })).json()) as { kind: string; savedWith: { email: boolean; emailVerified: boolean }; origin: { makuta: number }; wallet: { cash: number } };
+    expect(me).toMatchObject({ kind: "linked", savedWith: { email: true, emailVerified: false } });
+    // The Makuta of their card is in their Carteira, by the books.
+    expect(me.wallet.cash).toBe(me.origin.makuta);
+    // Neither the address nor the password stays on the phone.
+    const kept = JSON.stringify(await page.evaluate(() => ({ ...localStorage })));
+    expect(kept).not.toContain("exemplo.ao");
+    expect(kept).not.toContain("uma frase");
+    // The same address a second time is told it has an account, and shown the other door.
+    const again = await (await page.context().browser()!.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    await again.goto("/");
+    await again.getByRole("button", { name: "Entrar em Luanda" }).click();
+    await bornIn(again, "1995");
+    await again.getByLabel("O teu e-mail").fill(email);
+    await again.getByLabel("Escolhe uma palavra-passe").fill("outra frase que eu sei");
+    await again.getByRole("button", { name: "Criar conta" }).click();
+    await expect(again.locator(".tm-save-said")).toHaveText("Esse e-mail já tem conta. Entra por «Já tenho conta».");
+    await again.getByRole("link", { name: "Já tenho conta" }).click();
+    await again.getByLabel("O teu e-mail").fill(email);
+    await again.getByLabel("A tua palavra-passe").fill("uma frase que so eu sei");
+    await again.getByRole("button", { name: "Entrar", exact: true }).click();
+    await again.waitForURL((url) => url.pathname !== "/", { timeout: 30_000 });
+    await again.context().close();
+    expect(seen.errors.filter((error) => !error.includes("409") && !error.includes("400"))).toEqual([]);
   });
 });
 
