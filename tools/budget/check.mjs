@@ -23,7 +23,7 @@ const SHELL_BUDGET_BYTES = 300 * 1024;
 // One thing opened later (an app of the Telemóvel) may cost this much, with everything only it needs.
 const ON_DEMAND_BUDGET_BYTES = 20 * 1024;
 // What is opened later: the apps of the Telemóvel, each its own file. The shell that lists them is part of the way in.
-const ON_DEMAND = /src\/telemovel\/(?!telemovel\.tsx$)[\w-]+\.tsx$/;
+const ON_DEMAND = /src\/(telemovel\/(?!telemovel\.tsx$)[\w-]+|conversa\/sheet)\.tsx$/;
 const root = process.cwd();
 const dist = join(root, "apps", "client", "dist");
 const counted = new Set([".html", ".css", ".js", ".woff2"]);

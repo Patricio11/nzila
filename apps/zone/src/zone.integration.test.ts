@@ -206,16 +206,16 @@ describe("two phones in the same street", () => {
     // Nobody stands inside anybody.
     expect(Math.hypot(a.me().x - a.seen(bId)!.x, a.me().z - a.seen(bId)!.z)).toBeGreaterThan(500);
 
-    // The second arrived a step north of the first, who therefore walks east: nobody walks through anybody (D-0.53).
+    // The second arrived a step east or west of the first (F-189), who therefore walks north: nobody walks through anybody (D-0.53).
     const from = { ...b.seen(aId)! };
-    await a.walk(24, east);
-    await until(() => b.seen(aId)!.x > from.x + 1000);
+    await a.walk(24, north);
+    await until(() => b.seen(aId)!.z > from.z + 1000);
     expect(b.seen(aId)!.anim).toBe(DOING.walk);
     // A walking pace, whatever the phone would like: a little over a second is not five metres.
-    expect(b.seen(aId)!.x - from.x).toBeLessThan(5000);
+    expect(b.seen(aId)!.z - from.z).toBeLessThan(5000);
     // The one who walked is told the same place, and which of their frames were used.
     await until(() => a.state.latest!.lastInputSeq >= 20);
-    await until(() => Math.abs(a.me().x - b.seen(aId)!.x) < 400);
+    await until(() => Math.abs(a.me().z - b.seen(aId)!.z) < 400);
     // And when they stop, they are seen to stand.
     await until(() => b.seen(aId)!.anim === DOING.idle);
     // The other never moved.

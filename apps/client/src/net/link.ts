@@ -8,7 +8,7 @@
 // street, alone: the game never stops for want of a network (Rule 2). Coming
 // back by itself is Task 3.4.
 
-import { type TrafficSaid, PROTOCOL_VERSION, ZONE_CLOSE, decodeSnapshot, decodeZoneMessage, encodeChatSend, encodeChatTyping, encodeEmote, encodeInput, encodeJoin, type JoinAccepted, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
+import { type RideAsked, encodeNudge, encodeRide, type TrafficSaid, PROTOCOL_VERSION, ZONE_CLOSE, decodeSnapshot, decodeZoneMessage, encodeChatSend, encodeChatTyping, encodeEmote, encodeInput, encodeJoin, type JoinAccepted, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { type PlaySeat } from "../world/account.ts";
 import { Conditioner, LateLine, askedLine } from "./conditioner.ts";
 import { dataMeter } from "./data-meter.ts";
@@ -48,6 +48,10 @@ export interface Link {
   typing(on: boolean): void;
   /** Makes a gesture, by its number (EMOTE_NAMES). */
   gesture(emote: number): void;
+  /** Tells someone beside the player to look in their wallet. */
+  nudge(entity: number): void;
+  /** Asks to get on a van, or to get off it here. */
+  ride(asked: RideAsked): void;
   /** Leaves on purpose, and says so. */
   close(): void;
   /** For the tests and a developer: the line goes without a word, as in a tunnel. The zone keeps the place. */
@@ -132,6 +136,8 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
             say: (messageId, text) => post(encodeChatSend({ messageId, text })),
             typing: (on) => post(encodeChatTyping({ from: 0, typing: on })),
             gesture: (emote) => post(encodeEmote({ emote })),
+            ride: (asked) => post(encodeRide(asked)),
+            nudge: (entity) => post(encodeNudge({ entity })),
             close: () => {
               let_go = true;
               clearInterval(listening);

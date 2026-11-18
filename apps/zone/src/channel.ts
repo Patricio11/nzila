@@ -111,9 +111,10 @@ export class Channel {
       const ring = n * ARRIVAL_RING_MM;
       const round = n === 0 ? 1 : Math.floor((2 * Math.PI * ring) / ARRIVAL_APART_MM);
       for (let k = 0; k < round; k++) {
-        // The first places of a ring are beside whoever stands at its middle, not in front of them or behind: two
-        // people who arrive together stand shoulder to shoulder, and neither hides the other from their own view (F-173).
-        const angle = (at.yaw / 18_000) * Math.PI + Math.PI / 2 + (k / round) * Math.PI * 2;
+        // The first places of a ring are to the east and west of its middle, never north or south of it: every phone's
+        // camera first looks north, so two who arrive together stand side by side in both pictures, and neither
+        // hides the other (F-189).
+        const angle = Math.PI / 2 + (k / round) * Math.PI * 2;
         const x = Math.round(at.x + Math.sin(angle) * ring);
         const z = Math.round(at.z + Math.cos(angle) * ring);
         if (!this.free(x, z)) continue;
@@ -129,6 +130,7 @@ export class Channel {
 
   /** Someone leaves. Gives back who they were and where they stood, to be kept for their return; null for a number nobody has. */
   leave(id: number): { playerId: string; at: Place } | null {
+    this.riding.delete(id);
     const seat = this.seats.get(id);
     const body = this.world.characters.find((one) => one.id === id);
     if (!seat || !body) return null;
@@ -153,6 +155,61 @@ export class Channel {
     seat.sent.clear();
     seat.seen = [];
     return true;
+  }
+
+  /** Who rides which vehicle, and in which of its seats. Their body is carried, not walked. */
+  private readonly riding = new Map<number, { vehicle: number; seat: number }>();
+
+  /** Someone gets on a vehicle, in a seat: from now on their frames are let go and `carry` puts them where it is. */
+  ride(id: number, vehicle: number, seat: number): void {
+    if (!this.seats.has(id)) return;
+    this.riding.set(id, { vehicle, seat });
+    const seat_ = this.seats.get(id)!;
+    seat_.waiting.length = 0;
+    seat_.anim = DOING.sit;
+  }
+
+  ridingOf(id: number): { vehicle: number; seat: number } | null {
+    return this.riding.get(id) ?? null;
+  }
+
+  /** Everyone riding, with what and where. */
+  riders(): { id: number; vehicle: number; seat: number }[] {
+    return [...this.riding].map(([id, on]) => ({ id, ...on }));
+  }
+
+  /** Puts a rider where their vehicle is. */
+  carry(id: number, at: Place): void {
+    const body = this.world.characters.find((one) => one.id === id);
+    if (!body || !this.riding.has(id)) return;
+    Object.assign(body.state, { x: at.x, y: at.y, z: at.z, yaw: at.yaw });
+    delete body.state.air;
+  }
+
+  /** Someone gets off, at the place asked for when there is room for them there, or as near it as there is. False when there is no room near. */
+  alight(id: number, at: Place): boolean {
+    const body = this.world.characters.find((one) => one.id === id);
+    if (!body || !this.riding.has(id)) return false;
+    // Out of the way while their own place is looked for: their body is not in the way of itself.
+    body.state.x = Number.MAX_SAFE_INTEGER;
+    for (let n = 0; n <= ARRIVAL_RINGS; n++) {
+      const ring = n * ARRIVAL_RING_MM;
+      const round = n === 0 ? 1 : Math.floor((2 * Math.PI * ring) / ARRIVAL_APART_MM);
+      for (let k = 0; k < round; k++) {
+        const angle = (k / round) * Math.PI * 2;
+        const x = Math.round(at.x + Math.sin(angle) * ring);
+        const z = Math.round(at.z + Math.cos(angle) * ring);
+        if (!this.free(x, z)) continue;
+        const y = this.ground.heightAt(Math.floor(x / this.ground.cellMm), Math.floor(z / this.ground.cellMm));
+        Object.assign(body.state, { x, y, z, yaw: at.yaw });
+        this.riding.delete(id);
+        const seat = this.seats.get(id)!;
+        Object.assign(seat, { wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle });
+        seat.waiting.length = 0;
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Where someone is now. */
@@ -189,6 +246,14 @@ export class Channel {
     const late: { id: number; move: MoveInput }[] = [];
     for (const [id, seat] of this.seats) {
       seat.owed = Math.min(STEPS_KEPT_AT_MOST, seat.owed + 1);
+      // A rider is carried: what their stick says is let go, and counted as had.
+      if (this.riding.has(id)) {
+        const last = seat.waiting.at(-1);
+        if (last) seat.lastInputSeq = last.seq;
+        seat.waiting.length = 0;
+        seat.owed = 0;
+        continue;
+      }
       // With no frame waiting they stand this step: the zone never walks a frame it was not sent, so that
       // what it says and what the phone worked out for itself are the same thing (the phone would otherwise
       // be put right, a little, many times a second).
@@ -207,6 +272,10 @@ export class Channel {
     for (const one of late) stepPerson(this.world, map, one.id, one.move, DEFAULT_CHARACTER, rules);
     for (const body of this.world.characters) {
       const seat = this.seats.get(body.id)!;
+      if (this.riding.has(body.id)) {
+        seat.anim = DOING.sit;
+        continue;
+      }
       const moved = Math.hypot(body.state.x - seat.wasX, body.state.z - seat.wasZ);
       seat.stoodFor = moved < 5 ? Math.min(STOOD_STEPS, seat.stoodFor + 1) : 0;
       seat.anim = (body.state.air ?? 0) > 0 ? DOING.air : seat.stoodFor >= STOOD_STEPS ? DOING.idle : seat.running ? DOING.run : DOING.walk;
@@ -222,7 +291,7 @@ export class Channel {
 
   /** Everyone in the channel, as a client is told of them. */
   entities(): EntityState[] {
-    return this.world.characters.map((body): EntityState => ({ id: body.id, kind: "player", x: body.state.x, y: body.state.y, z: body.state.z, yaw: body.state.yaw, anim: this.seats.get(body.id)!.anim, vehicleId: null, seat: null }));
+    return this.world.characters.map((body): EntityState => ({ id: body.id, kind: "player", x: body.state.x, y: body.state.y, z: body.state.z, yaw: body.state.yaw, anim: this.seats.get(body.id)!.anim, vehicleId: this.riding.get(body.id)?.vehicle ?? null, seat: this.riding.get(body.id)?.seat ?? null }));
   }
 
   /**

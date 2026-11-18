@@ -23,6 +23,8 @@ export const MSG = {
   WHO: 11,
   EMOTE: 12,
   TRAFFIC: 13,
+  RIDE: 14,
+  NUDGE: 15,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -201,6 +203,10 @@ export const EVENT = {
   CHAT_OPEN: 3,
   /** A line this client sent was not said to anyone. subject is the line's messageId; args[0] is why (CHAT_REFUSAL). */
   CHAT_REFUSED: 4,
+  /** The player's asking to get on a van was not done (the van had gone, or was full): they are still on foot. */
+  RIDE_REFUSED: 6,
+  /** Someone beside the player says they have just handed them something: the phone asks the API what it holds. Nothing is believed from this but the asking. subject: who. */
+  GIVEN: 7,
   /** This client and subject have greeted each other (a wave answered by a wave, close by): they have met. */
   MET: 5,
 } as const;
@@ -358,6 +364,35 @@ function readWho(r: Reader): Who {
   return { entityId, name, bi, look: unpackLook(bytes) };
 }
 
+// ---------------------------------------------------------------- Ride
+
+/**
+ * Client to zone: I get on this van (by its place in the district's list of vehicles), or I get off it here. The
+ * zone decides: a van standing at a paragem, beside the player, with a seat free; a place to stand beside the van.
+ */
+export type RideAsked = { readonly on: number } | { readonly off: { readonly x: number; readonly z: number } };
+
+export function encodeRide(m: RideAsked): Uint8Array {
+  const w = new Writer().u8(MSG.RIDE);
+  return "on" in m ? w.uint(m.on + 1).finish() : w.uint(0).int(m.off.x).int(m.off.z).finish();
+}
+
+function readRide(r: Reader): RideAsked {
+  const on = r.bounded(TRAFFIC_VEHICLES_AT_MOST, "vehicle");
+  return on > 0 ? { on: on - 1 } : { off: { x: r.int(), z: r.int() } };
+}
+
+// ---------------------------------------------------------------- Nudge
+
+/** Client to zone: I have just handed something to this person (by their entity). The zone tells them to look, and no more. */
+export interface Nudge {
+  readonly entity: number;
+}
+
+export function encodeNudge(m: Nudge): Uint8Array {
+  return new Writer().u8(MSG.NUDGE).uint(m.entity).finish();
+}
+
 // ---------------------------------------------------------------- Traffic
 
 /** How many vehicles a district's traffic may name in one message. */
@@ -460,7 +495,9 @@ export type ClientMessage =
   | ({ readonly type: "input" } & Input)
   | ({ readonly type: "chat_send" } & ChatSend)
   | ({ readonly type: "chat_typing" } & ChatTyping)
-  | ({ readonly type: "emote" } & EmoteMade);
+  | ({ readonly type: "emote" } & EmoteMade)
+  | ({ readonly type: "ride" } & { readonly ride: RideAsked })
+  | ({ readonly type: "nudge" } & Nudge);
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -475,6 +512,8 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.CHAT_SEND) return { type: "chat_send", ...readChatSend(r) };
   if (type === MSG.CHAT_TYPING) return { type: "chat_typing", ...readChatTyping(r) };
   if (type === MSG.EMOTE) return { type: "emote", ...readEmote(r) };
+  if (type === MSG.RIDE) return { type: "ride", ride: readRide(r) };
+  if (type === MSG.NUDGE) return { type: "nudge", entity: r.uint() };
   throw new ProtocolError("unknown_type", String(type));
 }
 

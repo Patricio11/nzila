@@ -12,6 +12,8 @@ import {
   encodeChatTyping,
   encodeWho,
   encodeTraffic,
+  encodeRide,
+  encodeNudge,
   TRAFFIC_VEHICLES_AT_MOST,
   encodeEmote,
   EMOTE_NAMES,
@@ -108,6 +110,23 @@ describe("who someone is", () => {
     expect(decodeZoneMessage(encodeWho({ ...who, look: { ...who.look, hair: "moicano" } }))).toEqual({ type: "who", entityId: 412, name: "Dona Xepa", bi: "00000412-LA", look: null });
     // A client never says who anyone is.
     expect(() => decodeClientMessage(encodeWho(who))).toThrow(ProtocolError);
+  });
+});
+
+describe("getting on and off a van", () => {
+  test("Ride: on, by the van's place in the list; off, at a place the zone is asked for; and only a client says it", () => {
+    for (const ride of [{ on: 0 }, { on: 41 }, { off: { x: 207_500, z: -84_780 } }, { off: { x: 0, z: 0 } }]) expect(decodeClientMessage(encodeRide(ride))).toEqual({ type: "ride", ride });
+    expect(encodeRide({ on: 3 }).length).toBeLessThanOrEqual(3);
+    expect(() => decodeClientMessage(encodeRide({ on: TRAFFIC_VEHICLES_AT_MOST }))).toThrow(ProtocolError);
+    expect(decodeZoneMessage(encodeRide({ on: 1 }))).toEqual({ type: "unknown", code: MSG.RIDE });
+  });
+});
+
+describe("a nudge", () => {
+  test("Nudge: whom, and nothing else; only a client says it", () => {
+    expect(decodeClientMessage(encodeNudge({ entity: 12 }))).toEqual({ type: "nudge", entity: 12 });
+    expect(encodeNudge({ entity: 12 }).length).toBeLessThanOrEqual(3);
+    expect(decodeZoneMessage(encodeNudge({ entity: 12 }))).toEqual({ type: "unknown", code: MSG.NUDGE });
   });
 });
 

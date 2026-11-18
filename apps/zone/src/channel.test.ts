@@ -205,6 +205,50 @@ describe("coming back to a body left standing", () => {
   });
 });
 
+describe("riding a van (F-157)", () => {
+  test("a rider is carried, not walked; others are told what they ride and where they sit; off, they stand beside it and walk again", () => {
+    const channel = new Channel(ground);
+    const a = channel.join("player-a", here)!;
+    const b = channel.join("player-b", here)!;
+    channel.ride(a, 7, 6);
+    channel.ride(b, 7, 2);
+    expect(channel.riders()).toEqual([{ id: a, vehicle: 7, seat: 6 }, { id: b, vehicle: 7, seat: 2 }]);
+    // Their sticks are let go while they ride; the van carries them.
+    walking(channel, a, 1, 10);
+    channel.carry(a, { x: 50_000, y: 0, z: 3000, yaw: 9000 });
+    channel.carry(b, { x: 50_000, y: 0, z: 3000, yaw: 9000 });
+    channel.tick();
+    expect(channel.placeOf(a)).toEqual({ x: 50_000, y: 0, z: 3000, yaw: 9000 });
+    const seen = channel.entities();
+    expect(seen.find((one) => one.id === a)).toMatchObject({ vehicleId: 7, seat: 6, anim: DOING.sit });
+    expect(seen.find((one) => one.id === b)).toMatchObject({ vehicleId: 7, seat: 2 });
+    // Off where they ask: there, when there is room; the second beside the first, never on top.
+    expect(channel.alight(a, { x: 50_000, y: 0, z: 5000, yaw: 0 })).toBe(true);
+    expect(channel.alight(b, { x: 50_000, y: 0, z: 5000, yaw: 0 })).toBe(true);
+    const off = [channel.placeOf(a)!, channel.placeOf(b)!];
+    expect(off[0]).toMatchObject({ x: 50_000, z: 5000 });
+    expect(Math.hypot(off[0]!.x - off[1]!.x, off[0]!.z - off[1]!.z)).toBeGreaterThanOrEqual(450);
+    expect(channel.riders()).toEqual([]);
+    expect(channel.entities().find((one) => one.id === a)).toMatchObject({ vehicleId: null, seat: null });
+    // And they walk again.
+    walking(channel, a, 20, 20);
+    expect(channel.placeOf(a)!.z).toBeGreaterThan(5500);
+    // Getting off a van one is not on does nothing; nor does riding someone who is not there.
+    expect(channel.alight(a, here)).toBe(false);
+    channel.ride(999, 1, 1);
+    expect(channel.riders()).toEqual([]);
+  });
+
+  test("leaving the channel while riding leaves the van too", () => {
+    const channel = new Channel(ground);
+    const a = channel.join("player-a", here)!;
+    channel.ride(a, 3, 6);
+    channel.leave(a);
+    expect(channel.riders()).toEqual([]);
+    expect(channel.ridingOf(a)).toBeNull();
+  });
+});
+
 describe("what stands in the district", () => {
   test("a bench stops a walk in the zone as it does on the phone", () => {
     const channel = new Channel(ground, [{ kind: "box", x: 0, z: 3000, halfWidthMm: 850, halfLengthMm: 270, yaw: 0 }]);

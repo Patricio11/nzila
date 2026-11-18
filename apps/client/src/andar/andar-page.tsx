@@ -38,7 +38,7 @@ import { LocalWorld } from "../world/provider.ts";
 import { type NetState } from "../net/retry.ts";
 import { STILL, Session, type Refused } from "../net/session.ts";
 import { type SaidLine } from "../net/talking.ts";
-import { ChatLog, Composer, PlayerSheet, type Met } from "../conversa/conversa.tsx";
+import { ChatLog, Composer, type Met } from "../conversa/conversa.tsx";
 import { Over, touched, type Speaking } from "../conversa/over.ts";
 import { toMoveInput, type InputFrame } from "@nzila/protocol";
 import { WorldRenderer } from "../render/world-renderer.ts";
@@ -52,7 +52,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -60,7 +60,11 @@ const PEOPLE = "/packs/dev-people/";
 /** Cells a camera may sit over: anything a person or a vehicle can be on, what is low, and open water. */
 const OPEN = CELL_WALK | CELL_DRIVE | CELL_WATER | CELL_LOW;
 /** How near a standing van must be to be boarded, from its middle, in metres. */
-const BOARD_REACH_M = 4.6;
+const BOARD_REACH_M = 6;
+/** Someone this close in front, and this near the line from the camera through the player, is hidden by the player's back; the camera moves out this far. */
+const HIDDEN_AHEAD_M = 4.5;
+const HIDDEN_BESIDE_M = 0.7;
+const SHOULDER_M = 1.8;
 /** How near a seat must be for the action to offer it, in metres. */
 const SEAT_REACH_M = 1.9;
 /** How many names there are for the women of the street and for the men (packages/i18n, `npc.name`). */
@@ -80,6 +84,16 @@ interface InstallOffer extends Event {
 
 /** How often the Carteira is asked about while among people: a few bytes each time. */
 const BALANCE_EVERY_MS = 25_000;
+
+/** The sheet of someone tapped, fetched the first time anyone is (F-188). */
+let fetchedSheet: typeof import("../conversa/sheet.tsx").PlayerSheet | null = null;
+function LazySheet(props: Parameters<typeof import("../conversa/sheet.tsx").PlayerSheet>[0]) {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    if (!fetchedSheet) void import("../conversa/sheet.tsx").then((module) => ((fetchedSheet = module.PlayerSheet), redraw((n) => n + 1)));
+  }, []);
+  return fetchedSheet ? fetchedSheet(props) : null;
+}
 
 type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa";
 
@@ -198,12 +212,15 @@ export function Andar() {
     let seat: { x: number; y: number; z: number; facing: number } | null = null;
     let sit = 0;
     // Riding a van: which one, and whether the cobrador has been asked for the next paragem.
-    let ride: { route: string; index: number; last: VanSeen; asked: boolean; left: boolean; camYaw: number; boardedAt: number; askedAt: number; arrivedAt: number; riders: { who: string; person: Person }[] } | null = null;
+    let ride: { route: string; index: number; last: VanSeen; asked: boolean; left: boolean; camYaw: number; boardedAt: number; askedAt: number; arrivedAt: number; riders: { who: string; person: Person; seat: number }[] } | null = null;
+    const riderSeats = new Map<number, string>();
     const eye = new Vector3();
     // The lamp in a van's ceiling: lit for the one being ridden, after dark, so that everyone inside is seen.
     const cabin = new PointLight(undefined, 0, 6, 1);
     let boardsItself = params.has("apanhar");
     let lastHud = 0;
+    /** How far out over the shoulder the camera is, to see someone the player's own back would hide. */
+    let shoulder = 0;
     // The jump, as the picture needs it: how far through, and how high, before and after the last step.
     const air = { before: 0, after: 0, liftBefore: 0, liftAfter: 0, land: 0, count: 0, last: 0 };
     // Asked for in the address, to hold a pose for a picture.
@@ -251,9 +268,14 @@ export function Andar() {
           // `&canal=3` is a friend's invitation: the matchmaker is asked for that channel and no other.
           const canal = Number(params.get("canal"));
           session = new Session(renderer, opened.manifest.id, Number.isInteger(canal) && canal > 0 ? canal : undefined);
+          session.seatOthers(
+            (vehicle) => opened.traffic?.bodyAt(vehicle) ?? null,
+            (seat) => opened.traffic?.seats[seat]?.pos ?? null,
+          );
           net.current = session;
           if (overBox.current) over = new Over(overBox.current);
-          session.join();
+          // `&paragem=<id>` comes in beside a paragem, as someone off a van does: for the tests of riding together.
+          session.join(params.get("paragem") ?? undefined);
         }
         setArrived(true);
         setTimeout(() => setArrived(false), 2600);
@@ -339,6 +361,15 @@ export function Andar() {
         }
         leftStops = standing;
         const waiting = ride ? null : (vans.filter((van) => van.dwelling && Math.hypot(van.x - state.x / 1000, van.z - state.z / 1000) < BOARD_REACH_M)[0] ?? null);
+        if (ride && session?.rideRefused) {
+          session.rideRefused = false;
+          for (const rider of ride.riders) {
+            rider.person.root.removeFromParent();
+            rider.person.release();
+          }
+          cabin.removeFromParent();
+          ride = null;
+        }
         if (ride) {
           const riding = ride;
           const now = vans.find((van) => van.route === riding.route && van.index === riding.index);
@@ -367,10 +398,13 @@ export function Andar() {
             cabin.removeFromParent();
             if (riding.left) rode.current();
             ride = null;
-            // Back into the street the others are in, beside the nearest paragem to where the van put them down.
-            const stop = [...district.manifest.paragens].sort((a, b) => Math.hypot(a.pos[0] - spot[0], a.pos[2] - spot[1]) - Math.hypot(b.pos[0] - spot[0], b.pos[2] - spot[1]))[0];
-            session?.join(stop?.id);
+            // Off where the van stands, and the zone is told where: it puts the body there, or as near as there is room.
+            session?.alight(state.x, state.z);
           } else {
+            // A passenger of the street sitting where a player sits is not drawn: the seat is the player's.
+            const vehicle = district.traffic?.indexOf(riding.route, riding.index) ?? -1;
+            const taken = new Set([...(session?.seatsTaken(vehicle) ?? []), ...(session?.myRide ? [session.myRide.seat] : [])]);
+            for (const rider of riding.riders) rider.person.root.visible = !taken.has(rider.seat);
             if (asks.current.act && !riding.asked) {
               riding.asked = true;
               riding.askedAt = seconds;
@@ -385,10 +419,11 @@ export function Andar() {
         } else if (waiting && (asks.current.act || boardsItself) && !seat) {
           asks.current.act = false;
           // For a film: gets on by itself and asks for the next paragem.
-          const boarded = { route: waiting.route, index: waiting.index, last: waiting, asked: boardsItself, left: false, camYaw: camera.yaw, boardedAt: seconds, askedAt: boardsItself ? seconds + 3 : -99, arrivedAt: -99, riders: [] as { who: string; person: Person }[] };
+          const boarded = { route: waiting.route, index: waiting.index, last: waiting, asked: boardsItself, left: false, camYaw: camera.yaw, boardedAt: seconds, askedAt: boardsItself ? seconds + 3 : -99, arrivedAt: -99, riders: [] as { who: string; person: Person; seat: number }[] };
           ride = boarded;
-          // The vans are each phone's own for now: whoever rides one is out of the street the others see until they get off.
-          session?.leave();
+          // The zone is asked for a seat (F-157): among people, everyone near sees who rides, and two can ride together.
+          const vehicle = district.traffic?.indexOf(waiting.route, waiting.index) ?? -1;
+          if (session?.walking && vehicle >= 0) session.board(vehicle);
           // The others in the van: the driver, the cobrador by the door, a few passengers. They get in as their bodies arrive.
           const van = district.traffic?.bodyOf(waiting.route, waiting.index);
           const people = district.people;
@@ -399,6 +434,7 @@ export function Andar() {
           if (van && people) {
             for (const [n, seat] of (district.traffic?.seats ?? []).entries()) {
               if (seat.who === "jogador") continue;
+              riderSeats.set(n, seat.who);
               const who = people.pick(seat.who === "cobrador" ? "cobrador" : "any", n * 3 + waiting.index + 2);
               if (!who) continue;
               void people.make(who).then((rider) => {
@@ -407,7 +443,7 @@ export function Andar() {
                 rider.root.position.set(seat.pos[0], seat.pos[1] - 0.46 * (rider.height / 1.7), seat.pos[2]);
                 rider.shadow = false;
                 van.add(rider.root);
-                boarded.riders.push({ who: seat.who, person: rider });
+                boarded.riders.push({ who: seat.who, person: rider, seat: n });
               });
             }
           }
@@ -606,7 +642,9 @@ export function Andar() {
         world.place(x, z, ((Math.atan2(Math.sin(facing), -Math.cos(facing)) * 180) / Math.PI + 360) % 360);
         world.inChannel(session?.walking ? session.channel : null, session, session?.namedChannel ?? null);
         const van = ride ? district.traffic?.bodyOf(ride.route, ride.index) : null;
-        const place = district.traffic?.seats.find((s) => s.who === "jogador");
+        // The seat the zone gave the player, or the player's own seat when walking alone.
+        const mySeat = session?.myRide?.seat;
+        const place = (mySeat !== undefined ? district.traffic?.seats[mySeat] : undefined) ?? district.traffic?.seats.find((s) => s.who === "jogador");
         if (ride && van && place) {
           // From the seat: the eyes of someone sitting there, turned by the thumb.
           van.updateMatrixWorld();
@@ -620,7 +658,20 @@ export function Andar() {
         } else {
           // Pulled in by a wall, the camera rises: it looks down over the head, and is never inside it.
           const lift = Math.min(CAMERA_LIFT_MOST_M, Math.max(0, reach - allowed) * CAMERA_LIFT);
-          renderer.camera.position.set(x + Math.sin(camera.yaw) * flat, eyeY + Math.sin(camera.pitch) * allowed + 0.25 + lift, z + Math.cos(camera.yaw) * flat);
+          // Someone standing close in front, behind the player's own back from here: the camera eases out over the
+          // shoulder until they are seen, and back when they are not there (F-189).
+          const aheadX = -Math.sin(camera.yaw);
+          const aheadZ = -Math.cos(camera.yaw);
+          const hidden = (session?.heads() ?? []).some((one) => {
+            const forward = (one.x - x) * aheadX + (one.z - z) * aheadZ;
+            const beside = Math.abs((one.x - x) * aheadZ - (one.z - z) * aheadX);
+            // In front of the player, or between the camera and the player: either way one hides the other.
+            return forward > 0.3 - flat && forward < HIDDEN_AHEAD_M && Math.abs(forward) > 0.2 && beside < HIDDEN_BESIDE_M;
+          });
+          shoulder += ((hidden ? SHOULDER_M : 0) - shoulder) * Math.min(1, elapsed / 350);
+          const sideX = Math.cos(camera.yaw) * shoulder;
+          const sideZ = -Math.sin(camera.yaw) * shoulder;
+          renderer.camera.position.set(x + Math.sin(camera.yaw) * flat + sideX, eyeY + Math.sin(camera.pitch) * allowed + 0.25 + lift, z + Math.cos(camera.yaw) * flat + sideZ);
           renderer.camera.lookAt(x, eyeY + (upright ? 0.55 : 0.2), z);
         }
         renderer.setFocus(x, 0, z);
@@ -645,7 +696,8 @@ export function Andar() {
           over.update(renderer.camera, ride ? [] : speakers, x, z);
           // What the Carteira holds is asked now and then while among people, and at once after the sheet of someone
           // met is shut: Makuta handed over is seen without being looked for.
-          if (clock - balanceAt > BALANCE_EVERY_MS) {
+          if (clock - balanceAt > BALANCE_EVERY_MS || session.given) {
+            session.given = false;
             balanceAt = clock;
             void balanceNow().then((got) => got && (said = { kind: "got", name: got.from ?? "", amount: got.amount, until: performance.now() + 5000 }));
           }
@@ -667,7 +719,13 @@ export function Andar() {
         }
 
         const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && world.atCaixa() ? "caixa" : !moving && nearest() ? "sit" : null;
-        window.__andar = { at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        // Where each other player's chest is on the screen, in CSS pixels: for the tests that tap someone.
+        const box = canvas.current?.getBoundingClientRect();
+        const onScreen = box ? (session?.heads() ?? []).map((one) => {
+          const point = new Vector3(one.x, one.y - 0.6, one.z).project(renderer.camera);
+          return { x: box.left + ((point.x + 1) / 2) * box.width, y: box.top + ((1 - point.y) / 2) * box.height };
+        }) : [];
+        window.__andar = { othersOnScreen: onScreen, shoulder, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -882,11 +940,12 @@ export function Andar() {
             </div>
           )}
           {met ? (
-            <PlayerSheet
+            <LazySheet
               met={met}
               silenced={net.current?.talk.silenced(met.entity) ?? false}
               onSilence={(on) => (net.current?.silence(met.entity, on), setMet({ ...met }))}
               onShutOut={(on) => net.current?.talk.silence(met.entity, on)}
+              onGave={() => net.current?.nudge(met.bi)}
               onTalk={() => (setMet(null), setComposing(true))}
               onClose={() => setMet(null)}
             />

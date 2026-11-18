@@ -7,6 +7,7 @@
 // zone stops speaking of them.
 
 import { DOING, type Who } from "@nzila/protocol";
+import { type Object3D } from "three";
 import { type Seen } from "../net/others.ts";
 import { type Named } from "./names.ts";
 import { EMOTE_SECONDS, type Emote, type Person } from "./person.ts";
@@ -36,6 +37,9 @@ export class Players {
   private readonly bodies = new Map<number, Body>();
   private readonly faces = new Map<number, Who>();
   private closed = false;
+  /** Where a van is drawn, and where in it each seat is: for whoever rides one. Given by the page, which has the traffic. */
+  vanAt: (vehicle: number) => Object3D | null = () => null;
+  seatAt: (seat: number) => readonly [number, number, number] | null = () => null;
   /** Whether the player has met whoever carries this BI: said by the session, which remembers. */
   knows: (bi: string) => boolean = () => false;
 
@@ -55,6 +59,12 @@ export class Players {
 
   nameOf(id: number): string | null {
     return this.faces.get(id)?.name ?? null;
+  }
+
+  /** The body that carries this BI, among those known here. */
+  entityOf(bi: string): number | null {
+    for (const [id, who] of this.faces) if (who.bi === bi) return id;
+    return null;
   }
 
   who(id: number): Who | null {
@@ -117,6 +127,19 @@ export class Players {
       // The zone turns a body at once; the picture turns it as a person turns.
       body.facing = body.facing === null ? one.facing : body.facing + Math.atan2(Math.sin(one.facing - body.facing), Math.cos(one.facing - body.facing)) * Math.min(1, elapsedMs / 90);
       Object.assign(body, { x: one.x, y: one.y, z: one.z });
+      // Riding: seated in the van, wherever the van is drawn on this phone, and in the seat the zone gave them.
+      const van = one.vehicleId === null ? null : this.vanAt(one.vehicleId);
+      const seatPos = one.seat === null ? null : this.seatAt(one.seat);
+      if (van && seatPos) {
+        if (person.root.parent !== van) van.add(person.root);
+        person.root.position.set(seatPos[0], seatPos[1] - 0.46 * (person.height / 1.7), seatPos[2]);
+        person.root.rotation.y = 0;
+        person.root.scale.setScalar(1);
+        person.root.visible = true;
+        person.pose({ speed: 0, phase: 0, time: seconds + one.id * 1.3 }, { sit: 1 });
+        continue;
+      }
+      if (person.root.parent !== this.renderer.scene) this.renderer.scene.add(person.root);
       // A jump is drawn as a hop of the zone's own height at its middle: the zone says "in the air", not how high.
       person.root.position.set(one.x, one.y + body.air * 0.42, one.z);
       person.root.rotation.y = body.facing;
@@ -131,7 +154,7 @@ export class Players {
     for (const [id, body] of this.bodies) {
       if (here.has(id)) continue;
       if (body.person) {
-        this.renderer.scene.remove(body.person.root);
+        body.person.root.removeFromParent();
         body.person.release();
       }
       this.bodies.delete(id);

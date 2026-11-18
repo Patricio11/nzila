@@ -31,6 +31,9 @@ export interface Seen {
   readonly speed: number;
   /** What they are doing (DOING), as the zone last said before this moment. */
   readonly anim: number;
+  /** The vehicle they ride (its place in the district's list) and their seat in it; null on foot. */
+  readonly vehicleId: number | null;
+  readonly seat: number | null;
 }
 
 interface Word {
@@ -108,6 +111,8 @@ export class Others {
         facing: (turn(a.state.yaw, b.state.yaw, k) * Math.PI) / 18_000,
         speed,
         anim: a.state.anim,
+        vehicleId: b.state.vehicleId,
+        seat: b.state.seat,
       });
     }
     return seen;

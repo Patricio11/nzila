@@ -1,4 +1,4 @@
-import { connect, nightlyLedgerAudit, parseKeyring, parsePepper } from "@nzila/db";
+import { connect, nightlyLedgerAudit, parseKeyring, parsePepper, platformAdmins } from "@nzila/db";
 import { memoryPresence, redisPresence, type Presence } from "@nzila/presence";
 import { buildApp } from "./app.ts";
 import { consoleMailer, resendMailer } from "./mail.ts";
@@ -20,7 +20,14 @@ const app = buildApp({ sql: connect(), pepper: parsePepper(process.env.HASH_PEPP
 const sql = connect(undefined, 1);
 const prove = (): void =>
   void nightlyLedgerAudit(sql).then(
-    (said) => said && (said.ok ? console.log(`api: ledger audit: the books balance (${said.transfers} transfers)`) : console.error(`api: ALARM: THE BOOKS DO NOT BALANCE: all accounts add up to ${said.sum}; ${said.wrong.length} balance(s) do not match their rows; ${said.overdrawn.length} account(s) below zero`)),
+    async (said) => {
+      if (!said) return;
+      if (said.ok) return console.log(`api: ledger audit: the books balance (${said.transfers} transfers)`);
+      const alarm = `THE BOOKS DO NOT BALANCE: all accounts add up to ${said.sum}; ${said.wrong.length} balance(s) do not match their rows; ${said.overdrawn.length} account(s) below zero`;
+      console.error(`api: ALARM: ${alarm}`);
+      // And by mail to whoever runs the platform: the alarm must reach someone who is not looking.
+      for (const to of await platformAdmins(sql)) await mailer.send({ to, subject: "Nzila: as contas do jogo não batem certo", text: `${alarm}.\n\nO registo do Estúdio tem os pormenores. Ninguém deve mexer em dinheiro até se saber porquê.` }).catch(() => undefined);
+    },
     (error: unknown) => console.error(`api: the ledger could not be audited: ${String(error)}`),
   );
 prove();

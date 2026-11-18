@@ -261,3 +261,11 @@ export async function lastAudit(sql: Sql, limit = 100): Promise<{ at: string; by
     WHERE a.actor_kind = 'staff' ORDER BY a.at DESC, a.id DESC LIMIT ${limit}`;
   return rows.map((row) => ({ at: row.at.toISOString(), by: row.by ?? row.actor_id, kind: row.kind, subject: row.subject_name ?? `${row.subject_kind} ${row.subject_id}`, reason: row.reason }));
 }
+
+/** The addresses of everyone who runs the platform: who an alarm is sent to. */
+export async function platformAdmins(sql: Sql): Promise<string[]> {
+  const rows = await sql<{ email: string }[]>`
+    SELECT s.email FROM staff s JOIN staff_roles r ON r.staff_id = s.id WHERE r.role = 'platform_admin' AND s.status = 'active' ORDER BY s.email`;
+  return rows.map((row) => row.email);
+}
+

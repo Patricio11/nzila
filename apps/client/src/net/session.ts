@@ -13,6 +13,7 @@
 // minute of trying is the player told there is no network.
 
 import { isGreeting } from "@nzila/i18n";
+import { type Object3D } from "three";
 import { type TrafficSaid, CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
@@ -290,6 +291,7 @@ export class Session {
     this.heardTick = snapshot.tick;
     const me = snapshot.entities.find((entity) => entity.id === link.accepted.entityId);
     if (me) {
+      this.myRide = me.vehicleId === null ? null : { vehicle: me.vehicleId, seat: me.seat ?? 0 };
       const said = { x: me.x, y: me.y, z: me.z, yaw: me.yaw };
       // Where they arrive is the first word of a stay, and only the first.
       if (!this.arrived) this.first ??= said;
@@ -301,6 +303,8 @@ export class Session {
   private happened(event: WorldEvent): void {
     if (event.kind === EVENT.CHAT_OPEN) this.chatOpen = true;
     else if (event.kind === EVENT.CHAT_REFUSED) this.refused = event.args[0] === CHAT_REFUSAL.SLOW_DOWN ? "slow" : event.args[0] === CHAT_REFUSAL.LINKS ? "links" : event.args[0] === CHAT_REFUSAL.MUTED ? "muted" : "words";
+    else if (event.kind === EVENT.RIDE_REFUSED) this.rideRefused = true;
+    else if (event.kind === EVENT.GIVEN) this.given = true;
     else if (event.kind === EVENT.EMOTE) {
       const name = EMOTE_NAMES[event.args[0] ?? -1];
       if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);
@@ -355,6 +359,47 @@ export class Session {
   }
 
   /** A gesture, for the others to see. */
+  /** The van the zone has the player riding, and their seat in it; null on foot, or before the zone has said. */
+  myRide: { vehicle: number; seat: number } | null = null;
+  /** The zone would not let the player on a van (it had gone, or was full), until the page has taken it. */
+  rideRefused = false;
+
+  /** How other players who ride are seated: where their van is drawn, and where its seats are. */
+  seatOthers(vanAt: (vehicle: number) => Object3D | null, seatAt: (seat: number) => readonly [number, number, number] | null): void {
+    this.players.vanAt = vanAt;
+    this.players.seatAt = seatAt;
+  }
+
+  /** Someone beside the player says they have just handed them something, until the page has looked. */
+  given = false;
+
+  /** Tells the player with this BI number, if they are here, to look in their wallet. */
+  nudge(bi: string): void {
+    const entity = this.players.entityOf(bi);
+    if (this.walking && entity !== null) this.link!.nudge(entity);
+  }
+
+  /** Asks to get on a van, by its place in the district's list of vehicles. */
+  board(vehicle: number): void {
+    if (this.walking) this.link!.ride({ on: vehicle });
+  }
+
+  /** Asks to get off, at this place beside the van (millimetres). */
+  alight(x: number, z: number): void {
+    this.myRide = null;
+    if (this.walking) this.link!.ride({ off: { x: Math.round(x), z: Math.round(z) } });
+  }
+
+  /** How many of the others this phone is told of are riding: for the tests. */
+  othersRiding(): number {
+    return this.others.latest().filter((one) => one.vehicleId !== null).length;
+  }
+
+  /** Which seats of a van other players have taken, as far as this phone is told. */
+  seatsTaken(vehicle: number): number[] {
+    return this.others.latest().filter((one) => one.vehicleId === vehicle && one.seat !== null).map((one) => one.seat!);
+  }
+
   gesture(name: EmoteName): void {
     if (this.walking) this.link!.gesture(EMOTE_NAMES.indexOf(name));
   }

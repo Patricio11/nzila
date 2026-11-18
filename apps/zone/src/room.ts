@@ -12,6 +12,7 @@ import { TrafficRules, actorAt } from "@nzila/world";
 import { faceOf, keepChatLines, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { type ChatFilter } from "@nzila/i18n";
 import {
+  type RideAsked,
   encodeTraffic, EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, CHAT_REFUSAL } from "@nzila/protocol";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
@@ -41,8 +42,11 @@ export const HOLD_MS = 60_000;
 const GESTURE_GAP_MS = 1000;
 const STEPS_A_LOOK = 5;
 const MARK_EVERY_MS = 1000;
+/** How near a van's middle a player must stand to get on it, and how far from it they may ask to get off. Millimetres. */
+const BOARD_REACH_MM = 7000;
+const ALIGHT_REACH_MM = 4500;
 /** The traffic is decided every this many steps, and said to the phones every this many. */
-const STEPS_A_TRAFFIC = 2;
+const STEPS_A_TRAFFIC = 4;
 const STEPS_A_TRAFFIC_SAID = 6;
 /** Two people are "together" for handing something over within this far, in millimetres. */
 export const HAND_REACH_MM = 3000;
@@ -102,6 +106,7 @@ interface Held {
   /** Whom they were last said to be standing with, and when. */
   withWhom: string;
   withAt: number;
+  nudgedAt: number;
 }
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
@@ -294,7 +299,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0 });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0 });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -318,7 +323,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0 });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0 });
     this.lineOfEntity.set(entityId, line);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
@@ -369,6 +374,8 @@ export class ChannelRoom {
       else if (message.type === "chat_send") this.says(line, held, message);
       else if (message.type === "chat_typing") this.saysTyping(held, message.typing);
       else if (message.type === "emote") this.gestures(held, message.emote);
+      else if (message.type === "ride") this.rides(line, held, message.ride);
+      else if (message.type === "nudge") this.nudges(held, message.entity);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -430,6 +437,50 @@ export class ChannelRoom {
     const bytes = encodeEvent({ kind: EVENT.EMOTE, tick: this.channel.world.tick, subject: held.entityId, args: [emote], text: "" });
     for (const [other, seeing] of this.held) if (seeing !== held && this.channel.seenBy(seeing.entityId).includes(held.entityId)) other.send(bytes);
     if (emote === WAVE) this.greets(held, now);
+  }
+
+  /** "Look in your wallet", from someone who has just handed something over, to someone beside them; once a second at most. */
+  private nudges(held: Held, entity: number): void {
+    const now = Date.now();
+    if (now - held.nudgedAt < GESTURE_GAP_MS) return;
+    const from = this.channel.placeOf(held.entityId);
+    const to = this.channel.placeOf(entity);
+    const line = this.lineOfEntity.get(entity);
+    if (!from || !to || !line || Math.hypot(from.x - to.x, from.z - to.z) > HAND_REACH_MM * 2 || this.apart(held.entityId, entity)) return;
+    held.nudgedAt = now;
+    line.send(encodeEvent({ kind: EVENT.GIVEN, tick: this.channel.world.tick, subject: held.entityId, args: [], text: "" }));
+  }
+
+  /**
+   * Getting on a van and off it (F-157, riding together). On: the van must be one of the district's, standing at a
+   * paragem, its door within reach of the player's body, with a seat free; the player is given a seat and carried.
+   * Off: wherever the van is, beside it, at the place the phone asks for when it is near the van and free.
+   */
+  private rides(line: Line, held: Held, asked: RideAsked): void {
+    const traffic = this.traffic;
+    const seats = this.district.traffic?.vanSeats ?? [];
+    if ("on" in asked) {
+      const key = traffic?.keys[asked.on];
+      const van = key ? traffic!.poses.find((pose) => pose.key === key && pose.van) : undefined;
+      const at = this.channel.placeOf(held.entityId);
+      const taken = new Set(this.channel.riders().filter((one) => one.vehicle === asked.on).map((one) => one.seat));
+      const free = seats.find((seat) => !taken.has(seat));
+      if (this.channel.ridingOf(held.entityId) || !van?.van?.dwelling || !at || Math.hypot(van.x * 1000 - at.x, van.z * 1000 - at.z) > BOARD_REACH_MM || free === undefined) {
+        line.send(encodeEvent({ kind: EVENT.RIDE_REFUSED, tick: this.channel.world.tick, subject: asked.on, args: [], text: "" }));
+        return;
+      }
+      this.channel.ride(held.entityId, asked.on, free);
+      return;
+    }
+    const riding = this.channel.ridingOf(held.entityId);
+    if (!riding) return;
+    const key = traffic?.keys[riding.vehicle];
+    const van = key ? traffic!.poses.find((pose) => pose.key === key) : undefined;
+    const from = this.channel.placeOf(held.entityId)!;
+    // Asked for beside the van, it is believed that far; anything else is beside the van all the same.
+    const near = Math.hypot(asked.off.x - (van ? van.x * 1000 : from.x), asked.off.z - (van ? van.z * 1000 : from.z)) <= ALIGHT_REACH_MM;
+    const at = near ? { x: asked.off.x, y: from.y, z: asked.off.z, yaw: from.yaw } : from;
+    if (!this.channel.alight(held.entityId, at)) this.channel.alight(held.entityId, this.district.arrival);
   }
 
   /**
@@ -548,6 +599,17 @@ export class ChannelRoom {
       if (tick % STEPS_A_TRAFFIC_SAID === 0) {
         const bytes = encodeTraffic(this.traffic.state(now));
         for (const line of this.held.keys()) line.send(bytes);
+      }
+    }
+    // Whoever rides a van is carried with it: where the zone's traffic has the van, they are. A van gone from the
+    // road (its day is over) puts its riders down where it was.
+    if (this.traffic) {
+      for (const rider of this.channel.riders()) {
+        const key = this.traffic.keys[rider.vehicle];
+        const van = this.traffic.poses.find((pose) => pose.key === key);
+        const at = this.channel.placeOf(rider.id);
+        if (van) this.channel.carry(rider.id, { x: Math.round(van.x * 1000), y: Math.round(van.y * 1000), z: Math.round(van.z * 1000), yaw: Math.round(((van.heading * 18_000) / Math.PI + 36_000) % 36_000) });
+        else if (at) this.channel.alight(rider.id, at);
       }
     }
     // Whoever stands at a caixa is said to be there, so that the API will bank for them (Task 4.1): looked for four

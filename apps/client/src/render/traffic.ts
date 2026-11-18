@@ -351,6 +351,19 @@ export class Traffic {
     return this.roamers.map((roamer) => ({ model: roamer.plan.model, x: roamer.x, z: roamer.z }));
   }
 
+  /** A vehicle's place in the district's list (what the zone names it by), from a van's linha and number. */
+  indexOf(route: string, index: number): number {
+    return this.rules?.keys.indexOf(`${route}/${index}`) ?? -1;
+  }
+
+  /** The van at a place in the district's list, to seat someone in. */
+  bodyAt(vehicle: number): Object3D | null {
+    const key = this.rules?.keys[vehicle];
+    if (!key || key.startsWith("r")) return null;
+    const cut = key.lastIndexOf("/");
+    return this.bodyOf(key.slice(0, cut), Number(key.slice(cut + 1)));
+  }
+
   /** The van itself, to seat people in or to see out of. */
   bodyOf(route: string, index: number): Object3D | null {
     return this.lines.find((line) => line.id === route)?.vans[index]?.body ?? null;

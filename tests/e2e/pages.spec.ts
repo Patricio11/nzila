@@ -2,7 +2,7 @@ declare global {
   interface Window {
     __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
-    __andar?: { streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -993,15 +993,15 @@ test.describe("two phones in the same street", () => {
     await telemovel.getByRole("button", { name: "Fechar" }).click();
     await expect(telemovel).toHaveCount(0);
 
-    // The first walks away for three seconds; the second watches them go, smoothly.
+    // The first walks away north (the other stands beside them, east or west: F-189) for three seconds; the second watches them go, smoothly.
     const before = theirs.others[0]!;
     const watched: { x: number; z: number }[] = [];
-    await page.keyboard.down("d");
+    await page.keyboard.down("w");
     for (let n = 0; n < 30; n++) {
       watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN })));
       await other.waitForTimeout(100);
     }
-    await page.keyboard.up("d");
+    await page.keyboard.up("w");
     const after = await other.evaluate(() => window.__andar!.others[0]!);
     const went = Math.hypot(after.x - before.x, after.z - before.z);
     expect(went).toBeGreaterThan(1.5);
@@ -1070,9 +1070,9 @@ test.describe("two phones in the same street", () => {
     await expect(page.getByRole("status").filter({ hasText: "A ligar de novo" })).toHaveCount(0);
     expect(await page.evaluate(() => window.__andar!.channel)).toBe(1);
     // The same body, to the other: one player throughout, and now they walk again.
-    await page.keyboard.down("d");
+    await page.keyboard.down("w");
     await other.waitForFunction((was) => Math.hypot(window.__andar!.others[0]!.x - was.x, window.__andar!.others[0]!.z - was.z) > 1, before, { timeout: 15_000 });
-    await page.keyboard.up("d");
+    await page.keyboard.up("w");
     expect(await other.evaluate(() => window.__andar!.players)).toBe(1);
     await other.close();
     // Offline, the browser itself complains of what it could not fetch: that is the test's doing, not the game's.
@@ -1098,12 +1098,12 @@ test.describe("two phones in the same street", () => {
 
     const from = await other.evaluate(() => window.__andar!.others[0]!);
     const watched: { x: number; z: number; at: number }[] = [];
-    await page.keyboard.down("d");
+    await page.keyboard.down("w");
     for (let n = 0; n < 50; n++) {
       watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN, at: window.__andar!.at })));
       await other.waitForTimeout(100);
     }
-    await page.keyboard.up("d");
+    await page.keyboard.up("w");
     await page.waitForTimeout(1500);
     const walker = await page.evaluate(() => window.__andar!);
     const sight = await other.evaluate(() => window.__andar!.others[0]!);
@@ -1163,6 +1163,51 @@ test.describe("two phones in the same street", () => {
       await page.waitForTimeout(700);
     }
     expect(compared).toBeGreaterThan(4);
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("two ride a candongueiro together: each sees the other seated in it, both are carried with it, and they get off together beside it (F-157)", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-vehicles/veiculos.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The vehicles or the people are not built (they need Blender). Riding together was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(480_000);
+    const seen = watch(page);
+    await comeIn(page, 61);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    await comeIn(other, 62);
+    // Both come in at the Marginal's paragem, where the linha's vans stop.
+    for (const one of [page, other]) {
+      await one.goto("/andar?pack=l1&tier=poupanca&hour=12&paragem=marginal");
+      await one.waitForFunction(() => window.__andar?.linked === true && window.__andar.trafficFollowed, undefined, { timeout: 45_000 });
+    }
+    // A van stands at the paragem: both get on it.
+    for (const one of [page, other]) await one.waitForFunction(() => window.__andar!.action === "board", undefined, { timeout: 260_000, polling: 200 });
+    await page.keyboard.press("e");
+    await other.keyboard.press("e");
+    for (const one of [page, other]) await one.waitForFunction(() => window.__andar!.riding !== null && window.__andar!.myRide !== null, undefined, { timeout: 10_000 });
+    const [mine, theirs] = await Promise.all([page.evaluate(() => window.__andar!.myRide!), other.evaluate(() => window.__andar!.myRide!)]);
+    // The same van, two seats.
+    expect(mine.vehicle).toBe(theirs.vehicle);
+    expect(mine.seat).not.toBe(theirs.seat);
+    // Each sees the other seated in it.
+    await page.waitForFunction(() => window.__andar!.othersRiding === 1, undefined, { timeout: 10_000 });
+    await other.waitForFunction(() => window.__andar!.othersRiding === 1, undefined, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("juntos-na-carrinha.png") });
+    // It drives off with both: what each phone says of where it is, and what the zone says of the other, go together.
+    const start = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    await page.waitForFunction((from) => Math.hypot(window.__andar!.x - from.x, window.__andar!.z - from.z) > 25, start, { timeout: 60_000 });
+    // Asked for the next paragem, and off there, together, on foot again; the street sees them walk.
+    await page.keyboard.press("e");
+    await other.keyboard.press("e");
+    for (const one of [page, other]) await one.waitForFunction(() => window.__andar!.riding === null && window.__andar!.myRide === null, undefined, { timeout: 90_000 });
+    await page.waitForFunction(() => window.__andar!.othersRiding === 0 && window.__andar!.players === 1, undefined, { timeout: 10_000 });
+    const [a, b] = await Promise.all([page.evaluate(() => window.__andar!), other.evaluate(() => window.__andar!)]);
+    expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeLessThan(6);
+    expect(Math.hypot(a.x - start.x, a.z - start.z)).toBeGreaterThan(25);
+    await page.screenshot({ path: info.outputPath("juntos-sairam.png") });
     expect(seen.errors).toEqual([]);
   });
 
@@ -1293,6 +1338,54 @@ test.describe("two phones in the same street", () => {
     expect(otherSeen.errors).toEqual([]);
   });
 
+  test("Dar Makuta: a tap on someone beside you, an amount, and it is theirs; they are told at once who gave it", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Giving Makuta was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 71);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const otherName = await comeIn(other, 72);
+    // The giver proves an address (the tests' mail goes nowhere and every code is the same), and is born into a family.
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const token = await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token);
+    const headers = { authorization: `Bearer ${token}` };
+    expect((await page.request.post("/api/v1/me/email", { headers, data: { email: `dar-${info.project.name}-${Date.now()}@exemplo.ao`, password: "uma frase que so eu sei" } })).ok()).toBe(true);
+    expect((await page.request.post("/api/v1/me/email/verify", { headers, data: { code: "246810" } })).ok()).toBe(true);
+    const had = ((await (await page.request.post("/api/v1/me/origin", { headers, data: {} })).json()) as { wallet: { cash: number } }).wallet.cash;
+    await other.goto("/andar?tier=poupanca&hour=12");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1 && window.__andar!.names >= 1, undefined, { timeout: 20_000 });
+    const size = page.viewportSize()!;
+    let opened = false;
+    // Where the other is on the screen, then a few places round it, as a finger lands.
+    const there = (await page.evaluate(() => window.__andar!.othersOnScreen))[0] ?? { x: size.width * 0.5, y: size.height * 0.6 };
+    for (const [dx, dy] of [[0, 0], [0, -0.04], [0, 0.04], [0.03, 0], [-0.03, 0], [0, -0.08]] as const) {
+      await page.mouse.click(there.x + size.width * dx, there.y + size.height * dy);
+      if (await page.getByRole("dialog", { name: otherName }).isVisible().catch(() => false)) {
+        opened = true;
+        break;
+      }
+    }
+    expect(opened, "a tap on the other player opened their card").toBe(true);
+    const sheet = page.getByRole("dialog", { name: otherName });
+    await sheet.getByRole("button", { name: "Dar Makuta" }).click();
+    await sheet.getByRole("textbox", { name: "Quanto?" }).fill("300");
+    await page.screenshot({ path: info.outputPath("dar-makuta.png") });
+    await sheet.getByRole("button", { name: "Dar", exact: true }).click();
+    await expect(sheet.getByRole("status")).toHaveText(`Deste 300 Mk a ${otherName}.`, { timeout: 10_000 });
+    // The other is told at once, not in half a minute: the giver's phone nudges theirs through the zone.
+    await expect(other.getByText(/deu-te 300\s*Mk/)).toBeVisible({ timeout: 6_000 });
+    await other.screenshot({ path: info.outputPath("recebeu-makuta.png") });
+    // And the books say so.
+    expect(await (await page.request.get("/api/v1/me/wallet", { headers })).json()).toMatchObject({ cash: had - 300 });
+    expect(seen.errors).toEqual([]);
+  });
+
   test("a tap on someone opens their BI with everything that can be done about them: talk, stop hearing, shut out, report", async ({ page, browser, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The card of another player was not checked here." });
@@ -1313,8 +1406,10 @@ test.describe("two phones in the same street", () => {
     // The other stands a step ahead, in the middle of the picture: a tap on their body.
     const size = page.viewportSize()!;
     let opened = false;
-    for (const [dx, dy] of [[0, -0.02], [0, -0.08], [0.04, -0.05], [-0.04, -0.05], [0, 0.03]] as const) {
-      await page.mouse.click(size.width * (0.5 + dx), size.height * (0.6 + dy));
+    // Where the other is on the screen, then a few places round it, as a finger lands.
+    const there = (await page.evaluate(() => window.__andar!.othersOnScreen))[0] ?? { x: size.width * 0.5, y: size.height * 0.6 };
+    for (const [dx, dy] of [[0, 0], [0, -0.04], [0, 0.04], [0.03, 0], [-0.03, 0], [0, -0.08]] as const) {
+      await page.mouse.click(there.x + size.width * dx, there.y + size.height * dy);
       if (await page.getByRole("dialog", { name: otherName }).isVisible().catch(() => false)) {
         opened = true;
         break;

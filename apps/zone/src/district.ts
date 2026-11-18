@@ -27,7 +27,13 @@ export interface District {
    * vehicles; and the people of the street, who the traffic gives way to too. Absent when the pack has no linhas,
    * or when the vehicles are not built: the phones then decide for themselves.
    */
-  readonly traffic?: { readonly lines: readonly { readonly id: string; readonly route: Route }[]; readonly roamers: readonly RoamerPlan[]; readonly crowd: readonly CrowdActor[] };
+  readonly traffic?: {
+    readonly lines: readonly { readonly id: string; readonly route: Route }[];
+    readonly roamers: readonly RoamerPlan[];
+    readonly crowd: readonly CrowdActor[];
+    /** A van's seats a player may take, by their place in the van's list of seats: the player's own first, then the passengers'. */
+    readonly vanSeats: readonly number[];
+  };
   /** The caixas: where money is put in the bank and taken out. Millimetres. */
   readonly caixas?: readonly { readonly x: number; readonly z: number }[];
 }
@@ -79,7 +85,7 @@ async function trafficOf(manifest: ManifestRead, packDir: URL): Promise<{ traffi
   if (routes.length === 0) return {};
   const json = async <T>(where: URL): Promise<T | null> => (existsSync(where) ? (JSON.parse(await readFile(where, "utf8")) as T) : null);
   // The vehicles belong to the game, not to a district: served beside the districts' packs.
-  const listed = await json<{ vehicles: { name: string; halfWidth: number; halfLength: number }[] }>(new URL("../dev-vehicles/veiculos.json", packDir));
+  const listed = await json<{ vehicles: { name: string; halfWidth: number; halfLength: number; seats?: { who: string }[] }[] }>(new URL("../dev-vehicles/veiculos.json", packDir));
   if (!listed) return {};
   const lines = [];
   for (const route of routes) {
@@ -93,5 +99,7 @@ async function trafficOf(manifest: ManifestRead, packDir: URL): Promise<{ traffi
     const kind = listed.vehicles.find((vehicle) => vehicle.name === plan.model);
     if (kind) roamers.push({ plan, halfWidthMm: kind.halfWidth * 1000, halfLengthMm: kind.halfLength * 1000 });
   }
-  return { traffic: { lines, roamers, crowd: crowd?.actors ?? [] } };
+  const seats = listed.vehicles.find((vehicle) => vehicle.name === "candongueiro")?.seats ?? [];
+  const vanSeats = [...seats.entries()].filter(([, seat]) => seat.who === "jogador").map(([n]) => n).concat([...seats.entries()].filter(([, seat]) => seat.who === "passageiro").map(([n]) => n));
+  return { traffic: { lines, roamers, crowd: crowd?.actors ?? [], vanSeats } };
 }
