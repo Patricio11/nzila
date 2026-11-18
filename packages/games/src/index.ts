@@ -3,3 +3,4 @@
 
 export * from "./ludo.ts";
 export * from "./damas.ts";
+export * from "./xadrez.ts";
