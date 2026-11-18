@@ -17,6 +17,7 @@
     "db:migrate": "node packages/db/src/cli.ts migrate",
     "db:seed": "node packages/db/src/cli.ts seed",
     "db:journal": "node packages/db/src/cli.ts journal",
+    "ledger:audit": "node packages/db/src/cli.ts audit",
     "staff:add": "node --env-file-if-exists=.env.example --env-file-if-exists=.env apps/api/src/staff-cli.ts",
     "dev:studio": "pnpm --filter @nzila/studio dev",
     "pack:build": "node tools/pack/src/cli.ts build",

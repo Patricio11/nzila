@@ -2,7 +2,7 @@ declare global {
   interface Window {
     __provador?: { ready: boolean; look: { sex: string; hair: string; hairColour: string; top: string; bottom: string; extras?: string[]; tall?: number }; dressed: number };
     __cenaMoment?: (second: number) => void;
-    __andar?: { known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -1044,7 +1044,7 @@ test.describe("two phones in the same street", () => {
     const watched: { x: number; z: number; at: number }[] = [];
     await page.keyboard.down("d");
     for (let n = 0; n < 50; n++) {
-      watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN, at: performance.now() })));
+      watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN, at: window.__andar!.at })));
       await other.waitForTimeout(100);
     }
     await page.keyboard.up("d");
@@ -1058,7 +1058,8 @@ test.describe("two phones in the same street", () => {
     expect(went).toBeGreaterThan(4);
     // Never a jump: no more than a few strides between two looks, even after a stall. Two looks are meant to be a
     // tenth of a second apart and on a busy machine are sometimes several: what is allowed grows with the time that
-    // really passed between them (1,2 m at the usual 0,15 s), so that a late look is not taken for a jump (F-183).
+    // really passed between the two pictures looked at (each look reads when its picture was drawn, which on a
+    // busy machine is not when it was looked at), so that a late picture is not taken for a jump (F-183).
     const jumps = watched.slice(1).map((at, n) => steps[n]! - (0.75 + 3 * ((at.at - watched[n]!.at) / 1000)));
     expect(Math.max(...jumps)).toBeLessThan(0);
     // When all is quiet the two agree on where the walker is.

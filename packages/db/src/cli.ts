@@ -1,4 +1,4 @@
-// `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:journal`.
+// `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:journal`, `pnpm ledger:audit`.
 
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { connect } from "./client.ts";
@@ -22,6 +22,20 @@ async function journal(): Promise<void> {
 const command = process.argv[2];
 if (command === "journal") {
   await journal();
+} else if (command === "audit") {
+  // The proof the ledger convention asks for. Exits with an error when the books do not balance: the alarm.
+  const { auditLedger } = await import("./ledger.ts");
+  const sql = connect(undefined, 1);
+  try {
+    const said = await auditLedger(sql);
+    console.log(`ledger: ${said.transfers} transfers; all accounts add up to ${said.sum}; ${said.wrong.length} balance(s) that do not match their rows; ${said.overdrawn.length} account(s) below zero that are not faucets`);
+    for (const one of said.wrong) console.log(`ledger: ${one.account} is kept as ${one.kept} and its rows say ${one.derived}`);
+    for (const one of said.overdrawn) console.log(`ledger: ${one} is below zero`);
+    console.log(said.ok ? "ledger: the books balance" : "ledger: THE BOOKS DO NOT BALANCE");
+    process.exitCode = said.ok ? 0 : 1;
+  } finally {
+    await sql.end();
+  }
 } else if (command === "migrate" || command === "seed") {
   const sql = connect(undefined, 1);
   try {

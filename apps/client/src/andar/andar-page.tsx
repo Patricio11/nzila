@@ -52,7 +52,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -642,7 +642,7 @@ export function Andar() {
         }
 
         const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : !moving && nearest() ? "sit" : null;
-        window.__andar = { x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -791,7 +791,7 @@ export function Andar() {
       {hud.ready ? (
         <div class="andar-hud n-on-dark">
           <div class="andar-top">
-            <WalletChip amount={account()?.origin?.makuta ?? 0} />
+            <WalletChip amount={account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0} />
             <span class="andar-top-right">
               <Compass heading={hud.heading} marks={hud.marks} />
               <ClockChip secondOfDay={hud.second} />

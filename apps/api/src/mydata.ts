@@ -7,7 +7,8 @@
 // and the card of origin go. The history of consents stays for its period:
 // it is the proof that they agreed. The audit log records that it was done.
 
-import { audit, blockedBy, consentsOf } from "@nzila/db";
+import { audit, blockedBy, consentsOf, statementOf, walletOf } from "@nzila/db";
+import { accountId } from "@nzila/economy";
 import { type OriginTable } from "@nzila/economy";
 import { checkLook } from "@nzila/protocol";
 import { type Sql } from "postgres";
@@ -43,6 +44,11 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
     said: lines.map((row) => ({ at: row.at, text: row.text, passedOn: row.said, district: row.district_id })),
     blocked: shutOut,
     reports: reported.map((row) => ({ at: row.at, reason: row.reason, note: row.note, status: row.status })),
+    // What they hold, and every Makuta that came or went: the other side said as a kind, never as another player.
+    wallet: await walletOf(sql, playerId),
+    movements: [...(await statementOf(sql, accountId("player_cash", playerId), 500)).map((line) => ({ account: "carteira", ...line })), ...(await statementOf(sql, accountId("player_bank", playerId), 500)).map((line) => ({ account: "banco", ...line }))].map(
+      (line) => ({ account: line.account, at: line.at, amount: line.amount, reason: line.reason, ref: line.ref, with: line.other.slice(0, line.other.indexOf(":")) }),
+    ),
     // What the moderators did about them, and why they said they did it. Not which moderator.
     moderation: measures.map((row) => ({ at: row.at, kind: row.kind, reason: row.reason, until: row.until, lifted: row.lifted_at })),
   };

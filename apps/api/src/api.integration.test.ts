@@ -1,7 +1,7 @@
 // The API against a real PostgreSQL (`pnpm services` starts it). Each run
 // makes its own database and drops it afterwards.
 
-import { connect, databaseUrl, decryptField, keepChatLines, putStaff, shutOutOf, standingAgainst, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
+import { auditLedger, connect, databaseUrl, decryptField, keepChatLines, putStaff, shutOutOf, standingAgainst, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES } from "@nzila/economy";
 import { ZONE_TTL_S, memoryPresence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
@@ -177,11 +177,38 @@ describe("a lotaria da vida", () => {
     expect(card).toMatchObject({ pai: family.pai, mae: family.mae, tier: family.tier, version: BASE_ORIGINS.version });
     expect(family.bairros).toContain(card.bairro);
     expect(card.makuta).toBeGreaterThanOrEqual(1500);
-    for (let n = 0; n < 5; n++) expect((await deal(guest.token)).json()).toEqual({ origin: card });
-    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(guest.token) })).json()).toMatchObject({ origin: card });
+    // With the card comes its Makuta, in the Carteira, through the ledger: once, however often the card is asked for.
+    const wallet = { cash: card.makuta, bank: 0 };
+    expect(first.json()).toEqual({ origin: card, wallet });
+    for (let n = 0; n < 5; n++) expect((await deal(guest.token)).json()).toEqual({ origin: card, wallet });
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(guest.token) })).json()).toMatchObject({ origin: card, wallet });
     expect(await sql`SELECT count(*)::int AS n FROM player_origins WHERE player_id = ${guest.playerId}`).toEqual([{ n: 1 }]);
-    // The card is a record. No Makuta has moved: that is the ledger's to do (Task 4.1).
-    expect(await sql`SELECT paid_transfer_id FROM player_origins WHERE player_id = ${guest.playerId}`).toEqual([{ paid_transfer_id: null }]);
+    const grants = await sql<{ id: string; debit_account: string; credit_account: string; amount: string; reason: string; action_id: string }[]>`SELECT id, debit_account, credit_account, amount, reason, action_id FROM ledger_transfers WHERE credit_account = ${`player_cash:${guest.playerId}`}`;
+    expect(grants).toMatchObject([{ debit_account: "system_faucet:grant", amount: String(card.makuta), reason: "grant", action_id: `origin:${guest.playerId}` }]);
+    // And the card says by which transfer it was paid.
+    expect(await sql`SELECT paid_transfer_id FROM player_origins WHERE player_id = ${guest.playerId}`).toEqual([{ paid_transfer_id: grants[0]!.id }]);
+  });
+
+  test("a card dealt before Makuta was real is paid the next time it is asked for, once; the wallet and its lines are the player's own to read", async () => {
+    const guest = await newGuest(35);
+    const other = await newGuest(36);
+    // As it was before the ledger was live: a card, and nothing in the books.
+    await sql`INSERT INTO player_origins (player_id, family, province, bairro, makuta, table_version) VALUES (${guest.playerId}, ${BASE_ORIGINS.families[0]!.id}, 'Luanda', ${BASE_ORIGINS.families[0]!.bairros[0]!}, 2500, ${BASE_ORIGINS.version})`;
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(guest.token) })).json()).toMatchObject({ wallet: { cash: 0, bank: 0 } });
+    await Promise.all(Array.from({ length: 8 }, () => deal(guest.token)));
+    const read = await app.inject({ method: "GET", url: "/v1/me/wallet", headers: as(guest.token) });
+    expect(read.json()).toMatchObject({ cash: 2500, bank: 0, bankLines: [] });
+    const { cashLines } = read.json() as { cashLines: { amount: number; reason: string; ref: string; with: string }[] };
+    expect(cashLines).toMatchObject([{ amount: 2500, reason: "grant", ref: "origin", with: "system_faucet" }]);
+    // Nobody's id is in it, and nobody else's wallet can be asked for.
+    expect(read.body).not.toContain(guest.playerId);
+    await deal(other.token);
+    expect(((await app.inject({ method: "GET", url: "/v1/me/wallet", headers: as(other.token) })).json() as { cashLines: unknown[] }).cashLines).toHaveLength(1);
+    expect((await app.inject({ method: "GET", url: "/v1/me/wallet" })).statusCode).toBe(401);
+    // The books balance: every Makuta a player holds is one the faucet paid out.
+    const audit = await auditLedger(sql);
+    expect(audit).toMatchObject({ ok: true, sum: 0, wrong: [], overdrawn: [] });
+    expect(audit.transfers).toBeGreaterThan(1);
   });
 
   test("twenty requests at the same instant deal one card", async () => {

@@ -31,6 +31,8 @@ export interface Account {
   readonly savedWith?: { readonly email: boolean; readonly emailVerified: boolean; readonly phoneNumber: boolean };
   /** The card the server dealt, kept so that it can be shown with no network. */
   readonly origin?: Origin;
+  /** What the player holds, as the server's books last said: the Carteira (on them) and the Banco (safe). */
+  readonly wallet?: { readonly cash: number; readonly bank: number };
   /** What is on the BI: the name, whether it can still be changed for nothing, the number, the day of arrival. */
   readonly name?: string;
   readonly nameFree?: boolean;
@@ -235,10 +237,10 @@ export async function dealtOrigin(): Promise<Origin | null> {
   const mine = await ensureGuest();
   if (mine?.origin) return mine.origin;
   if (!mine?.token) return null;
-  const { status, answer } = await ask<{ origin: Origin }>("POST", "/v1/me/origin", {}, mine.token);
+  const { status, answer } = await ask<{ origin: Origin; wallet?: { cash: number; bank: number } }>("POST", "/v1/me/origin", {}, mine.token);
   if (status === 401) forget(mine);
   if (!answer?.origin) return null;
-  keep({ ...mine, origin: answer.origin });
+  keep({ ...mine, origin: answer.origin, ...(answer.wallet ? { wallet: answer.wallet } : {}) });
   return answer.origin;
 }
 
@@ -254,12 +256,13 @@ interface Whoami {
   arrivedAt: string;
   look: Look | null;
   origin: Origin | null;
+  wallet?: { cash: number; bank: number };
   savedWith?: { email: boolean; emailVerified: boolean; phoneNumber: boolean };
 }
 
 /** The account with what the server says of it laid over what this phone knew. */
 function known(mine: Account, said: Whoami): Account {
-  return { ...mine, kind: said.kind, ...(said.name ? { name: said.name } : {}), nameFree: said.nameFree, ...(said.biNumber ? { biNumber: said.biNumber } : {}), arrivedAt: said.arrivedAt, ...(said.origin ? { origin: said.origin } : {}), ...(said.savedWith ? { savedWith: said.savedWith } : {}) };
+  return { ...mine, kind: said.kind, ...(said.name ? { name: said.name } : {}), nameFree: said.nameFree, ...(said.biNumber ? { biNumber: said.biNumber } : {}), arrivedAt: said.arrivedAt, ...(said.origin ? { origin: said.origin } : {}), ...(said.wallet ? { wallet: said.wallet } : {}), ...(said.savedWith ? { savedWith: said.savedWith } : {}) };
 }
 
 /** Asks the server who the player is, and keeps what it says of the BI. The account as it is now known. */

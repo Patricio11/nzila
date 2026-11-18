@@ -4,6 +4,7 @@
 
 import { getTableColumns, getTableName } from "drizzle-orm";
 import { expireTalk, keepChatLines, reportPlayer } from "./talk.ts";
+import { auditLedger, balanceOf, grantOrigin, recordTransfer, statementOf, walletOf } from "./ledger.ts";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -326,3 +327,104 @@ describe("what was said is not kept for ever", () => {
     expect(await expireTalk(sql)).toEqual({ lines: 0, reports: 0 });
   });
 });
+
+describe("the ledger, live (Task 4.1)", () => {
+  const cash = (who: string): string => `player_cash:live-${who}`;
+  const pay = (who: string, amount: number, key: string) => recordTransfer(sql, { debitAccount: faucet("wage"), creditAccount: cash(who), amount, reason: "wage", actionId: key });
+
+  test("a transfer is recorded once: asked again with the same key it moves nothing and answers with what was recorded; the same key on another transfer is refused", async () => {
+    const first = await pay("rita", 500, "live-1");
+    expect(first).toMatchObject({ ok: true, replay: false, transfer: { amount: 500, reason: "wage", actionId: "live-1", ref: null, reverses: null } });
+    const again = await pay("rita", 500, "live-1");
+    expect(again).toMatchObject({ ok: true, replay: true });
+    expect(again.ok && first.ok && again.transfer.id).toBe(first.ok && first.transfer.id);
+    expect(await balanceOf(sql, cash("rita"))).toBe(500);
+    expect(await pay("rita", 501, "live-1")).toEqual({ ok: false, error: "action_id_conflict" });
+    expect(await pay("zeca", 500, "live-1")).toEqual({ ok: false, error: "action_id_conflict" });
+    expect(await balanceOf(sql, cash("zeca"))).toBe(0);
+  });
+
+  test("twenty of the same transfer at the same instant are one transfer", async () => {
+    const all = await Promise.all(Array.from({ length: 20 }, () => pay("dino", 100, "live-burst")));
+    expect(all.every((one) => one.ok)).toBe(true);
+    expect(all.filter((one) => one.ok && !one.replay)).toHaveLength(1);
+    expect(await balanceOf(sql, cash("dino"))).toBe(100);
+  });
+
+  test("nobody spends what they do not have: by the rule, and by the database when two spend at the same instant", async () => {
+    await pay("lena", 1000, "live-lena");
+    const spend = (amount: number, key: string) => recordTransfer(sql, { debitAccount: cash("lena"), creditAccount: sink("npc_shop"), amount, reason: "purchase", actionId: key });
+    expect(await spend(1001, "live-too-much")).toEqual({ ok: false, error: "insufficient_funds" });
+    const both = await Promise.all([spend(700, "live-a"), spend(700, "live-b")]);
+    expect(both.filter((one) => one.ok)).toHaveLength(1);
+    expect(both.find((one) => !one.ok)).toEqual({ ok: false, error: "insufficient_funds" });
+    expect(await balanceOf(sql, cash("lena"))).toBe(300);
+    // And what the rules refuse never reaches the table: an amount that is not one, a sink paying out, a faucet paid into.
+    expect(await spend(0, "live-zero")).toEqual({ ok: false, error: "amount_invalid" });
+    expect(await spend(1.5, "live-half")).toEqual({ ok: false, error: "amount_invalid" });
+    expect(await recordTransfer(sql, { debitAccount: sink("npc_shop"), creditAccount: cash("lena"), amount: 5, reason: "purchase", actionId: "live-back" })).toEqual({ ok: false, error: "sink_debit" });
+    expect(await recordTransfer(sql, { debitAccount: cash("lena"), creditAccount: faucet("wage"), amount: 5, reason: "wage", actionId: "live-in" })).toEqual({ ok: false, error: "faucet_credit" });
+    expect(await recordTransfer(sql, { debitAccount: cash("lena"), creditAccount: "wallet:lena", amount: 5, reason: "p2p", actionId: "live-bad" })).toEqual({ ok: false, error: "account_invalid" });
+  });
+
+  test("a wallet is the Carteira and the Banco; a statement is its transfers, newest first, each with its sign and its other side", async () => {
+    const id = "live-wallet";
+    await recordTransfer(sql, { debitAccount: faucet("grant"), creditAccount: `player_cash:${id}`, amount: 900, reason: "grant", actionId: "live-w1", ref: "origin" });
+    await recordTransfer(sql, { debitAccount: `player_cash:${id}`, creditAccount: `player_bank:${id}`, amount: 400, reason: "bank_in", actionId: "live-w2" });
+    expect(await walletOf(sql, id)).toEqual({ cash: 500, bank: 400 });
+    expect(await walletOf(sql, "live-nobody")).toEqual({ cash: 0, bank: 0 });
+    expect((await statementOf(sql, `player_cash:${id}`)).map((line) => [line.amount, line.reason, line.ref, line.other])).toEqual([
+      [-400, "bank_in", null, `player_bank:${id}`],
+      [900, "grant", "origin", "system_faucet:grant"],
+    ]);
+    expect((await statementOf(sql, `player_bank:${id}`)).map((line) => line.amount)).toEqual([400]);
+  });
+
+  test("the first Makuta is granted once, by the player's own key", async () => {
+    const [player] = await sql<{ id: string }[]>`INSERT INTO players (age_band) VALUES ('18_plus') RETURNING id`;
+    expect(await grantOrigin(sql, player!.id, 2500)).toMatchObject({ ok: true, replay: false });
+    expect(await grantOrigin(sql, player!.id, 2500)).toMatchObject({ ok: true, replay: true });
+    // A different amount under the same player's key is not a second grant: it is refused.
+    expect(await grantOrigin(sql, player!.id, 99_000)).toEqual({ ok: false, error: "action_id_conflict" });
+    expect(await walletOf(sql, player!.id)).toEqual({ cash: 2500, bank: 0 });
+  });
+
+  test("the audit proves the books: everything adds up to zero, every kept balance is what its rows say, nothing but a faucet is below zero", async () => {
+    const audit = await auditLedger(sql);
+    expect(audit).toMatchObject({ ok: true, sum: 0, wrong: [], overdrawn: [] });
+    expect(audit.transfers).toBeGreaterThan(5);
+  });
+
+  test("ten thousand transfers between twenty players, some refused, some sent twice: the books still balance and nobody is below zero", async () => {
+    let seed = 20261118;
+    const random = (): number => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32;
+    const people = Array.from({ length: 20 }, (_, n) => cash(`fuzz-${n}`));
+    for (const [n, one] of people.entries()) await recordTransfer(sql, { debitAccount: faucet("wage"), creditAccount: one, amount: 5000, reason: "wage", actionId: `fuzz-start-${n}` });
+    let recorded = 0;
+    let refused = 0;
+    let replays = 0;
+    const one = async (n: number): Promise<void> => {
+      const from = people[Math.floor(random() * people.length)]!;
+      const roll = random();
+      const to = roll < 0.15 ? sink("npc_shop") : people[Math.floor(random() * people.length)]!;
+      const request = { debitAccount: roll > 0.9 ? faucet("wage") : from, creditAccount: to, amount: 1 + Math.floor(random() * 4000), reason: "p2p" as const, actionId: `fuzz-${n}` };
+      const result = await recordTransfer(sql, request);
+      if (!result.ok) return void refused++;
+      recorded++;
+      // One in ten is sent a second time, as a phone on a bad line would.
+      if (random() < 0.1) {
+        const again = await recordTransfer(sql, request);
+        if (again.ok && again.replay) replays++;
+      }
+    };
+    // Eight at a time, so that transfers on the same accounts really do meet.
+    for (let n = 0; n < 10_000; n += 8) await Promise.all(Array.from({ length: 8 }, (_, k) => one(n + k)));
+    expect(recorded).toBeGreaterThan(5000);
+    expect(refused).toBeGreaterThan(100);
+    expect(replays).toBeGreaterThan(300);
+    const audit = await auditLedger(sql);
+    expect(audit).toMatchObject({ ok: true, sum: 0, wrong: [], overdrawn: [] });
+    for (const person of people) expect(await balanceOf(sql, person)).toBeGreaterThanOrEqual(0);
+  }, 180_000);
+});
+

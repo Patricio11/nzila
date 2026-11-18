@@ -4,6 +4,8 @@
 
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
+import { accountId } from "@nzila/economy";
+import { statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
@@ -150,6 +152,8 @@ export function buildApp(deps: Deps): FastifyInstance {
         // Read back through the catalogue: a look the wardrobe no longer has is no look, and the player chooses again.
         look: checkLook(avatar?.spec),
         origin: await originOfPlayer(deps.sql, origins, caller.player.id),
+        // What they hold, from the books: the Carteira and the Banco. Never from the card of origin, which only says how they began.
+        wallet: await walletOf(deps.sql, caller.player.id),
       };
     },
   });
@@ -196,7 +200,25 @@ export function buildApp(deps: Deps): FastifyInstance {
     guard: "player",
     body: nothing,
     perMinute: 12,
-    handler: async (_body, caller) => ({ origin: await dealOrigin(deps.sql, origins, roll, caller.player.id) }),
+    handler: async (_body, caller) => {
+      const origin = await dealOrigin(deps.sql, origins, roll, caller.player.id);
+      return { origin, wallet: await walletOf(deps.sql, caller.player.id) };
+    },
+  });
+
+  // The Carteira and the Banco, and what moved in each: every line is a transfer, by its own number. The other
+  // side is said as a kind and never as another player's id.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/me/wallet",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async (_body, caller) => {
+      const lines = async (kind: "player_cash" | "player_bank") =>
+        (await statementOf(deps.sql, accountId(kind, caller.player.id), 30)).map((line) => ({ id: line.id, at: line.at, amount: line.amount, reason: line.reason, ref: line.ref, with: line.other.slice(0, line.other.indexOf(":")) }));
+      return { ...(await walletOf(deps.sql, caller.player.id)), cashLines: await lines("player_cash"), bankLines: await lines("player_bank") };
+    },
   });
 
   // Saving the BI (Task 2.2). A code is sent to a number; with it a guest ties the account to the number,

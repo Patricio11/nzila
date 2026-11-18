@@ -9,6 +9,7 @@
 // easy reroll and not the determined one: see docs/SECURITY.md.)
 
 import { drawOrigin, originOf, type Origin, type OriginTable } from "@nzila/economy";
+import { grantOrigin } from "@nzila/db";
 import { type Sql } from "postgres";
 
 interface Recorded {
@@ -33,13 +34,28 @@ export async function originOfPlayer(sql: Sql, table: OriginTable, playerId: str
   return row ? read(table, row) : null;
 }
 
+/** The card's Makuta, in the player's Carteira: recorded once, whatever is asked. A refusal here is a fault, and stops the deal. */
+async function paid(sql: Sql, playerId: string, makuta: number): Promise<void> {
+  const [card] = await sql<{ paid_transfer_id: string | null }[]>`SELECT paid_transfer_id FROM player_origins WHERE player_id = ${playerId}`;
+  if (card?.paid_transfer_id) return;
+  const recorded = await grantOrigin(sql, playerId, makuta);
+  if (!recorded.ok) throw new Error(`the Makuta of ${playerId}'s card of origin could not be recorded: ${recorded.error}`);
+  // The card says by which transfer it was paid: the one change a card ever takes (migration 0003).
+  await sql`UPDATE player_origins SET paid_transfer_id = ${recorded.transfer.id} WHERE player_id = ${playerId} AND paid_transfer_id IS NULL`;
+}
+
 /** Deals a player their card, or gives back the one they hold. */
 export async function dealOrigin(sql: Sql, table: OriginTable, roll: () => number, playerId: string): Promise<Origin> {
   return sql.begin(async (tx) => {
     // The player's row is held, so that two requests at the same instant deal one card.
     await tx`SELECT id FROM players WHERE id = ${playerId} FOR UPDATE`;
     const [mine] = await tx<Recorded[]>`SELECT family, province, bairro, makuta, table_version AS version FROM player_origins WHERE player_id = ${playerId}`;
-    if (mine) return read(table, mine);
+    if (mine) {
+      // A card dealt before Makuta was real (or whose grant was lost) is honoured now: asked any number of times, paid once.
+      const card = read(table, mine);
+      await paid(tx as unknown as Sql, playerId, card.makuta);
+      return card;
+    }
     const [first] = await tx<Recorded[]>`
       SELECT o.family, o.province, o.bairro, o.makuta, o.table_version AS version
       FROM player_origins o JOIN devices d ON d.player_id = o.player_id
@@ -49,6 +65,8 @@ export async function dealOrigin(sql: Sql, table: OriginTable, roll: () => numbe
     await tx`
       INSERT INTO player_origins (player_id, family, province, bairro, makuta, table_version)
       VALUES (${playerId}, ${card.family}, ${card.province}, ${card.bairro}, ${card.makuta}, ${card.version})`;
+    // The Makuta on the card enters the world through the ledger, in the same breath as the card (D-4.1).
+    await paid(tx as unknown as Sql, playerId, card.makuta);
     return card;
   });
 }
