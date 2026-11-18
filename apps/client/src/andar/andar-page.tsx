@@ -28,7 +28,7 @@ import { DEV_PACK } from "../render/bench-scene.ts";
 import { DistrictScene } from "../render/district-scene.ts";
 import { EMOTES, EMOTE_SECONDS, loadPerson, type Emote, type Person } from "../render/person.ts";
 import { type VanSeen } from "../render/traffic.ts";
-import { account, type KeptOut } from "../world/account.ts";
+import { account, balanceNow, type KeptOut } from "../world/account.ts";
 import { type TierName } from "../render/tiers.ts";
 import { dress, savedLook } from "../render/wardrobe.ts";
 import { Sound } from "../sound/sound.ts";
@@ -78,6 +78,9 @@ interface InstallOffer extends Event {
   prompt?(): Promise<unknown>;
 }
 
+/** How often the Carteira is asked about while among people: a few bytes each time. */
+const BALANCE_EVERY_MS = 25_000;
+
 type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa";
 
 interface Hud {
@@ -89,7 +92,7 @@ interface Hud {
   /** What is in the Carteira, as the books last said. */
   cash: number;
   /** Someone has just waved at the player, or the two have just met. */
-  said: { kind: "met" | "waved" | "greeted"; name: string } | null;
+  said: { kind: "met" | "waved" | "greeted" | "got"; name: string; amount: number } | null;
   /** How it stands with the zone: the player is told when a line is being picked up, and when it could not be. */
   net: NetState;
   ready: boolean;
@@ -175,7 +178,8 @@ export function Andar() {
     let session: Session | null = null;
     // What hangs over heads: words, dots, empty balloons. And when the player's last line was refused, until when to say so.
     let over: Over | null = null;
-    let said: { kind: "met" | "waved" | "greeted"; name: string; until: number } | null = null;
+    let said: { kind: "met" | "waved" | "greeted" | "got"; name: string; amount?: number; until: number } | null = null;
+    let balanceAt = performance.now();
     let refusedUntil = 0;
     let refusedWhy: Refused | null = null;
     // How far the picture is from the body after the zone put it right: it slides there and does not jump.
@@ -634,6 +638,12 @@ export function Andar() {
             if (balloon && head) speakers.push({ id, x: head.x, y: head.y, z: head.z, balloon });
           }
           over.update(renderer.camera, ride ? [] : speakers, x, z);
+          // What the Carteira holds is asked now and then while among people, and at once after the sheet of someone
+          // met is shut: Makuta handed over is seen without being looked for.
+          if (clock - balanceAt > BALANCE_EVERY_MS) {
+            balanceAt = clock;
+            void balanceNow().then((got) => got && (said = { kind: "got", name: got.from ?? "", amount: got.amount, until: performance.now() + 5000 }));
+          }
           if (session.met) {
             said = { kind: "met", name: session.met, until: clock + 4500 };
             session.met = null;
@@ -641,7 +651,7 @@ export function Andar() {
           } else if (session.waved) {
             // Only a wave from close by is an invitation to wave back.
             const head = heads.find((one) => one.id === session!.waved!.entity);
-            if (head && Math.hypot(head.x - x, head.z - z) < 6 && (!said || said.kind !== "met")) said = { kind: session.waved.spoke ? "greeted" : "waved", name: session.waved.name, until: clock + 6000 };
+            if (head && Math.hypot(head.x - x, head.z - z) < 6 && (!said || (said.kind !== "met" && said.kind !== "got"))) said = { kind: session.waved.spoke ? "greeted" : "waved", name: session.waved.name, until: clock + 6000 };
             session.waved = null;
           }
           if (session.refused) {
@@ -687,7 +697,7 @@ export function Andar() {
             else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { proxima: ahead });
           }
           // `&semrede` shows what a minute without a network looks like, for a still.
-          setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, said: said && performance.now() < said.until ? { kind: said.kind, name: said.name } : null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
+          setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, said: said && performance.now() < said.until ? { kind: said.kind, name: said.name, amount: said.amount ?? 0 } : null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
       }
       renderer.render(elapsed);
@@ -822,7 +832,7 @@ export function Andar() {
           ) : null}
           {hud.said && hud.net === "linked" ? (
             <div class="andar-net">
-              <Banner state={hud.said.kind === "met" ? "done" : "moving"}>{tr.t(hud.said.kind === "met" ? "meet.done" : hud.said.kind === "greeted" ? "meet.greeted" : "meet.waved", { name: hud.said.name })}</Banner>
+              <Banner state={hud.said.kind === "met" || hud.said.kind === "got" ? "done" : "moving"}>{tr.t(hud.said.kind === "got" ? "pay.got" : hud.said.kind === "met" ? "meet.done" : hud.said.kind === "greeted" ? "meet.greeted" : "meet.waved", { name: hud.said.name, amount: tr.makuta(hud.said.amount) })}</Banner>
             </div>
           ) : null}
           {hud.net === "out" ? (

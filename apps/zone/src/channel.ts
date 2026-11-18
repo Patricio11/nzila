@@ -111,7 +111,9 @@ export class Channel {
       const ring = n * ARRIVAL_RING_MM;
       const round = n === 0 ? 1 : Math.floor((2 * Math.PI * ring) / ARRIVAL_APART_MM);
       for (let k = 0; k < round; k++) {
-        const angle = (k / round) * Math.PI * 2;
+        // The first places of a ring are beside whoever stands at its middle, not in front of them or behind: two
+        // people who arrive together stand shoulder to shoulder, and neither hides the other from their own view (F-173).
+        const angle = (at.yaw / 18_000) * Math.PI + Math.PI / 2 + (k / round) * Math.PI * 2;
         const x = Math.round(at.x + Math.sin(angle) * ring);
         const z = Math.round(at.z + Math.cos(angle) * ring);
         if (!this.free(x, z)) continue;

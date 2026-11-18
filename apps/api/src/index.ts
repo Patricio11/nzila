@@ -1,4 +1,4 @@
-import { connect, parseKeyring, parsePepper } from "@nzila/db";
+import { connect, nightlyLedgerAudit, parseKeyring, parsePepper } from "@nzila/db";
 import { memoryPresence, redisPresence, type Presence } from "@nzila/presence";
 import { buildApp } from "./app.ts";
 import { consoleMailer, resendMailer } from "./mail.ts";
@@ -16,5 +16,14 @@ try {
   presence = memoryPresence();
 }
 const app = buildApp({ sql: connect(), pepper: parsePepper(process.env.HASH_PEPPER), keyring: parseKeyring(process.env.FIELD_KEYS), mailer, phoneCodes: process.env.PHONE_CODES === "on", presence });
+// The books are proved once a day (the ledger convention): asked every hour, done when due, and said loudly when wrong.
+const sql = connect(undefined, 1);
+const prove = (): void =>
+  void nightlyLedgerAudit(sql).then(
+    (said) => said && (said.ok ? console.log(`api: ledger audit: the books balance (${said.transfers} transfers)`) : console.error(`api: ALARM: THE BOOKS DO NOT BALANCE: all accounts add up to ${said.sum}; ${said.wrong.length} balance(s) do not match their rows; ${said.overdrawn.length} account(s) below zero`)),
+    (error: unknown) => console.error(`api: the ledger could not be audited: ${String(error)}`),
+  );
+prove();
+setInterval(prove, 3_600_000).unref();
 await app.listen({ port, host: "0.0.0.0" });
 console.log(`api: listening on ${port}`);

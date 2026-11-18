@@ -698,8 +698,10 @@ describe("a line that falls", () => {
     const gone = cuttable(one.token);
     await gone.ready();
     const body = gone.state.accepted!.entityId;
+    // (They arrived beside the watcher, not on the very spot: how far they walk is counted from where they began.)
+    const began = gone.me().z;
     await gone.walk(20, north);
-    await until(() => gone.me().z > 800 && gone.me().anim === DOING.idle);
+    await until(() => gone.me().z > began + 800 && gone.me().anim === DOING.idle);
     const stood = gone.me();
     gone.socket.terminate();
     await until(() => watcher.seen(body) === undefined, 4000);
@@ -762,10 +764,22 @@ describe("a client that misbehaves", () => {
     const b = await phone(far.token, PROTOCOL_VERSION, "conversa");
     let said: string | null = null;
     await until(() => {
-      void presence.marked(near.id).then((what) => void (said = what));
-      return said === "caixa";
+      void presence.marked(near.id, "caixa").then((what) => void (said = what));
+      return said !== null;
     });
-    expect(await presence.marked(far.id)).toBeNull();
+    expect(await presence.marked(far.id, "caixa")).toBeNull();
+    // And who stands with whom: two together are each said to be with the other; someone alone is with nobody.
+    const beside = await player();
+    const c = await phone(beside.token);
+    let withNear: string | null = null;
+    await until(() => {
+      void presence.marked(near.id, "com").then((what) => void (withNear = what));
+      return withNear !== null;
+    });
+    expect(withNear).toBe(beside.id);
+    expect(await presence.marked(beside.id, "com")).toBe(near.id);
+    expect(await presence.marked(far.id, "com")).toBeNull();
+    await c.leave();
     await a.leave();
     await b.leave();
   });

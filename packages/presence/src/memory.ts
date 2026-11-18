@@ -12,10 +12,10 @@ export function memoryPresence(now: () => number = Date.now): Presence {
   const holds = new Map<string, { seat: Seat; until: number }>();
   const marks = new Map<string, { what: string; until: number }>();
   return {
-    mark: async (playerId, what) => void marks.set(playerId, { what, until: now() + AT_TTL_S * 1000 }),
-    marked: async (playerId) => {
-      const said = marks.get(playerId);
-      if (said && said.until <= now()) marks.delete(playerId);
+    mark: async (playerId, kind, value = "1") => void marks.set(`${kind}:${playerId}`, { what: value, until: now() + AT_TTL_S * 1000 }),
+    marked: async (playerId, kind) => {
+      const said = marks.get(`${kind}:${playerId}`);
+      if (said && said.until <= now()) marks.delete(`${kind}:${playerId}`);
       return said && said.until > now() ? said.what : null;
     },
     announce: async (card) => void zones.set(card.id, { card, until: now() + ZONE_TTL_S * 1000 }),

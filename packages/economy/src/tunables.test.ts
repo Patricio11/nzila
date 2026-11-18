@@ -72,8 +72,10 @@ describe("the validator", () => {
     const t = copy();
     t.transfers!.newAccountDailyCap = 600_000;
     t.stakes!.perGameCap = 500_001;
+    t.transfers!.noSendDays = 30;
     t.channels!.fillTo = 81;
     expect(errorsOf(t)).toEqual([
+      "transfers.noSendDays: an account that may send nothing is still a new one",
       "transfers.newAccountDailyCap: a new account may not send more than an established one",
       "stakes.perGameCap: one stake may not be larger than the daily cap it counts against",
       "channels.fillTo: a channel cannot be filled past what it holds",

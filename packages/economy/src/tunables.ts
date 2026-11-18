@@ -30,6 +30,8 @@ const SPEC = {
     candongueiroLocal: MK,
   },
   transfers: {
+    /** An account younger than this many days may send nothing to another player (the founder, 2026-11-18, D-4.11). */
+    noSendDays: range(0, 365),
     /** An account younger than this many days is new. */
     newAccountDays: range(0, 365),
     /** The most a new account may send to other players in a day, stakes included. */
@@ -119,6 +121,9 @@ export function validateTunables(input: unknown): TunablesResult {
   if (errors.length > 0) return { ok: false, errors };
   const tunables = input as Tunables;
   // Rules between numbers. A cap that a smaller cap makes unreachable is a mistake someone should hear about.
+  if (tunables.transfers.noSendDays > tunables.transfers.newAccountDays) {
+    errors.push("transfers.noSendDays: an account that may send nothing is still a new one");
+  }
   if (tunables.transfers.newAccountDailyCap > tunables.transfers.dailyCap) {
     errors.push("transfers.newAccountDailyCap: a new account may not send more than an established one");
   }

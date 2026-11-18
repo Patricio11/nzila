@@ -39,6 +39,8 @@ export const HOLD_MS = 60_000;
 const GESTURE_GAP_MS = 1000;
 const STEPS_A_LOOK = 5;
 const MARK_EVERY_MS = 1000;
+/** Two people are "together" for handing something over within this far, in millimetres. */
+export const HAND_REACH_MM = 3000;
 /**
  * A greeting is answered when the other greets within this long, standing within this far. Long enough to type
  * "Tudo bem, e tu?" with one thumb. The wave is the first of the gestures.
@@ -92,6 +94,9 @@ interface Held {
   readonly met: Set<number>;
   /** When they were last said to be standing at a caixa. */
   markedAt: number;
+  /** Whom they were last said to be standing with, and when. */
+  withWhom: string;
+  withAt: number;
 }
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
@@ -280,7 +285,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0 });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0 });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -304,7 +309,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0 });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0 });
     this.lineOfEntity.set(entityId, line);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
@@ -533,6 +538,30 @@ export class ChannelRoom {
         if (!at || !this.district.caixas!.some((caixa) => Math.hypot(caixa.x - at.x, caixa.z - at.z) <= CAIXA_REACH_MM)) continue;
         held.markedAt = now;
         void this.presence.mark(held.playerId, "caixa").catch(() => {});
+      }
+    }
+    // And whoever stands close to another is said to be with them, so that the API will let one hand the other
+    // Makuta (Task 4.1): the few nearest within arm's reach, said when it changes and once a second while it is so.
+    if (tick % STEPS_A_LOOK === 0 && this.presence && this.held.size > 1) {
+      const now = Date.now();
+      const places = [...this.held.values()].map((held) => ({ held, at: this.channel.placeOf(held.entityId) }));
+      for (const me of places) {
+        if (!me.at) continue;
+        const near = places
+          .filter((other) => other !== me && other.at && !this.apart(me.held.entityId, other.held.entityId))
+          .map((other) => ({ id: other.held.playerId, far: Math.hypot(other.at!.x - me.at!.x, other.at!.z - me.at!.z) }))
+          .filter((other) => other.far <= HAND_REACH_MM)
+          .sort((a, b) => a.far - b.far)
+          .slice(0, 6)
+          .map((other) => other.id)
+          .join(",");
+        if (near === "" || (near === me.held.withWhom && now - me.held.withAt < MARK_EVERY_MS)) {
+          if (near === "") me.held.withWhom = "";
+          continue;
+        }
+        me.held.withWhom = near;
+        me.held.withAt = now;
+        void this.presence.mark(me.held.playerId, "com", near).catch(() => {});
       }
     }
     // Where each player stands is written down once every five seconds, and where it lasts once every thirty: each

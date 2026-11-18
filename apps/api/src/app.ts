@@ -5,7 +5,7 @@
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId } from "@nzila/economy";
-import { recordTransfer, statementOf, walletOf } from "@nzila/db";
+import { lastGift, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
@@ -50,6 +50,8 @@ export interface Deps {
    * 2026-11-18, D-4.12). The tests and the swarm ask for it, to have players without typing addresses.
    */
   readonly guests?: boolean;
+  /** When an account may hand Makuta to another and how much a day: the tunables unless a test brings others. */
+  readonly transfers?: { readonly noSendDays: number; readonly newAccountDays: number; readonly newAccountDailyCap: number; readonly dailyCap: number };
   /** How full a channel is filled and what it holds: the tunables unless a test brings others. */
   readonly channels?: ChannelRules;
 }
@@ -526,7 +528,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: z.strictObject({ amount: z.number().int().positive().max(MAX_TRANSFER), key: z.string().regex(/^[A-Za-z0-9_-]{8,40}$/) }),
     perMinute: 20,
     handler: async (body: { amount: number; key: string }, caller: { player: { id: string } }) => {
-      if ((await presence.marked(caller.player.id)) !== "caixa") throw new Refusal(409, "not_at_caixa");
+      if ((await presence.marked(caller.player.id, "caixa")) === null) throw new Refusal(409, "not_at_caixa");
       const cash = accountId("player_cash", caller.player.id);
       const bank = accountId("player_bank", caller.player.id);
       const recorded = await recordTransfer(deps.sql, { debitAccount: kind === "bank_in" ? cash : bank, creditAccount: kind === "bank_in" ? bank : cash, amount: body.amount, reason: kind, actionId: `bank:${caller.player.id}:${body.key}` });
@@ -536,6 +538,46 @@ export function buildApp(deps: Deps): FastifyInstance {
   });
   declare(app, gate, banked("bank_in"));
   declare(app, gate, banked("bank_out"));
+
+  // What the player holds, in a few bytes, asked now and then while they play; and whether someone has just
+  // handed them Makuta, so that their phone can say so.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/me/balance",
+    guard: "player",
+    body: nothing,
+    perMinute: 30,
+    handler: async (_body, caller) => ({ ...(await walletOf(deps.sql, caller.player.id)), got: await lastGift(deps.sql, caller.player.id) }),
+  });
+
+  // Makuta handed to another player, in person (Task 4.1, D-4.11). The zone says the two stand together. The one
+  // who gives has proved their address, is past the days in which a new account sends nothing, and is inside what
+  // an account may send in a day. From Carteira to Carteira, recorded once whatever is sent twice.
+  const sending = deps.transfers ?? BASE_TUNABLES.transfers;
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/pay",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape, amount: z.number().int().positive().max(MAX_TRANSFER), key: z.string().regex(/^[A-Za-z0-9_-]{8,40}$/) }),
+    perMinute: 12,
+    handler: async (body, caller) => {
+      const payee = await other(body.biNumber, caller.player.id);
+      // Neither has shut the other out; and the zone says they are standing together.
+      if ((await shutOutOf(deps.sql, caller.player.id)).includes(payee)) throw new Refusal(404, "not_found");
+      if (!((await presence.marked(caller.player.id, "com")) ?? "").split(",").includes(payee)) throw new Refusal(409, "not_together");
+      const [me] = await deps.sql<{ proved: boolean; days: number }[]>`
+        SELECT email_verified_at IS NOT NULL AS proved, extract(epoch FROM now() - arrived_at) / 86400 AS days FROM players WHERE id = ${caller.player.id}`;
+      if (!me!.proved) throw new Refusal(403, "unproved");
+      const days = Number(me!.days);
+      if (sending.noSendDays > days) throw new Refusal(403, "too_new", { days: Math.ceil(sending.noSendDays - days) });
+      const cap = sending.newAccountDays > days ? sending.newAccountDailyCap : sending.dailyCap;
+      const left = cap - (await sentToday(deps.sql, caller.player.id));
+      if (body.amount > left) throw new Refusal(409, "over_limit", { left: Math.max(0, left) });
+      const recorded = await recordTransfer(deps.sql, { debitAccount: accountId("player_cash", caller.player.id), creditAccount: accountId("player_cash", payee), amount: body.amount, reason: "p2p", actionId: `pay:${caller.player.id}:${body.key}` });
+      if (!recorded.ok) throw new Refusal(recorded.error === "insufficient_funds" ? 409 : 400, recorded.error === "insufficient_funds" ? "insufficient" : "invalid");
+      return { ...(await walletOf(deps.sql, caller.player.id)), transfer: recorded.transfer.id };
+    },
+  });
 
   studioRoutes(app, gate, { sql: deps.sql, presence });
 

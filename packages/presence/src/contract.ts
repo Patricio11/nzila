@@ -47,10 +47,12 @@ export async function behavesAsPresence(presence: Presence, pass: (seconds: numb
 
   // Places: the newest is the one read; forgotten when asked; and not kept for ever.
   // A mark: said by the zone, read by the API, and nobody else's.
-  expect(await presence.marked("player-1")).toBeNull();
+  expect(await presence.marked("player-1", "caixa")).toBeNull();
   await presence.mark("player-1", "caixa");
-  expect(await presence.marked("player-1")).toBe("caixa");
-  expect(await presence.marked("player-2")).toBeNull();
+  await presence.mark("player-1", "com", "player-2,player-3");
+  expect(await presence.marked("player-1", "caixa")).toBe("1");
+  expect(await presence.marked("player-1", "com")).toBe("player-2,player-3");
+  expect(await presence.marked("player-2", "caixa")).toBeNull();
   expect(await presence.standing("player-1")).toBeNull();
   await presence.stand("player-1", { districtId: "d/1", x: 1, y: 2, z: 3, yaw: 9000 });
   await presence.stand("player-1", { districtId: "d/1", x: 10, y: 2, z: 30, yaw: 0 });

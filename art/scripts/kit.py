@@ -795,6 +795,32 @@ def caixa(b, x, z, yaw, ground=0.14):
     return 0.6
 
 
+def balcao(b, x, z, yaw, ground=0.14):
+    """
+    A bank's counter that gives onto the street: three walls and a roof in the bank's blue, a white counter across
+    the open side, a lit band over it (no glass: whoever serves is seen from the waist up). Whoever serves stands inside, behind the counter; whoever is served stands
+    in the street. Faces `yaw`. Returns how far it reaches from its middle.
+    """
+    b.at(x, z)
+    wide, deep, high = 3.4, 1.9, 2.7
+    b.level = FULL
+    b.box((x, ground + 0.05, z), (wide + 0.3, 0.1, deep + 0.3), "kerb", yaw=yaw, skip_bottom=False)
+    # The back and the two sides.
+    b.box(_add((x, ground + high / 2, z), _turn((0.0, 0.0, -deep / 2 + 0.08), yaw)), (wide, high, 0.16), "vanBlue", yaw=yaw)
+    for side in (-1.0, 1.0):
+        b.box(_add((x, ground + high / 2, z), _turn((side * (wide / 2 - 0.08), 0.0, 0.0), yaw)), (0.16, high, deep), "vanBlue", yaw=yaw)
+    # The roof, reaching out over whoever waits; and the band with the bank's light under its edge.
+    b.box(_add((x, ground + high + 0.07, z), _turn((0.0, 0.0, 0.35), yaw)), (wide + 0.4, 0.14, deep + 1.0), "vanWhite", yaw=yaw, skip_bottom=False)
+    b.box(_add((x, ground + high - 0.28, z), _turn((0.0, 0.0, deep / 2 + 0.02), yaw)), (wide, 0.42, 0.06), "lamp", yaw=yaw)
+    # The counter: a white top on a blue front.
+    b.box(_add((x, ground + 0.5, z), _turn((0.0, 0.0, deep / 2 - 0.12), yaw)), (wide - 0.32, 1.0, 0.24), "vanBlue", yaw=yaw)
+    b.box(_add((x, ground + 1.04, z), _turn((0.0, 0.0, deep / 2 - 0.02), yaw)), (wide - 0.2, 0.08, 0.5), "vanWhite", yaw=yaw, skip_bottom=False)
+    b.level = LIGHT
+    b.box((x, ground + high / 2, z), (wide, high, deep), "vanBlue", yaw=yaw)
+    b.level = BOTH
+    return 2.0
+
+
 def parasol(b, x, z, rng, ground=0.14):
     """A seller's sunshade in two colours, with crates under it."""
     b.at(x, z)

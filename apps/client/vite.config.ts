@@ -27,6 +27,9 @@ export default defineConfig({
   preview: { proxy: api },
   build: {
     target: "es2022",
+    // Which file imports which, written beside the build: the size check reads it to tell what the way in
+    // downloads from what is fetched only when a player opens it (tools/budget).
+    manifest: true,
     rollupOptions: {
       output: {
         // The renderer is its own download, fetched after the front door is on screen (D-1.2).

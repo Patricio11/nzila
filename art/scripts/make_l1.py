@@ -514,6 +514,13 @@ for i in range(11):
     kit.bench(b, tx + 2.5, tz + 0.8, rng.uniform(0, math.pi), G)
     block(tx + 2.5, tz + 0.8, 0.5)
 caixa("caixa-largo", lx0 + 27.0, z0 + 13.0, "Caixa do Largo")
+# The bank's counter on the Largo: served by a person, where the machine is served by nobody. Money goes in and
+# comes out here as at a caixa; what only a person can do (a loan, an account for a business) comes with Phase 8B.
+balcao_x, balcao_z = lx0 + 36.0, z0 + 6.5
+kit.balcao(b, balcao_x, balcao_z, 0.0, G)
+words["l1.poi.balcao-largo.name"] = "Balcão do banco, no Largo"
+words["l1.poi.balcao-largo.line"] = "O banco de porta para a rua. Guarda, levanta, e pergunta o que quiseres."
+places["pois"].append({"id": "balcao-largo", "pos": [round(balcao_x, 2), G, round(balcao_z + 2.0, 2)], "nameKey": "l1.poi.balcao-largo.name", "lineKey": "l1.poi.balcao-largo.line", "positive": True, "stamp": False, "glyph": "banco"})
 poi("xadrez", lx0 + 21.0, z0 + 14.0, "As mesas de xadrez do Largo", "Os kotas jogam aqui desde manhã. Quem perde paga o café.")
 paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutamba")
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down
@@ -798,6 +805,9 @@ for who, (pace, lane) in enumerate([(1.3, 6.0), (1.2, 8.0), (1.4, 7.0)]):
     actors.append({"role": "any", "who": who + 3, "offset": round(crowd_rng.uniform(0, keys[-1][0]), 1), "keys": keys})
 sell_x, sell_z = largo[0] + 52.5, largo[1] + 4.0
 actors.append({"role": "zungueira", "who": 1, "offset": 0.0, "keys": timetable([("at", sell_x, sell_z), ("stay", 20.0, "", 0.0), ("stay", 2.4, "chamar", 0.0), ("go", sell_x - 6.0, sell_z + 0.6, 0.9), ("stay", 18.0, "", 0.0), ("go", sell_x, sell_z, 0.9)])})
+
+# Whoever serves at the bank's counter: behind it all day, facing the street, now and then calling the next one.
+actors.append({"role": "any", "who": 2, "offset": 0.0, "keys": timetable([("at", balcao_x, balcao_z + 0.25), ("stay", 26.0, "", 0.0), ("stay", 2.2, "chamar", 0.0), ("stay", 18.0, "", 0.0)])})
 
 # The sellers before the market: seated low all day; now and then one calls to whoever passes.
 for n, (sx, sz) in enumerate(sellers):

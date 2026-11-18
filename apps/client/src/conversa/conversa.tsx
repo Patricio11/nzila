@@ -12,7 +12,7 @@ import { Button, Glyph, IdCard } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { type SaidLine } from "../net/talking.ts";
 import { arrivedOn } from "../telemovel/bi.tsx";
-import { blockPlayer, playerCard, reportPlayer, type PlayerCard, type ReportReason } from "../world/account.ts";
+import { payPlayer, type Paid, blockPlayer, playerCard, reportPlayer, type PlayerCard, type ReportReason } from "../world/account.ts";
 import "./conversa.css";
 
 const QUICK = ["goodMorning", "allGood", "letsGo"] as const;
@@ -115,6 +115,21 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [note, setNote] = useState("");
   const [said, setSaid] = useState<"report.sent" | "report.offline" | "player.shut" | "player.heard" | null>(null);
+  // Handing them Makuta: the form, the amount, and what came of it.
+  const [giving, setGiving] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [gave, setGave] = useState<{ said: Paid; days?: number; left?: number; amount?: number } | null>(null);
+  const give = async (): Promise<void> => {
+    setBusy(true);
+    const sum = Number(amount);
+    const answer = await payPlayer(met.bi, sum);
+    setBusy(false);
+    setGave({ ...answer, amount: sum });
+    if (answer.said === "ok") {
+      setGiving(false);
+      setAmount("");
+    }
+  };
   useEffect(() => {
     let alive = true;
     if (met.bi) void playerCard(met.bi).then((found) => alive && setCard(found));
@@ -151,7 +166,26 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
               {tr.t(said)}
             </p>
           ) : null}
-          {reporting ? (
+          {gave ? (
+            <p class="cv-said" role="status">
+              {tr.t(`pay.said.${gave.said}`, { name: met.name, amount: tr.makuta(gave.amount ?? 0), days: gave.days ?? 0, left: tr.makuta(gave.left ?? 0) })}
+            </p>
+          ) : null}
+          {giving ? (
+            <div class="cv-report">
+              <h3>{tr.t("pay.title", { name: met.name })}</h3>
+              <input class="cv-note" type="text" inputMode="numeric" autocomplete="off" aria-label={tr.t("bank.amount")} placeholder={tr.t("bank.amount")} value={amount} maxLength={12} onInput={(event) => setAmount(event.currentTarget.value.replace(/\D/g, "").replace(/^0+/, ""))} onKeyDown={(event) => event.stopPropagation()} onKeyUp={(event) => event.stopPropagation()} />
+              <p class="cv-said">{tr.t("pay.note")}</p>
+              <div class="cv-keys">
+                <Button kind="quiet" onPress={() => setGiving(false)}>
+                  {tr.t("report.cancel")}
+                </Button>
+                <Button disabled={!(Number(amount) > 0)} busy={busy} onPress={() => void give()}>
+                  {tr.t("pay.go")}
+                </Button>
+              </div>
+            </div>
+          ) : reporting ? (
             <div class="cv-report">
               <h3>{tr.t("report.title")}</h3>
               <div class="cv-reasons" role="radiogroup" aria-label={tr.t("report.title")}>
@@ -174,6 +208,9 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
           ) : (
             <div class="cv-actions">
               <Button onPress={onTalk}>{tr.t("action.talk")}</Button>
+              <Button kind="quiet" onPress={() => (setSaid(null), setGave(null), setGiving(true))}>
+                {tr.t("pay.open")}
+              </Button>
               <Button kind="quiet" disabled>
                 {tr.t("player.add")}
               </Button>

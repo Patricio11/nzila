@@ -16,6 +16,15 @@ import { DEEDS, ERRORS, KINDS, REASONS, ROLES, ago, roomName, when } from "./wor
 const say = (error: string | null): string => ERRORS[error ?? "failed"] ?? ERRORS.failed!;
 const can = (me: Me, ...roles: string[]): boolean => me.roles.includes("platform_admin") || roles.some((role) => me.roles.includes(role));
 
+interface Ledger {
+  at: string;
+  ok: boolean;
+  sum: number;
+  transfers: number;
+  wrong: number;
+  overdrawn: number;
+}
+
 type Tab = "moderacao" | "jogadores" | "canais" | "registo";
 
 /** How long a mute or a suspension lasts: what a moderator picks from. */
@@ -450,14 +459,24 @@ function Canais({ onOpen }: { onOpen: (bi: string) => void }) {
 
 function Registo() {
   const [entries, setEntries] = useState<Entry[] | null>(null);
+  const [ledger, setLedger] = useState<Ledger | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    void ask<{ entries: Entry[] }>("GET", "/v1/staff/audit").then((answer) => (answer.data ? setEntries(answer.data.entries) : setError(say(answer.error))));
+    void ask<{ entries: Entry[]; ledger: Ledger | null }>("GET", "/v1/staff/audit").then((answer) => (answer.data ? (setEntries(answer.data.entries), setLedger(answer.data.ledger)) : setError(say(answer.error))));
   }, []);
   if (error) return <Banner state="stopped">{error}</Banner>;
   if (!entries) return <p class="es-soft">A ler o registo…</p>;
   return (
     <section class="es-log">
+      {ledger === null ? (
+        <Banner>As contas do jogo ainda não foram conferidas. São conferidas uma vez por dia.</Banner>
+      ) : ledger ? (
+        <Banner state={ledger.ok ? "done" : "stopped"}>
+          {ledger.ok
+            ? `As contas batem certo: ${ledger.transfers} movimentos, soma zero. Conferidas ${when(ledger.at)}.`
+            : `AS CONTAS NÃO BATEM (${when(ledger.at)}): a soma de tudo é ${ledger.sum} Mk, ${ledger.wrong} saldo(s) errado(s), ${ledger.overdrawn} conta(s) abaixo de zero. Chama quem cuida do servidor.`}
+        </Banner>
+      ) : null}
       <p class="es-soft">O que a equipa fez, do mais recente para o mais antigo. Este registo não se apaga nem se muda.</p>
       <table>
         <thead>

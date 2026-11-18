@@ -84,11 +84,11 @@ export interface Presence {
   standing(playerId: string): Promise<Standing | null>;
   forget(playerId: string): Promise<void>;
   /**
-   * The zone says a player is standing at a place where something may be done ("caixa"), and the API reads it
-   * before it records what is done there: the zone decides where a player is, never the phone. Believed for a few
-   * seconds; said again while they stand there.
+   * The zone says something of where a player stands, and the API reads it before it records what is done there:
+   * the zone decides where a player is, never the phone. "caixa": they are at one. "com": the players standing
+   * with them, as ids with commas between. Believed for a few seconds; said again while it is so.
    */
-  mark(playerId: string, what: string): Promise<void>;
-  marked(playerId: string): Promise<string | null>;
+  mark(playerId: string, kind: string, value?: string): Promise<void>;
+  marked(playerId: string, kind: string): Promise<string | null>;
   close(): Promise<void>;
 }

@@ -3,8 +3,12 @@
 // Megabytes-Are-Money Rule: fails the build when what a player downloads is
 // over its budget. Two things are weighed:
 //
-//   the shell   everything the first visit downloads before any world
-//               (HTML, CSS, JS, fonts), as compressed as the network carries it
+//   the shell   everything the way in downloads, from the door to walking in
+//               the street (HTML, CSS, JS, fonts), as compressed as the network
+//               carries it
+//   on demand   what is fetched only when a player opens it (an app of the
+//               Telemóvel): each piece against a budget of its own, and never
+//               counted as nothing
 //   the packs   every district that has been built into dist/packs, against
 //               the budgets in packages/world (a chunk, a district, a first view)
 //
@@ -16,6 +20,10 @@ import { gzipSync } from "node:zlib";
 import { PACK_BUDGETS } from "../../packages/world/src/budgets.ts";
 
 const SHELL_BUDGET_BYTES = 300 * 1024;
+// One thing opened later (an app of the Telemóvel) may cost this much, with everything only it needs.
+const ON_DEMAND_BUDGET_BYTES = 20 * 1024;
+// What is opened later: the apps of the Telemóvel, each its own file. The shell that lists them is part of the way in.
+const ON_DEMAND = /src\/telemovel\/(?!telemovel\.tsx$)[\w-]+\.tsx$/;
 const root = process.cwd();
 const dist = join(root, "apps", "client", "dist");
 const counted = new Set([".html", ".css", ".js", ".woff2"]);
@@ -37,15 +45,56 @@ if (!existsSync(dist)) {
   process.exit(1);
 }
 
+// What is fetched only when opened, from the build's own account of who imports whom: a file is "on demand" when
+// nothing on the way in reaches it except through one of the apps.
+const onDemand = new Map();
+const manifestPath = join(dist, ".vite", "manifest.json");
+if (existsSync(manifestPath)) {
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const filesOf = (key) => [manifest[key].file, ...(manifest[key].css ?? [])];
+  const reach = (from, stopAt) => {
+    const seen = new Set();
+    const walkFrom = (key) => {
+      if (seen.has(key) || !manifest[key] || stopAt(key)) return;
+      seen.add(key);
+      for (const next of [...(manifest[key].imports ?? []), ...(manifest[key].dynamicImports ?? [])]) walkFrom(next);
+    };
+    for (const key of from) walkFrom(key);
+    return seen;
+  };
+  const entries = Object.keys(manifest).filter((key) => manifest[key].isEntry);
+  const wayInKeys = reach(entries, (key) => ON_DEMAND.test(key));
+  const wayIn = new Set([...wayInKeys].flatMap(filesOf));
+  // What each app brings that the way in did not: itself and whatever it alone imports outright.
+  const alone = (app) => {
+    const seen = new Set();
+    const walkFrom = (key) => {
+      if (seen.has(key) || !manifest[key] || wayInKeys.has(key)) return;
+      seen.add(key);
+      for (const next of manifest[key].imports ?? []) walkFrom(next);
+    };
+    walkFrom(app);
+    return seen;
+  };
+  for (const app of Object.keys(manifest).filter((key) => ON_DEMAND.test(key) && !wayInKeys.has(key))) {
+    for (const key of alone(app)) for (const file of filesOf(key)) if (!wayIn.has(file) && !onDemand.has(join(dist, file))) onDemand.set(join(dist, file), app.replace(/^.*\//, ""));
+  }
+}
+
 // The team's own pages are not part of what a player downloads to play.
 const teamOnly = /(^|[\\/])(styleguide|bench|cena)[\w-]*\.(js|css)$/;
 let shell = 0;
 let team = 0;
+const later = new Map();
 for (const file of walk(dist)) {
   if (!counted.has(extname(file))) continue;
   const size = asIs.has(extname(file)) ? statSync(file).size : gzipSync(readFileSync(file)).length;
   const name = relative(dist, file);
-  if (teamOnly.test(name)) {
+  if (onDemand.has(file)) {
+    const app = onDemand.get(file);
+    later.set(app, (later.get(app) ?? 0) + size);
+    console.log("  " + kb(size).padStart(7) + " KB  " + name + `  (on demand: ${app})`);
+  } else if (teamOnly.test(name)) {
     team += size;
     console.log("  " + kb(size).padStart(7) + " KB  " + name + "  (team page, not counted)");
   } else {
@@ -53,6 +102,13 @@ for (const file of walk(dist)) {
     console.log("  " + kb(size).padStart(7) + " KB  " + name);
   }
 }
+for (const [app, size] of later) {
+  if (size > ON_DEMAND_BUDGET_BYTES) {
+    console.error(`budget: ${app} is ${kb(size)} KB when opened, over the ${kb(ON_DEMAND_BUDGET_BYTES)} KB an app may cost.`);
+    failed = true;
+  }
+}
+if (later.size > 0) console.log(`budget: opened later, each paid for once: ${[...later].map(([app, size]) => `${app} ${kb(size)} KB`).join(", ")} (budget ${kb(ON_DEMAND_BUDGET_BYTES)} KB each).`);
 if (shell > SHELL_BUDGET_BYTES) {
   console.error(`budget: shell is ${kb(shell)} KB, over the ${kb(SHELL_BUDGET_BYTES)} KB budget.`);
   failed = true;

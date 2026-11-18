@@ -8,6 +8,7 @@
 // opens nothing in the game.
 
 import { randomBytes } from "node:crypto";
+import { lastLedgerAudit } from "@nzila/db";
 import { audit, closeReport, closeStaffSession, lastAudit, liftSanction, namesOf, openReports, openStaffSession, playerForStaff, sanction, staffToSignIn } from "@nzila/db";
 import { type Presence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
@@ -205,6 +206,7 @@ export function studioRoutes(app: FastifyInstance, gate: Gate, deps: { sql: Sql;
     roles: "any",
     body: nothing,
     perMinute: 60,
-    handler: async () => ({ entries: await lastAudit(sql) }),
+    // With it: whether the books balanced the last time they were proved. Everyone on the staff should see that.
+    handler: async () => ({ entries: await lastAudit(sql), ledger: await lastLedgerAudit(sql) }),
   });
 }

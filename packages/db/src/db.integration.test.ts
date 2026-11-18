@@ -4,7 +4,7 @@
 
 import { getTableColumns, getTableName } from "drizzle-orm";
 import { expireTalk, keepChatLines, reportPlayer } from "./talk.ts";
-import { auditLedger, balanceOf, grantOrigin, recordTransfer, statementOf, walletOf } from "./ledger.ts";
+import { auditLedger, balanceOf, grantOrigin, lastLedgerAudit, nightlyLedgerAudit, recordTransfer, statementOf, walletOf } from "./ledger.ts";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -282,7 +282,7 @@ describe("audit.log and consents", () => {
     await auditLog.log(sql, { actorKind: "staff", actorId: "s-7", kind: "player.read", subjectKind: "player", subjectId: "p-1", reason: " ticket 77 ", meta: { fields: ["phone"] }, provinceId: "ao-lua", districtId: "ao-lua/l1" });
     const [row] = await sql`SELECT actor_kind, actor_id, kind, subject_id, reason, meta, district_id FROM audit_log WHERE actor_id = 's-7'`;
     expect(row).toEqual({ actor_kind: "staff", actor_id: "s-7", kind: "player.read", subject_id: "p-1", reason: "ticket 77", meta: { fields: ["phone"] }, district_id: "ao-lua/l1" });
-    await auditLog.log(sql, { actorKind: "system", actorId: "worker", kind: "ledger.audit", subjectKind: "ledger", subjectId: "all", reason: "nightly" });
+    await auditLog.log(sql, { actorKind: "system", actorId: "worker", kind: "ledger.note", subjectKind: "ledger", subjectId: "all", reason: "nightly" });
     await expect(auditLog.log(sql, { actorKind: "staff", actorId: "s-7", kind: "player.read", subjectKind: "player", subjectId: "p-1", reason: "  " })).rejects.toThrow(/needs a reason/);
     expect((await sql`SELECT 1 FROM audit_log WHERE actor_id = 's-7'`).length).toBe(1);
   });
@@ -393,6 +393,20 @@ describe("the ledger, live (Task 4.1)", () => {
     const audit = await auditLedger(sql);
     expect(audit).toMatchObject({ ok: true, sum: 0, wrong: [], overdrawn: [] });
     expect(audit.transfers).toBeGreaterThan(5);
+  });
+
+  test("the nightly audit is done once a day, whoever asks, and written where it cannot be changed", async () => {
+    const first = await Promise.all([nightlyLedgerAudit(sql), nightlyLedgerAudit(sql), nightlyLedgerAudit(sql)]);
+    // Three asked at once: one did it.
+    expect(first.filter((one) => one !== null)).toHaveLength(1);
+    expect(first.find((one) => one !== null)).toMatchObject({ ok: true, sum: 0 });
+    expect(await nightlyLedgerAudit(sql)).toBeNull();
+    const last = await lastLedgerAudit(sql);
+    expect(last).toMatchObject({ ok: true, sum: 0, wrong: 0, overdrawn: 0 });
+    expect(last!.transfers).toBeGreaterThan(5);
+    await expect(sql`DELETE FROM audit_log WHERE kind = 'ledger.audit'`).rejects.toThrow();
+    // A day on, it is due again.
+    expect(await sql`SELECT count(*)::int AS n FROM audit_log WHERE kind = 'ledger.audit'`).toEqual([{ n: 1 }]);
   });
 
   test("ten thousand transfers between twenty players, some refused, some sent twice: the books still balance and nobody is below zero", async () => {

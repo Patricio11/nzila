@@ -1124,3 +1124,48 @@ describe("the bank: into the Banco and out of it, at a caixa (Task 4.1)", () => 
   });
 });
 
+
+describe("handing Makuta to another player, in person (Task 4.1, D-4.11)", () => {
+  const post = (token: string, url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: as(token), payload });
+  const registered = async (n: number) => {
+    const email = `mao${n}@exemplo.ao`;
+    const made = (await app.inject({ method: "POST", url: "/v1/register", payload: { deviceId: device(n), platform: "android", ageBand: "18_plus", email, password: "uma frase que so eu sei" } })).json() as { playerId: string; token: string; name: string; biNumber: string };
+    const cash = ((await post(made.token, "/v1/me/origin")).json() as { wallet: { cash: number } }).wallet.cash;
+    return { ...made, email, cash };
+  };
+
+  test("only to someone the zone says is beside them, from an address that is proved, after the days a new account waits, inside the day's limit; recorded once; the other is told", async () => {
+    const giver = await registered(950);
+    const taker = await registered(951);
+    const pay = (amount: number, key: string, to = taker.biNumber) => post(giver.token, "/v1/pay", { biNumber: to, amount, key });
+    // Not standing together, as far as any zone has said.
+    expect((await pay(100, "primeira-001")).json()).toEqual({ error: "not_together" });
+    await presence.mark(giver.playerId, "com", `outro-qualquer,${taker.playerId}`);
+    // The address is not proved yet.
+    expect((await pay(100, "primeira-001")).json()).toEqual({ error: "unproved" });
+    expect((await post(giver.token, "/v1/me/email/verify", { code: mailedCode(giver.email) })).statusCode).toBe(200);
+    // A new account sends nothing for its first days, and is told how many are left.
+    expect((await pay(100, "primeira-001")).json()).toEqual({ error: "too_new", days: BASE_TUNABLES.transfers.noSendDays });
+    await sql`UPDATE players SET arrived_at = now() - interval '4 days' WHERE id = ${giver.playerId}`;
+    const paid = await pay(100, "primeira-001");
+    expect(paid.statusCode).toBe(200);
+    expect(paid.json()).toMatchObject({ cash: giver.cash - 100, bank: 0 });
+    // Sent again by a phone on a bad line: nothing more moves.
+    expect((await pay(100, "primeira-001")).json()).toEqual(paid.json());
+    // The other holds it, and their phone is told who gave it, once it asks.
+    const got = (await app.inject({ method: "GET", url: "/v1/me/balance", headers: as(taker.token) })).json() as { cash: number; got: { amount: number; from: string } };
+    expect(got).toMatchObject({ cash: taker.cash + 100, got: { amount: 100, from: giver.name } });
+    expect((await app.inject({ method: "GET", url: "/v1/me/balance", headers: as(giver.token) })).json()).toMatchObject({ cash: giver.cash - 100, got: null });
+    // More than is in the Carteira; and more than a new account may send in a day, however much it holds.
+    if (BASE_TUNABLES.transfers.newAccountDailyCap - 100 >= giver.cash) expect((await pay(giver.cash, "demais-00001")).json()).toEqual({ error: "insufficient" });
+    expect((await pay(BASE_TUNABLES.transfers.newAccountDailyCap, "demais-00002")).json()).toEqual({ error: "over_limit", left: BASE_TUNABLES.transfers.newAccountDailyCap - 100 });
+    // Not to oneself, not to nobody, not an amount that is not one.
+    expect((await pay(50, "eu-mesmo-0001", giver.biNumber)).statusCode).toBe(400);
+    expect((await pay(50, "ninguem-00001", "000-nobody")).statusCode).toBe(404);
+    for (const amount of [0, -5, 1.5]) expect((await pay(amount, "quanto-00001")).statusCode).toBe(400);
+    // Someone who has shut the giver out is given nothing by them: to the giver they are not there.
+    await post(taker.token, "/v1/blocks", { biNumber: giver.biNumber });
+    expect((await pay(50, "fechado-00001")).json()).toEqual({ error: "not_found" });
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+});

@@ -530,3 +530,38 @@ export async function bankMove(way: "deposit" | "withdraw", amount: number): Pro
   return said.error === "not_at_caixa" ? "far" : said.error === "insufficient" ? "short" : "offline";
 }
 
+/** What handing Makuta to someone came to. "together": the zone does not say the two stand together. */
+export type Paid = "ok" | "together" | "unproved" | "new" | "limit" | "short" | "offline";
+
+/** Hands Makuta to the player with this BI, in person. The key makes a second sending of the same tap harmless. */
+export async function payPlayer(biNumber: string, amount: number): Promise<{ said: Paid; days?: number; left?: number }> {
+  const mine = account();
+  if (!mine?.token) return { said: "offline" };
+  const key = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.padEnd(12, "0");
+  let said = await ask<{ cash: number; bank: number }>("POST", "/v1/pay", { biNumber, amount, key }, mine.token);
+  if (said.status === 0 || said.status >= 502) said = await ask<{ cash: number; bank: number }>("POST", "/v1/pay", { biNumber, amount, key }, mine.token);
+  if (said.error === "not_together") {
+    await new Promise((done) => setTimeout(done, 700));
+    said = await ask<{ cash: number; bank: number }>("POST", "/v1/pay", { biNumber, amount, key }, mine.token);
+  }
+  if (said.answer) {
+    keep({ ...(account() ?? mine), wallet: { cash: said.answer.cash, bank: said.answer.bank } });
+    return { said: "ok" };
+  }
+  const why = said.error;
+  return { said: why === "not_together" ? "together" : why === "unproved" ? "unproved" : why === "too_new" ? "new" : why === "over_limit" ? "limit" : why === "insufficient" ? "short" : "offline", ...(typeof said.said?.days === "number" ? { days: said.said.days } : {}), ...(typeof said.said?.left === "number" ? { left: said.said.left } : {}) };
+}
+
+/** What the player holds now, in a few bytes; and Makuta someone has just handed them, said once. */
+const told = new Set<string>();
+export async function balanceNow(): Promise<{ amount: number; from: string | null } | null> {
+  const mine = account();
+  if (!mine?.token) return null;
+  const { answer } = await ask<{ cash: number; bank: number; got: { id: string; amount: number; from: string | null } | null }>("GET", "/v1/me/balance", undefined, mine.token);
+  if (!answer) return null;
+  keep({ ...(account() ?? mine), wallet: { cash: answer.cash, bank: answer.bank } });
+  if (!answer.got || told.has(answer.got.id)) return null;
+  told.add(answer.got.id);
+  return { amount: answer.got.amount, from: answer.got.from };
+}
+

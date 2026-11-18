@@ -149,6 +149,36 @@ export async function grantOrigin(sql: Sql, playerId: string, makuta: Mk, where:
   });
 }
 
+/** The books are proved at least this often. Asked every hour by every process that has the database; done by the first to ask when it is due. */
+export const AUDIT_EVERY_HOURS = 24;
+
+/**
+ * The nightly audit (the ledger convention): proves the books and writes the result where it cannot be changed,
+ * `audit_log`, as "ledger.audit". Many processes may ask; it is done once a day. Gives back what was found, or
+ * null when it was not yet due. Whoever calls it raises the alarm when `ok` is false.
+ */
+export async function nightlyLedgerAudit(sql: Sql): Promise<LedgerAudit | null> {
+  return sql.begin(async (tx) => {
+    // One at a time, whoever asks: the second finds it done.
+    await tx`SELECT pg_advisory_xact_lock(4101)`;
+    const [done] = await tx`SELECT 1 FROM audit_log WHERE kind = 'ledger.audit' AND at > now() - make_interval(hours => ${AUDIT_EVERY_HOURS})`;
+    if (done) return null;
+    const said = await auditLedger(tx as unknown as Sql);
+    await tx`
+      INSERT INTO audit_log (actor_kind, actor_id, kind, subject_kind, subject_id, reason, meta)
+      VALUES ('system', 'ledger-audit', 'ledger.audit', 'ledger', 'all', ${said.ok ? "the books balance" : "THE BOOKS DO NOT BALANCE"},
+              ${tx.json({ ok: said.ok, sum: said.sum, transfers: said.transfers, wrong: said.wrong.slice(0, 50), overdrawn: said.overdrawn.slice(0, 50) } as never)})`;
+    return said;
+  }) as Promise<LedgerAudit | null>;
+}
+
+/** The last audit that was written down: when, and what it found. Null when the books were never proved. */
+export async function lastLedgerAudit(sql: Sql): Promise<{ at: string; ok: boolean; sum: number; transfers: number; wrong: number; overdrawn: number } | null> {
+  const [row] = await sql<{ at: Date; meta: { ok: boolean; sum: number; transfers: number; wrong: unknown[]; overdrawn: unknown[] } }[]>`
+    SELECT at, meta FROM audit_log WHERE kind = 'ledger.audit' ORDER BY at DESC, id DESC LIMIT 1`;
+  return row?.meta ? { at: row.at.toISOString(), ok: row.meta.ok, sum: row.meta.sum, transfers: row.meta.transfers, wrong: row.meta.wrong.length, overdrawn: row.meta.overdrawn.length } : null;
+}
+
 export interface LedgerAudit {
   readonly ok: boolean;
   /** What every account holds, added up: zero, or Makuta has appeared or vanished. */
@@ -186,3 +216,21 @@ export async function auditLedger(sql: Sql): Promise<LedgerAudit> {
     overdrawn: overdrawn.map((row) => row.account_id),
   };
 }
+
+/** What a player has handed to other players in the last day, from their Carteira. */
+export async function sentToday(sql: Sql, playerId: string): Promise<Mk> {
+  const [row] = await sql<{ sent: string }[]>`
+    SELECT COALESCE(sum(amount), 0) AS sent FROM ledger_transfers
+    WHERE debit_account = ${accountId("player_cash", playerId)} AND reason = 'p2p' AND created_at > now() - interval '24 hours'`;
+  return Number(row!.sent);
+}
+
+/** The newest Makuta another player handed this one, if it came in the last `seconds`: for telling them so. */
+export async function lastGift(sql: Sql, playerId: string, seconds = 60): Promise<{ id: string; amount: Mk; from: string | null } | null> {
+  const [row] = await sql<{ id: string; amount: string; name: string | null }[]>`
+    SELECT t.id, t.amount, p.name FROM ledger_transfers t LEFT JOIN players p ON t.debit_account = 'player_cash:' || p.id::text
+    WHERE t.credit_account = ${accountId("player_cash", playerId)} AND t.reason = 'p2p' AND t.created_at > now() - make_interval(secs => ${seconds})
+    ORDER BY t.created_at DESC, t.id DESC LIMIT 1`;
+  return row ? { id: row.id, amount: Number(row.amount), from: row.name } : null;
+}
+
