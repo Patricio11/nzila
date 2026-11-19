@@ -34,6 +34,8 @@ export interface LinkEvents {
   event(event: WorldEvent): void;
   /** How the street's traffic is waiting, as the zone decided it for everyone in the channel. */
   traffic?(said: TrafficSaid): void;
+  /** How a table stands (Task 4B.1): its bytes, for the code that draws tables to read. */
+  mesa?(bytes: Uint8Array): void;
   /** The line is gone. `elsewhere` when the same player came in on another phone; `put_out` when staff put them out. */
   closed(why: "dropped" | "elsewhere" | "put_out"): void;
 }
@@ -52,6 +54,8 @@ export interface Link {
   nudge(entity: number): void;
   /** Asks to get on a van, or to get off it here. */
   ride(asked: RideAsked): void;
+  /** Sends a message made elsewhere: what a player asks of a table, made by the code that draws tables. */
+  post(bytes: Uint8Array): void;
   /** Leaves on purpose, and says so. */
   close(): void;
   /** For the tests and a developer: the line goes without a word, as in a tunnel. The zone keeps the place. */
@@ -138,6 +142,7 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
             gesture: (emote) => post(encodeEmote({ emote })),
             ride: (asked) => post(encodeRide(asked)),
             nudge: (entity) => post(encodeNudge({ entity })),
+            post,
             close: () => {
               let_go = true;
               clearInterval(listening);
@@ -153,6 +158,8 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
           });
         } else if (message.type === "traffic") {
           events.traffic?.(message);
+        } else if (message.type === "mesa") {
+          events.mesa?.(message.bytes);
         } else if (message.type === "who") {
           events.who(message);
         } else if (message.type === "chat_heard") {

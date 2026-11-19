@@ -611,23 +611,151 @@ def banca(b, x, z, rng, ground=0.14):
     return 1.3
 
 
-def mesa_de_xadrez(b, x, z, ground=0.14):
-    """A stone table with a board cut into it, and a stool either side."""
+# ---------------------------------------------------------------- the tables of the Largo (Task 4B.1)
+#
+# Each kind of table looks like itself. The board and the pieces are not built here: they are a game being
+# played, and the game draws them as the zone says they stand (apps/client/src/mesas). What is built is the
+# table, its top left bare where the board goes, and the seats. Each returns what the manifest says of it:
+# the middle of the board's top, the way seat 0 faces, the board's side, and its seats in order.
+#
+# The seats go round the table: seat 0 at the near side (facing `yaw`), then to its left, across, to its right.
+# Local +Z is the way seat 0 faces, local +X its left (kit._turn).
+
+
+def _mesa(game, x, top, z, yaw, size, seats):
+    return {"game": game, "pos": (x, top, z), "facing": yaw, "size": size, "seats": seats}
+
+
+def _lugar(x, z, yaw, side, far, height):
+    """Seat `side` (0 near, 1 left, 2 across, 3 right) of a table at (x, z) facing `yaw`, `far` from its middle."""
+    turns = [0.0, -math.pi / 2, math.pi, math.pi / 2]
+    facing = yaw + turns[side]
+    at = kit._turn((0.0, 0.0, -far), facing)
+    return (x + at[0], height, z + at[2], facing)
+
+
+def mesa_de_xadrez(b, x, z, yaw=0.0, ground=0.14):
+    """
+    A stone table of the Largo, as old as the square: a thick top on a pillar, its edge bevelled by elbows, and a
+    stone stool either side, worn smooth. The board is laid into the top by the game.
+    """
     b.at(x, z)
+    # Solid by its own body in the game (packages/world: tableObstacles), not by the walk grid: a camera passes over it.
+    b.soft = True
     b.level = BOTH
-    b.box((x, ground + 0.36, z), (0.3, 0.72, 0.3), "concrete")
-    b.box((x, ground + 0.76, z), (0.9, 0.08, 0.9), "kerb", skip_bottom=False)
+    b.box((x, ground + 0.36, z), (0.32, 0.72, 0.32), "concrete", yaw=yaw)
+    b.box((x, ground + 0.04, z), (0.56, 0.08, 0.56), "kerb", yaw=yaw)
+    b.box((x, ground + 0.755, z), (0.86, 0.07, 0.86), "kerb", yaw=yaw, skip_bottom=False)
     b.level = FULL
-    for i in range(4):
-        for j in range(4):
-            if (i + j) % 2 == 0:
-                px, pz = x - 0.3 + i * 0.2, z - 0.3 + j * 0.2
-                b.face([(px - 0.1, ground + 0.805, pz - 0.1), (px + 0.1, ground + 0.805, pz - 0.1), (px + 0.1, ground + 0.805, pz + 0.1), (px - 0.1, ground + 0.805, pz + 0.1)], "tarShade", toward=(0.0, 1.0, 0.0))
+    # A lip under the top, a little in, and the bevel on its edge.
+    b.box((x, ground + 0.705, z), (0.74, 0.03, 0.74), "concrete", yaw=yaw)
+    b.box((x, ground + 0.795, z), (0.8, 0.012, 0.8), "fortStone", yaw=yaw)
+    seats = []
+    for side in (0, 2):
+        sx, sy, sz, facing = _lugar(x, z, yaw, side, 0.78, ground + 0.46)
+        b.level = BOTH
+        b.box((sx, ground + 0.22, sz), (0.36, 0.44, 0.36), "concrete", yaw=facing)
+        b.level = FULL
+        b.box((sx, ground + 0.45, sz), (0.4, 0.03, 0.4), "fortStone", yaw=facing, skip_bottom=False)
+        seats.append((sx, sy, sz, facing))
     b.level = BOTH
-    for sx in (-1, 1):
-        b.box((x + sx * 0.85, ground + 0.23, z), (0.4, 0.46, 0.4), "concrete")
-        b.seats.append((x + sx * 0.85, ground + 0.46, z, math.pi / 2 * -sx))
-    return 1.1
+    b.soft = False
+    return 1.15, _mesa("xadrez", x, ground + 0.802, z, yaw, 0.6, seats)
+
+
+def _grade(b, x, z, yaw, ground, colour):
+    """A plastic crate stood on end for a seat: ribs on its sides, a slot for the hand, a piece of cardboard on top."""
+    b.level = BOTH
+    b.box((x, ground + 0.22, z), (0.34, 0.44, 0.3), colour, yaw=yaw)
+    b.level = FULL
+    for k in range(3):
+        b.box(_add((x, ground + 0.08 + k * 0.13, z), (0.0, 0.0, 0.0)), (0.36, 0.025, 0.32), colour, yaw=yaw, skip_bottom=False)
+    for side in (-1, 1):
+        b.box(_add((x, ground + 0.36, z), kit._turn((side * 0.172, 0.0, 0.0), yaw)), (0.01, 0.04, 0.12), "tarShade", yaw=yaw)
+    b.box((x, ground + 0.445, z), (0.3, 0.01, 0.27), "sand", yaw=yaw + 0.12, skip_bottom=False)
+    b.level = BOTH
+
+
+def mesa_de_damas(b, x, z, yaw=0.0, ground=0.14):
+    """
+    Damas as it is played on a pavement: a drum cut down for a table, a square of plank on it for the board (painted
+    by the game, with bottle caps for pieces), and a crate on end either side to sit on.
+    """
+    b.at(x, z)
+    # Solid by its own body in the game (packages/world: tableObstacles), not by the walk grid: a camera passes over it.
+    b.soft = True
+    b.level = BOTH
+    b.tube([(x, ground, z), (x, ground + 0.66, z)], [0.29, 0.29], 10, "drum")
+    b.level = FULL
+    # The drum's ribs and its rolled rim, and rust where the paint has gone.
+    for h in (0.2, 0.44):
+        b.tube([(x, ground + h, z), (x, ground + h + 0.025, z)], [0.3, 0.3], 10, "drum", cap=False)
+    b.tube([(x, ground + 0.655, z), (x, ground + 0.675, z)], [0.3, 0.3], 10, "zincRust", cap=False)
+    for a0, a1, h0, h1 in ((0.3, 0.62, 0.04, 0.19), (2.4, 2.6, 0.47, 0.6)):
+        rim = [(a0, h0), (a1, h0), (a1, h1), (a0, h1)]
+        b.face([(x + 0.293 * math.cos(a), ground + h, z + 0.293 * math.sin(a)) for a, h in rim], "zincRust", away_from=(x, ground + h0, z))
+    b.level = BOTH
+    # The plank: wider than the drum, its board a little in from its edge.
+    b.box((x, ground + 0.7, z), (0.74, 0.04, 0.74), "wood", yaw=yaw, skip_bottom=False)
+    b.level = FULL
+    b.box((x, ground + 0.6, z), (0.06, 0.18, 0.62), "wood", yaw=yaw)
+    seats = []
+    for side, colour in ((0, "awningGold"), (2, "awningRed")):
+        sx, sy, sz, facing = _lugar(x, z, yaw, side, 0.66, ground + 0.45)
+        _grade(b, sx, sz, facing, ground, colour)
+        seats.append((sx, sy, sz, facing))
+    b.level = BOTH
+    b.soft = False
+    return 1.0, _mesa("damas", x, ground + 0.722, z, yaw, 0.6, seats)
+
+
+def _cadeira(b, x, z, yaw, ground, colour):
+    """The plastic chair of every esplanada and every party in Luanda: legs splayed, arms, a back of curved slats."""
+    def at(lx, ly, lz):
+        return _add((x, ground + ly, z), kit._turn((lx, 0.0, lz), yaw))
+
+    b.level = BOTH
+    b.box(at(0.0, 0.43, 0.02), (0.44, 0.035, 0.42), colour, yaw=yaw, skip_bottom=False)
+    b.box(at(0.0, 0.66, -0.2), (0.44, 0.4, 0.035), colour, yaw=yaw - 0.0)
+    b.level = FULL
+    for lx, lz in ((-0.19, 0.19), (0.19, 0.19), (-0.19, -0.17), (0.19, -0.17)):
+        top = at(lx, 0.42, lz)
+        foot = at(lx * 1.22, 0.0, lz * 1.25)
+        b.tube([foot, top], [0.022, 0.018], 4, colour, cap=False)
+    for lx in (-0.22, 0.22):
+        b.box(at(lx, 0.6, 0.0), (0.04, 0.03, 0.4), colour, yaw=yaw, skip_bottom=False)
+        b.tube([at(lx, 0.44, 0.17), at(lx, 0.6, 0.17)], [0.016, 0.016], 4, colour, cap=False)
+    # The gaps between the slats of the back.
+    for k in range(3):
+        b.box(at(-0.1 + k * 0.1, 0.68, -0.2), (0.025, 0.24, 0.04), "tarShade", yaw=yaw)
+    b.level = BOTH
+
+
+def mesa_de_ludo(b, x, z, yaw=0.0, ground=0.14):
+    """
+    Não te irrites under a tree: a square wooden table, a little uneven, with the board painted on its top by the game,
+    and four plastic chairs round it, no two the same colour, borrowed from four houses.
+    """
+    b.at(x, z)
+    # Solid by its own body in the game (packages/world: tableObstacles), not by the walk grid: a camera passes over it.
+    b.soft = True
+    b.level = BOTH
+    b.box((x, ground + 0.72, z), (0.92, 0.04, 0.92), "wood", yaw=yaw, skip_bottom=False)
+    for lx in (-0.4, 0.4):
+        for lz in (-0.4, 0.4):
+            b.box(_add((x, ground + 0.35, z), kit._turn((lx, 0.0, lz), yaw)), (0.05, 0.7, 0.05), "wood", yaw=yaw)
+    b.level = FULL
+    # The frame under the top, and a brick under one leg where the ground dips.
+    b.box((x, ground + 0.665, z), (0.84, 0.07, 0.84), "wood", yaw=yaw)
+    b.box(_add((x, ground + 0.03, z), kit._turn((0.4, 0.0, 0.4), yaw)), (0.11, 0.06, 0.2), "zincRed", yaw=yaw + 0.3)
+    seats = []
+    for side, colour in enumerate(("paintWhite", "awningRed", "paintWhite", "signBlue")):
+        sx, sy, sz, facing = _lugar(x, z, yaw, side, 0.72, ground + 0.45)
+        _cadeira(b, sx, sz, facing, ground, colour)
+        seats.append((sx, sy, sz, facing))
+    b.level = BOTH
+    b.soft = False
+    return 1.2, _mesa("ludo", x, ground + 0.742, z, yaw, 0.7, seats)
 
 
 def mural(b, x, z, length, rng, ground=0.14, high=4.2, side_on=False):

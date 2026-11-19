@@ -25,6 +25,10 @@ export const MSG = {
   TRAFFIC: 13,
   RIDE: 14,
   NUDGE: 15,
+  /** Zone to client: a table game as it stands (mesa.ts). */
+  MESA: 16,
+  /** Client to zone: what a player asks of a table. */
+  MESA_PEDIDO: 17,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -209,7 +213,12 @@ export const EVENT = {
   GIVEN: 7,
   /** This client and subject have greeted each other (a wave answered by a wave, close by): they have met. */
   MET: 5,
+  /** What the player asked of a table was not done. subject: the table; args[0]: why (its place in MESA_RECUSAS). */
+  MESA_REFUSED: 8,
 } as const;
+
+/** Why a table did not do what was asked: a seat that is not there, taken, already sitting, not sitting, not now, not their turn, not by the rules, too far. Never reordered. */
+export const MESA_RECUSAS = ["lugar", "ocupado", "sentado", "fora", "fase", "vez", "regras", "longe"] as const;
 
 /** Why a line was not said. Numbers are never reused. */
 export const CHAT_REFUSAL = {
@@ -393,6 +402,50 @@ export function encodeNudge(m: Nudge): Uint8Array {
   return new Writer().u8(MSG.NUDGE).uint(m.entity).finish();
 }
 
+// ---------------------------------------------------------------- Mesa
+
+/** What a player asks of a table. Numbers are never reused. */
+const PEDIDOS = ["", "sentar", "levantar", "comecar", "jogar", "lancar"] as const;
+/** The most squares a move names: a run of captures at damas. */
+const CASAS_MAX = 16;
+
+/**
+ * Client to zone: at this table (its place in the district's list), sit in a seat, get up, begin now, play a
+ * move, throw the dice. A move is the squares it goes by: at xadrez the square left, the square reached and the
+ * piece a pawn becomes (1 to 4: dama, torre, bispo, cavalo); at damas every square the piece stands on; at Não te
+ * irrites the piece. What it takes, and the dice, are the zone's to work out.
+ */
+export type MesaPedido =
+  | { readonly mesa: number; readonly pedido: "sentar"; readonly lugar: number }
+  | { readonly mesa: number; readonly pedido: "levantar" }
+  | { readonly mesa: number; readonly pedido: "comecar" }
+  | { readonly mesa: number; readonly pedido: "lancar" }
+  | { readonly mesa: number; readonly pedido: "jogar"; readonly casas: readonly number[] };
+
+export function encodeMesaPedido(m: MesaPedido): Uint8Array {
+  const w = new Writer().u8(MSG.MESA_PEDIDO).uint(m.mesa).u8(PEDIDOS.indexOf(m.pedido));
+  if (m.pedido === "sentar") w.u8(m.lugar);
+  if (m.pedido === "jogar") {
+    if (m.casas.length > CASAS_MAX) throw new RangeError("a move names at most 16 squares");
+    w.u8(m.casas.length);
+    for (const casa of m.casas) w.u8(casa);
+  }
+  return w.finish();
+}
+
+function readMesaPedido(r: Reader): MesaPedido {
+  const mesa = r.uint();
+  const code = r.u8();
+  const pedido = PEDIDOS[code];
+  if (!pedido) throw new ProtocolError("malformed", "table request");
+  if (pedido === "sentar") return { mesa, pedido, lugar: r.bounded(3, "seat") };
+  if (pedido !== "jogar") return { mesa, pedido };
+  const count = r.bounded(CASAS_MAX, "squares");
+  const casas: number[] = [];
+  for (let n = 0; n < count; n++) casas.push(r.bounded(63, "square"));
+  return { mesa, pedido, casas };
+}
+
 // ---------------------------------------------------------------- Traffic
 
 /** How many vehicles a district's traffic may name in one message. */
@@ -497,7 +550,8 @@ export type ClientMessage =
   | ({ readonly type: "chat_typing" } & ChatTyping)
   | ({ readonly type: "emote" } & EmoteMade)
   | ({ readonly type: "ride" } & { readonly ride: RideAsked })
-  | ({ readonly type: "nudge" } & Nudge);
+  | ({ readonly type: "nudge" } & Nudge)
+  | ({ readonly type: "mesa" } & MesaPedido);
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -514,6 +568,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.EMOTE) return { type: "emote", ...readEmote(r) };
   if (type === MSG.RIDE) return { type: "ride", ride: readRide(r) };
   if (type === MSG.NUDGE) return { type: "nudge", entity: r.uint() };
+  if (type === MSG.MESA_PEDIDO) return { type: "mesa", ...readMesaPedido(r) };
   throw new ProtocolError("unknown_type", String(type));
 }
 
@@ -527,6 +582,8 @@ export type ZoneMessage =
   | ({ readonly type: "handoff" } & Handoff)
   | ({ readonly type: "who" } & Who)
   | ({ readonly type: "traffic" } & TrafficSaid)
+  /** A table game: read with decodeMesa (mesa.ts), by the code that draws tables, fetched when there is one to draw. */
+  | { readonly type: "mesa"; readonly bytes: Uint8Array }
   | { readonly type: "snapshot" }
   | { readonly type: "unknown"; readonly code: number };
 
@@ -548,5 +605,6 @@ export function decodeZoneMessage(bytes: Uint8Array): ZoneMessage {
   if (type === MSG.HANDOFF) return { type: "handoff", ...readHandoff(r) };
   if (type === MSG.WHO) return { type: "who", ...readWho(r) };
   if (type === MSG.TRAFFIC) return { type: "traffic", ...readTraffic(r) };
+  if (type === MSG.MESA) return { type: "mesa", bytes };
   return { type: "unknown", code: type };
 }

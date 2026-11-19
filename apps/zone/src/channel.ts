@@ -131,6 +131,7 @@ export class Channel {
   /** Someone leaves. Gives back who they were and where they stood, to be kept for their return; null for a number nobody has. */
   leave(id: number): { playerId: string; at: Place } | null {
     this.riding.delete(id);
+    this.sitting.delete(id);
     const seat = this.seats.get(id);
     const body = this.world.characters.find((one) => one.id === id);
     if (!seat || !body) return null;
@@ -188,8 +189,38 @@ export class Channel {
 
   /** Someone gets off, at the place asked for when there is room for them there, or as near it as there is. False when there is no room near. */
   alight(id: number, at: Place): boolean {
+    return this.riding.has(id) && this.putDown(id, at);
+  }
+
+  /** Who sits where, off the street's ground: at a table (Task 4B.1). Their body stays in the seat and their stick is let go. */
+  private readonly sitting = new Map<number, Place>();
+
+  /** Someone sits, at a seat that is not on the walking ground: they are put there, and seen sitting. False for a body that rides, or is not here. */
+  sit(id: number, at: Place): boolean {
     const body = this.world.characters.find((one) => one.id === id);
-    if (!body || !this.riding.has(id)) return false;
+    if (!body || this.riding.has(id)) return false;
+    this.sitting.set(id, at);
+    Object.assign(body.state, { x: at.x, y: at.y, z: at.z, yaw: at.yaw });
+    delete body.state.air;
+    const seat = this.seats.get(id)!;
+    seat.waiting.length = 0;
+    seat.anim = DOING.sit;
+    return true;
+  }
+
+  sittingOf(id: number): Place | null {
+    return this.sitting.get(id) ?? null;
+  }
+
+  /** Someone sitting gets up, at the place asked for or as near it as there is room. False when they were not sitting, or there is no room near. */
+  standUp(id: number, at: Place): boolean {
+    return this.sitting.has(id) && this.putDown(id, at);
+  }
+
+  /** A body carried or seated is set down on the ground again, where there is room, nearest the place asked for. */
+  private putDown(id: number, at: Place): boolean {
+    const body = this.world.characters.find((one) => one.id === id)!;
+    const was = { x: body.state.x, y: body.state.y, z: body.state.z };
     // Out of the way while their own place is looked for: their body is not in the way of itself.
     body.state.x = Number.MAX_SAFE_INTEGER;
     for (let n = 0; n <= ARRIVAL_RINGS; n++) {
@@ -203,12 +234,15 @@ export class Channel {
         const y = this.ground.heightAt(Math.floor(x / this.ground.cellMm), Math.floor(z / this.ground.cellMm));
         Object.assign(body.state, { x, y, z, yaw: at.yaw });
         this.riding.delete(id);
+        this.sitting.delete(id);
         const seat = this.seats.get(id)!;
         Object.assign(seat, { wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle });
         seat.waiting.length = 0;
         return true;
       }
     }
+    // Nowhere to stand: where they were, they stay.
+    Object.assign(body.state, was);
     return false;
   }
 
@@ -246,8 +280,8 @@ export class Channel {
     const late: { id: number; move: MoveInput }[] = [];
     for (const [id, seat] of this.seats) {
       seat.owed = Math.min(STEPS_KEPT_AT_MOST, seat.owed + 1);
-      // A rider is carried: what their stick says is let go, and counted as had.
-      if (this.riding.has(id)) {
+      // A rider is carried, and someone at a table sits: what their stick says is let go, and counted as had.
+      if (this.riding.has(id) || this.sitting.has(id)) {
         const last = seat.waiting.at(-1);
         if (last) seat.lastInputSeq = last.seq;
         seat.waiting.length = 0;
@@ -273,6 +307,14 @@ export class Channel {
     for (const body of this.world.characters) {
       const seat = this.seats.get(body.id)!;
       if (this.riding.has(body.id)) {
+        seat.anim = DOING.sit;
+        continue;
+      }
+      // Seated at a table: in the seat, whatever the step did (nobody falls off a stool).
+      const sat = this.sitting.get(body.id);
+      if (sat) {
+        Object.assign(body.state, { x: sat.x, y: sat.y, z: sat.z, yaw: sat.yaw });
+        delete body.state.air;
         seat.anim = DOING.sit;
         continue;
       }

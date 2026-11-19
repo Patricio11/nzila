@@ -129,6 +129,14 @@ export const manifestSchema = z.strictObject({
   adSlots: z.array(adSlot),
   /** Places to sit: a bench, a wall, a step. Where the seat is, and the way a sitter faces, in degrees clockwise from the game's +Z. */
   seats: z.array(z.strictObject({ id, pos: z.tuple([z.number(), z.number(), z.number()]), facing: z.number() })),
+  /**
+   * The tables where the bairro plays (Task 4B.1): the game, the middle of the board's top, the way seat 0 faces (in
+   * degrees clockwise from +Z), the board's side in metres, and the seats in order round the table: seat 0 at the
+   * near side, then to its left, across, to its right. The boards and pieces are drawn by the game as the zone says.
+   */
+  tables: z
+    .array(z.strictObject({ id, game: z.enum(["xadrez", "damas", "ludo"]), pos, facing: z.number(), size: z.number().positive(), seats: z.array(z.strictObject({ pos, facing: z.number() })).min(2).max(4) }))
+    .optional(),
   /** Sheets of water: the bay, a lagoon. [minX, minZ, maxX, maxZ] in metres, and the height of the surface. */
   // `shore`: how far each metre of it is from land, as a small greyscale picture the pack builder makes (built, not written).
   water: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), level: z.number(), shore: z.string().optional() })),

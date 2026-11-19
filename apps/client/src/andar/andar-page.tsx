@@ -32,7 +32,7 @@ import { type VanSeen } from "../render/traffic.ts";
 import { account, balanceNow, type KeptOut } from "../world/account.ts";
 import { type TierName } from "../render/tiers.ts";
 import { dress, savedLook } from "../render/wardrobe.ts";
-import { Sound } from "../sound/sound.ts";
+import type { Sound } from "../sound/sound.ts";
 import { Telemovel, type Marked } from "../telemovel/telemovel.tsx";
 import { Arriving } from "../frontdoor/arriving.tsx";
 import { LocalWorld } from "../world/provider.ts";
@@ -53,7 +53,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { tap?: string; rideRefusals: number; shop: string | null; othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { tap?: string; mesa: number | null; rideRefusals: number; shop: string | null; othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -109,8 +109,10 @@ function LazyLoja({ show }: { show: (module: Loja) => preact.JSX.Element }) {
   return fetchedLoja ? show(fetchedLoja) : null;
 }
 
-type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy" | "entregar" | "procurar";
+type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy" | "entregar" | "procurar" | "xadrez" | "damas" | "ludo";
 type Errands = import("../recados/rua.ts").StreetErrands;
+/** The tables of the bairro (Task 4B.1), fetched when the district has any. */
+type Tables = import("../mesas/mesas.ts").Mesas;
 
 interface Hud {
   /** Whether talk is open where the player is; the last lines said near them; why their last line was not said. */
@@ -151,6 +153,9 @@ export function Andar() {
   // The cantina whose grille the player is at, and the Mochila, when open.
   const [shop, setShop] = useState<{ id: string; name: string } | null>(null);
   const errandsRef = useRef<Errands | null>(null);
+  // The table the zone has the player sitting at, whose board is open.
+  const tablesRef = useRef<Tables | null>(null);
+  const [table, setTable] = useState<number | null>(null);
   const [bag, setBag] = useState(false);
   // The browser's offer to install, kept until the first ride is over: never at the first second (Task 1.8).
   const offer = useRef<InstallOffer | null>(null);
@@ -194,13 +199,18 @@ export function Andar() {
     let tier = tierNow();
     const renderer = new WorldRenderer(element, tier);
     // A change of quality in Definições is a change of the picture at once.
-    // Sound: on unless Definições or Modo Poupança says otherwise; it wakes at the first touch or key.
-    const sound = new Sound();
+    // Sound: on unless Definições or Modo Poupança says otherwise; it wakes at the first touch or key. Fetched as the
+    // street opens, after the way in (F-202): a step or two in silence is all it costs.
+    let sound: Sound | null = null;
     const audible = (): boolean => world.settings.sound && !world.settings.poupanca;
-    sound.set(audible());
+    void import("../sound/sound.ts").then((module) => {
+      if (closed) return;
+      sound = new module.Sound();
+      sound.set(audible());
+    });
     let leftStops = new Set<string>();
     const unwatch = world.watch(() => {
-      sound.set(audible());
+      sound?.set(audible());
       if (tierNow() !== tier) renderer.setTier((tier = tierNow()));
     });
     const auto = params.has("auto");
@@ -214,6 +224,8 @@ export function Andar() {
     let said: { kind: "met" | "waved" | "greeted" | "got" | "recado" | "recadoNo"; name: string; amount?: number; until: number } | null = null;
     // Os recados do dia in the street, fetched once the player is among others.
     let errands: Errands | null = null;
+    let tables: Tables | null = null;
+    let atTable: { mesa: number } | null = null;
     const thanked = (answer: { said: string; pay?: number; who: string } | null): void => {
       if (!answer) return;
       said = answer.said === "ok" ? { kind: "recado", name: answer.who, amount: answer.pay ?? 0, until: performance.now() + 5000 } : { kind: "recadoNo", name: answer.said, until: performance.now() + 3500 };
@@ -312,6 +324,11 @@ export function Andar() {
             void errands.start();
           });
         }
+        if ((opened.manifest.tables?.length ?? 0) > 0) {
+          void import("../mesas/mesas.ts").then((module) => {
+            if (!closed) tables = tablesRef.current = new module.Mesas(opened, renderer, session);
+          });
+        }
         setArrived(true);
         setTimeout(() => setArrived(false), 2600);
       } catch {
@@ -392,7 +409,7 @@ export function Andar() {
         const standing = new Set(vans.filter((van) => van.dwelling).map((van) => `${van.route}/${van.index}`));
         for (const van of vans) {
           const far = Math.hypot(van.x - state.x / 1000, van.z - state.z / 1000);
-          if (!van.dwelling && leftStops.has(`${van.route}/${van.index}`) && far < 60) sound.hoot(1 - far / 60);
+          if (!van.dwelling && leftStops.has(`${van.route}/${van.index}`) && far < 60) sound?.hoot(1 - far / 60);
         }
         leftStops = standing;
         const waiting = ride ? null : (vans.filter((van) => van.dwelling && Math.hypot(van.x - state.x / 1000, van.z - state.z / 1000) < BOARD_REACH_M)[0] ?? null);
@@ -489,6 +506,32 @@ export function Andar() {
         // The gold button, a gesture asked for, and getting up by walking away. At the place of one of today's errands
         // it hands the thing over, or looks for whoever was to be there: before the caixa or the shop that may stand
         // at the same place, since the errand is why the player came.
+        // The tables: where the zone has the player sitting, they sit; the button sits them, or gets them up, through the zone.
+        const played = tables && !ride ? tables.frame(seconds, state.x / 1000, state.z / 1000) : null;
+        if (played?.mine && atTable?.mesa !== played.mine.mesa) {
+          atTable = played.mine;
+          seat = played.mine.seat;
+          setTable(played.mine.mesa);
+          // Over the player's right shoulder and close, at the table and whoever sits across it.
+          camera.yaw = seat.facing + Math.PI - 0.32;
+          camera.pitch = 0.42;
+          camera.distance = 3.2;
+        } else if (!played?.mine && atTable) {
+          atTable = null;
+          seat = null;
+          setTable(null);
+          camera.pitch = 0.2;
+          camera.distance = 4.4;
+        }
+        if (atTable && (asks.current.act || moving || asks.current.jump)) {
+          asks.current.act = asks.current.jump = false;
+          tables!.ask({ mesa: atTable.mesa, pedido: "levantar" });
+        }
+        const tableNear = !seat && !moving ? (played?.near ?? null) : null;
+        if (asks.current.act && tableNear) {
+          asks.current.act = false;
+          tables!.ask({ mesa: tableNear.mesa, pedido: "sentar", lugar: tableNear.lugar });
+        }
         const errand = !seat && !ride && !moving ? (errands?.near(state.x / 1000, state.z / 1000) ?? null) : null;
         if (asks.current.act && errand) {
           asks.current.act = false;
@@ -512,7 +555,7 @@ export function Andar() {
           asks.current.act = false;
           seat = seat ? null : nearest();
         }
-        if (seat && moving) seat = null;
+        if (seat && moving && !atTable) seat = null;
         if (jumpsAlways && seconds - air.last > 1.7) {
           air.last = seconds;
           asks.current.jump = true;
@@ -606,7 +649,7 @@ export function Andar() {
             }
             if (jumped) {
               air.count += 1;
-              sound.jump();
+              sound?.jump();
             }
           } else {
             session?.walked(STILL);
@@ -616,7 +659,7 @@ export function Andar() {
           air.liftAfter = jumpLiftMm(state) / 1000;
           if (air.after === 1) {
             air.land = 1;
-            sound.land();
+            sound?.land();
           }
         }
         air.land = Math.max(0, air.land - elapsed / 260);
@@ -636,7 +679,7 @@ export function Andar() {
           const stepsBefore = Math.floor(phase / Math.PI);
           phase += ((speed * elapsed) / 1000 / strideM) * Math.PI * 2;
           // A foot comes down twice in every turn of the stride.
-          if (Math.floor(phase / Math.PI) !== stepsBefore && speed > 0.4 && !ride && !seat) sound.step(speed > RUNS_ABOVE_M_S);
+          if (Math.floor(phase / Math.PI) !== stepsBefore && speed > 0.4 && !ride && !seat) sound?.step(speed > RUNS_ABOVE_M_S);
         }
         const target = seat ? seat.facing : moving ? Math.atan2(ask.dx, ask.dz) : facing;
         facing += Math.atan2(Math.sin(target - facing), Math.cos(target - facing)) * Math.min(1, elapsed / 90);
@@ -758,7 +801,7 @@ export function Andar() {
             // Today's errand may have been to greet someone new: said done, when it is, once the meeting has been said.
             void errands?.met().then((answer) => setTimeout(() => thanked(answer), 4600));
             session.met = null;
-            sound.meet();
+            sound?.meet();
           } else if (session.waved) {
             // Only a wave from close by is an invitation to wave back.
             const head = heads.find((one) => one.id === session!.waved!.entity);
@@ -772,7 +815,7 @@ export function Andar() {
           }
         }
 
-        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : seat ? "stand" : waiting ? "board" : errand ? (errand.kind === "traz" ? "entregar" : "procurar") : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : !moving && nearest() ? "sit" : null;
+        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : atTable ? null : seat ? "stand" : waiting ? "board" : tableNear ? tableNear.jogo : errand ? (errand.kind === "traz" ? "entregar" : "procurar") : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : !moving && nearest() ? "sit" : null;
         // Where each other player's chest is on the screen, in CSS pixels: for the tests that tap someone. Only those in
         // front of the camera: one behind it would project, mirrored, onto an empty part of the screen.
         const box = canvas.current?.getBoundingClientRect();
@@ -780,7 +823,7 @@ export function Andar() {
           const point = new Vector3(one.x, one.y - 0.6, one.z).project(renderer.camera);
           return point.z > 1 ? [] : [{ x: box.left + ((point.x + 1) / 2) * box.width, y: box.top + ((1 - point.y) / 2) * box.height }];
         }) : [];
-        window.__andar = { ...(window.__andar?.tap ? { tap: window.__andar.tap } : {}), rideRefusals, shop: shopHere?.id ?? null, othersOnScreen: onScreen, shoulder, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound.played, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { ...(window.__andar?.tap ? { tap: window.__andar.tap } : {}), mesa: atTable?.mesa ?? null, rideRefusals, shop: shopHere?.id ?? null, othersOnScreen: onScreen, shoulder, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound?.played ?? 0, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -789,7 +832,7 @@ export function Andar() {
           let traffic = ride ? 1 : 0;
           for (let d = 0; d <= 48 && water === 0; d += 4) if (cell(0, -d) & CELL_WATER) water = 1 - d / 52;
           for (let d = 0; d <= 24 && traffic === 0; d += 3) if ((cell(0, d) | cell(0, -d) | cell(d, 0) | cell(-d, 0)) & CELL_DRIVE) traffic = 1 - d / 28;
-          sound.ambience(water, traffic);
+          sound?.ambience(water, traffic);
           lastHud = now;
           // The compass turns with the camera: what is ahead is at the top. North is the world's -Z.
           const heading = (((Math.atan2(-Math.sin(camera.yaw), Math.cos(camera.yaw)) * 180) / Math.PI) + 360) % 360;
@@ -827,7 +870,7 @@ export function Andar() {
     // The lower third on the thumb's side is the stick, wherever the thumb lands; everywhere else turns the camera.
     const touches = new Map<number, { kind: "stick" | "look"; x: number; y: number; fromX: number; fromY: number; at: number }>();
     const down = (event: PointerEvent): void => {
-      sound.wake();
+      sound?.wake();
       const rect = element.getBoundingClientRect();
       const across = (event.clientX - rect.left) / rect.width;
       const inZone = event.pointerType !== "mouse" && (across < 0.5) !== world.settings.leftHanded && event.clientY - rect.top > rect.height * 0.45;
@@ -868,7 +911,7 @@ export function Andar() {
       }
     };
     const keyDown = (event: KeyboardEvent): void => {
-      sound.wake();
+      sound?.wake();
       const key = event.key.toLowerCase();
       keys.add(key);
       // On a keyboard: E is the gold button, 1 to 4 the gestures.
@@ -905,9 +948,11 @@ export function Andar() {
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("resize", onResize);
       unwatch();
-      sound.close();
+      sound?.close();
       errands?.close();
       errandsRef.current = null;
+      tables?.close();
+      tablesRef.current = null;
       cabin.dispose();
       session?.close();
       net.current = null;
@@ -1010,6 +1055,7 @@ export function Andar() {
           )}
           {shop ? <LazyLoja show={(loja) => <loja.Cantina shop={shop} second={hud.second} place={hud.place} onClose={() => (setShop(null), void errandsRef.current?.mochila())} />} /> : null}
           {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila onClose={() => setBag(false)} />} /> : null}
+          {table !== null && tablesRef.current ? <tablesRef.current.Tabuleiro mesas={tablesRef.current} mesa={table} /> : null}
           {met ? (
             <LazySheet
               met={met}

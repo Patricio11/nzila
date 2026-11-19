@@ -14,11 +14,12 @@ import { type ChatFilter } from "@nzila/i18n";
 import {
   type EntityState,
   type RideAsked,
-  encodeTraffic, EVENT, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, CHAT_REFUSAL } from "@nzila/protocol";
+  encodeTraffic, EVENT, MESA_RECUSAS, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, type MesaPedido, CHAT_REFUSAL } from "@nzila/protocol";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
 import { CAIXA_REACH_MM, MET_TTL_S, PLACE_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
+import { MESA_SEEN_MM, Mesas } from "./mesas.ts";
 import { Talk, reached } from "./talk.ts";
 
 /** How many people one channel holds when nobody says otherwise (the tunable `channels.cap`; held by the swarm of 3.7). */
@@ -112,6 +113,8 @@ interface Held {
   placeAt: number;
   /** The players this one has met in this channel, by their ids: the API asks whether one of them is new. */
   metPlayers: Set<string>;
+  /** The tables near them, and the version of each they were last told: a table is told again when it changes, or when they come near again. */
+  tables: Map<number, number>;
 }
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
@@ -155,6 +158,8 @@ export class ChannelRoom {
   /** The street's traffic, when the district has any: decided here for everyone (F-152). */
   private readonly traffic: TrafficRules | null;
   private trafficAt = 0;
+  /** The district's tables, and the games at them, when it has any (Task 4B.1). */
+  readonly mesas: Mesas | null;
   /** Players a moderator has silenced, and the kicks already carried out (a kick stands for half a minute and is done once). */
   private readonly muted = new Set<string>();
   private readonly kicked = new Set<number>();
@@ -181,6 +186,7 @@ export class ChannelRoom {
     this.number = number;
     this.channel = new Channel(deps.district.ground, deps.district.obstacles);
     this.traffic = deps.district.traffic ? new TrafficRules(deps.district.traffic.lines, deps.district.traffic.roamers) : null;
+    this.mesas = (deps.district.tables?.length ?? 0) > 0 ? new Mesas(deps.district.tables!, Date.now()) : null;
   }
 
   /** How many people are in or on their way in (the database is being asked about them), and how many more would fit. */
@@ -304,7 +310,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map() });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -328,7 +334,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set() });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map() });
     this.lineOfEntity.set(entityId, line);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
@@ -353,6 +359,11 @@ export class ChannelRoom {
   private async depart(held: Held): Promise<Place | null> {
     // Whoever saw them typing is told they have stopped: nobody is left with three dots over an empty place.
     if (held.typing) this.saysTyping(held, false);
+    // A seat at a table is given to a kota, who plays on; and they leave the street standing beside it.
+    if (this.mesas?.seatOf(held.playerId)) {
+      this.mesas.leave(held.playerId, Date.now());
+      this.channel.standUp(held.entityId, this.channel.sittingOf(held.entityId)!);
+    }
     this.talk?.forget(held.entityId);
     this.shut.delete(held.playerId);
     const left = this.channel.leave(held.entityId);
@@ -381,6 +392,7 @@ export class ChannelRoom {
       else if (message.type === "emote") this.gestures(held, message.emote);
       else if (message.type === "ride") this.rides(line, held, message.ride);
       else if (message.type === "nudge") this.nudges(held, message.entity);
+      else if (message.type === "mesa") this.atTable(line, held, message);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -481,7 +493,7 @@ export class ChannelRoom {
       const at = this.channel.placeOf(held.entityId);
       const taken = new Set(this.channel.riders().filter((one) => one.vehicle === asked.on).map((one) => one.seat));
       const free = seats.find((seat) => !taken.has(seat));
-      if (this.channel.ridingOf(held.entityId) || !van?.van?.dwelling || !at || Math.hypot(van.x * 1000 - at.x, van.z * 1000 - at.z) > BOARD_REACH_MM || free === undefined) {
+      if (this.channel.ridingOf(held.entityId) || this.channel.sittingOf(held.entityId) || !van?.van?.dwelling || !at || Math.hypot(van.x * 1000 - at.x, van.z * 1000 - at.z) > BOARD_REACH_MM || free === undefined) {
         line.send(encodeEvent({ kind: EVENT.RIDE_REFUSED, tick: this.channel.world.tick, subject: asked.on, args: [], text: "" }));
         return;
       }
@@ -497,6 +509,50 @@ export class ChannelRoom {
     const near = Math.hypot(asked.off.x - (van ? van.x * 1000 : from.x), asked.off.z - (van ? van.z * 1000 : from.z)) <= ALIGHT_REACH_MM;
     const at = near ? { x: asked.off.x, y: from.y, z: asked.off.z, yaw: from.yaw } : from;
     if (!this.channel.alight(held.entityId, at)) this.channel.alight(held.entityId, this.district.arrival);
+  }
+
+  /**
+   * What a player asks of a table (Task 4B.1): to sit, get up, begin, play, throw. The zone checks where they stand
+   * and the rules; their body is seated or stood up as the table says, and everyone near the table is told at once.
+   */
+  private atTable(line: Line, held: Held, pedido: MesaPedido): void {
+    if (!this.mesas) return;
+    const now = Date.now();
+    const at = this.channel.ridingOf(held.entityId) ? null : (this.channel.sittingOf(held.entityId) ?? this.channel.placeOf(held.entityId));
+    const done = this.mesas.ask(held.playerId, at, pedido, now);
+    if (typeof done === "string") {
+      line.send(encodeEvent({ kind: EVENT.MESA_REFUSED, tick: this.channel.world.tick, subject: pedido.mesa, args: [MESA_RECUSAS.indexOf(done)], text: "" }));
+      return;
+    }
+    if ("sit" in done) this.channel.sit(held.entityId, done.sit);
+    if ("stand" in done) this.channel.standUp(held.entityId, done.stand);
+    this.tellTables(now);
+  }
+
+  /** Whoever is near a table is told how it stands, when it has changed since they were last told or they have just come near. */
+  private tellTables(now: number): void {
+    const mesas = this.mesas!;
+    const entityOf = (playerId: string): number => {
+      for (const held of this.held.values()) if (held.playerId === playerId) return held.entityId;
+      return this.away.get(playerId)?.held.entityId ?? 0;
+    };
+    const said = new Map<number, Uint8Array>();
+    for (const [line, held] of this.held) {
+      const at = this.channel.placeOf(held.entityId);
+      if (!at) continue;
+      for (let index = 0; index < mesas.count; index++) {
+        const table = mesas.placeOf(index)!;
+        if (Math.hypot(table.x - at.x, table.z - at.z) > MESA_SEEN_MM) {
+          held.tables.delete(index);
+          continue;
+        }
+        if (held.tables.get(index) === mesas.versionOf(index)) continue;
+        held.tables.set(index, mesas.versionOf(index));
+        let bytes = said.get(index);
+        if (!bytes) said.set(index, (bytes = mesas.said(index, entityOf, now)));
+        line.send(bytes);
+      }
+    }
   }
 
   /**
@@ -670,6 +726,17 @@ export class ChannelRoom {
         held.placeAt = now;
         void this.presence.mark(held.playerId, "lugar", `${index}/${places.length}`).catch(() => {});
       }
+    }
+    // The tables: time passes at them (a kota plays, a turn runs out, the next game begins), and whoever is near is
+    // told what changed. Someone whose seat was given to a kota for letting their turns run out is stood up.
+    if (tick % STEPS_A_LOOK === 0 && this.mesas) {
+      const now = Date.now();
+      for (const one of this.mesas.step(now)) {
+        const line = this.lineOf(one.playerId);
+        const entity = line ? this.held.get(line)!.entityId : this.away.get(one.playerId)?.held.entityId;
+        if (entity !== undefined) this.channel.standUp(entity, one.stand);
+      }
+      this.tellTables(now);
     }
     // And whoever stands close to another is said to be with them, so that the API will let one hand the other
     // Makuta (Task 4.1): the few nearest within arm's reach, said when it changes and once a second while it is so.

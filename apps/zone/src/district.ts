@@ -8,15 +8,16 @@ import { readFile } from "node:fs/promises";
 import { inflateRawSync } from "node:zlib";
 import { type Ground, type Obstacle } from "@nzila/sim";
 import { zoneRoomOf } from "@nzila/protocol";
-import { decodeWalkGrid, groundOf, seatObstacles, vanRoute, type CrowdActor, type CrowdFile, type RoamerPlan, type SeatPlace } from "@nzila/world";
+import { decodeWalkGrid, groundOf, seatObstacles, tableObstacles, vanRoute, type CrowdActor, type CrowdFile, type RoamerPlan, type SeatPlace } from "@nzila/world";
 import { type Route } from "@nzila/sim";
 import { type Place } from "./channel.ts";
+import { type TablePlace } from "./mesas.ts";
 
 export interface District {
   readonly id: string;
   readonly provinceId: string;
   readonly ground: Ground;
-  /** What stands on it that the walk grid does not hold: the benches, as every phone has them too. */
+  /** What stands on it that the walk grid does not hold: the benches and the tables, as every phone has them too. */
   readonly obstacles: readonly Obstacle[];
   /** Where a first arrival stands. */
   readonly arrival: Place;
@@ -40,6 +41,8 @@ export interface District {
   readonly shops?: readonly { readonly id: string; readonly x: number; readonly z: number }[];
   /** Every place of the district in the pack's order: an errand names one by its number, which every phone counts the same way. */
   readonly places?: readonly { readonly x: number; readonly z: number }[];
+  /** The tables where the bairro plays, in the pack's order: a phone names one by its number. Millimetres. */
+  readonly tables?: readonly TablePlace[];
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -53,6 +56,7 @@ interface ManifestRead {
   readonly routes?: readonly { readonly id: string; readonly kind: string; readonly spline: string; readonly stopPoints: readonly number[]; readonly headwaySeconds: number }[];
   readonly npc?: { readonly crowd: string | null };
   readonly spawns: readonly { readonly pos: readonly [number, number, number]; readonly facing?: number; readonly kind: string }[];
+  readonly tables?: readonly { readonly game: "xadrez" | "damas" | "ludo"; readonly pos: readonly [number, number, number]; readonly facing: number; readonly seats: readonly { readonly pos: readonly [number, number, number]; readonly facing: number }[] }[];
 }
 
 /** The sign over a caixa, as a pack's manifest names it; and how near one a player must stand to use it, in millimetres. */
@@ -90,7 +94,15 @@ export async function loadDistrict(packDir: URL): Promise<District> {
   // A place whose sign is a shop's is one: a player standing at it may buy what it sells.
   const shops = (manifest.pois ?? []).filter((one) => SHOP_GLYPHS.includes(one.glyph ?? "")).map((one) => ({ id: one.id, x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   const places = (manifest.pois ?? []).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: seatObstacles(manifest.seats ?? []), arrival, paragens, caixas, shops, places, ...(await trafficOf(manifest, packDir)) };
+  // A seat at a table is where the body sits: its height is the seat's, and the sitter faces the table.
+  const mm = (metres: number): number => Math.round(metres * 1000);
+  const tables = (manifest.tables ?? []).map((one): TablePlace => ({
+    jogo: one.game,
+    x: mm(one.pos[0]),
+    z: mm(one.pos[2]),
+    seats: one.seats.map((seat) => ({ x: mm(seat.pos[0]), y: mm(seat.pos[1]), z: mm(seat.pos[2]), yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) })),
+  }));
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, tables, ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

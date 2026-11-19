@@ -250,6 +250,45 @@ describe("riding a van (F-157)", () => {
   });
 });
 
+describe("sitting at a table (Task 4B.1)", () => {
+  test("seated, the stick is let go and everyone sees them sitting, in the seat, however long; up, they stand behind it and walk", () => {
+    const channel = new Channel(ground);
+    const a = channel.join("player-a", here)!;
+    // The seat is a stool on ground that is not walked: its height is the seat's.
+    const stool = { x: 4000, y: 460, z: 9800, yaw: 18_000 };
+    expect(channel.sit(a, stool)).toBe(true);
+    walking(channel, a, 1, 30);
+    expect(channel.placeOf(a)).toEqual(stool);
+    expect(channel.sittingOf(a)).toEqual(stool);
+    expect(channel.entities().find((one) => one.id === a)).toMatchObject({ anim: DOING.sit, vehicleId: null });
+    // Up behind the stool, on the ground.
+    expect(channel.standUp(a, { x: 4000, y: 0, z: 8500, yaw: 0 })).toBe(true);
+    expect(channel.placeOf(a)).toMatchObject({ x: 4000, y: 0, z: 8500 });
+    expect(channel.sittingOf(a)).toBeNull();
+    walking(channel, a, 40, 10);
+    expect(channel.placeOf(a)!.z).toBeGreaterThan(8500);
+    // Getting up when not sitting does nothing.
+    expect(channel.standUp(a, here)).toBe(false);
+  });
+
+  test("nobody sits who rides or is not there; nowhere to stand, they stay seated; leaving the channel leaves the seat", () => {
+    const channel = new Channel(ground);
+    const a = channel.join("player-a", here)!;
+    const b = channel.join("player-b", { x: 50_000, y: 0, z: 0, yaw: 0 })!;
+    expect(channel.sit(999, here)).toBe(false);
+    channel.ride(b, 1, 1);
+    expect(channel.sit(b, here)).toBe(false);
+    const stool = { x: 0, y: 460, z: 3000, yaw: 0 };
+    channel.sit(a, stool);
+    // Behind the wall and beyond the edge there is no room anywhere near.
+    expect(channel.standUp(a, { x: 900_000, y: 0, z: 0, yaw: 0 })).toBe(false);
+    expect(channel.placeOf(a)).toEqual(stool);
+    expect(channel.sittingOf(a)).toEqual(stool);
+    channel.leave(a);
+    expect(channel.sittingOf(a)).toBeNull();
+  });
+});
+
 describe("what stands in the district", () => {
   test("a bench stops a walk in the zone as it does on the phone", () => {
     const channel = new Channel(ground, [{ kind: "box", x: 0, z: 3000, halfWidthMm: 850, halfLengthMm: 270, yaw: 0 }]);

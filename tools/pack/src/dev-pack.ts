@@ -69,6 +69,7 @@ interface DevLayout {
   caixa: [number, number, number];
   cantina: [number, number, number];
   seats: { pos: [number, number, number]; facing: number }[];
+  tables: { game: "xadrez" | "damas" | "ludo"; pos: [number, number, number]; facing: number; size: number; seats: { pos: [number, number, number]; facing: number }[] }[];
   water: { rect: [number, number, number, number]; level: number };
 }
 
@@ -120,6 +121,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
     heat: { lighting: null, policePosts: [], override: null },
     adSlots: [],
     seats: layout.seats.map((seat, n) => ({ id: `seat-${n + 1}`, pos: seat.pos, facing: seat.facing })),
+    tables: layout.tables.map((table, n) => ({ id: `mesa-${n + 1}`, ...table })),
     water: [{ id: "bay", rect: layout.water.rect, level: layout.water.level }],
     map: "mapa.json",
     strings: "strings.pt-AO.json",

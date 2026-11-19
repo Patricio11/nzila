@@ -17,6 +17,7 @@
   "dependencies": {
     "@nzila/db": "workspace:*",
     "@nzila/economy": "workspace:*",
+    "@nzila/games": "workspace:*",
     "@nzila/i18n": "workspace:*",
     "@nzila/presence": "workspace:*",
     "@nzila/protocol": "workspace:*",

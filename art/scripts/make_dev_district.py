@@ -27,6 +27,7 @@ import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kit  # noqa: E402
+import kit_baixa  # noqa: E402
 
 args = sys.argv[sys.argv.index("--") + 1:]
 out_dir = os.path.abspath(args[0])
@@ -434,6 +435,17 @@ _spot = next((x, z) for x, z in sorted(_spots, key=lambda p: math.hypot(p[0] - _
 kit.cantina(b, _spot[0], _spot[1], math.pi, KERB)
 places["cantina"] = [round(_spot[0] - 0.8, 2), KERB, round(_spot[1] - 3.2, 2)]
 
+# The tables where the bairro plays (Task 4B.1), in a row on open pavement near where people arrive, clear of the
+# caixa and the cantina: Não te irrites, two of xadrez, damas. As on the Largo; the game draws boards and pieces.
+_rows = [(_cx + dx * 0.5, _cz + 4.0 + dz * 0.5) for dz in range(0, 16) for dx in range(-80, 80)]
+_row = next((x, z) for x, z in sorted(_rows, key=lambda p: math.hypot(p[0] + 7.5 - _cx, p[1] - _cz)) if _paved(x - 1.8, z - 1.8, x + 15.0 + 1.8, z + 1.8)
+            and all(math.hypot(x + k * 5.0 - _cx, z - _cz) > 7.5 and math.hypot(x + k * 5.0 - _spot[0], z - _spot[1]) > 7.0 and math.hypot(x + k * 5.0 - _cx - 2.4, z - _cz + 1.2) > 5.0 for k in range(4)))
+tables = []
+for _k, (_kind, _yaw) in enumerate((("ludo", 0.0), ("xadrez", 0.0), ("xadrez", math.pi / 2), ("damas", 0.0))):
+    _tx = _row[0] + _k * 5.0
+    _, _table = {"ludo": kit_baixa.mesa_de_ludo, "xadrez": kit_baixa.mesa_de_xadrez, "damas": kit_baixa.mesa_de_damas}[_kind](b, _tx, _row[1], _yaw, KERB)
+    tables.append(_table)
+
 # Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
 # a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
 def _flag_at(ix, iz):
@@ -493,6 +505,7 @@ layout = {
     "caixa": places["caixa"],
     "cantina": places["cantina"],
     "seats": [{"pos": [round(x, 2), round(y, 2), round(z, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for x, y, z, yaw in b.seats],
+    "tables": [{"game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for t in tables],
     # The bay: from the foot of the sea wall out past the edge of what is modelled.
     "water": {"rect": [-300, sea_wall + 0.6, ACROSS * CHUNK + 300, DOWN * CHUNK + 400], "level": -0.45},
     "promenade": {"z": sea_wall - 5.0},

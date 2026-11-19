@@ -492,11 +492,15 @@ for i, sx in enumerate([mx0 + 10.0, mx0 + 15.5, mx0 + 21.5, mx0 + 29.0]):
         block(sx + dx, seat_z + dz, kb.bacia_no_chao(b, sx + dx, seat_z + dz, rng, G))
     sellers.append((sx, seat_z))
 poi("fruta", mx0 + 14.0, z0 + 9.0, "A fila da fruta", "Manga, maboque, múcua. Prova antes de comprar, ninguém leva a mal.")
-# Largo da Mutamba: an open square, trees, chess tables, and the paragem where the linhas meet.
+# Largo da Mutamba: an open square, trees, the tables where the bairro plays, and the paragem where the linhas meet.
 lx0, lx1 = BLOCKS[1]
-for i in range(4):
-    cx_, cz_ = lx0 + 14 + i * 5.0, z0 + 12.0
-    block(cx_, cz_, kb.mesa_de_xadrez(b, cx_, cz_, G))
+# The tables (Task 4B.1), each kind its own: Não te irrites, two of xadrez, one of damas. The game draws the
+# boards and the pieces as the games stand, and the kotas who play when no player sits.
+tables = []
+for kind, tx_, yaw_ in (("ludo", 8.0, 0.0), ("xadrez", 13.5, 0.0), ("xadrez", 18.0, math.pi / 2), ("damas", 22.5, 0.0)):
+    cx_, cz_ = lx0 + tx_, z0 + 12.0
+    _, table_ = {"ludo": kb.mesa_de_ludo, "xadrez": kb.mesa_de_xadrez, "damas": kb.mesa_de_damas}[kind](b, cx_, cz_, yaw_, G)
+    tables.append(table_)
 # The square is paved in calçada, in a pattern of squares, with lamps at its corners and sellers under sunshades.
 for i in range(9):
     for j in range(5):
@@ -533,7 +537,7 @@ block(cantina_x, cantina_z, 2.6)
 words["l1.poi.cantina-largo.name"] = "Cantina do Largo"
 words["l1.poi.cantina-largo.line"] = "Pão, gasosa, arroz, sabão, velas. Tudo pela grade, e a dona conhece toda a gente."
 places["pois"].append({"id": "cantina-largo", "pos": [round(cantina_x - 0.8, 2), G, round(cantina_z - 3.2, 2)], "nameKey": "l1.poi.cantina-largo.name", "lineKey": "l1.poi.cantina-largo.line", "positive": True, "stamp": False, "glyph": "cantina"})
-poi("xadrez", lx0 + 21.0, z0 + 14.0, "As mesas de xadrez do Largo", "Os kotas jogam aqui desde manhã. Quem perde paga o café.")
+poi("xadrez", lx0 + 15.5, z0 + 14.5, "As mesas do Largo", "Xadrez, damas e Não te irrites. Os kotas jogam aqui desde manhã, e quem perde paga o café.")
 paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutamba")
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down
 poi("cobrador", lx0 + 44.0, z0 + 4.5, "A paragem da Mutamba", "Diz-se que o cobrador daqui se ouve na Ilha.")
@@ -1049,6 +1053,7 @@ partial = {
     "signs": signs,
     "map": "mapa.json",
     "seats": [{"id": f"seat-{n + 1}", "pos": [round(sx, 2), round(sy, 2), round(sz, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for n, (sx, sy, sz, yaw) in enumerate(b.seats)],
+    "tables": [{"id": f"mesa-{n + 1}", "game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for n, t in enumerate(tables)],
     "water": [{"id": "baia", "rect": [-400, -500, WIDE + 400, 70], "level": -0.45}],
     "strings": "strings.pt-AO.json",
 }

@@ -9,7 +9,7 @@
 
 import { WORLD } from "@nzila/world/client";
 import { useEffect, useRef } from "preact/hooks";
-import { loadDog, type Dog } from "../render/dog.ts";
+import type { Dog } from "../render/dog.ts";
 import { EMOTES, EMOTE_SECONDS, loadPerson, strideOf, type Emote, type Person, type Rest } from "../render/person.ts";
 import { ground } from "../render/ground.ts";
 import { type TierName } from "../render/tiers.ts";
@@ -57,7 +57,7 @@ export function Pose() {
       const loaded = await Promise.all(
         who.map(async (n, i) => {
           const one = list.people[n] ?? list.people[0]!;
-          const person: Person | Dog = one.animal ? await loadDog(renderer, BASE + one.model, one.height) : await loadPerson(renderer, BASE + one.model, one.height, one.skirt, one.female === true);
+          const person: Person | Dog = one.animal ? await (await import("../render/dog.ts")).loadDog(renderer, BASE + one.model, one.height) : await loadPerson(renderer, BASE + one.model, one.height, one.skirt, one.female === true);
           person.seed = n * 1.7;
           person.root.position.set((i - (who.length - 1) / 2) * gap, seated && !one.animal ? seatY - 0.46 * (one.height / 1.7) : 0, 0);
           renderer.scene.add(person.root);

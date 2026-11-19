@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@nzila/economy": "workspace:*",
+    "@nzila/games": "workspace:*",
     "@nzila/i18n": "workspace:*",
     "@nzila/protocol": "workspace:*",
     "@nzila/sim": "workspace:*",

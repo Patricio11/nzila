@@ -1,0 +1,63 @@
+/* The board on the phone (tabuleiro.tsx): a sheet from the bottom, the street and the table still seen above it. */
+.ms-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; box-sizing: border-box; width: min(100%, 460px); margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-2);
+  padding: 0 var(--s-3) calc(var(--s-3) + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; background: var(--n-noite); color: var(--n-luz);
+  pointer-events: auto; box-shadow: 0 -8px 24px var(--n-sombra); animation: ms-up 260ms cubic-bezier(0.2, 1.2, 0.4, 1) both; overflow: hidden; }
+@keyframes ms-up { from { transform: translateY(45%); opacity: 0; } }
+
+/* The band of the pano: black, red and yellow, triangles pointing in. */
+.ms-band { height: 10px; margin: 0 calc(var(--s-3) * -1); flex: none;
+  background: linear-gradient(135deg, var(--n-dourado) 25%, transparent 25%) 0 0 / 14px 10px repeat-x, linear-gradient(225deg, var(--n-dourado) 25%, transparent 25%) 0 0 / 14px 10px repeat-x, var(--n-vermelho);
+  box-shadow: inset 0 -3px 0 var(--n-pano-preto); }
+
+.ms-head { display: flex; flex-direction: column; gap: 6px; }
+.ms-head h2 { margin: 0; font: var(--type-title); color: var(--n-dourado); }
+.ms-seats { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.ms-seat { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 10px 3px 4px; border-radius: var(--r-chip); background: var(--n-noite-2);
+  box-shadow: inset 0 0 0 1.5px var(--n-linha); font: var(--type-small); font-size: 13px; transition: box-shadow 160ms, transform 160ms; }
+.ms-seat span { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-seat b { font: var(--type-label); font-size: 13px; color: var(--n-dourado); font-variant-numeric: tabular-nums; }
+.ms-seat-me span { font-weight: 700; }
+.ms-seat-turn { box-shadow: inset 0 0 0 2px var(--n-dourado); transform: translateY(-1px); }
+.ms-side { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--n-sombra), 0 0 0 1.5px var(--n-luz-suave); }
+
+.ms-board { position: relative; align-self: center; width: min(100%, 380px, 52vh); aspect-ratio: 1; }
+.ms-squares, .ms-ludo { display: block; width: 100%; height: 100%; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 0 var(--n-noite-fundo), 0 0 0 2px var(--n-noite-fundo); }
+.ms-frame { fill: var(--ms-xadrez-moldura); }
+.ms-damas .ms-frame { fill: var(--ms-damas-faixa); }
+.ms-light { fill: var(--ms-xadrez-claro); }
+.ms-dark { fill: var(--ms-xadrez-escuro); }
+.ms-damas .ms-light { fill: var(--ms-damas-claro); }
+.ms-damas .ms-dark { fill: var(--ms-damas-escuro); }
+.ms-last { fill: var(--n-brilho-dourado); pointer-events: none; }
+.ms-piece { cursor: pointer; transition: transform 140ms; }
+.ms-white { fill: var(--ms-marfim); stroke: var(--ms-ebano); stroke-width: 4; stroke-linejoin: round; }
+.ms-black { fill: var(--ms-ebano); stroke: var(--ms-marfim); stroke-width: 2.5; stroke-linejoin: round; }
+.ms-cap-light { fill: var(--ms-carica-clara); stroke: var(--ms-carica-clara-borda); stroke-width: 0.05; stroke-dasharray: 0.07 0.05; }
+.ms-cap-dark { fill: var(--ms-carica-escura); stroke: var(--ms-carica-escura-borda); stroke-width: 0.05; stroke-dasharray: 0.07 0.05; }
+.ms-cap-ring { fill: none; stroke: var(--n-sombra); stroke-width: 0.03; }
+.ms-shine { fill: var(--n-brilho); }
+.ms-crown { fill: var(--n-dourado); stroke: var(--n-noite); stroke-width: 0.02; }
+.ms-can path, .ms-can circle:first-child { filter: drop-shadow(0 0 0.06px var(--n-dourado)); }
+.ms-can { animation: ms-can 1.4s ease-in-out infinite; }
+@keyframes ms-can { 50% { opacity: 0.82; } }
+.ms-chosen path, .ms-chosen circle:first-child { stroke: var(--n-dourado); }
+.ms-chosen { animation: none; }
+.ms-target { fill: var(--n-dourado); opacity: 0.85; stroke: var(--n-noite); stroke-width: 0.04; cursor: pointer; animation: ms-pulse 900ms ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+@keyframes ms-pulse { to { transform: scale(1.25); } }
+
+.ms-ludo { position: relative; }
+.ms-ludo > canvas, .ms-ludo-pieces { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ms-die { position: absolute; right: 50%; bottom: 50%; width: 40px; height: 40px; margin: 0 -20px -20px 0; border-radius: 8px; background: var(--ms-dado);
+  animation: ms-roll 520ms cubic-bezier(0.2, 1.6, 0.4, 1) both; pointer-events: none; }
+@keyframes ms-roll { from { transform: rotate(-200deg) scale(0.4); } }
+
+.ms-promote { position: absolute; inset: auto 8px 8px; display: flex; justify-content: center; gap: 8px; padding: 8px; border-radius: 12px; background: var(--n-noite-2); box-shadow: 0 0 0 2px var(--n-dourado); }
+.ms-promote button { width: 54px; height: 54px; padding: 4px; border: 0; border-radius: 10px; background: var(--ms-xadrez-claro); cursor: pointer; }
+.ms-promote svg { width: 100%; height: 100%; }
+
+.ms-line { margin: 0; min-height: 1.3em; text-align: center; font: var(--type-label); color: var(--n-luz-suave); }
+.ms-line-go { color: var(--n-dourado); animation: ms-say 300ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.ms-line-no { color: var(--n-gasto); }
+@keyframes ms-say { from { transform: scale(0.9); } }
+.ms-foot { display: flex; gap: var(--s-2); }
+.ms-foot .n-button { flex: 1; }

@@ -57,8 +57,17 @@ DOGS = [
     {"role": "cao", "name": "cao", "animal": "cao", "coat": "shoeTan", "saddle": "acaciaTrunk", "pale": "sand"},
     {"role": "cao", "name": "cao-2", "animal": "cao", "coat": "clothBlack", "saddle": "clothBlack", "pale": "shoeTan"},
 ]
+# The kotas of the bairro, who sit at the tables of the Largo from the morning on (Task 4B.1): a man in a flat cap,
+# a bald one with a grey moustache, a mamã in her lenço who never loses at Não te irrites, and an old man who still
+# wears the jacket of his working days. At the end of the list, so that nobody else's place in it moves.
+KOTAS = [
+    {"role": "kota", "name": "kota-1", "sex": "m", "skin": 2, "height": 1.70, "build": 1.04, "hair": "bone", "cap": "clothBlack", "hair_colour": "hairGrey", "beard": True, "top": "camisa", "top_colour": "awningTeal", "bottom": "trousers", "bottom_colour": "khaki", "shoe": "shoe"},
+    {"role": "kota", "name": "kota-2", "sex": "m", "skin": 4, "height": 1.68, "build": 1.1, "hair": "careca", "hair_colour": "hairGrey", "bigode": True, "top": "camisola", "top_colour": "khaki", "bottom": "trousers", "bottom_colour": "clothBlack", "shoe": "shoeTan"},
+    {"role": "kota", "name": "kota-3", "sex": "f", "skin": 1, "height": 1.60, "build": 1.15, "hair": "lenco", "lenco": "awningRed", "top": "blusa", "top_colour": "paintWhite", "bottom": "pano", "bottom_colour": "zincBlue", "bands": "awningGold", "pattern": "losangos", "shoe": "chinelo", "smile": True},
+    {"role": "kota", "name": "kota-4", "sex": "m", "skin": 0, "height": 1.74, "build": 1.0, "hair": "baixo", "hair_colour": "hairGrey", "beard": True, "top": "fato", "top_colour": "khaki", "bottom": "trousers", "bottom_colour": "clothBlack", "bands": "awningRed", "shoe": "shoe"},
+]
 PLAYABLE = len(SPECS)
-SPECS = SPECS + STREET + CHILDREN + DOGS
+SPECS = SPECS + STREET + CHILDREN + DOGS + KOTAS
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 image = bpy.data.images.load(os.path.abspath(args[2]))

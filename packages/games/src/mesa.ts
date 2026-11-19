@@ -1,0 +1,254 @@
+// A table in the street (Task 4B.1): who sits at it, whose turn it is, and what the kotas of the bairro do when a
+// seat is nobody's. Pure, like the rules it plays by: the zone holds one of these for each table, hands it the
+// time and the dice, and tells the phones near the table what comes out.
+//
+// How a table lives:
+//   - with nobody sitting, two (or four) kotas play among themselves, slowly, for whoever stops to watch;
+//   - the first player to sit sets the board up afresh and waits a little for someone else to sit; then, or as
+//     soon as they say so, a kota takes the free seat and the game begins;
+//   - someone who sits where a kota is playing a player takes the kota's place and the game goes on;
+//   - a player whose time for a move runs out has the kota play it for them; three in a row, and the seat is the kota's;
+//   - a player who gets up leaves the seat to a kota, who finishes the game for them;
+//   - after a game, a short rest, and the next begins with whoever is still sitting, the first side going to the other seat;
+//   - a seat can be kept for someone invited, for ten minutes: nobody else sits in it, and no kota starts in their place.
+
+import { damasBot, newDamas, playDamas, type Damas, type DamasMove } from "./damas.ts";
+import { ludoBot, ludoMoves, newLudo, playLudo, type Ludo, type LudoMove } from "./ludo.ts";
+import { newXadrez, playXadrez, xadrezBot, type Xadrez, type XadrezMove } from "./xadrez.ts";
+
+export type Jogo = "xadrez" | "damas" | "ludo";
+export const JOGOS: readonly Jogo[] = ["xadrez", "damas", "ludo"];
+/** Seats at each kind of table. */
+export const LUGARES: Readonly<Record<Jogo, number>> = { xadrez: 2, damas: 2, ludo: 4 };
+
+/** How long a player has for each move, by game. */
+export const VEZ_MS: Readonly<Record<Jogo, number>> = { xadrez: 90_000, damas: 60_000, ludo: 20_000 };
+/** How long a kota thinks with a player at the table; and among kotas alone, slowly enough to be watched. */
+export const KOTA_MS = 1_400;
+export const KOTAS_MS = 5_000;
+/** How long a player alone at a table waits for another before a kota sits down with them. */
+export const ESPERA_MS = 20_000;
+/** The rest after a game, before the next. */
+export const DESCANSO_MS = 10_000;
+/** Turns a player lets run out in a row before their seat is given to a kota. */
+export const FALTAS = 3;
+/** How long a seat is kept for someone invited. */
+export const GUARDA_MS = 10 * 60_000;
+/** How strong the kotas play: moves ahead. */
+const XADREZ_FUNDO = 2;
+const DAMAS_FUNDO = 3;
+
+export type Partida =
+  | { readonly jogo: "xadrez"; readonly estado: Xadrez }
+  | { readonly jogo: "damas"; readonly estado: Damas }
+  /** `dado`: the throw waiting for its move, or null when the seat to play has yet to throw. */
+  | { readonly jogo: "ludo"; readonly estado: Ludo; readonly dado: number | null };
+
+/** A move, as handed in. For Não te irrites, the piece moved with the throw already made (null: none could move). */
+export type Lance =
+  | { readonly jogo: "xadrez"; readonly lance: XadrezMove }
+  | { readonly jogo: "damas"; readonly lance: DamasMove }
+  | { readonly jogo: "ludo"; readonly lance: LudoMove | null; readonly dado: number };
+
+export interface Lugar {
+  /** The player sitting here, or null: a kota plays this seat. */
+  readonly jogador: string | null;
+  /** Kept for someone invited, until when. */
+  readonly guardado: { readonly para: string; readonly ate: number } | null;
+  /** Turns let run out in a row. */
+  readonly faltas: number;
+}
+
+/** "espera": set up, waiting for players; "jogo": being played; "fim": over, resting before the next. */
+export type Fase = "espera" | "jogo" | "fim";
+
+export interface Mesa {
+  readonly jogo: Jogo;
+  readonly lugares: readonly Lugar[];
+  readonly partida: Partida;
+  readonly fase: Fase;
+  /** When the phase, or the turn now running, began. */
+  readonly desde: number;
+  /** The seat that plays first (White, the light pieces, the first throw): the other seat's in the next game. */
+  readonly primeiro: number;
+  /** The last thing done, by which seat: what every phone shows moving. A throw that moved nothing has `lance` null. */
+  readonly ultimo: { readonly lugar: number; readonly lance: Lance } | null;
+  /** Counted up with every change: a phone knows what is new. */
+  readonly versao: number;
+}
+
+/** Why something asked of a table was not done. */
+export type Recusa = "lugar" | "ocupado" | "sentado" | "fora" | "fase" | "vez" | "regras";
+
+export const recusou = (feito: Mesa | Recusa): feito is Recusa => typeof feito === "string";
+
+/** A fresh game for the table, with `primeiro` playing first. */
+function partidaNova(jogo: Jogo, primeiro: number): Partida {
+  if (jogo === "xadrez") return { jogo, estado: newXadrez() };
+  if (jogo === "damas") return { jogo, estado: newDamas() };
+  return { jogo, estado: { ...newLudo([0, 1, 2, 3]), turn: primeiro }, dado: null };
+}
+
+/** A table as the street first has it: kotas playing among themselves. */
+export function novaMesa(jogo: Jogo, agora: number): Mesa {
+  const lugares = Array.from({ length: LUGARES[jogo] }, (): Lugar => ({ jogador: null, guardado: null, faltas: 0 }));
+  return { jogo, lugares, partida: partidaNova(jogo, 0), fase: "jogo", desde: agora, primeiro: 0, ultimo: null, versao: 1 };
+}
+
+/** Whether the game in the table's hands is over. */
+function acabou(partida: Partida): boolean {
+  return partida.jogo === "ludo" ? partida.estado.winner !== null : partida.estado.result !== null;
+}
+
+/** The seat whose turn it is, while a game is being played. */
+export function vezDe(mesa: Mesa): number | null {
+  if (mesa.fase !== "jogo") return null;
+  const partida = mesa.partida;
+  if (partida.jogo === "ludo") return partida.estado.turn;
+  const first = partida.jogo === "xadrez" ? partida.estado.turn === "w" : partida.estado.turn === 0;
+  return first ? mesa.primeiro : 1 - mesa.primeiro;
+}
+
+/** The seat a player sits in, or -1. */
+export function lugarDe(mesa: Mesa, jogador: string): number {
+  return mesa.lugares.findIndex((lugar) => lugar.jogador === jogador);
+}
+
+/** Whether a player is sitting at the table. */
+const comGente = (lugares: readonly Lugar[]): boolean => lugares.some((lugar) => lugar.jogador !== null);
+
+/** Whether a seat is kept for someone other than this player, now. */
+const guardadoPara = (lugar: Lugar, jogador: string, agora: number): boolean => lugar.guardado !== null && lugar.guardado.ate > agora && lugar.guardado.para !== jogador;
+
+/** The table with a change made: counted, and the turn's clock started again. */
+const mudou = (mesa: Mesa, mudanca: Partial<Mesa>, agora: number): Mesa => ({ ...mesa, ...mudanca, desde: agora, versao: mesa.versao + 1 });
+
+/** A move handed in for the seat to play, by the rules; the game over when it ends it. */
+function aplicar(mesa: Mesa, lugar: number, lance: Lance, agora: number): Mesa {
+  const partida = mesa.partida;
+  let seguinte: Partida;
+  if (partida.jogo === "xadrez" && lance.jogo === "xadrez") seguinte = { jogo: "xadrez", estado: playXadrez(partida.estado, lance.lance) };
+  else if (partida.jogo === "damas" && lance.jogo === "damas") seguinte = { jogo: "damas", estado: playDamas(partida.estado, lance.lance) };
+  else if (partida.jogo === "ludo" && lance.jogo === "ludo") seguinte = { jogo: "ludo", estado: playLudo(partida.estado, lance.dado, lance.lance), dado: null };
+  else throw new Error("Mesa: a move for another game");
+  return mudou(mesa, { partida: seguinte, ultimo: { lugar, lance }, ...(acabou(seguinte) ? { fase: "fim" as const } : {}) }, agora);
+}
+
+/** A throw of the dice, for the seat to play; with nothing it can move, the turn is played out at once. */
+function lancarPor(mesa: Mesa, lugar: number, dado: number, agora: number): Mesa {
+  const partida = mesa.partida as Extract<Partida, { jogo: "ludo" }>;
+  if (ludoMoves(partida.estado, dado).length === 0) return aplicar(mesa, lugar, { jogo: "ludo", lance: null, dado }, agora);
+  return mudou(mesa, { partida: { ...partida, dado } }, agora);
+}
+
+/** What a kota does with the seat to play: a move by the rules, or for Não te irrites a throw, then the move. */
+function kotaJoga(mesa: Mesa, lugar: number, dado: () => number, agora: number): Mesa {
+  const partida = mesa.partida;
+  if (partida.jogo === "xadrez") return aplicar(mesa, lugar, { jogo: "xadrez", lance: xadrezBot(partida.estado, XADREZ_FUNDO)! }, agora);
+  if (partida.jogo === "damas") return aplicar(mesa, lugar, { jogo: "damas", lance: damasBot(partida.estado, DAMAS_FUNDO)! }, agora);
+  if (partida.dado === null) return lancarPor(mesa, lugar, dado(), agora);
+  return aplicar(mesa, lugar, { jogo: "ludo", lance: ludoBot(partida.estado, partida.dado), dado: partida.dado }, agora);
+}
+
+/**
+ * A player sits down. At a table of kotas alone, the board is set up afresh and the table waits for others; where a
+ * kota plays against players, the player takes the kota's place and the game goes on; while a game ends, they
+ * sit for the next.
+ */
+export function sentar(mesa: Mesa, lugar: number, jogador: string, agora: number): Mesa | Recusa {
+  const seat = mesa.lugares[lugar];
+  if (!seat) return "lugar";
+  if (lugarDe(mesa, jogador) >= 0) return "sentado";
+  if (seat.jogador !== null || guardadoPara(seat, jogador, agora)) return "ocupado";
+  const lugares = mesa.lugares.map((one, n): Lugar => (n === lugar ? { jogador, guardado: null, faltas: 0 } : one));
+  if (!comGente(mesa.lugares)) return mudou(mesa, { lugares, partida: partidaNova(mesa.jogo, mesa.primeiro), fase: "espera", ultimo: null }, agora);
+  // Everyone the table holds is sitting: no need to wait.
+  const cheia = mesa.fase === "espera" && lugares.every((one) => one.jogador !== null);
+  return mudou(mesa, { lugares, ...(cheia ? { fase: "jogo" as const } : {}) }, mesa.fase === "jogo" ? mesa.desde : agora);
+}
+
+/** A player gets up: a kota takes the seat and plays on. With nobody left, the kotas play among themselves. */
+export function levantar(mesa: Mesa, jogador: string, agora: number): Mesa | Recusa {
+  const lugar = lugarDe(mesa, jogador);
+  if (lugar < 0) return "fora";
+  const lugares = mesa.lugares.map((one, n): Lugar => (n === lugar ? { jogador: null, guardado: null, faltas: 0 } : one));
+  const fase = mesa.fase === "espera" && !comGente(lugares) ? "jogo" : mesa.fase;
+  return mudou(mesa, { lugares, fase }, mesa.fase === "jogo" ? mesa.desde : agora);
+}
+
+/** A seated player says to begin now: kotas take the free seats. */
+export function comecar(mesa: Mesa, jogador: string, agora: number): Mesa | Recusa {
+  if (lugarDe(mesa, jogador) < 0) return "fora";
+  if (mesa.fase !== "espera") return "fase";
+  return mudou(mesa, { fase: "jogo", lugares: mesa.lugares.map((one) => (one.jogador === null ? { ...one, guardado: null } : one)) }, agora);
+}
+
+/** A seated player keeps a free seat for someone they invite, for GUARDA_MS. */
+export function guardar(mesa: Mesa, jogador: string, lugar: number, para: string, agora: number): Mesa | Recusa {
+  const seat = mesa.lugares[lugar];
+  if (!seat) return "lugar";
+  if (lugarDe(mesa, jogador) < 0) return "fora";
+  if (seat.jogador !== null || guardadoPara(seat, para, agora)) return "ocupado";
+  const lugares = mesa.lugares.map((one, n): Lugar => (n === lugar ? { ...one, guardado: { para, ate: agora + GUARDA_MS } } : one));
+  return { ...mesa, lugares, versao: mesa.versao + 1 };
+}
+
+/** A seated player whose turn it is makes a move. */
+export function jogar(mesa: Mesa, jogador: string, lance: Lance, agora: number): Mesa | Recusa {
+  const lugar = lugarDe(mesa, jogador);
+  if (lugar < 0) return "fora";
+  if (mesa.fase !== "jogo") return "fase";
+  if (vezDe(mesa) !== lugar) return "vez";
+  const partida = mesa.partida;
+  // Não te irrites: the move goes with the throw the table made, never with one the phone says.
+  if (partida.jogo === "ludo" && (lance.jogo !== "ludo" || partida.dado === null || lance.dado !== partida.dado)) return "regras";
+  try {
+    return descansa(aplicar(mesa, lugar, lance, agora), lugar);
+  } catch {
+    return "regras";
+  }
+}
+
+/** A seated player of Não te irrites throws the dice; the table rolls them (`dado`, 1 to 6). */
+export function lancar(mesa: Mesa, jogador: string, dado: number, agora: number): Mesa | Recusa {
+  const lugar = lugarDe(mesa, jogador);
+  if (lugar < 0) return "fora";
+  if (mesa.fase !== "jogo") return "fase";
+  if (vezDe(mesa) !== lugar) return "vez";
+  if (mesa.partida.jogo !== "ludo" || mesa.partida.dado !== null) return "regras";
+  return descansa(lancarPor(mesa, lugar, dado, agora), lugar);
+}
+
+/** A player who has played is no longer counted as letting turns run out. */
+function descansa(mesa: Mesa, lugar: number): Mesa {
+  return { ...mesa, lugares: mesa.lugares.map((one, n) => (n === lugar ? { ...one, faltas: 0 } : one)) };
+}
+
+/**
+ * Time passes at the table: the wait ends, a kota plays its turn, a player's time runs out, the rest after a game
+ * ends and the next begins. `dado` throws the dice (1 to 6) when a kota or a late player needs a throw. Gives back
+ * the same table when nothing happened.
+ */
+export function passo(mesa: Mesa, agora: number, dado: () => number): Mesa {
+  const passou = agora - mesa.desde;
+  if (mesa.fase === "espera") {
+    // A seat kept for someone invited holds the game until they come or the keeping runs out.
+    const guardando = mesa.lugares.some((one) => one.jogador === null && one.guardado !== null && one.guardado.ate > agora);
+    return passou >= ESPERA_MS && !guardando ? mudou(mesa, { fase: "jogo" }, agora) : mesa;
+  }
+  if (mesa.fase === "fim") {
+    if (passou < DESCANSO_MS) return mesa;
+    const primeiro = (mesa.primeiro + 1) % mesa.lugares.length;
+    return mudou(mesa, { partida: partidaNova(mesa.jogo, primeiro), primeiro, fase: "jogo", ultimo: null }, agora);
+  }
+  const lugar = vezDe(mesa)!;
+  const seat = mesa.lugares[lugar]!;
+  if (seat.jogador === null) return passou >= (comGente(mesa.lugares) ? KOTA_MS : KOTAS_MS) ? kotaJoga(mesa, lugar, dado, agora) : mesa;
+  if (passou < VEZ_MS[mesa.jogo]) return mesa;
+  // The player's time is up: the kota beside them plays it, throw and move.
+  let feito = kotaJoga(mesa, lugar, dado, agora);
+  if (feito.partida.jogo === "ludo" && feito.partida.dado !== null) feito = kotaJoga(feito, lugar, dado, agora);
+  const faltas = seat.faltas + 1;
+  const lugares = feito.lugares.map((one, n): Lugar => (n !== lugar ? one : faltas >= FALTAS ? { jogador: null, guardado: null, faltas: 0 } : { ...one, faltas }));
+  return { ...feito, lugares };
+}

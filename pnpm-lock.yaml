@@ -179,6 +179,9 @@ importers:
       '@nzila/economy':
         specifier: workspace:*
         version: link:../../packages/economy
+      '@nzila/games':
+        specifier: workspace:*
+        version: link:../../packages/games
       '@nzila/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -250,6 +253,9 @@ importers:
       '@nzila/economy':
         specifier: workspace:*
         version: link:../../packages/economy
+      '@nzila/games':
+        specifier: workspace:*
+        version: link:../../packages/games
       '@nzila/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -337,6 +343,9 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@nzila/games':
+        specifier: workspace:*
+        version: link:../games
       '@nzila/sim':
         specifier: workspace:*
         version: link:../sim

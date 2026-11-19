@@ -150,15 +150,17 @@ export class Players {
         continue;
       }
       if (person.root.parent !== this.renderer.scene) this.renderer.scene.add(person.root);
+      // Seated off a van (at a table: Task 4B.1), the zone's height is the seat's: the body sits on it.
+      const seated = one.anim === DOING.sit;
       // A jump is drawn as a hop of the zone's own height at its middle: the zone says "in the air", not how high.
-      person.root.position.set(one.x, one.y + body.air * 0.42, one.z);
+      person.root.position.set(one.x, seated ? one.y - 0.46 * (person.height / 1.7) : one.y + body.air * 0.42, one.z);
       person.root.rotation.y = body.facing;
       person.root.scale.setScalar(0.6 + 0.4 * body.shown);
       person.root.visible = true;
       // A gesture lasts its time, and ends when its maker walks off.
       if (body.emote && body.emote.began === null) body.emote.began = seconds;
       if (body.emote && (seconds - body.emote.began! > EMOTE_SECONDS[body.emote.kind] || body.speed > 0.6 || flying)) body.emote = null;
-      person.pose({ speed: body.speed, phase: body.phase, time: seconds + one.id * 1.3 }, { jump: body.air > 0.05 ? Math.min(0.95, body.air * 0.5) : 0, ...(body.emote ? { emote: { kind: body.emote.kind, seconds: seconds - body.emote.began! } } : {}) });
+      person.pose({ speed: body.speed, phase: body.phase, time: seconds + one.id * 1.3 }, { sit: seated ? 1 : 0, jump: body.air > 0.05 ? Math.min(0.95, body.air * 0.5) : 0, ...(body.emote ? { emote: { kind: body.emote.kind, seconds: seconds - body.emote.began! } } : {}) });
       named.push({ x: one.x, y: one.y + person.height, z: one.z, name: who.name, still: one.speed < 0.15 && !flying, known: who.bi !== "" && this.knows(who.bi) });
     }
     for (const [id, body] of this.bodies) {

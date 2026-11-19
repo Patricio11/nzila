@@ -6,7 +6,7 @@ import { Mesh, SkinnedMesh, type BufferGeometry, type Group, type Material, type
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { meteredFetch } from "../net/data-meter.ts";
-import { Dog } from "./dog.ts";
+import type { Dog } from "./dog.ts";
 import { Person } from "./person.ts";
 
 /** A body of the street: a person, or a dog. */
@@ -87,6 +87,8 @@ export class People {
     this.geometries.add(body.geometry);
     this.made += 1;
     if (who.animal) {
+      // A dog's way of moving is fetched with the first dog: a street without one never pays for it (F-202).
+      const { Dog } = await import("./dog.ts");
       const dog = new Dog(scene, body, who.height);
       dog.seed = this.made * 1.618;
       return dog;

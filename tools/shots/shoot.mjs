@@ -98,6 +98,13 @@ const PAGES = [
   ["nomes-vendedeiras-2", "/andar?pack=l1&em=117,158&cam=300&hour=16.5&transito=10"],
   ["nomes-pescador", "/andar?pack=l1&em=364,52.5&cam=140&hour=16.5&transito=30"],
   ["nomes-largo", "/andar?pack=l1&em=212,172&cam=200&hour=12&transito=30"],
+  // The tables of the Largo (Task 4B.1): each kind its own, kotas at them, the boards as they stand.
+  ["mesas-largo", "/andar?pack=l1&em=203,165.5&cam=180&hour=10.5&transito=30"],
+  ["mesas-largo-tarde", "/andar?pack=l1&em=199,166&cam=205&hour=16.8&transito=30"],
+  ["mesas-largo-noite", "/andar?pack=l1&em=203,165.5&cam=180&hour=20.5&transito=30"],
+  ["mesas-xadrez-perto", "/andar?pack=l1&em=201.5,171.2&cam=165&hour=12&transito=30"],
+  ["mesas-damas-perto", "/andar?pack=l1&em=210.5,171.3&cam=195&hour=12&transito=30"],
+  ["mesas-ludo-perto", "/andar?pack=l1&em=196,171.1&cam=170&hour=12&transito=30"],
   ["hud", "/andar?hour=16.8&cam=200"],
   ...["acenar", "rir", "aplaudir", "chamar", "dancar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
   ["ela-joelhos-lado", "/andar?hour=15&cam=90&quem=6&gesto=dancar&t=6.0&pausa"],

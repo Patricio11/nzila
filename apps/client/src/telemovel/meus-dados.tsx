@@ -4,11 +4,15 @@
 // take away; and the end of the account, asked twice.
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
+import { ptAOLater } from "@nzila/i18n/later";
 import { checkPassword } from "@nzila/protocol";
 import { Button, Toggle } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { changePassword } from "../world/account.ts";
 import { type WorldProvider } from "../world/provider.ts";
+
+// Its words come with it, and with the BI that opens it (F-202).
+tr.extend(ptAOLater);
 
 /** A new password, for someone who knows the one they have. */
 function NovaPalavraPasse({ onDone }: { onDone: (changed: boolean) => void }) {

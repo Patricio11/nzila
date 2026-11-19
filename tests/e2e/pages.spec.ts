@@ -1377,6 +1377,71 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("at a table of the town (Task 4B.1): the button offers xadrez beside a free seat; sat, the board opens; a move is played and a kota of the bairro answers; up again, the seat is offered again", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The tables were not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 44);
+    const manifest = (await (await request.get("/packs/dev/manifest.json")).json()) as { tables: { game: string; pos: [number, number, number]; seats: { pos: [number, number, number] }[] }[] };
+    const table = manifest.tables.find((one) => one.game === "xadrez")!;
+    const seat = table.seats[0]!.pos;
+    // Where to stand: behind seat 0, away from the table.
+    const away = Math.hypot(seat[0] - table.pos[0], seat[2] - table.pos[2]);
+    const stand = { x: seat[0] + ((seat[0] - table.pos[0]) / away) * 0.75, z: seat[2] + ((seat[2] - table.pos[2]) / away) * 0.75 };
+    await page.goto("/andar?tier=poupanca&hour=10");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    // Walked there by the keys, first along the town's east-west line and then to the place: the camera looks north.
+    const walkTo = async (x: number, z: number, within: number): Promise<void> => {
+      for (let n = 0; n < 300; n++) {
+        const at = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+        const dx = x - at.x;
+        const dz = z - at.z;
+        if (Math.hypot(dx, dz) < within) return;
+        const keys = [...(dx > 0.2 ? ["d"] : dx < -0.2 ? ["a"] : []), ...(dz > 0.2 ? ["s"] : dz < -0.2 ? ["w"] : [])];
+        for (const key of keys) await page.keyboard.down(key);
+        await page.waitForTimeout(Math.min(350, 50 + Math.hypot(dx, dz) * 110));
+        for (const key of keys) await page.keyboard.up(key);
+      }
+    };
+    const start = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    await walkTo(stand.x, start.z, 0.4);
+    await walkTo(stand.x, stand.z, 0.3);
+    await page.waitForFunction(() => window.__andar!.action === "xadrez", undefined, { timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Jogar xadrez" })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("mesa-rua.png") });
+    await page.getByRole("button", { name: "Jogar xadrez" }).click();
+    // The zone seats the player: the board opens, waiting a moment for someone else, and the gold button is gone.
+    await page.waitForFunction(() => window.__andar!.mesa !== null && window.__andar!.seated, undefined, { timeout: 10_000 });
+    const board = page.getByRole("dialog", { name: "Xadrez" });
+    await expect(board).toContainText("À espera de mais alguém");
+    await expect(page.getByRole("button", { name: "Jogar xadrez" })).toHaveCount(0);
+    await board.getByRole("button", { name: "Jogar já com o kota" }).click();
+    // Whoever plays White moves first: the kota, or the player.
+    await expect(board.locator(".ms-line")).toHaveText("É a tua vez.", { timeout: 15_000 });
+    await expect(board.locator(".ms-seat-turn b")).toHaveText(/^1:[23]\d$/);
+    await page.screenshot({ path: info.outputPath("mesa-vez.png") });
+    // A pawn chosen lights where it may go; the farther of the two is played.
+    const moved = await board.locator(".ms-piece.ms-can").count();
+    expect(moved).toBe(10);
+    await board.locator(".ms-piece.ms-can").first().click();
+    await expect(board.locator(".ms-target")).toHaveCount(2);
+    await board.locator(".ms-target").last().click({ force: true });
+    // The zone takes the move, the kota thinks, and it is the player's turn again: two moves on, the last one marked.
+    await expect(board.locator(".ms-line")).toHaveText(/^Vez de Kota/, { timeout: 5_000 });
+    await expect(board.locator(".ms-line")).toHaveText("É a tua vez.", { timeout: 15_000 });
+    await expect(board.locator(".ms-last")).toHaveCount(2);
+    await page.screenshot({ path: info.outputPath("mesa-kota.png") });
+    // Up again: the board closes, and the seat is offered again.
+    await board.getByRole("button", { name: "Levantar" }).click();
+    await page.waitForFunction(() => window.__andar!.mesa === null && !window.__andar!.seated, undefined, { timeout: 10_000 });
+    await expect(board).toHaveCount(0);
+    await page.waitForFunction(() => window.__andar!.action === "xadrez", undefined, { timeout: 10_000 });
+    expect(seen.errors).toEqual([]);
+  });
+
   test("at the cantina's grille: the dona greets, the basket is priced on the gold button, too much for the Carteira or the Mochila is said, the receipt prints; the Mochila holds it, and bread is eaten", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The cantina was not checked here." });
@@ -1412,8 +1477,12 @@ test.describe("two phones in the same street", () => {
       });
     }
     await page.screenshot({ path: info.outputPath("cantina-rua.png") });
-    await page.getByRole("button", { name: "Comprar" }).click();
     const cantina = page.getByRole("dialog", { name: "Cantina de Ensaio" });
+    // A press of the gold button is now and then lost under the whole suite's load (F-211): pressed again if so.
+    for (let tries = 0; tries < 3 && !(await cantina.isVisible()); tries++) {
+      await page.getByRole("button", { name: "Comprar" }).click();
+      await cantina.waitFor({ timeout: 3000 }).catch(() => {});
+    }
     // The dona greets by the hour, through her grille; nothing in the basket, nothing to pay.
     await expect(cantina.locator(".ct-grille")).toContainText("Bom dia, querido.", { timeout: 10_000 });
     await expect(cantina.getByRole("button", { name: "Escolhe o que levas" })).toBeDisabled();

@@ -92,6 +92,9 @@ export class Session {
   refused: Refused | null = null;
   /** How the street's traffic is waiting, as the zone last said, until the page has taken it. */
   traffic: TrafficSaid | null = null;
+  /** The tables the zone has spoken of, as it said them, until the code that draws tables has read them; and why the last thing asked of one was not done. */
+  mesas: Uint8Array[] = [];
+  mesaRefused: number | null = null;
   private readonly offsets: number[] = [];
   /** How far the zone's clock is ahead of this phone's, in milliseconds; null before it has said anything. */
   get zoneClockAhead(): number | null {
@@ -183,6 +186,7 @@ export class Session {
         this.offsets.push(said.nowMs - Date.now());
         if (this.offsets.length > 20) this.offsets.shift();
       },
+      mesa: (bytes) => attempt === this.attempt && this.mesas.length < 64 && this.mesas.push(bytes),
       who: (who) => {
         if (attempt !== this.attempt) return;
         this.players.know(who);
@@ -305,6 +309,7 @@ export class Session {
     else if (event.kind === EVENT.CHAT_REFUSED) this.refused = event.args[0] === CHAT_REFUSAL.SLOW_DOWN ? "slow" : event.args[0] === CHAT_REFUSAL.LINKS ? "links" : event.args[0] === CHAT_REFUSAL.MUTED ? "muted" : "words";
     else if (event.kind === EVENT.RIDE_REFUSED) this.rideRefused = true;
     else if (event.kind === EVENT.GIVEN) this.given = true;
+    else if (event.kind === EVENT.MESA_REFUSED) this.mesaRefused = event.args[0] ?? 0;
     else if (event.kind === EVENT.EMOTE) {
       const name = EMOTE_NAMES[event.args[0] ?? -1];
       if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);
@@ -377,6 +382,11 @@ export class Session {
   nudge(bi: string): void {
     const entity = this.players.entityOf(bi);
     if (this.walking && entity !== null) this.link!.nudge(entity);
+  }
+
+  /** Says something to the zone made elsewhere: what the player asks of a table. */
+  post(bytes: Uint8Array): void {
+    if (this.walking) this.link!.post(bytes);
   }
 
   /** Asks to get on a van, by its place in the district's list of vehicles. */
