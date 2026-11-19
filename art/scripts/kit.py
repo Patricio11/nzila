@@ -74,6 +74,8 @@ class Builder:
         # For the wardrobe: what kind of piece is being built ("body", "hair"), and the one kind to keep, if any.
         self.piece = None
         self.only = None
+        # On a smooth body, what is drawn faceted all the same: hair, whose clumps are what make it read as hair.
+        self.flat = False
         self.objects = []
         # Where a person can sit: (x, seat height, z, the way they face, as a turn about the vertical).
         self.seats = []
@@ -107,11 +109,11 @@ class Builder:
         elif toward is not None and _dot(normal, toward) < 0:
             points.reverse()
         group = self.groups.setdefault((self.chunk, self.level), [])
-        group.append((points, colour, self.part))
+        group.append((points, colour, self.part, self.flat))
         if not self.soft and self.part is None and self.piece is None and self.level != LIGHT:
             self.built.append(points)
         if two_sided:
-            group.append((list(reversed(points)), colour, self.part))
+            group.append((list(reversed(points)), colour, self.part, self.flat))
 
     # ------------------------------------------------------------ shapes
 
@@ -200,7 +202,9 @@ class Builder:
         for ((cx, cz), level), faces in sorted(self.groups.items()):
             verts, polys, uvs = [], [], []
             parts = []
-            for points, colour, part in faces:
+            flats = []
+            for points, colour, part, flat in faces:
+                flats.append(flat)
                 parts.extend([part] * len(points))
                 index = self.squares[colour]
                 u = (index % self.cells + 0.5) / self.cells
@@ -230,13 +234,19 @@ class Builder:
                             groups[bone].add([index], weight, "REPLACE")
             if self.smooth:
                 import bmesh
+                # Which faces are drawn faceted travels with the faces, through the merging of their corners.
+                layer_flat = mesh.attributes.new("nz_flat", "INT", "FACE")
+                layer_flat.data.foreach_set("value", [1 if flat else 0 for flat in flats])
                 work = bmesh.new()
                 work.from_mesh(mesh)
                 bmesh.ops.remove_doubles(work, verts=work.verts, dist=0.0004)
                 work.to_mesh(mesh)
                 work.free()
-                for polygon in mesh.polygons:
-                    polygon.use_smooth = True
+                kept = [0] * len(mesh.polygons)
+                mesh.attributes["nz_flat"].data.foreach_get("value", kept)
+                for polygon, flat in zip(mesh.polygons, kept):
+                    polygon.use_smooth = not flat
+                mesh.attributes.remove(mesh.attributes["nz_flat"])
                 mesh.set_sharp_from_angle(angle=math.radians(66))
             # What the export script reads: which chunk, which level, and that the shape is final.
             obj["nzila_chunk"] = f"{cx},{cz}"

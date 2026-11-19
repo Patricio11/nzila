@@ -14,7 +14,7 @@ import { type ChatFilter } from "@nzila/i18n";
 import {
   type EntityState,
   type RideAsked,
-  encodeTraffic, EVENT, MESA_RECUSAS, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, checkLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, type MesaPedido, CHAT_REFUSAL } from "@nzila/protocol";
+  encodeTraffic, EVENT, MESA_RECUSAS, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, settleLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, type MesaPedido, CHAT_REFUSAL } from "@nzila/protocol";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
@@ -332,7 +332,7 @@ export class ChannelRoom {
     if (entityId === null) return false;
     // The look is sent as it would be accepted today: what was stored under an older catalogue is not passed on blind.
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
-    const look = checkLook(face.look) ?? arrivalLook(seedOf(playerId));
+    const look = settleLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
     this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map() });
     this.lineOfEntity.set(entityId, line);

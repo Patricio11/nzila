@@ -30,7 +30,7 @@ SPECS = [
     {"name": "Weza", "sex": "f", "skin": 3, "height": 1.68, "hair": "afro", "top": "vestido", "top_colour": "person4", "bottom": "none", "shoe": "shoeTan", "short": True},
     {"name": "Kota Zé", "sex": "m", "skin": 1, "height": 1.72, "build": 1.12, "hair": "baixo", "hair_colour": "hairGrey", "beard": True, "top": "camisa", "top_colour": "paintWhite", "bottom": "trousers", "bottom_colour": "khaki", "shoe": "shoe"},
     {"name": "Tia Bela", "sex": "f", "skin": 2, "height": 1.60, "build": 1.14, "hair": "lenco", "lenco": "person1", "top": "blusa", "top_colour": "awningTeal", "bottom": "pano", "bottom_colour": "zincBlue", "bands": "paintWhite", "pattern": "losangos", "shoe": "chinelo"},
-    {"name": "Dino", "sex": "m", "skin": 4, "height": 1.82, "build": 0.94, "hair": "dreads", "bigode": True, "top": "alcas", "top_colour": "person0", "bottom": "shorts", "bottom_colour": "clothBlack", "shoe": "chinelo", "smile": True},
+    {"name": "Dino", "sex": "m", "skin": 4, "height": 1.82, "build": 1.0, "hair": "afro", "afro": 0.8, "hair_colour": "hairCopper", "brow_colour": "hairBlack", "beard_colour": "hairBlack", "beard": True, "top": "alcas", "top_colour": "person0", "bottom": "shorts", "bottom_colour": "clothBlack", "shoe": "chinelo", "smile": True},
     {"name": "Nádia", "sex": "f", "skin": 4, "height": 1.70, "build": 0.95, "hair": "puxinho", "top": "camisola", "top_colour": "zincBlue", "bottom": "trousers", "bottom_colour": "jeansDark", "shoe": "shoeWhite"},
     {"name": "Paulo", "sex": "m", "skin": 0, "height": 1.75, "hair": "afro", "afro": 0.86, "top": "fato", "top_colour": "clothBlack", "bottom": "trousers", "bottom_colour": "clothBlack", "bands": "awningRed", "shoe": "shoe"},
 ]

@@ -27,14 +27,14 @@ with open(args[1], encoding="utf-8") as handle:
     palette = json.load(handle)
 os.makedirs(out_dir, exist_ok=True)
 
-# What each of them may wear and how they may wear their hair. A style with no model ("baixo", "careca")
-# is only the scalp, which is part of the body.
+# What each of them may wear and how they may wear their hair. A style with no model ("careca") is only the
+# scalp, which is part of the body. Braids and locs are a woman's (the founder, 2026-11-19).
 SEXES = {
     "f": {"height": 1.64, "tops": ["tshirt", "blusa", "alcas", "camisa", "camisola", "fato"], "bottoms": ["trousers", "shorts", "skirt", "pano"], "whole": ["vestido"], "hair": ["baixo", "careca", "afro", "cachos", "trancas", "bob", "puxinho", "dreads", "lenco", "bone"], "extras": ["brincos", "oculos"]},
-    "m": {"height": 1.76, "tops": ["tshirt", "long", "alcas", "camisa", "camisola", "fato"], "bottoms": ["trousers", "shorts"], "whole": [], "hair": ["baixo", "careca", "afro", "galo", "dreads", "trancas", "bone"], "extras": ["barba", "bigode", "oculos", "brincos"]},
+    "m": {"height": 1.76, "tops": ["tshirt", "long", "alcas", "camisa", "camisola", "fato"], "bottoms": ["trousers", "shorts"], "whole": [], "hair": ["baixo", "careca", "afro", "galo", "bone"], "extras": ["barba", "bigode", "oculos", "brincos"]},
 }
 MARKERS = {"skin_colour": "slotSkin", "lip_colour": "slotLip", "lip_dark": "slotLipDark", "hair_colour": "slotHair", "lenco": "slotHair", "cap": "slotHair", "brow_colour": "hairBlack", "top_colour": "slotTop", "bottom_colour": "slotBottom", "bands": "slotBands", "shoe": "slotShoe"}
-NO_MODEL = ("baixo", "careca")
+NO_MODEL = ("careca",)
 
 
 def build(spec, path, only):

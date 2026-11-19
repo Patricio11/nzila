@@ -57,10 +57,35 @@ export const CATALOGUE: Readonly<Record<"f" | "m", Sex>> = {
   },
   m: {
     tops: { tshirt: BELOW_HIM, long: BELOW_HIM, alcas: BELOW_HIM, camisa: BELOW_HIM, camisola: BELOW_HIM, fato: BELOW_HIM },
-    hair: ["baixo", "careca", "afro", "galo", "dreads", "trancas", "bone"],
+    // Braids and locs are a woman's (the founder, 2026-11-19): a man wears his hair short, in an afro or a crest, any colour.
+    hair: ["baixo", "careca", "afro", "galo", "bone"],
     extras: ["barba", "bigode", "oculos", "brincos"],
   },
 };
+
+/**
+ * What a choice taken out of the catalogue has become, by sex: a look saved with it is worn with this instead,
+ * and keeps everything else that was chosen.
+ */
+const RETIRED: Readonly<Record<"f" | "m", Readonly<Record<string, Readonly<Record<string, string>>>>>> = {
+  f: {},
+  m: { hair: { trancas: "afro", dreads: "afro" } },
+};
+
+/**
+ * A look as it was saved, read back today: a choice the catalogue has since taken out is settled to the one that
+ * replaced it; anything else that is not a look is still none (checkLook).
+ */
+export function settleLook(input: unknown): Look | null {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  const given = { ...(input as Record<string, unknown>) };
+  const retired = given.sex === "f" || given.sex === "m" ? RETIRED[given.sex] : {};
+  for (const [field, become] of Object.entries(retired)) {
+    const was = given[field];
+    if (typeof was === "string" && Object.hasOwn(become, was)) given[field] = become[was];
+  }
+  return checkLook(given);
+}
 
 const KEYS = new Set(["sex", "skin", "hair", "hairColour", "top", "topColour", "bottom", "bottomColour", "bands", "shoe", "extras", "tall", "broad"]);
 const within = (list: readonly string[], value: unknown): value is string => typeof value === "string" && list.includes(value);

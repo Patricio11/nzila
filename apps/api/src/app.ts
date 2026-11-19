@@ -11,7 +11,7 @@ import { lastGift, recordTransfer, sentToday, shutOutOf, statementOf, walletOf }
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
-import { checkLook, zoneRoomOf } from "@nzila/protocol";
+import { checkLook, settleLook, zoneRoomOf } from "@nzila/protocol";
 import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
@@ -175,8 +175,9 @@ export function buildApp(deps: Deps): FastifyInstance {
         savedWith: { email: me!.by_email, emailVerified: me!.email_verified, phoneNumber: me!.by_phone },
         ageBand: me!.age_band,
         arrivedAt: me!.arrived_at.toISOString(),
-        // Read back through the catalogue: a look the wardrobe no longer has is no look, and the player chooses again.
-        look: checkLook(avatar?.spec),
+        // Read back through the catalogue: a choice since taken out is worn as what replaced it; a look the wardrobe
+        // cannot dress at all is no look, and the player chooses again.
+        look: settleLook(avatar?.spec),
         origin: await originOfPlayer(deps.sql, origins, caller.player.id),
         // What they hold, from the books: the Carteira and the Banco. Never from the card of origin, which only says how they began.
         wallet: await walletOf(deps.sql, caller.player.id),

@@ -10,7 +10,7 @@
 import { audit, blockedBy, consentsOf, statementOf, walletOf } from "@nzila/db";
 import { accountId } from "@nzila/economy";
 import { type OriginTable } from "@nzila/economy";
-import { checkLook } from "@nzila/protocol";
+import { settleLook } from "@nzila/protocol";
 import { type Sql } from "postgres";
 import { originOfPlayer } from "./origins.ts";
 import { Refusal } from "./routes.ts";
@@ -34,7 +34,7 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
     player: { id: playerId, kind: player!.kind, name: player!.name, biNumber: player!.bi_number, nameChanges: player!.name_changes, ageBand: player!.age_band, arrivedAt: player!.arrived_at, lastDistrict: player!.district_id },
     // How the BI was saved. The number and the address themselves are kept encrypted and are the player's own to know.
     savedWith: { phoneNumber: player!.by_phone, email: player!.by_email },
-    look: avatar ? { ...checkLook(avatar.spec), updatedAt: avatar.updated_at } : null,
+    look: avatar ? { ...settleLook(avatar.spec), updatedAt: avatar.updated_at } : null,
     origin: await originOfPlayer(sql, origins, playerId),
     consents: consents.map((row) => ({ purpose: row.purpose, version: row.version, granted: row.granted, at: row.at })),
     devices: devices.map((row) => ({ platform: row.platform, firstSeen: row.first_seen_at, lastSeen: row.last_seen_at })),

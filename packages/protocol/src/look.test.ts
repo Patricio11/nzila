@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { CATALOGUE, COLOURS, LOOK_BYTES, WIRE_IDS, arrivalLook, checkLook, packLook, unpackLook, type Look } from "./look.ts";
+import { CATALOGUE, COLOURS, LOOK_BYTES, WIRE_IDS, arrivalLook, checkLook, packLook, settleLook, unpackLook, type Look } from "./look.ts";
 
 const her: Look = { sex: "f", skin: 2, hair: "trancas", hairColour: "hairBlack", top: "blusa", topColour: "awningGold", bottom: "pano", bottomColour: "awningTeal", bands: "awningGold", shoe: "shoeTan" };
 const him: Look = { sex: "m", skin: 3, hair: "galo", hairColour: "hairBlond", top: "tshirt", topColour: "paintWhite", bottom: "trousers", bottomColour: "jeansDark", bands: "awningGold", shoe: "shoeWhite", extras: ["oculos", "bigode"], tall: 1, broad: -1 };
@@ -59,6 +59,30 @@ describe("a look is refused whole", () => {
   });
 });
 
+describe("a look saved before the catalogue changed", () => {
+  const him = { sex: "m", skin: 3, hair: "afro", hairColour: "hairCopper", top: "tshirt", topColour: "awningGold", bottom: "shorts", bottomColour: "jeans", bands: "awningGold", shoe: "shoeTan", extras: ["barba"] };
+
+  test("a man's braids and locs are taken out of what he may choose: they are a woman's (the founder, 2026-11-19)", () => {
+    for (const hair of ["trancas", "dreads"]) {
+      expect(CATALOGUE.m.hair).not.toContain(hair);
+      expect(CATALOGUE.f.hair).toContain(hair);
+      expect(checkLook({ ...him, hair })).toBeNull();
+    }
+  });
+
+  test("is worn with what replaced the choice taken out, and everything else kept", () => {
+    expect(settleLook({ ...him, hair: "dreads" })).toEqual({ ...him, hair: "afro", tall: 0, broad: 0 });
+    expect(settleLook({ ...him, hair: "trancas" })).toEqual({ ...him, hair: "afro", tall: 0, broad: 0 });
+    // Nothing else is settled: a woman's braids stay hers, and a look that is wrong in another way is still none.
+    expect(settleLook(her)).toEqual(checkLook(her));
+    expect(settleLook(him)).toEqual(checkLook(him));
+    expect(settleLook({ ...him, hair: 3 })).toBeNull();
+    expect(settleLook({ ...him, hair: "dreads", shoe: "sky" })).toBeNull();
+    expect(settleLook({ ...him, sex: "x" })).toBeNull();
+    for (const bad of [null, undefined, 7, "look", [him]]) expect(settleLook(bad)).toBeNull();
+  });
+});
+
 describe("a look for someone who has not chosen one", () => {
   test("is always one the wardrobe can dress, the same for the same number, and different from person to person", () => {
     const seen = new Set<string>();
@@ -93,7 +117,7 @@ describe("a look on the wire", () => {
       expect(unpackLook(bytes), `seed ${seed}`).toEqual(look);
     }
     // What is worn on the face, and the build, travel too.
-    const him = checkLook({ ...arrivalLook(3), sex: "m", top: "tshirt", bottom: "shorts", hair: "dreads", hairColour: "hairCopper", extras: ["barba", "oculos"], tall: 1, broad: -1 })!;
+    const him = checkLook({ ...arrivalLook(3), sex: "m", top: "tshirt", bottom: "shorts", hair: "afro", hairColour: "hairCopper", extras: ["barba", "oculos"], tall: 1, broad: -1 })!;
     expect(unpackLook(packLook(him))).toEqual(him);
     const her = checkLook({ ...arrivalLook(3), sex: "f", top: "vestido", bottom: "none", hair: "lenco", hairColour: "awningRed", extras: ["brincos"], tall: -1, broad: 1 })!;
     expect(unpackLook(packLook(her))).toEqual(her);
