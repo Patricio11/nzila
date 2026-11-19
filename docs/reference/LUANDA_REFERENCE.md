@@ -157,6 +157,22 @@ Every brand visible in these photographs is real and none appears in the game (R
 
 **Still to come from the founder or from Luandans:** the inside of an ordinary house (sala, quarto, cozinha).
 
+## 6f. Hospitals and medical centres (research, 2026-11-19, at the founder's word: "every município should have a centro médico")
+
+**The well-known ones in Luanda** (from the sources below; dates differ, check before a brief):
+- **Hospital Josina Machel** (formerly Maria Pia): the oldest and largest state hospital in Angola and the main national reference for specialities, about 534 beds; in the centre, by the Baixa and Ingombota. **The natural hospital of L1.**
+- **Hospital Américo Boavida**: one of the largest public hospitals, in Rangel, with a kidney unit (dialysis); being rehabilitated and enlarged.
+- **Maternidade Lucrécia Paim**: the national reference maternity, in Maianga (by the Maculusso, `BAIRROS.md` §12); its outpatient clinic reopened in 2026.
+- **Hospital Pediátrico David Bernardino**: the children's hospital (called the largest in Angola by one source only).
+- **Hospital do Prenda**, **Hospital Neves Bendinha** (burns), **Hospital Geral de Luanda**, **Hospital Geral do Kilamba Kiaxi**, **Hospital Geral de Camama**, **Hospital Geral dos Cajueiros** (Cazenga), **Hospital Geral de Cacuaco "Heróis de Kifangondo"** (2024), **Hospital Geral de Viana**; the Hospital Militar Principal of the armed forces.
+- Private clinics with brand names (Clínica Girassol, Clínica Sagrada Esperança, the latter with a branch on the Ilha): **brands, not places: not named in the game (D-0.11).**
+
+**How the country is served:** about 172 municipal hospitals, 800 health centres and 2 311 health posts (Prensa Latina, Angola's World Health Day report). In Cacuaco, for example: one municipal hospital, six centros médicos and thirteen postos de saúde. So **each município has a hospital municipal or a centro médico, and postos de saúde in its bairros**: what the founder asked for, true to life.
+
+**For the game:** each district that holds a município's centre has a centro médico (or its real hospital, where one stands there); each other bairro may have a posto de saúde. A player whose Energia runs out wakes at the nearest, with a small bill as a receipt (Task 4.4). **Whether real public hospitals carry their real names** (Josina Machel is a place as the Fortaleza is, and a person's name) **is the founder's to decide, and counsel's to read** (Waiting item 24): the recommendation is the real name for the great public hospitals that are landmarks, shown with respect (no crime, no deaths, no queues made fun of), and invented names for centros médicos and postos.
+
+Sources: [List of hospitals in Angola (Wikipedia)](https://en.wikipedia.org/wiki/List_of_hospitals_in_Angola) · [Josina Machel Hospital (Wikipedia)](https://en.wikipedia.org/wiki/Josina_Machel_Hospital) · [Healthcare in Angola (Wikipedia)](https://en.wikipedia.org/wiki/Healthcare_in_Angola) · [Ver Angola 2026, Lucrécia Paim's clinic reopens](https://www.verangola.net/va/en/032026/Health/48247/Lucr%C3%A9cia-Paim's-outpatient-clinic-reopens-with-a-'new-look'-to-reinforce-quality-of-care.htm) · [UK government, medical facilities in Angola](https://www.gov.uk/government/publications/list-of-medical-facilities-and-funeral-directors-in-angola/angola-list-of-medical-facilities) · [Prensa Latina, health units](https://www.prensa-latina.cu/?p=813138) · [AllAfrica, Hospital Geral de Cacuaco](https://fr.allafrica.com/stories/202407190317.html) · [ANGOP, telemedicine in 42 hospitals](https://angop.ao/en/noticias/saude/telemedicina-ja-funciona-em-42-hospitais-de-angola) · [ANGOP, Hospital Geral de Viana](https://angop.ao/en/noticias/saude/hospital-geral-de-viana-sera-inaugurado-em-abril)
+
 ## 7. What still has to come from the founder (nobody can look this up)
 - [ ] Photographs he owns or may use of: the promenade from both ends, the pink building's corner and arcade, the fortress from below and the view from the top, the Palácio de Ferro, the Mutamba, one inner street of the Baixa, a full paragem at rush hour, a candongueiro inside and out.
 - [ ] What is at each end of the crescent today, and what a Luandan expects to see behind the promenade (which towers, which signs, in which order).

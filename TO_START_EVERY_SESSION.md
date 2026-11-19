@@ -182,6 +182,7 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 12. A first conversation with a mobile operator about zero-rated data, once the alpha has numbers (D-0.35).
 21. **Kambas across the 18 line (D-4.17, F-225).** Built so that a player of 15 to 17 and an adult cannot become kambas (no private messages between a minor and an adult stranger). Keep it, or allow kambas with no private messages across the line?
 22. **Where the Largo 1º de Maio belongs (`docs/reference/BAIRROS.md` §12 and §13, F-223).** Rangel's edge, Ingombota, Maculusso, or a corner shared by the bairros that meet there? And which roundabout of Vila Alice is photo 88?
+24. **Real hospital names (LUANDA_REFERENCE.md §6f).** May the great public hospitals carry their real names (Hospital Josina Machel as L1's hospital), as the Fortaleza does, with invented names for centros médicos and postos de saúde? Recommendation: yes, with respect, after counsel reads it.
 23. **The display typeface cut to one weight (F-226).** Fraunces is one file from weight 600 to 700 (34 KB of the 300 KB the way in may weigh, and the way in is full). A single 700 would be about half. A look decision: the founder sees both before it is done.
 
 ---
