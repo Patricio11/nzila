@@ -312,7 +312,7 @@ export class Session {
     else if (event.kind === EVENT.RIDE_REFUSED) this.rideRefused = true;
     else if (event.kind === EVENT.GIVEN) this.given = true;
     else if (event.kind === EVENT.MESA_REFUSED) this.mesaRefused = event.args[0] ?? 0;
-    else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA) this.convites.push(event);
+    else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA || event.kind === EVENT.PONTOS) this.convites.push(event);
     else if (event.kind === EVENT.EMOTE) {
       const name = EMOTE_NAMES[event.args[0] ?? -1];
       if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);

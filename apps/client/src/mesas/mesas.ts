@@ -11,6 +11,7 @@ import { decodeMesa, encodeMesaPedido, EVENT, MESA_RECUSAS, type MesaDita, type 
 import { tableObstacles, type Manifest } from "@nzila/world/client";
 import { BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Quaternion, SRGBColorSpace, Vector3 } from "three";
 import type { Session } from "../net/session.ts";
+import { askAsPlayer } from "../world/account.ts";
 import type { DistrictScene } from "../render/district-scene.ts";
 import type { Person } from "../render/person.ts";
 import type { WorldRenderer } from "../render/world-renderer.ts";
@@ -156,6 +157,12 @@ interface Shown {
   moving: { to: number; path: { x: number; z: number }[]; began: number } | null;
 }
 
+/** The ranking of a game in a bairro, as the API gives it: the best, and the player's own place. */
+export interface Classificacao {
+  readonly top: readonly { readonly nome: string; readonly pontos: number; readonly jogos: number; readonly vitorias: number; readonly eu: boolean }[];
+  readonly eu: { readonly posicao: number; readonly pontos: number; readonly jogos: number; readonly vitorias: number } | null;
+}
+
 /** What the player can do at a table, as the page asks each frame. */
 export interface AtTables {
   /** The seat the zone has the player in, and where it is. */
@@ -183,6 +190,8 @@ export class Mesas {
   /** The table near enough to watch, as the last frame found it; and the one whose board is open to watch (F-210). */
   perto: number | null = null;
   vendo: number | null = null;
+  /** What the last game the player finished did to their points, at which table, until when to say so. */
+  pontos: { mesa: number; depois: number; delta: number; ate: number } | null = null;
   /** Something to say for a moment: an invitation sent, accepted, declined. */
   aviso: { kind: "aceitou" | "recusou"; nome: string; ate: number } | null = null;
   /** Where the player stands, as the last frame had it: for the nearest table, and the way to one. */
@@ -366,6 +375,12 @@ export class Mesas {
     this.session?.post(encodeMesaPedido(pedido));
   }
 
+  /** The bairro's best at a table's game, and where the player stands; null when it could not be asked. */
+  async classificacao(mesa: number): Promise<Classificacao | null> {
+    const { answer } = await askAsPlayer<Classificacao>("POST", "/v1/classificacao", { jogo: this.tables[mesa]!.game, districtId: this.scene.manifest.id });
+    return answer;
+  }
+
   /** What a quick game being played at a table has left, by this phone's clock; 0 when none is being played. */
   fimLeftMs(mesa: number): number {
     const said = this.said[mesa];
@@ -418,6 +433,12 @@ export class Mesas {
       }
       // Invitations to play, and the answers to the player's own (Task 4B.1).
       for (const event of session.convites.splice(0)) {
+        // A game written down: what it did to the player's points (the ranking).
+        if (event.kind === EVENT.PONTOS) {
+          if (event.subject < this.tables.length) this.pontos = { mesa: event.subject, depois: event.args[0] ?? 0, delta: event.args[1] ?? 0, ate: performance.now() + 30_000 };
+          for (const listener of this.listeners) listener();
+          continue;
+        }
         const nome = session.who(event.subject)?.name ?? "";
         const mesa = event.args[0] ?? 0;
         if (mesa >= this.tables.length) continue;

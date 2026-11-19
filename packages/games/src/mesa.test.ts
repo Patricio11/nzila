@@ -355,6 +355,8 @@ describe("a quick game (partida rápida)", () => {
     expect(resta(begun, 61_000)).toBe(RAPIDA_MS - 60_000);
     expect(resta(begun, 1_000 + RAPIDA_MS + 5)).toBe(0);
     expect(resta(novaMesa("damas", 0), 0)).toBeNull();
+    // Its length can be given (the browser tests' zone makes it short).
+    expect(resta(begun, 6_000, 10_000)).toBe(5_000);
     // A player's quick turn runs out sooner: the kota plays it for them.
     const late = passo(begun, 1_000 + VEZ_RAPIDA_MS.damas, seis);
     expect(late.versao).toBeGreaterThan(begun.versao);

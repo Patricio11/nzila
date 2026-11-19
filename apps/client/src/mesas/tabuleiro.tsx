@@ -5,12 +5,12 @@
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
-import { KOTAS, damasMoves, escura, kotaDe, ludoMoves, xadrezMoves, type DamasMove, type Partida } from "@nzila/games";
+import { KOTAS, PONTOS_KOTA, damasMoves, escura, kotaDe, ludoMoves, xadrezMoves, type DamasMove, type Partida } from "@nzila/games";
 import type { MesaDita } from "@nzila/protocol";
 import { Button } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { CORES, LUDO_CORES, LUDO_FUNDOS, ludoCell, paintLudo, squareSeen, squareUnder } from "./casas.ts";
-import type { Mesas } from "./mesas.ts";
+import type { Classificacao, Mesas } from "./mesas.ts";
 import "./mesas.css";
 
 tr.extend(ptAOLater);
@@ -26,7 +26,7 @@ const FIGURAS: Record<string, string> = {
 };
 
 /** What the board asks of the tables: the street's (Mesas), or a board alone for the team and the tests (/mesa). */
-export type MesasVista = Pick<Mesas, "listen" | "tables" | "said" | "partidaOf" | "me" | "leftMs" | "fimLeftMs" | "refused" | "nameOf" | "ask" | "aVer" | "ladoDe" | "guardadoNome" | "deixarDeVer">;
+export type MesasVista = Pick<Mesas, "listen" | "tables" | "said" | "partidaOf" | "me" | "leftMs" | "fimLeftMs" | "refused" | "nameOf" | "ask" | "aVer" | "ladoDe" | "guardadoNome" | "deixarDeVer" | "pontos" | "classificacao">;
 
 interface Props {
   mesas: MesasVista;
@@ -71,6 +71,12 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
   const [, redraw] = useState(0);
   // A kota asked to take a seat kept for someone: asked first (F-213).
   const [asking, setAsking] = useState(false);
+  // The ranking, opened over the board: being asked for, come, or not to be had.
+  const [ranking, setRanking] = useState<Classificacao | "a-carregar" | "sem-rede" | null>(null);
+  const openRanking = (): void => {
+    setRanking("a-carregar");
+    void mesas.classificacao(mesa).then((answer) => setRanking(answer ?? "sem-rede"));
+  };
   const [chosen, setChosen] = useState<number | null>(null);
   // At damas, the squares of a run of captures tapped so far, after the piece: a run is played a hop at a time.
   const [hops, setHops] = useState<number[]>([]);
@@ -169,7 +175,10 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
           ))}
         </ol>
       </header>
-      <div class="ms-board">
+      {ranking !== null ? (
+        <Ranking ranking={ranking} jogo={table.game} close={() => setRanking(null)} />
+      ) : null}
+      <div class={`ms-board${ranking !== null ? " ms-board-escondido" : ""}`}>
         {partida.jogo === "ludo" ? (
           <LudoBoard mesas={mesas} mesa={mesa} said={said} partida={partida} mySeat={mySeat} lado={lado} myTurn={myTurn} ask={ask} />
         ) : (
@@ -196,6 +205,13 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
       <p class={`ms-line${refused ? " ms-line-no" : myTurn || (asking && kept) ? " ms-line-go" : ""}`} aria-live="polite">
         {watching && said?.fase === "espera" ? tr.t("mesa.vendo") : line}
       </p>
+      {said?.fase === "fim" && mesas.pontos && mesas.pontos.mesa === mesa && mesas.pontos.ate > performance.now() ? (
+        // What the game did to the player's points.
+        <p class={`ms-pontos${mesas.pontos.delta < 0 ? " ms-pontos-menos" : ""}`} role="status">
+          <b>{`${mesas.pontos.delta > 0 ? "+" : ""}${tr.number(mesas.pontos.delta)}`}</b>
+          {tr.t("mesa.pontos", { pontos: tr.number(mesas.pontos.depois) })}
+        </p>
+      ) : null}
       {watching ? (
         <footer class="ms-foot ms-foot-ver">
           <button type="button" class="ms-react" data-gesto="aplaudir" onClick={() => gesto?.("aplaudir")}>
@@ -208,7 +224,14 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
           </button>
           <Button kind="quiet" onPress={() => mesas.deixarDeVer()}>{tr.t("mesa.fechar")}</Button>
         </footer>
-      ) : asking && kept ? (
+      ) : null}
+      {(watching || (said?.fase !== "jogo" && mySeat >= 0)) && ranking === null ? (
+        <button type="button" class="ms-ver-classificacao" onClick={openRanking}>
+          <i class="ms-podio" aria-hidden="true" />
+          {tr.t("mesa.classificacao")}
+        </button>
+      ) : null}
+      {watching ? null : asking && kept ? (
         <footer class="ms-foot">
           <Button kind="quiet" onPress={() => setAsking(false)}>{tr.t("mesa.esperar")}</Button>
           <Button onPress={() => (ask({ mesa, pedido: "comecar" }), setAsking(false))}>{tr.t("mesa.jogarJa")}</Button>
@@ -221,6 +244,50 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
         </footer>
       )}
     </div>
+  );
+}
+
+/** The bairro's best at a game, over the board: a podium for the first three, the player marked, their own place. */
+function Ranking({ ranking, jogo, close }: { ranking: Classificacao | "a-carregar" | "sem-rede"; jogo: string; close: () => void }) {
+  const nome = tr.t(`mesa.jogoNome.${jogo}` as "mesa.jogoNome.xadrez");
+  return (
+    <section class="ms-ranking" aria-label={tr.t("mesa.classificacaoTitulo", { jogo: nome })}>
+      <h3>{tr.t("mesa.classificacaoTitulo", { jogo: nome })}</h3>
+      {ranking === "a-carregar" ? (
+        <p class="ms-ranking-dito">{tr.t("mesa.aCarregar")}</p>
+      ) : ranking === "sem-rede" ? (
+        <p class="ms-ranking-dito">{tr.t("mesa.semRede")}</p>
+      ) : ranking.top.length === 0 ? (
+        <p class="ms-ranking-dito">{tr.t("mesa.classificacaoVazia")}</p>
+      ) : (
+        <ol class="ms-ranking-lista">
+          {ranking.top.map((one, n) => (
+            <li key={`${n}-${one.nome}`} class={`ms-ranking-linha${one.eu ? " ms-ranking-eu" : ""}${n < 3 ? ` ms-ranking-${n + 1}` : ""}`}>
+              <b class="ms-ranking-posicao">{n + 1}</b>
+              <span class="ms-ranking-nome">{one.nome}</span>
+              <small>{tr.t("mesa.vitorias", { n: tr.number(one.vitorias), jogos: tr.number(one.jogos) })}</small>
+              <b class="ms-ranking-pontos">{tr.number(one.pontos)}</b>
+            </li>
+          ))}
+        </ol>
+      )}
+      {typeof ranking === "object" ? (
+        <p class="ms-ranking-teu">{ranking.eu ? tr.t("mesa.classificacaoEu", { posicao: tr.number(ranking.eu.posicao), pontos: tr.number(ranking.eu.pontos) }) : tr.t("mesa.classificacaoNunca")}</p>
+      ) : null}
+      {/* What a win over each kind of kota is measured against: beating the feared one counts for more. */}
+      <div class="ms-ranking-kotas">
+        <p>{tr.t("mesa.classificacaoKotas")}</p>
+        <ul>
+          {(["principiante", "conhecedor", "temido"] as const).map((forca) => (
+            <li key={forca}>
+              <small class={`ms-forca ms-forca-${forca}`}>{tr.t(`mesa.forca.${forca}` as "mesa.forca.temido")}</small>
+              <b>{tr.number(PONTOS_KOTA[forca])}</b>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <Button kind="quiet" onPress={close}>{tr.t("mesa.voltar")}</Button>
+    </section>
   );
 }
 

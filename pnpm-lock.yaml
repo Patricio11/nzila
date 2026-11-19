@@ -293,6 +293,9 @@ importers:
       '@nzila/economy':
         specifier: workspace:*
         version: link:../economy
+      '@nzila/games':
+        specifier: workspace:*
+        version: link:../games
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(postgres@4.1.1)

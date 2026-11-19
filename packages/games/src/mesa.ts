@@ -166,9 +166,9 @@ const mudou = (mesa: Mesa, mudanca: Partial<Mesa>, agora: number): Mesa => {
 /** How long a move may take at this table now. */
 export const vezMs = (mesa: Mesa): number => (mesa.rapida ? VEZ_RAPIDA_MS : VEZ_MS)[mesa.jogo];
 
-/** How long is left of a quick game being played, in milliseconds; null when it is not one. */
-export function resta(mesa: Mesa, agora: number): number | null {
-  return mesa.rapida && mesa.fase === "jogo" ? Math.max(0, mesa.inicio + RAPIDA_MS - agora) : null;
+/** How long is left of a quick game being played, in milliseconds; null when it is not one. `duracao`, its length. */
+export function resta(mesa: Mesa, agora: number, duracao = RAPIDA_MS): number | null {
+  return mesa.rapida && mesa.fase === "jogo" ? Math.max(0, mesa.inicio + duracao - agora) : null;
 }
 
 /**
@@ -347,10 +347,10 @@ function descansa(mesa: Mesa, lugar: number): Mesa {
  * ends and the next begins. `dado` throws the dice (1 to 6) when a kota or a late player needs a throw. Gives back
  * the same table when nothing happened.
  */
-export function passo(mesa: Mesa, agora: number, dado: () => number): Mesa {
+export function passo(mesa: Mesa, agora: number, dado: () => number, duracao = RAPIDA_MS): Mesa {
   const passou = agora - mesa.desde;
-  // A quick game whose three minutes are up ends now, won by whoever is ahead.
-  if (resta(mesa, agora) === 0) return mudou(mesa, { partida: ganhaPorTempo(mesa.partida), fase: "fim", porTempo: true }, agora);
+  // A quick game whose three minutes are up ends now, won by whoever is ahead. (`duracao`: shorter for the browser tests.)
+  if (resta(mesa, agora, duracao) === 0) return mudou(mesa, { partida: ganhaPorTempo(mesa.partida), fase: "fim", porTempo: true }, agora);
   if (mesa.fase === "espera") {
     // A seat kept for someone invited holds the game until they come or the keeping runs out.
     const guardando = mesa.lugares.some((one) => one.jogador === null && one.guardado !== null && one.guardado.ate > agora);

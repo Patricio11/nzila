@@ -7,7 +7,7 @@
 // and the card of origin go. The history of consents stays for its period:
 // it is the proof that they agreed. The audit log records that it was done.
 
-import { audit, blockedBy, consentsOf, statementOf, walletOf } from "@nzila/db";
+import { audit, blockedBy, classificacaoDoJogador, consentsOf, statementOf, walletOf } from "@nzila/db";
 import { accountId } from "@nzila/economy";
 import { type OriginTable } from "@nzila/economy";
 import { settleLook } from "@nzila/protocol";
@@ -51,6 +51,8 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
     ),
     // What the moderators did about them, and why they said they did it. Not which moderator.
     moderation: measures.map((row) => ({ at: row.at, kind: row.kind, reason: row.reason, until: row.until, lifted: row.lifted_at })),
+    // Their points at the tables' games, game by game and bairro by bairro.
+    tables: await classificacaoDoJogador(sql, playerId),
   };
 }
 
@@ -76,6 +78,8 @@ export async function deleteAccount(sql: Sql, playerId: string, biNumber: string
     // Whom they shut out, and who shut them out: nobody is left to hear. What they said stays its thirty days, and
     // what was reported stays with the moderators, under a player who is now nobody (docs/legal/RETENTION.md).
     await tx`DELETE FROM player_blocks WHERE player_id = ${playerId} OR blocked_id = ${playerId}`;
+    // Off the tables' rankings: the games they played stay, as games, under a player who is now nobody.
+    await tx`DELETE FROM classificacao WHERE player_id = ${playerId}`;
     await tx`
       UPDATE players SET status = 'deleted', deleted_at = now(), name = NULL, name_key = NULL, bi_number = NULL, age_band = NULL,
         home_district_id = NULL, province_id = NULL, district_id = NULL, x = NULL, y = NULL, z = NULL, phone_enc = NULL, phone_hash = NULL,

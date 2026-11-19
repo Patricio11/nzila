@@ -217,6 +217,8 @@ export const EVENT = {
   MESA_REFUSED: 8,
   /** Someone invites this player to play at a table. subject: who; args[0]: the table. */
   CONVITE: 9,
+  /** A game this player played at a table has been written down. subject: the table; args: their points now, and what the game changed them by. */
+  PONTOS: 11,
   /** The answer to this player's invitation. subject: who was invited; args: the table, and 1 for yes or 0 for no. */
   CONVITE_RESPOSTA: 10,
 } as const;

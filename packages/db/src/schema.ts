@@ -237,6 +237,49 @@ export const cartoesCheios = pgTable("cartoes_cheios", {
   at: at("at").notNull().defaultNow(),
 });
 
+/** The games played at the tables of the street (migration 0012, Task 4B.1). */
+export const partidas = pgTable("partidas", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  districtId: text("district_id").notNull(),
+  mesa: smallint("mesa").notNull(),
+  jogo: text("jogo").notNull(),
+  rapida: boolean("rapida").notNull().default(false),
+  porTempo: boolean("por_tempo").notNull().default(false),
+  at: at("at").notNull().defaultNow(),
+});
+
+/** Each seat of a game: a player with their points before and after, or a kota of the bairro. */
+export const partidaLugares = pgTable(
+  "partida_lugares",
+  {
+    partidaId: bigint("partida_id", { mode: "number" }).notNull(),
+    lugar: smallint("lugar").notNull(),
+    playerId: uuid("player_id"),
+    kota: smallint("kota"),
+    resultado: text("resultado").notNull(),
+    pontosAntes: integer("pontos_antes"),
+    pontosDepois: integer("pontos_depois"),
+  },
+  (t) => [primaryKey({ columns: [t.partidaId, t.lugar] })],
+);
+
+/** Each player's points at each game, in each bairro: the ranking. */
+export const classificacao = pgTable(
+  "classificacao",
+  {
+    playerId: uuid("player_id").notNull(),
+    jogo: text("jogo").notNull(),
+    districtId: text("district_id").notNull(),
+    pontos: integer("pontos").notNull(),
+    jogos: integer("jogos").notNull().default(0),
+    vitorias: integer("vitorias").notNull().default(0),
+    empates: integer("empates").notNull().default(0),
+    derrotas: integer("derrotas").notNull().default(0),
+    atualizado: at("atualizado").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.playerId, t.jogo, t.districtId] })],
+);
+
 export const staffRoles = pgTable(
   "staff_roles",
   {
@@ -324,6 +367,9 @@ export const tables = {
   receipts,
   recadosFeitos,
   cartoesCheios,
+  partidas,
+  partidaLugares,
+  classificacao,
   staffRoles,
   auditLog,
   featureFlags,

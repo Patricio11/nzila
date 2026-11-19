@@ -9,7 +9,7 @@
 
 import { isGreeting } from "@nzila/i18n";
 import { TrafficRules, actorAt } from "@nzila/world";
-import { faceOf, keepChatLines, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
+import { faceOf, keepChatLines, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { type ChatFilter } from "@nzila/i18n";
 import {
   type EntityState,
@@ -19,7 +19,7 @@ import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { Channel, type Place } from "./channel.ts";
 import { CAIXA_REACH_MM, MET_TTL_S, PLACE_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
-import { MESA_SEEN_MM, Mesas } from "./mesas.ts";
+import { MESA_SEEN_MM, Mesas, type Terminada } from "./mesas.ts";
 import { Talk, reached } from "./talk.ts";
 
 /** How many people one channel holds when nobody says otherwise (the tunable `channels.cap`; held by the swarm of 3.7). */
@@ -73,6 +73,8 @@ export interface ZoneDeps {
   readonly holds?: number;
   /** How long a dropped line's place is kept (HOLD_MS; a test brings a shorter one). */
   readonly holdMs?: number;
+  /** How long a quick game at a table lasts: three minutes; the browser tests' zone makes it short. */
+  readonly rapidaMs?: number;
   /**
    * The word filter. Given, talk is open in the channels of this district; not given, nobody can say anything
    * (Rule 11: talk does not open before report, block and mute are there, and the lists are read; Q5).
@@ -186,7 +188,7 @@ export class ChannelRoom {
     this.number = number;
     this.channel = new Channel(deps.district.ground, deps.district.obstacles);
     this.traffic = deps.district.traffic ? new TrafficRules(deps.district.traffic.lines, deps.district.traffic.roamers) : null;
-    this.mesas = (deps.district.tables?.length ?? 0) > 0 ? new Mesas(deps.district.tables!, Date.now()) : null;
+    this.mesas = (deps.district.tables?.length ?? 0) > 0 ? new Mesas(deps.district.tables!, Date.now(), undefined, deps.rapidaMs) : null;
   }
 
   /** How many people are in or on their way in (the database is being asked about them), and how many more would fit. */
@@ -554,6 +556,17 @@ export class ChannelRoom {
   }
 
   /** Whoever is near a table is told how it stands, when it has changed since they were last told or they have just come near. */
+  /** Writes a finished game down (the ranking) and tells each player at it their points now and the change. */
+  private record(fim: Terminada): void {
+    void recordPartida(this.sql, { districtId: this.district.id, ...fim })
+      .then((pontuados) => {
+        for (const one of pontuados) {
+          this.lineOf(one.playerId)?.send(encodeEvent({ kind: EVENT.PONTOS, tick: this.channel.world.tick, subject: fim.mesa, args: [one.depois, one.depois - one.antes], text: "" }));
+        }
+      })
+      .catch((error: unknown) => this.log(`zone: a game at table ${fim.mesa} of ${this.district.id} was not written down: ${String(error)}`));
+  }
+
   private tellTables(now: number): void {
     const mesas = this.mesas!;
     const entityOf = (playerId: string): number => {
@@ -760,6 +773,8 @@ export class ChannelRoom {
         const entity = line ? this.held.get(line)!.entityId : this.away.get(one.playerId)?.held.entityId;
         if (entity !== undefined) this.channel.standUp(entity, one.stand);
       }
+      // A game ended with players at it is written down, and each of them told what it did to their points.
+      for (const fim of this.mesas.acabadas()) this.record(fim);
       this.tellTables(now);
     }
     // And whoever stands close to another is said to be with them, so that the API will let one hand the other

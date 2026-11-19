@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@nzila/economy": "workspace:*",
+    "@nzila/games": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "postgres": "^4.1.1"
   }

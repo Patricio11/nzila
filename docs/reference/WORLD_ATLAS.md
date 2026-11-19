@@ -57,7 +57,7 @@ The order is the plan. It follows three things: what is most recognisable, what 
 | L8 | Sul: Benfica, Miradouro da Lua, Barra do Kwanza | 15.6 | The road south | The first long drive, the craft market, the lookout |
 | L9 | Gateways: aeroporto e terminais | 15.7 | The way out to the rest of Angola | Intercity travel |
 
-**The bairros as they are built (founder's maps, 2026-11-19).** `docs/reference/BAIRROS.md` holds, for Kilamba, Vila Flor, Viana, Nova Vida, Cazenga, Cidade Alta, Ingombota, São Paulo, Vila Alice, Rangel and Catambor, the street pattern the maps show (superblocks, organic lanes, numbered streets, grids that meet at angles), plot and road sizes, what stands there, the landmarks and paragens, and rules for making each one, with every source. Read it before a district's brief; what it marks **[founder]** is asked before it is used.
+**The bairros as they are built (founder's maps, 2026-11-19).** `docs/reference/BAIRROS.md` holds, for Kilamba, Viana, Nova Vida, Cazenga, Cidade Alta, Ingombota, São Paulo, Vila Alice, Rangel, Catambor and Maculusso (Vila Flor dropped by the founder), the street pattern the maps show (superblocks, organic lanes, numbered streets, grids that meet at angles), plot and road sizes, what stands there, the landmarks and paragens, and rules for making each one, with every source. Read it before a district's brief; what it marks **[founder]** is asked before it is used.
 
 ### 2b. What stands in each district (the housing mix, founder 2026-11-14)
 

@@ -1477,10 +1477,10 @@ test.describe("two phones in the same street", () => {
     await expect(quick).toHaveAttribute("aria-checked", "true", { timeout: 5_000 });
     await page.screenshot({ path: info.outputPath("mesa-rapida.png") });
     await board.getByRole("button", { name: "Jogar já com o kota" }).click();
-    // Whoever plays White moves first: the kota, or the player. The game's own clock runs from three minutes, the
-    // turn's from fifteen seconds.
+    // Whoever plays White moves first: the kota, or the player. The game's own clock runs (from three minutes in a
+    // street, from forty seconds in the browser tests' zone), the turn's from fifteen seconds.
     await expect(board.locator(".ms-line")).toHaveText("É a tua vez.", { timeout: 15_000 });
-    await expect(board.locator(".ms-relogio")).toHaveText(/^[23]:\d\d$/);
+    await expect(board.locator(".ms-relogio")).toHaveText(/^0:[0-4]\d$/);
     await expect(board.locator(".ms-seat-turn b")).toHaveText(/^0:1\d$/);
     await page.screenshot({ path: info.outputPath("mesa-vez.png") });
     // A pawn chosen lights where it may go; the farther of the two is played.
@@ -1499,6 +1499,79 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__andar!.mesa === null && !window.__andar!.seated, undefined, { timeout: 10_000 });
     await expect(board).toHaveCount(0);
     await page.waitForFunction(() => window.__andar!.action === "xadrez", undefined, { timeout: 10_000 });
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("a quick game played to the end of its clock is written down: the board says what it did to the player's points, and the bairro's ranking has them (Task 4B.1)", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The ranking was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(150_000);
+    const seen = watch(page);
+    const myName = await comeIn(page, 46);
+    const manifest = (await (await request.get("/packs/dev/manifest.json")).json()) as { tables: { game: string; pos: [number, number, number]; seats: { pos: [number, number, number] }[] }[] };
+    // Each phone a table of its own: the zone of the tests is shared, and a player who gets up is put behind their
+    // stool, where the other phone's test would walk to (the damas table for one, the second xadrez table for the other).
+    const jogo = info.project.name === "phone" ? "damas" : "xadrez";
+    const table = info.project.name === "phone" ? manifest.tables.find((one) => one.game === "damas")! : manifest.tables.filter((one) => one.game === "xadrez")[1]!;
+    const seat = table.seats[0]!.pos;
+    const nome = jogo === "damas" ? "Damas" : "Xadrez";
+    const away = Math.hypot(seat[0] - table.pos[0], seat[2] - table.pos[2]);
+    const stand = { x: seat[0] + ((seat[0] - table.pos[0]) / away) * 0.75, z: seat[2] + ((seat[2] - table.pos[2]) / away) * 0.75 };
+    await page.goto("/andar?tier=poupanca&hour=10");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const walkTo = async (x: number, z: number, within: number): Promise<void> => {
+      for (let n = 0; n < 300; n++) {
+        const at = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+        const dx = x - at.x;
+        const dz = z - at.z;
+        if (Math.hypot(dx, dz) < within) return;
+        const keys = [...(dx > 0.2 ? ["d"] : dx < -0.2 ? ["a"] : []), ...(dz > 0.2 ? ["s"] : dz < -0.2 ? ["w"] : [])];
+        for (const key of keys) await page.keyboard.down(key);
+        await page.waitForTimeout(Math.min(350, 50 + Math.hypot(dx, dz) * 110));
+        for (const key of keys) await page.keyboard.up(key);
+      }
+    };
+    const start = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    await walkTo(stand.x, start.z, 0.4);
+    await walkTo(stand.x, stand.z, 0.3);
+    await page.waitForFunction((wanted) => window.__andar!.action === wanted, jogo, { timeout: 15_000 });
+    await page.getByRole("button", { name: `Jogar ${jogo}` }).click();
+    await page.waitForFunction(() => window.__andar!.mesa !== null && window.__andar!.seated, undefined, { timeout: 10_000 });
+    const board = page.getByRole("dialog", { name: nome });
+    // Before the game: nobody has played here yet, or the player has not.
+    await board.getByRole("button", { name: "Classificação" }).click();
+    await expect(board.locator(".ms-ranking-teu")).toHaveText("Ainda não jogaste aqui: a primeira partida dá-te lugar.", { timeout: 10_000 });
+    await board.getByRole("button", { name: "Voltar ao jogo" }).click();
+    // A quick game (forty seconds in the browser tests' zone), begun at once; the player only watches the clock.
+    await board.getByRole("switch", { name: "Partida rápida · 3 min" }).click();
+    await expect(board.getByRole("switch", { name: "Partida rápida · 3 min" })).toHaveAttribute("aria-checked", "true", { timeout: 5_000 });
+    await board.getByRole("button", { name: "Jogar já com o kota" }).click();
+    await expect(board.locator(".ms-relogio")).toBeVisible({ timeout: 10_000 });
+    // The player plays on their turns as anyone would (three turns missed stand a player up): a piece that may move,
+    // then where it may go, a hop at a time, until the clock ends it.
+    const ended = board.locator(".ms-line", { hasText: "Acabou o tempo." });
+    for (let n = 0; n < 90 && (await ended.count()) === 0; n++) {
+      if ((await board.locator(".ms-line-go").count()) > 0) {
+        if ((await board.locator(".ms-target").count()) > 0) await board.locator(".ms-target").first().click({ force: true, timeout: 2000 }).catch(() => {});
+        else await board.locator(".ms-piece.ms-can").first().click({ force: true, timeout: 2000 }).catch(() => {});
+      }
+      await page.waitForTimeout(700);
+    }
+    // The clock ends it; the board says so, and what it did to the player's points.
+    await expect(board.locator(".ms-line")).toContainText("Acabou o tempo.", { timeout: 10_000 });
+    await expect(board.locator(".ms-pontos")).toContainText(/pontos · tens \d/, { timeout: 15_000 });
+    await page.screenshot({ path: info.outputPath("mesa-pontos.png") });
+    // The bairro's ranking has them now, marked.
+    await board.getByRole("button", { name: "Classificação" }).click();
+    await expect(board.locator(".ms-ranking-eu")).toContainText(myName, { timeout: 10_000 });
+    await expect(board.locator(".ms-ranking-teu")).toContainText("O teu lugar:");
+    await page.screenshot({ path: info.outputPath("mesa-classificacao.png") });
+    await board.getByRole("button", { name: "Voltar ao jogo" }).click();
+    await board.getByRole("button", { name: "Levantar" }).click();
+    await page.waitForFunction(() => window.__andar!.mesa === null, undefined, { timeout: 10_000 });
     expect(seen.errors).toEqual([]);
   });
 

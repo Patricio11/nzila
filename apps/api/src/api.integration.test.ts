@@ -1,7 +1,7 @@
 // The API against a real PostgreSQL (`pnpm services` starts it). Each run
 // makes its own database and drops it afterwards.
 
-import { auditLedger, connect, databaseUrl, decryptField, keepChatLines, putStaff, shutOutOf, standingAgainst, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
+import { auditLedger, classificacaoDoJogador, connect, recordPartida, databaseUrl, decryptField, keepChatLines, putStaff, shutOutOf, standingAgainst, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES } from "@nzila/economy";
 import { ZONE_TTL_S, memoryPresence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
@@ -1370,5 +1370,66 @@ describe("os recados do dia, the family's money, the errand for two, the cantina
     // A new card begins.
     await presence.mark(one.playerId, "loja", "cantina-largo");
     expect(((await get(one.token, "/v1/me/items")).json() as { shop: { card: { stamps: number } } }).shop.card.stamps).toBe(0);
+  });
+});
+
+describe("the tables' ranking (Task 4B.1)", () => {
+  const bairro = "zz-tst/ranking";
+  const ranking = (token: string, jogo: string, districtId = bairro) => app.inject({ method: "POST", url: "/v1/classificacao", headers: as(token), payload: { jogo, districtId } });
+
+  test("a game written down moves the players' points, by whom they played: Kota Domingos is worth more than Kota Zeca", async () => {
+    const ana = await newGuest(1500);
+    const beto = await newGuest(1501);
+    // Ana beats Kota Domingos (feared at xadrez); Beto beats Kota Zeca (learning).
+    const [anaWon] = await recordPartida(sql, { districtId: bairro, mesa: 0, jogo: "xadrez", rapida: false, porTempo: false, lugares: [{ playerId: ana.playerId, kota: 0, resultado: "ganhou" }, { playerId: null, kota: 3, resultado: "perdeu" }] });
+    const [betoWon] = await recordPartida(sql, { districtId: bairro, mesa: 1, jogo: "xadrez", rapida: true, porTempo: true, lugares: [{ playerId: null, kota: 0, resultado: "perdeu" }, { playerId: beto.playerId, kota: 1, resultado: "ganhou" }] });
+    expect(anaWon).toEqual({ playerId: ana.playerId, antes: 1000, depois: 1029 });
+    expect(betoWon).toEqual({ playerId: beto.playerId, antes: 1000, depois: 1008 });
+    // Then they play each other, and Beto wins: the weaker beating the stronger moves more.
+    const both = await recordPartida(sql, { districtId: bairro, mesa: 0, jogo: "xadrez", rapida: false, porTempo: false, lugares: [{ playerId: ana.playerId, kota: 0, resultado: "perdeu" }, { playerId: beto.playerId, kota: 1, resultado: "ganhou" }] });
+    expect(both.map((one) => one.depois - one.antes)).toEqual([-17, 17]);
+    const seats = await sql`SELECT lugar, player_id IS NULL AS kota_seat, kota, resultado FROM partida_lugares WHERE partida_id = (SELECT max(id) FROM partidas WHERE district_id = ${bairro} AND mesa = 1) ORDER BY lugar`;
+    expect(seats).toEqual([{ lugar: 0, kota_seat: true, kota: 0, resultado: "perdeu" }, { lugar: 1, kota_seat: false, kota: null, resultado: "ganhou" }]);
+
+    // The ranking: names and points, the player marked, their own place; no other player's id.
+    const answer = await ranking(ana.token, "xadrez");
+    expect(answer.statusCode).toBe(200);
+    expect(answer.json()).toEqual({
+      top: [
+        { nome: beto.name, pontos: 1025, jogos: 2, vitorias: 2, eu: false },
+        { nome: ana.name, pontos: 1012, jogos: 2, vitorias: 1, eu: true },
+      ],
+      eu: { posicao: 2, pontos: 1012, jogos: 2, vitorias: 1 },
+    });
+    expect(answer.body).not.toContain(beto.playerId);
+    // Another game, another bairro: nothing yet.
+    expect((await ranking(ana.token, "damas")).json()).toEqual({ top: [], eu: null });
+    expect((await ranking(ana.token, "xadrez", "zz-tst/outro")).json()).toEqual({ top: [], eu: null });
+    // Asked wrongly, or by nobody.
+    expect((await ranking(ana.token, "sueca")).statusCode).toBe(400);
+    expect((await ranking(ana.token, "xadrez", "../etc")).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/v1/classificacao", payload: { jogo: "xadrez", districtId: bairro } })).statusCode).toBe(401);
+    // What the player may ask to see of their data includes it.
+    expect(await classificacaoDoJogador(sql, ana.playerId)).toEqual([{ jogo: "xadrez", districtId: bairro, pontos: 1012, jogos: 2, vitorias: 1, empates: 0, derrotas: 1 }]);
+    expect(((await app.inject({ method: "GET", url: "/v1/me/data", headers: as(ana.token) })).json() as { tables: unknown }).tables).toEqual([{ jogo: "xadrez", districtId: bairro, pontos: 1012, jogos: 2, vitorias: 1, empates: 0, derrotas: 1 }]);
+
+    // Beto deletes his account: he is off the ranking, and Ana is first; the games stay, as games.
+    expect((await app.inject({ method: "DELETE", url: "/v1/me", headers: as(beto.token), payload: { biNumber: beto.biNumber } })).statusCode).toBe(200);
+    expect((await ranking(ana.token, "xadrez")).json()).toMatchObject({ top: [{ nome: ana.name }], eu: { posicao: 1 } });
+    expect(await sql`SELECT 1 FROM classificacao WHERE player_id = ${beto.playerId}`).toEqual([]);
+    expect((await sql`SELECT count(*)::int AS n FROM partida_lugares WHERE player_id = ${beto.playerId}`)[0]).toEqual({ n: 2 });
+  });
+
+  test("a draw at Não te irrites cannot be, a draw at damas moves both; four seats, the winner against each", async () => {
+    const a = await newGuest(1502);
+    const b = await newGuest(1503);
+    const drawn = await recordPartida(sql, { districtId: bairro, mesa: 2, jogo: "damas", rapida: false, porTempo: false, lugares: [{ playerId: a.playerId, kota: 0, resultado: "empate" }, { playerId: b.playerId, kota: 1, resultado: "empate" }] });
+    expect(drawn.map((one) => one.depois)).toEqual([1000, 1000]);
+    const ludo = await recordPartida(sql, { districtId: bairro, mesa: 3, jogo: "ludo", rapida: false, porTempo: false, lugares: [
+      { playerId: a.playerId, kota: 0, resultado: "ganhou" }, { playerId: null, kota: 1, resultado: "perdeu" }, { playerId: b.playerId, kota: 2, resultado: "perdeu" }, { playerId: null, kota: 3, resultado: "perdeu" },
+    ] });
+    // A beat two kotas who play it well (1 100 points: about 20 each) and a newcomer (16): three wins at once.
+    expect(ludo.map((one) => one.depois - one.antes)).toEqual([57, -16]);
+    expect(await sql`SELECT empates FROM classificacao WHERE player_id = ${a.playerId} AND jogo = 'damas'`).toEqual([{ empates: 1 }]);
   });
 });

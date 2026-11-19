@@ -1,22 +1,23 @@
 # NZILA · LUANDA BAIRROS: STREET PATTERN, PLOTS, HOUSING, LANDMARKS (research, 2026-11-19)
-**Companion to `LUANDA_REFERENCE.md` §6c and `WORLD_ATLAS.md` §2, 2b, 2c. Draft for the founder; nothing here is a decision until he says yes.**
+**Companion to `LUANDA_REFERENCE.md` §6c and `WORLD_ATLAS.md` §2, 2b, 2c. Draft for the founder; nothing here is a decision until the founder says yes.** *(2026-11-19, later: the founder dropped Vila Flor and added Maculusso, with photos of Maculusso, Vila Alice and Nova Vida; §2 is kept as a stub so the numbers do not move.)*
 
-> **Overview.** The eleven bairros fall into five kinds. **Planned centralidade:** Kilamba, a single state project built 2008 to 2012 on empty land, a grid of superblocks of 5 to 13 storey blocks. **Planned suburbs:** Nova Vida, a post-war state *urbanização* (from 2003) of numbered streets, loops and cul-de-sacs; and Vila Alice, a colonial-era residential suburb at the west end of Rangel, now filling with taller buildings. **Colonial centre:** Cidade Alta, the political acropolis on the plateau, and Ingombota, the old Creole bairro that the 1940s to 1960s turned into the modern centre. **Old musseques and the inner ring:** Rangel, São Paulo (Sambizanga) and Catambor (Maianga), dense bairros that grew round the colonial city from the 1940s, part planned, mostly self-built, with becos; Cazenga, the older periphery to the east, a colonial-era grid on one side and organic musseque on the other, now the most densely populated municipality. **Post-war periphery:** Viana and its district Vila Flor, where Luanda grew fastest after 2000, on self-built plots along long earth streets off the Estrada de Catete.
+> **Overview.** The eleven bairros fall into five kinds. **Planned centralidade:** Kilamba, a single state project built 2008 to 2012 on empty land, a grid of superblocks of 5 to 13 storey blocks. **Planned suburbs:** Nova Vida, a post-war state *urbanização* (from 2003) of numbered streets, loops and cul-de-sacs; and Vila Alice, a colonial-era residential suburb at the west end of Rangel, now filling with taller buildings. **Colonial centre:** Cidade Alta, the political acropolis on the plateau; Maculusso, the old musseque of the crosses that became a quarter of villas and now of towers; and Ingombota, the old Creole bairro that the 1940s to 1960s turned into the modern centre. **Old musseques and the inner ring:** Rangel, São Paulo (Sambizanga) and Catambor (Maianga), dense bairros that grew round the colonial city from the 1940s, part planned, mostly self-built, with becos; Cazenga, the older periphery to the east, a colonial-era grid on one side and organic musseque on the other, now the most densely populated municipality. **Post-war periphery:** Viana, where Luanda grew fastest after 2000, on self-built plots along long earth streets off the Estrada de Catete.
 >
-> **How it was gathered.** Web search and reading of Wikipedia (EN), Angolan press (Ver Angola, Expansão, ANGOP) and academic work (ISCTE, Universidade do Porto, London Met, Roma Tre, ISCPSI, TU Delft/IPHS). Several key texts (the Viana Atlas, the Mingas thesis on Catambor, the Mitchell report on Vila Flor) are behind bot walls and could not be read; where a fact rests on a search summary or a title alone, that is said. **[inferred]** marks what the sources do not state and I reasoned from the maps or from neighbouring facts. **[founder]** marks what needs his eye. The six map screenshots have **no scale bar**, so every distance read off them is an estimate and marked as such.
+> **How it was gathered.** Web search and reading of Wikipedia (EN), Angolan press (Ver Angola, Expansão, ANGOP) and academic work (ISCTE, Universidade do Porto, London Met, Roma Tre, ISCPSI, TU Delft/IPHS). Several key texts (the Viana Atlas, the Mingas thesis on Catambor, the Mitchell report on the periphery) are behind bot walls and could not be read; where a fact rests on a search summary or a title alone, that is said. **[inferred]** marks what the sources do not state and I reasoned from the maps or from neighbouring facts. **[founder]** marks what needs the founder's eye. The map screenshots have **no scale bar**, so every distance read off them is an estimate and marked as such.
 
 ---
 
-## 0. What the six maps show (read before the bairros)
+## 0. What the maps show (read before the bairros)
 
 | Map | Street pattern it shows |
 |---|---|
 | 82 Kilamba | A rectangle on bare land. A strict orthogonal grid of wide avenues cutting it into about **30 square superblocks** (roughly 8 columns by 4 rows); one long east-west avenue through the middle; inside each superblock a **closed loop road** with short spurs to car parks and courts, no through traffic. A green square in the middle east. Unbuilt beige land left and right inside the boundary (reserved plots). Outside, the self-built bairros' fine grain presses on the edges. |
-| 83 Vila Flor | No grid at all. A **dense mesh of short lanes**, fanning and curving, blocks of very different sizes, a few longer lanes running through; one market square. Larger rounded plots at the east edge (a condominium). The Via Expressa clips the north-east corner. |
+| 83 Vila Flor *(dropped)* | No grid at all. A **dense mesh of short lanes**, fanning and curving, blocks of very different sizes, a few longer lanes running through; one market square. Larger rounded plots at the east edge (a condominium). The Via Expressa clips the north-east corner. |
 | 84 Viana | The **Estrada de Catete** as a dual carriageway running north-west to south-east. Off it, **long straight streets** in two or three different orientations, stitched together, crossed at irregular intervals, with many **short dead-end stubs** into the blocks. The Rua da Suave cuts diagonally. In the south-east the grid breaks into curving organic lanes. |
 | 85 Nova Vida | Bounded by the Via Expressa (north) and the Estrada Camama-Talatona (south-east). **Numbered streets** (R. 7, 12 to 17, 20, 21, 24, 28, 32 to 34, 48 to 55, 70, 111, 115, 124 to 126, 148, 166). Sets of short parallel streets in several orientations, **loops and cul-de-sacs**, a few longer collector streets, a shopping centre at the north corner. A planned layout, not a grid. |
 | 86 Cazenga | Two textures side by side. West and south-west (round the Hospital Geral dos Cajueiros and the Bairro da Madeira): a **regular grid of long narrow blocks** running north-south. Centre and east: an **irregular organic network**. Straight main roads: Rua dos Comandos (north-south), Av. Hoji ya Henda, Estrada de Catete at the corner. A drainage channel (blue line) crosses east-west in the south. |
 | 87 Centre | Ingombota: a dense, irregular grid of short blocks cut by diagonal avenues (Av. Lenine, Rua Salvador Allende, Rua 28 de Maio, Av. Amílcar Cabral), small parks. Cidade Alta: few streets, on the plateau at the west edge. São Paulo: a tighter grid north of Ingombota off Av. N'Gola Kiluanje. Vila Alice: a **triangle** between Av. Hoji ya Henda, Av. Deolinda Rodrigues and a roundabout, filled with a regular grid of short, slightly curved streets. Rangel: east of it, streets with letter-number names (R. B5, R. B7), the Largo 1º de Maio and the Congolenses market. Catambor: south-west, by Av. Comandante Gika; the map labels it but shows little inside. |
+| 94 Maculusso | A wedge south of Ingombota. Av. Lenine runs north-east along its west side, Av. Hoji ya Henda is its east side, Rua Kwame Nkrumah its south edge round the Hospital Militar Central, to the roundabout of the Largo 1º de Maio at the south-east corner. Inside, a grid cut by two diagonals (Rua Salvador Allende, Rua do Maculusso); the Igreja Sagrada Família on a small green at the south edge. **[inferred]** About 2,2 m a pixel against OpenStreetMap: the bairro is about 1,6 km west to east and 1,1 km north to south, blocks about 90 to 130 m. |
 
 ---
 
@@ -41,24 +42,9 @@
 
 ---
 
-## 2. Vila Flor (post-war periphery, Viana)
+## 2. Vila Flor (dropped)
 
-**1. What and where.** An urban district of Viana municipality (one of six: Estalagem, Viana Centro, Kikuxi, Baía, Zango, Vila Flor, plus the commune of Calumbo); a 2025 executive decree (437/25) set up a Vila Flor communal administration whose duties include supervising *autoconstrução dirigida* and opening access paths. **Caution:** English Wikipedia lists a "Vila Flor" among the bairros of Tala Hady (Cazenga); either a second place of the same name or an old boundary. **[founder: which Vila Flor did you mean? The map is the Viana one.]**
-
-**2. Streets and plots.** The sources say almost nothing about its form. The map shows a **fine, organic mesh of earth lanes** with no grid, blocks of very uneven size and a few longer lanes threading through: self-built growth, plot by plot **[inferred from the map]**. After heavy rain about **11 ravines (ravinas)** opened in the district and streets flooded (ANGOP, Lusa): earth streets without drainage that the rain cuts open. In 2020 the Viana administration approved land in Vila Flor for directed self-build plots for families from risk zones; state serviced plots elsewhere come with tar, lighting, pavements and sewers (EGTI, 2021), so a planned edge with finished streets may sit beside the old grain **[inferred]**.
-
-**3. What stands.** Not described in any source I could read. **[inferred]** Single-storey casas de bloco, many unplastered, some chapa, each on a walled plot with a quintal behind, zinc roofs; a condominium of larger walled houses at the east edge (map).
-
-**4. Life and landmarks.** On the map: a market square (Praça da Mutamba, not the Baixa's Largo), a cultural space, a guest house, a condominium club. Paragens **not organised** (atlas §2c).
-
-**5. Rules for the game.**
-- No grid: grow lanes by a branching walk from a few spines, lane widths 3 to 6 m, earth; blocks of 6 to 30 plots of irregular shape.
-- Plots about 150 to 400 m² **[inferred, from Zango and Chicala figures in §3]**, house to the street with a wall and gate, quintal behind.
-- Ravines: after a rain event some lanes carry a gully that cuts the road; a few houses have sandbags and a raised step.
-- One market square as the paragem and the centre; cantinas at lane mouths.
-- Along one edge, a patch of new serviced plots with tar and lamp posts, half built.
-
-**6. Sources.** [Ver Angola 2020, plots for 18 000 families](https://www.verangola.net/va/en/092020/Society/22044/Viana's-administration-delivers-land-to-about-18000-families-living-in-poor-housing-conditions.htm) · [Decreto Executivo 437/25, Administração Comunal da Vila Flôr](https://lex.ao/docs/ministerio-da-administracao-do-territorio/2025/decreto-executivo-n-o-437-25-de-04-de-julho/) · [24noticias/Lusa, ravines in Vila Flor](https://24noticias.sapo.pt/atualidade/artigos/chuvas-desalojam-mais-de-500-familias-em-municipio-de-luanda) · [ANGOP, rain in Viana](https://angop.ao/en/noticias/sociedade/chuvas-causam-tres-mortes-em-viana) · [Ver Angola 2021, EGTI serviced plots](https://www.verangola.net/va/pt/022021/Imobiliario/23991/EGTI-disponibiliza-mais-de-1000-terrenos-para-auto-construção-Zungueiras-e-domésticas-com-primazia-no-processo.htm) · [Wikipedia, Cazenga (the other Vila Flor)](https://en.wikipedia.org/wiki/Cazenga) · Not read (blocked): [Mitchell 2020, has a Vila Flor section](https://dw.angonet.org/wp-content/uploads/kareem_mitchell_2020_housing_strategies_for_luandas_expanding_periphery-1.pdf)
+The founder dropped Vila Flor on 2026-11-19 ("forget about Vila Flor, we do Vila Alice"). Its research (an organic mesh of earth lanes in Viana, the ravines after rain, the plots for families from risk zones) is in the history of this file, in the commit that added it (993590d), if Viana's brief wants it. The number is kept so the sections after it do not move.
 
 ---
 
@@ -89,18 +75,25 @@
 
 **2. Streets and plots.** **Numbered streets**, confirmed by press and map (Rua 53, "a rua dos bancos"; Ruas 111, 112, 153). About **54.4 km of roads, 55.7 km of storm drains, 96.6 km of water mains**, a sewage works (official figures for the rehabilitation). Twenty years on the roads are **potholed and the drains failed**: a US$259 m (2023) plus €208 m (2026) rehabilitation started in June 2026 and by late 2026 only three streets had reopened. The map shows a planned but not gridded layout: groups of short parallel streets at several angles, loops and cul-de-sacs, a few collectors.
 
-**3. What stands.** **[founder]** No source I could read gives the mix. Amnesty speaks of "buildings"; the map's tight street sets suggest rows of houses on equal plots **[inferred]**. Likely: walled single-storey and two-storey houses on regular plots plus some low apartment buildings. A condominium ("Cajueiro Nova Vida II") on the north edge.
+**What the founder's photos show (95 to 97).**
+- **95:** An aerial view along a **long, straight, tarred street lined with trees and palms**, with cars parked at the kerbs and a mast on the horizon. On both sides stand **walled vivendas**, one and two storeys, with **hipped orange tile roofs** and walls in cream, yellow or white. Several have a **swimming pool** and a lawn behind a solid wall, some walls painted terracotta. No two houses are alike, though the plot widths look even. More parallel streets of the same kind lie to the left.
+- **96:** A listing photo (captioned "…T3 no Projeto Nova Vida"). A **four-storey block in pale yellow** with white trim and a **hipped pale blue-grey roof** stands behind a hedged **parking court** off a wide street. Beside it are **pink blocks with red roofs**, and further off, rows of similar blocks in pastel colours.
+- **97:** An aerial view looking down on a **condominium of 4 and 5 storey blocks**. Their walls are white, grey or cream and their **hipped terracotta roofs** break into several sections over a stepped plan. They stand in **pairs and small clusters at varying angles**, on **lawns** with trees, hedges and paths, with a round structure among them (a water tank or a kiosk **[inferred]**). Blocks in pink and cream are visible in the distance.
+
+**3. What stands.** The founder's photos answer the question: Nova Vida has two kinds of housing in their own zones **[the separation is inferred from the photos]**.
+- **Vivendas on plots** line long straight streets planted with trees. They are one or two storeys with hipped orange tile roofs and solid walls, many with a pool and lawn. They began as a few standard designs and their owners have since made them different from one another (photo 95).
+- **Condominiums of low apartment blocks** hold four- and five-storey blocks of **T3** flats in pastel colours with hipped roofs, standing in lawns with parking courts (photos 96 and 97). One source, a project brief of unknown author, describes **Nova Vida II** as **10 four-storey buildings with 160 T3 flats**, which is 4 flats a floor. A Phase II of about 3 200 homes on top of the first 2 500 is reported (World Folio). A condominium on the north edge appears on the map.
 
 **4. Life and landmarks.** Banks along Rua 53; a shopping centre and a supermarket at the north end; two higher-education institutes; a clinic; event halls; a discount store on the south edge. The **paragem** was turned into a mural in 2020: earth replaced by gravel, benches for passengers, a wall painted by street artists (Ver Angola): a semi-organised paragem with art.
 
 **5. Rules for the game.**
-- Numbered streets only (Rua 1 to Rua 170), with a street sign at every corner; one "rua dos bancos" collector with shopfronts.
-- Clusters of 8 to 16 identical plots (about 15 × 20 m) on short parallel streets, clusters rotated against each other, linked by loops; cul-de-sacs end in a turning circle.
-- Tar with kerbs and lamp posts, but potholed; patched sections; puddles that stay after rain.
-- Houses all of one or two designs, then personalised: added floors, new walls, gates in different colours.
+- Numbered streets only (Rua 1 to Rua 170), with a street sign at every corner and one "rua dos bancos" collector with shopfronts.
+- **Vivenda zone:** long straight streets 12 to 15 m wide with a row of trees or palms on each side. Plots about 15 × 25 m **[inferred]**, each with a solid wall (cream, white or terracotta), a gate, and a one or two storey house with a hipped orange tile roof. About one plot in three has a pool **[inferred from photo 95]**. Start from two or three standard designs, then personalise: added floor, new wall colour, different gate.
+- **Condominium zone:** blocks of 4 to 5 storeys (16 to 20 T3 flats each) in pairs and clusters of 3 to 6, turned to varying angles, on lawns with hedges and footpaths. A hedged parking court on the street side and one entrance gate with a guard hut. Each condominium takes one pastel colour (pale yellow, pink, cream, white or grey) and one roof colour (terracotta, red or pale blue-grey).
+- Tar with kerbs and lamp posts, but potholed: patched sections, and puddles that stay after rain (until the 2026 rehabilitation reaches each street).
 - One paragem with a painted wall and benches.
 
-**6. Sources.** [Expansão, rehabilitation starts](https://www.expansao.co.ao/angola/detalhe/reabilitacao-das-infraestruturas-do-nova-vida-arranca-tres-anos-depois-de-autorizada-73958.html) · [Expansão, three streets reopened](https://expansao.co.ao/angola/detalhe/centenas-de-milhoes-autorizados-e-apenas-tres-ruas-reabertas-na-nova-vida-75670.html) · [Ver Angola 2026, CGD loan](https://www.verangola.net/va/en/012026/RealEstate/47391/Government-requests-loan-from-Portuguese-bank-to-rehabilitate-the-Nova-Vida-urbanization-project.htm) · [Forbes África Lusófona, figures](https://forbesafricalusofona.com/?p=167659) · [Ver Angola 2020, paragem mural](https://www.verangola.net/va/pt/082020/Cultura/21603/Paragem-de-táxis-do-Nova-Vida-passa-a-mural-de-arte-urbana.htm) · [HRW 2007](https://www.hrw.org/legacy/portuguese/reports/angola0507/11.htm) · [Amnesty USA](https://amnestyusa.org/victories/angola-rehouses-victims-of-forced-evictions) · [The New Humanitarian](https://www.thenewhumanitarian.org/node/226082)
+**6. Sources.** [Expansão, rehabilitation starts](https://www.expansao.co.ao/angola/detalhe/reabilitacao-das-infraestruturas-do-nova-vida-arranca-tres-anos-depois-de-autorizada-73958.html) · [Expansão, three streets reopened](https://expansao.co.ao/angola/detalhe/centenas-de-milhoes-autorizados-e-apenas-tres-ruas-reabertas-na-nova-vida-75670.html) · [Ver Angola 2026, CGD loan](https://www.verangola.net/va/en/012026/RealEstate/47391/Government-requests-loan-from-Portuguese-bank-to-rehabilitate-the-Nova-Vida-urbanization-project.htm) · [Forbes África Lusófona, figures](https://forbesafricalusofona.com/?p=167659) · [Ver Angola 2020, paragem mural](https://www.verangola.net/va/pt/082020/Cultura/21603/Paragem-de-táxis-do-Nova-Vida-passa-a-mural-de-arte-urbana.htm) · [HRW 2007](https://www.hrw.org/legacy/portuguese/reports/angola0507/11.htm) · [Amnesty USA](https://amnestyusa.org/victories/angola-rehouses-victims-of-forced-evictions) · [The New Humanitarian](https://www.thenewhumanitarian.org/node/226082) · [The World Folio, Nova Vida 2 500 homes and Phase II](https://theworldfolio.com/news/housing-developments/3996/) · [Programa Base, Nova Vida II (Scribd, author unknown, unverified)](https://pt.scribd.com/document/996461595/PROGRAMA-BASE)
 
 ---
 
@@ -198,14 +191,22 @@
 
 **4. Life and landmarks.** The **Largo José Régio** ("Auto pechincha"), under private management for over 20 years, recovered by the province with the Largo Bocage and reopened in 2026 with **playing courts and a cycle path**. Guest houses, hotels, offices, a police station. Paragens: **[founder]** organised on the avenues, informal inside?
 
+**What the founder's photos show (88, 89).**
+- **88:** A roundabout in Vila Alice. Its round grass island holds about five palms and is ringed by a white kerb. The avenue it sits on is a long, flat, straight dual carriageway with a planted median of trees and lamp posts, and white lane markings. Along one side are 3 to 4 storey commercial buildings with shopfronts and signs on the ground floor, and bays of parked cars. Small apartment buildings and trees stand behind, and a telecom mast rises above. **[founder: which roundabout is this? It does not look like the Largo 1º de Maio of photo 93.]**
+- **89:** The reopened **Largo José Régio**, from the air. The image carries the "Luanda 450" mark (the city's 450 years, 1576 to 2026), the Rangel municipality mark and the provincial government's mark, and is captioned "reinauguração do Largo de José Régio, no Bairro Vila Alice, Município do Rangel". The largo is an irregular corner plot inside a raised kerb. A **red cycle path about 2 m wide** loops round its whole edge. Inside are a **multi-sport court** (blue playing surface, green surround, fenced), a **small pavilion with dark walls and a hipped brown tile roof**, tall palms, lawns, young trees and benches. It is surrounded by tarred streets with parked cars, and beyond them two- and three-storey houses, some tiled and some flat-roofed, and 4 to 5 storey white apartment buildings.
+
+**What the sources add.** The largo was reopened in October 2026 by the provincial governor, with the Rangel administrator present. Equipment listed: playing courts, a cycle path, gym and children's equipment, male and female changing rooms, a **bar-kiosk**, street furniture and **28 lighting points** (Ver Angola PT, via search summary). **[inferred]** The small pavilion in photo 89 houses the bar-kiosk and changing rooms. Before the works, a private gym had occupied the largo for about 20 years and was given 10 days to leave. In the Largo Bocage, a party hall had stood for about 20 years and was demolished, after which the space lay strewn with rubbish while it waited for works (Expansão).
+
 **5. Rules for the game.**
 - A triangle of 1 to 1.5 km a side **[inferred]** between two avenues; inside, a regular grid of 8 to 10 m tarred streets with kerbs and lamps.
 - Walled houses on even plots, cream, pastel and white, tiled roofs; gates and guard huts on the better ones.
-- Two largos with courts, a cycle path, trees, benches: the bairro's places to meet.
+- The **Largo José Régio**: a corner plot of about 50 × 70 m **[inferred from the photo]**. Inside a kerb, a red 2 m cycle loop runs round it. Within the loop: one fenced multi-sport court, a small tiled pavilion (kiosk plus changing rooms), gym and children's equipment, palms, lawn, benches and lamp posts at about 28 points. It is busy with play in the late afternoon and lit at night. The **Largo Bocage** is the second largo: an empty lot first, then a garden **[inferred]**.
 - Along the avenue edge, 8 to 20 storey new towers.
+- One roundabout on the avenue edge: a round grass island with palms on a dual carriageway with a tree-lined median.
+- On the avenue edges, 3 to 4 storey buildings with shops on the ground floor and parking bays in front. The houses are inside the triangle.
 - Calm, safe-feeling by day; quiet at night.
 
-**6. Sources.** [Wikipedia, Rangel](https://en.wikipedia.org/wiki/Rangel,_Luanda) · [Ver Angola 2026, Largo de José Régio](https://www.verangola.net/va/en/102026/Society/50465/Largo-de-José-Régio-(re)opens-in-Rangel-with-a-'new-look'.htm) · [Expansão, GPL recovers the largos](https://expansao.co.ao/angola/detalhe/gpl-recupera-patrimonio-publico-que-estava-sob-gestao-privada-66651.html) · [UCCLA, a memoir of colonial Luanda](https://www.uccla.pt/sites/default/files/intervencao_manuel_s._fonseca.pdf)
+**6. Sources.** [Wikipedia, Rangel](https://en.wikipedia.org/wiki/Rangel,_Luanda) · [Ver Angola 2026, Largo de José Régio](https://www.verangola.net/va/en/102026/Society/50465/Largo-de-José-Régio-(re)opens-in-Rangel-with-a-'new-look'.htm) · [Expansão, GPL recovers the largos](https://expansao.co.ao/angola/detalhe/gpl-recupera-patrimonio-publico-que-estava-sob-gestao-privada-66651.html) · [UCCLA, a memoir of colonial Luanda](https://www.uccla.pt/sites/default/files/intervencao_manuel_s._fonseca.pdf) · [Ver Angola 2026, Largo de José Régio (PT)](https://www.verangola.net/va/pt/102026/Sociedade/50465/Largo-de-José-Régio-(re)abre-no-Rangel-com-'nova-cara'.htm)
 
 ---
 
@@ -217,7 +218,7 @@
 
 **3. What stands.** A mix: old colonial housing estates (rows of single-storey houses, two-storey blocks with verandas), casas de bloco and chapa with quintais in the north, the Cidadela towers on the avenue.
 
-**4. Life and landmarks.** **Mercado dos Congolenses**: the biggest concentration of phone and TV repair "clinics" in Luanda, many run by Congolese technicians; closed 22 June 2026 for a six-month rebuild. Hospital Américo Boavida (1958); the Cidadela sports pavilions; the telecommunications institute; the Estação dos Musseques on the railway; the Largo 1º de Maio at the edge. A project planted a thousand trees (2020). The Escola do Pica-Pau reopened (2021). Paragens **not organised**.
+**4. Life and landmarks.** **Mercado dos Congolenses**: the biggest concentration of phone and TV repair "clinics" in Luanda, many run by Congolese technicians; closed 22 June 2026 for a six-month rebuild. Hospital Américo Boavida (1958); the Cidadela sports pavilions; the telecommunications institute; the Estação dos Musseques on the railway; the Largo 1º de Maio at the edge (where it belongs is open: see §12 and §13). A project planted a thousand trees (2020). The Escola do Pica-Pau reopened (2021). Paragens **not organised**.
 
 **5. Rules for the game.**
 - An avenue (2 + 2, median) through the middle; south of it a formal side, north of it a musseque side.
@@ -251,10 +252,52 @@
 
 ---
 
-## 12. Across all eleven (findings worth recording)
+## 12. Maculusso (colonial centre, residential, Ingombota)
+
+**What the founder's photos show (90 to 94).**
+
+| Photo | What it shows |
+|---|---|
+| 90 | The **Largo da Independência (1º de Maio)** before its 2025 works **[inferred from the 2025 photo, 93]**. An octagonal plaza of light paving with dark bands and square inlays. In the middle, a round planted bed whose base is ringed by a painted mural frieze, then a tall dark square plinth with a standing bronze figure. Behind it, a long rectangular pool. Palms stand in planters round the edge, with lamp posts, pedestrians and a ring road of cars. |
+| 91 | An aerial view at dusk. One- and two-storey houses with red tiled roofs among mango trees and palms; standing in between them, 6 to 12 storey white blocks and one dark glass tower of about 20 storeys. A court sits in the corner and a tarred street with cars runs across. |
+| 92 | The clearest view of the old fabric. On a street that slopes slightly, two-storey colonial villas in cream with **hipped orange tile roofs**, an **arched ground-floor veranda**, a first-floor balcony with a balustrade and a garden with palms behind a low wall. Cars are parked along both kerbs. Behind them rise 4 to 8 storey blocks and towers of 15 to 25 storeys, with cranes on the skyline. |
+| 93 | The **Largo 1º de Maio** after the 2025 works, with the 50-years-of-independence logo and the provincial government's mark on the image. A circular basin round the plinth; four triangular pools with fountain jets; paving in a dense black-and-white geometric pattern; a large dark triangle in the paving that points at the plinth; palms; lamp posts banded red, black and yellow. Round it runs a wide ring road with heavy traffic and blue-and-white taxis. |
+| 94 | A map of the bairro boundary. Its west tip is where **Av. Lenine** meets **Rua Kwame Nkrumah**. From there Av. Lenine runs north-east to a short northern edge near Rua Cónego Manuel das Neves, **Av. Hoji ya Henda** forms the east side, and the south edge runs along Kwame Nkrumah, round the north of the **Hospital Militar Central**, to the roundabout at the **south-east corner**. Inside the boundary are Rua Salvador Allende and Rua do Maculusso, both running diagonally, and the **Igreja Sagrada Família** on a small green at the south edge. Ingombota lies to the north-west, Vila Alice to the east, and Alvalade and Parque José Martí to the south. Guest houses and hotels are scattered through. |
+
+**1. What and where.** A bairro in the south of Ingombota (decree 52/23). The name is Kimbundu *Makulusu*, "crosses", after the Cemitério do Alto das Cruzes that the Portuguese placed there. It was first an old **musseque** (de Paula, citing Lobo 1967) and is the setting of Luandino Vieira's novel *Nós, os do Makulusu*. Under colonial rule it became formal and residential, home to merchants, missionaries and soldiers. Today it is upper-middle class, and the oil years brought towers (Wikipedia).
+
+**2. Streets and plots.** A formal plan of paved streets with pavements and trees (Wikipedia). Map 94 shows a grid cut by the diagonals of Rua Salvador Allende and Rua do Maculusso, with avenues on three sides. Inside run Av. Comandante Che Guevara, Rua Frederico Welwitsch and Travessa Marcelino Dias. **[inferred]** One villa per plot of about 20 × 30 m.
+
+**3. What stands.** Low houses with gardens (Wikipedia). Photo 92 shows two-storey cream villas with hipped orange roofs, arched verandas and balconies. Towers replace them plot by plot: in 2020 a nine-storey building had stood stalled for four years with its crane still up (Ver Angola).
+
+**4. Life and landmarks.**
+- The **Igreja da Sagrada Família** (1964) was Angola's first church in a geometric, industrial-modular language. Openings in its sides let air through, and it became national heritage in 2023.
+- Across the street are the **Hospital Militar Central** and the **Maternidade Lucrécia Paim** (1972).
+- On Av. Lenine is the **Magistério Mutu-ya-Kevela**, the former Liceu Salvador Correia, rehabilitated in 2018.
+- Embassies (Spain, Mozambique, Mali) and a 1960 cinema.
+- Paragens **organised** on the avenues **[inferred]**.
+
+The **Largo da Independência (1º de Maio)** is where independence was proclaimed in 1975. It reopened on 10 November 2025 with granite benches, ornamental paving, lawn and lights, and kept the plinth and the statue of the first President. It has also seen attempted protests since 2011 (Blanes).
+
+**Whose is the Largo?** It lies in Ingombota municipality (Ver Angola); Wikipedia lists it under Maculusso. On map 94 it is the south-east corner roundabout, where Maculusso, Vila Alice and Alvalade meet. **[founder: shared corner landmark?]**
+
+**5. Rules for the game.**
+- Blocks of about 90 to 130 m on 10 to 12 m tarred, tree-lined streets; two diagonals; avenues on three sides.
+- Most plots: a two-storey cream or pastel villa with a hipped orange roof, an arched veranda and a balcony, set in a garden with palms behind a low wall with railings.
+- One plot in five: a 6 to 12 storey block or a 15 to 25 storey glass tower; one stalled frame with a crane.
+- South edge: a white geometric church on a green. Facing it, a walled hospital: architecture only, no access.
+- South-east corner: the Largo, a ring road round pools, fountains and palms, with a statue on a tall plinth. History with gravity, **no mechanics**.
+- Quiet inner streets with guard huts at gates; taxis and sellers stay on the avenues.
+
+**6. Sources.** [Wikipedia, Ingombota (Maculusso section)](https://en.wikipedia.org/wiki/Ingombota) · [Wikipedia PT, Maculusso](https://pt.wikipedia.org/wiki/Maculusso) · [de Paula, Nau Literária, "Luandino Vieira e as encruzilhadas do Makulusu"](https://seer.ufrgs.br/index.php/NauLiteraria/article/download/20442/13335/85396) · [Decreto Executivo 52/23, Igreja Sagrada Família](https://lex.ao/docs/ministerio-da-cultura-e-turismo/2023/decreto-executivo-n-o-52-23-de-28-de-abril/) · [Ver Angola, Igreja da Sagrada Família (search summary)](https://www.verangola.net/va/pt/122024/sugestoes/42710/Igreja-da-Sagrada-Fam%C3%ADlia-O-que-fazer.htm) · [Santos, Coimbra dissertation (church, 1964; not readable)](https://estudogeral.sib.uc.pt/bitstream/10316/90145/1/Disserta%c3%a7%c3%a3o%20Cl%c3%a1udia%20Santos.pdf) · [Welcome to Angola, Maculusso](https://welcometoangola.co.ao/en/?p=794) · [Ver Angola 2020, the Maculusso crane](https://www.verangola.net/va/en/072020/Society/21031/Residents-concerned-about-the-fall-of-the-'Maculusso-Crane'-ask-for-its-removal.htm) · [Ver Angola 2025, Largo da Independência reopens (search summary)](https://www.verangola.net/va/en/112025/Society/46682/Independence-Square-reopens-with-a-new-look-after-redevelopment.htm) · [Blanes, Largo 1 de Maio as political heterotopy](https://activismsinafrica.cei.iscte-iul.pt/en/largo-1-de-maio-luanda-a-case-in-political-heterotopy/) · [Ver Angola 2018, ex-Liceu Salvador Correia rehabilitated](https://www.verangola.net/va/pt/032018/CulturaEducacao/11458/Reabilitação-do-ex-Liceu-Salvador-Correia-concluída-ao-fim-de-oito-anos.htm) · [Spanish embassy address](https://exteriores.gob.es/Embajadas/luanda/es/Embajada/Paginas/Contacto.aspx) · [OpenStreetMap Nominatim (coordinates)](https://nominatim.openstreetmap.org/)
+
+---
+
+## 13. Across all eleven (findings worth recording)
 
 - **Event halls** (*salões de festa*) appear on three of the six maps: a kind of business every bairro outside the centre has. A generic one belongs in the kit.
-- **Flooding** is the shared event of Viana, Vila Flor, Cazenga and Nova Vida: ravines, standing water, blocked drains. A rain event that changes the street for a game day would be true to life.
+- **Flooding** is the shared event of Viana, Cazenga and Nova Vida: ravines, standing water, blocked drains. A rain event that changes the street for a game day would be true to life.
 - **Paragens named after a landmark** (a fuel station, a yellow bridge) is how the unorganised kind is named.
-- **Sensitivities (atlas §7).** Cidade Alta is a state precinct: architecture only, no names, no access. Vila Alice was the scene of a 1975 armed attack, and Sambizanga and Cazenga carry independence-struggle history (the Marco Histórico): history with gravity, no mechanics. Catambor's research frames it through crime: the game shows it as a home whose dark becos are a lighting problem, not a reputation. Nova Vida's growth involved evictions: not shown.
-- **Not found and needed:** the Viana Atlas and Mitchell report (bot-walled), the full Mingas thesis (street types of Catambor), anything on São Paulo's housing, Nova Vida's house types, real plot sizes in Cazenga, and scale bars for the maps (the founder could send the same views with Google's scale shown).
+- **Sensitivities (atlas §7).** Cidade Alta is a state precinct: architecture only, no names, no access. Vila Alice was the scene of a 1975 armed attack, the Largo 1º de Maio is where independence was proclaimed and where protests have been tried since 2011, and Sambizanga and Cazenga carry independence-struggle history (the Marco Histórico): history with gravity, no mechanics. Catambor's research frames it through crime: the game shows it as a home whose dark becos are a lighting problem, not a reputation. Nova Vida's growth involved evictions: not shown.
+- **Where the Largo 1º de Maio belongs.** §0 and §10 put it at Rangel's edge; Ver Angola puts it in Ingombota municipality; Wikipedia lists it under Maculusso; map 94 shows it as the roundabout where Maculusso, Vila Alice and Alvalade meet. **[founder]** One placement is needed before Maianga's or Rangel's brief: a corner shared by the districts that touch it is the likely answer.
+- **Not found and needed:** the Viana Atlas and Mitchell report (bot-walled), the full Mingas thesis (street types of Catambor), anything on São Paulo's housing, real plot sizes in Cazenga, and scale bars for the maps (the founder could send the same views with Google's scale shown).

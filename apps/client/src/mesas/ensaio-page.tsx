@@ -131,6 +131,12 @@ class Ensaio implements MesasVista {
     return 0;
   }
 
+  readonly pontos = null;
+
+  classificacao(): Promise<null> {
+    return Promise.resolve(null);
+  }
+
   nameOf(): string | null {
     return null;
   }

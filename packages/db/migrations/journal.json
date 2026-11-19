@@ -42,5 +42,9 @@
   {
     "id": "0011_recados",
     "sha256": "a6330e6446e237849fa8e2347394dd0056f5d6e1d2acf12640178851596a00a1"
+  },
+  {
+    "id": "0012_partidas",
+    "sha256": "dedfb5f9e42ed220ce399ab5befa4f7486c51df8d7af525784c6c9030e518607"
   }
 ]

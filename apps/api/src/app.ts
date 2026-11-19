@@ -7,7 +7,7 @@ import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId } from "@nzila/economy";
 import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take, useOne } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
-import { lastGift, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
+import { classificacaoDe, lastGift, lugarNaClassificacao, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
@@ -181,6 +181,23 @@ export function buildApp(deps: Deps): FastifyInstance {
         origin: await originOfPlayer(deps.sql, origins, caller.player.id),
         // What they hold, from the books: the Carteira and the Banco. Never from the card of origin, which only says how they began.
         wallet: await walletOf(deps.sql, caller.player.id),
+      };
+    },
+  });
+
+  // The tables' ranking (Task 4B.1): the best at a game in a bairro, and where the player stands. Asked as a POST, as the
+  // other questions are: what is asked travels in the body. Names only: no other player's id leaves the API.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/classificacao",
+    guard: "player",
+    body: z.strictObject({ jogo: z.enum(["xadrez", "damas", "ludo"]), districtId: z.string().regex(/^[a-z0-9-]+\/[a-z0-9-]+$/).max(48) }),
+    perMinute: 30,
+    handler: async (body, caller) => {
+      const top = await classificacaoDe(deps.sql, body.jogo, body.districtId, 10);
+      return {
+        top: top.map((one) => ({ nome: one.nome, pontos: one.pontos, jogos: one.jogos, vitorias: one.vitorias, eu: one.playerId === caller.player.id })),
+        eu: await lugarNaClassificacao(deps.sql, caller.player.id, body.jogo, body.districtId),
       };
     },
   });

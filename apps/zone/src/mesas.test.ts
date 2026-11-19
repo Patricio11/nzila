@@ -159,6 +159,29 @@ describe("the tables of a channel", () => {
     expect(told.fimMs).toBe(RAPIDA_MS - 6400);
   });
 
+  test("a game that ends with a player at it is kept to be written down, once; a quick game ends on the zone's clock; kotas alone are not written down", () => {
+    // A quick game of 10 seconds here.
+    const mesas = new Mesas(tables, 0, () => 6, 10_000);
+    mesas.ask("ana", by(10_000, 12_000), { mesa: 0, pedido: "sentar", lugar: 1 }, 0);
+    mesas.ask("ana", null, { mesa: 0, pedido: "rapida", sim: true }, 0);
+    mesas.ask("ana", null, { mesa: 0, pedido: "comecar" }, 1000);
+    expect(mesas.acabadas()).toEqual([]);
+    mesas.step(1000 + 10_000);
+    const [ended] = mesas.acabadas();
+    expect(ended).toMatchObject({ mesa: 0, jogo: "xadrez", rapida: true, porTempo: true });
+    // Ana in seat 1, the kota of seat 0 (kota 0, Kota Zeca) in the other; level on the board after a move: a draw.
+    expect(ended!.lugares.map((one) => [one.playerId, one.kota])).toEqual([[null, 0], ["ana", 1]]);
+    expect(mesas.acabadas()).toEqual([]);
+    // The tables of kotas alone play on and end their games: nothing is written down.
+    // Played until their first game ends (a loaded gate ran out of time playing on for an hour of the game's clock).
+    const alone = new Mesas([tables[2]!], 0, () => 6);
+    let at = 0;
+    for (; at < 4_000_000 && alone.mesa(0)!.fase !== "fim"; at += 5000) alone.step(at);
+    expect(alone.mesa(0)!.fase).toBe("fim");
+    alone.step(at + 5000);
+    expect(alone.acabadas()).toEqual([]);
+  });
+
   test("an invitation: asked, answered yes, a seat kept for each; the invited sits in theirs from whichever stool", () => {
     const mesas = new Mesas(tables, 0);
     expect(mesas.convidar("ana", "beto", 0, 1000)).toBe(true);

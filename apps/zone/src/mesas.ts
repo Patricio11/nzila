@@ -5,8 +5,8 @@
 
 import { randomInt } from "node:crypto";
 import {
-  DESCANSO_MS, ESPERA_MS, LUGARES, comecar, escolherRapida, resta, vezMs, kotaDe, jogar, lanceDe, lancar, levantar, lugarDe, lugarGuardado, novaMesa, passo, recusou, reservar, sentar, vezDe,
-  type Jogo, type Mesa, type Recusa,
+  DESCANSO_MS, ESPERA_MS, LUGARES, RAPIDA_MS, comecar, resultados, escolherRapida, resta, vezMs, kotaDe, jogar, lanceDe, lancar, levantar, lugarDe, lugarGuardado, novaMesa, passo, recusou, reservar, sentar, vezDe,
+  type Jogo, type Mesa, type Recusa, type Resultado,
 } from "@nzila/games";
 import { encodeMesa, type MesaPedido } from "@nzila/protocol";
 import { type Place } from "./channel.ts";
@@ -35,16 +35,29 @@ export type Feito = { readonly sit: Place } | { readonly stand: Place } | { read
 /** Why a table would not: the rules' reasons; too far from the seat; too many invitations; no such invitation. */
 export type MesaRecusa = Recusa | "longe" | "muitos" | "convite";
 
+/** A game ended at a table with players at it, as it is to be written down: each seat a player, or its kota. */
+export interface Terminada {
+  readonly mesa: number;
+  readonly jogo: Jogo;
+  readonly rapida: boolean;
+  readonly porTempo: boolean;
+  readonly lugares: readonly { readonly playerId: string | null; readonly kota: number; readonly resultado: Resultado }[];
+}
+
 export class Mesas {
   private readonly places: readonly TablePlace[];
   private readonly mesas: Mesa[];
   private readonly dado: () => number;
+  /** How long a quick game lasts here (three minutes; the browser tests' zone shortens it). */
+  private readonly rapidaMs: number;
+  private readonly terminadas: Terminada[] = [];
   /** Invitations waiting for an answer, by who is invited; and when each player sent theirs, for the hour's count. */
   private readonly convites = new Map<string, { de: string; mesa: number; ate: number }>();
   private readonly enviados = new Map<string, number[]>();
 
-  constructor(places: readonly TablePlace[], now: number, dado: () => number = () => randomInt(1, 7)) {
+  constructor(places: readonly TablePlace[], now: number, dado: () => number = () => randomInt(1, 7), rapidaMs = RAPIDA_MS) {
     this.places = places;
+    this.rapidaMs = rapidaMs;
     // Each seat has its own kota of the bairro, the same one the phones name (kotaDe).
     this.mesas = places.map((place, mesa) => novaMesa(place.jogo, now, Array.from({ length: LUGARES[place.jogo] }, (_, lugar) => kotaDe(mesa, lugar))));
     this.dado = dado;
@@ -120,6 +133,7 @@ export class Mesas {
       done = jogar(mesa, playerId, lance, now);
     }
     if (recusou(done)) return done;
+    this.notar(index, mesa, done);
     this.mesas[index] = done;
     return { nada: true };
   }
@@ -173,14 +187,28 @@ export class Mesas {
   step(now: number): { playerId: string; stand: Place }[] {
     const stood: { playerId: string; stand: Place }[] = [];
     for (const [index, before] of this.mesas.entries()) {
-      const after = passo(before, now, this.dado);
+      const after = passo(before, now, this.dado, this.rapidaMs);
       if (after === before) continue;
+      this.notar(index, before, after);
       this.mesas[index] = after;
       for (const [lugar, seat] of before.lugares.entries()) {
         if (seat.jogador !== null && after.lugares[lugar]!.jogador !== seat.jogador) stood.push({ playerId: seat.jogador, stand: this.standingBy(index, lugar) });
       }
     }
     return stood;
+  }
+
+  /** A game that has just ended with a player seated is kept to be written down (the ranking). */
+  private notar(index: number, before: Mesa, after: Mesa): void {
+    if (before.fase === "fim" || after.fase !== "fim" || !after.lugares.some((one) => one.jogador !== null)) return;
+    const como = resultados(after);
+    if (!como) return;
+    this.terminadas.push({ mesa: index, jogo: after.jogo, rapida: after.rapida, porTempo: after.porTempo, lugares: after.lugares.map((one, lugar) => ({ playerId: one.jogador, kota: after.kotas[lugar]!, resultado: como[lugar]! })) });
+  }
+
+  /** The games ended with players at them since last asked, to be written down; taken once. */
+  acabadas(): Terminada[] {
+    return this.terminadas.splice(0);
   }
 
   /** The version of a table, which goes up with every change: a phone told an older one is told again. */
@@ -201,7 +229,7 @@ export class Mesas {
       primeiro: mesa.primeiro,
       restaMs: Math.max(0, left),
       rapida: mesa.rapida,
-      fimMs: resta(mesa, now) ?? 0,
+      fimMs: resta(mesa, now, this.rapidaMs) ?? 0,
       porTempo: mesa.porTempo,
       lugares: mesa.lugares.map((lugar) => ({ entidade: lugar.jogador === null ? 0 : entityOf(lugar.jogador), guardado: lugar.jogador === null && lugar.guardado !== null && lugar.guardado.ate > now })),
       partida: mesa.partida,
