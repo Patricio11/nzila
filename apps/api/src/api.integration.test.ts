@@ -1266,6 +1266,11 @@ describe("os recados do dia, the family's money, the errand for two, the cantina
 
   test("three a day, each done only when it really is, paid once from the neighbours, less for each after the first; the festa counts them", async () => {
     const one = await born(1400);
+    // Enough in the Carteira for whatever errands the day draws (a deposit of 1 500 and the thing to bring may be more
+    // than a family gave): given through the ledger, from the faucet, as all Makuta is (F-219).
+    const [faucet] = await sql<{ id: string }[]>`SELECT id FROM ledger_accounts WHERE kind = 'system_faucet' LIMIT 1`;
+    await sql`INSERT INTO ledger_transfers (debit_account, credit_account, amount, reason, action_id) VALUES (${faucet!.id}, ${`player_cash:${one.playerId}`}, 5000, 'starting_grant', ${`recados-test-${one.playerId}`})`;
+    one.cash += 5000;
     const day = (await get(one.token, "/v1/recados")).json() as Day;
     expect(day.recados).toHaveLength(3);
     expect(day.recados.every((each) => !each.done)).toBe(true);
@@ -1284,8 +1289,9 @@ describe("os recados do dia, the family's money, the errand for two, the cantina
           // Without the thing in the Mochila, there is nothing to hand over.
           expect((await post(one.token, "/v1/recados/feito", { n: each.n })).json()).toEqual({ error: "none" });
           await presence.mark(one.playerId, "loja", "cantina-largo");
-          const bought = (await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: each.item, quantity: 1 }], key: `recado-${each.n}-0001` })).json() as { cash: number };
-          cash = bought.cash;
+          const bought = await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: each.item, quantity: 1 }], key: `recado-${each.n}-0001` });
+          expect(bought.statusCode, bought.body).toBe(200);
+          cash = (bought.json() as { cash: number }).cash;
           await presence.mark(one.playerId, "lugar", `${each.place! % 10}/10`);
         }
       } else if (each.kind === "guarda") {
@@ -1293,7 +1299,9 @@ describe("os recados do dia, the family's money, the errand for two, the cantina
         // Asked by the phone itself, after a deposit that was not enough: an answer, not a refusal.
         expect((await post(one.token, "/v1/recados/feito", { n: each.n, tentativa: true })).json()).toEqual({ done: false, why: "not_yet" });
         await presence.mark(one.playerId, "caixa");
-        cash = ((await post(one.token, "/v1/bank/deposit", { amount: each.amount, key: `guarda-${each.n}-0001` })).json() as { cash: number }).cash;
+        const deposited = await post(one.token, "/v1/bank/deposit", { amount: each.amount, key: `guarda-${each.n}-0001` });
+        expect(deposited.statusCode, deposited.body).toBe(200);
+        cash = (deposited.json() as { cash: number }).cash;
       } else {
         expect((await post(one.token, "/v1/recados/feito", { n: each.n })).json()).toEqual({ error: "not_yet" });
         // Met someone new to the bairro: done.
@@ -1301,7 +1309,7 @@ describe("os recados do dia, the family's money, the errand for two, the cantina
         await presence.mark(one.playerId, "conheceu", `${one.playerId},${newcomer.playerId}`, 600);
       }
       const done = await post(one.token, "/v1/recados/feito", { n: each.n });
-      expect(done.statusCode).toBe(200);
+      expect(done.statusCode, `${each.kind}: ${done.body}`).toBe(200);
       const said = done.json() as { pay: number; cash: number };
       expect(said.pay).toBe([300, 250, 200][paid]);
       expect(said.cash).toBe(cash + said.pay);

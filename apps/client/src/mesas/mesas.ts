@@ -29,6 +29,10 @@ export interface SeatPlace {
 
 /** How near a seat the player must stand for the button to offer it; how near a table its kotas and pieces are drawn; and how near its kotas are drawn whole. Metres. */
 export const SIT_REACH_M = 2.0;
+/** How near a table's middle the player must stand to be offered its board to watch, and how far they may wander
+ * while watching before it closes; and how near someone must stand to be counted as watching. Metres. */
+export const WATCH_REACH_M = 4.5;
+const WATCH_LEAVE_M = 7;
 const DRAWN_WITHIN_M = 60;
 const WHOLE_WITHIN_M = 9;
 /** How long a move takes to be seen, in seconds. */
@@ -173,6 +177,12 @@ export class Mesas {
   convite: { entidade: number; nome: string; mesa: number; ate: number } | null = null;
   /** The table where a seat is kept for the player (an invitation accepted, theirs or another's), until when. */
   destino: { mesa: number; ate: number } | null = null;
+  /** The seat kept for someone the player invited or was invited by, and their name: so the board can say whose
+   * seat it is before a kota is asked to take it (F-213). */
+  guardadoPara: { mesa: number; nome: string; ate: number } | null = null;
+  /** The table near enough to watch, as the last frame found it; and the one whose board is open to watch (F-210). */
+  perto: number | null = null;
+  vendo: number | null = null;
   /** Something to say for a moment: an invitation sent, accepted, declined. */
   aviso: { kind: "aceitou" | "recusou"; nome: string; ate: number } | null = null;
   /** Where the player stands, as the last frame had it: for the nearest table, and the way to one. */
@@ -283,9 +293,54 @@ export class Mesas {
     const convite = this.convite;
     if (!convite) return;
     this.ask({ mesa: convite.mesa, pedido: sim ? "aceitar" : "recusar", entidade: convite.entidade });
-    if (sim) this.destino = { mesa: convite.mesa, ate: performance.now() + 10 * 60_000 };
+    if (sim) {
+      this.destino = { mesa: convite.mesa, ate: performance.now() + 10 * 60_000 };
+      this.guardadoPara = { mesa: convite.mesa, nome: convite.nome, ate: performance.now() + 10 * 60_000 };
+    }
     this.convite = null;
     for (const listener of this.listeners) listener();
+  }
+
+  /** Opens a table's board to watch, without sitting (F-210). */
+  ver(mesa: number): void {
+    this.vendo = mesa;
+    for (const listener of this.listeners) listener();
+  }
+
+  /** Closes the board being watched. */
+  deixarDeVer(): void {
+    if (this.vendo === null) return;
+    this.vendo = null;
+    for (const listener of this.listeners) listener();
+  }
+
+  /** How many stand round a table watching: the players near it who are not sitting at it, and the player. */
+  aVer(mesa: number): number {
+    const table = this.tables[mesa]!;
+    const seated = new Set(this.said[mesa]?.lugares.map((one) => one.entidade) ?? []);
+    const others = (this.session?.heads() ?? []).filter((one) => !seated.has(one.id) && one.id !== this.me && Math.hypot(one.x - table.pos[0], one.z - table.pos[2]) < WATCH_REACH_M).length;
+    return others + (this.vendo === mesa ? 1 : 0);
+  }
+
+  /** The seat of a table nearest where the player stands: the side a watcher sees the board from. */
+  ladoDe(mesa: number): number {
+    const seats = this.tables[mesa]!.seats;
+    let best = 0;
+    let nearest = Infinity;
+    for (const [lugar, seat] of seats.entries()) {
+      const far = Math.hypot(seat.pos[0] - this.x, seat.pos[2] - this.z);
+      if (far < nearest) {
+        nearest = far;
+        best = lugar;
+      }
+    }
+    return best;
+  }
+
+  /** The name the seat kept at a table is kept for, while it is kept; null when there is none or it is not known. */
+  guardadoNome(mesa: number): string | null {
+    const kept = this.guardadoPara;
+    return kept && kept.mesa === mesa && kept.ate > performance.now() && kept.nome ? kept.nome : null;
   }
 
   /** How far the player is from the table where a seat is kept for them, in metres. */
@@ -363,6 +418,7 @@ export class Mesas {
         if (event.kind === EVENT.CONVITE) this.convite = { entidade: event.subject, nome, mesa, ate: performance.now() + 60_000 };
         else if (event.args[1] === 1) {
           this.destino = { mesa, ate: performance.now() + 10 * 60_000 };
+          this.guardadoPara = { mesa, nome, ate: performance.now() + 10 * 60_000 };
           this.aviso = { kind: "aceitou", nome, ate: performance.now() + 6000 };
         } else this.aviso = { kind: "recusou", nome, ate: performance.now() + 5000 };
         for (const listener of this.listeners) listener();
@@ -395,9 +451,29 @@ export class Mesas {
     // Seated, the board covers the lower part of the screen: the picture's middle is moved up into what is left,
     // near the top, and the street seen closer. In the screen's own proportions: the camera
     // takes them from what it is given here.
+    // Watching: the nearest table with a game the zone tells of; the board closes for a seat, or a walk away.
+    let perto: number | null = null;
+    if (!mine && this.session?.walking) {
+      let closest = WATCH_REACH_M;
+      for (const [mesa, table] of this.tables.entries()) {
+        const far = Math.hypot(table.pos[0] - x, table.pos[2] - z);
+        if (far < closest && this.said[mesa]) {
+          closest = far;
+          perto = mesa;
+        }
+      }
+    }
+    const vendo = this.vendo;
+    if (vendo !== null && (mine || Math.hypot(this.tables[vendo]!.pos[0] - x, this.tables[vendo]!.pos[2] - z) > WATCH_LEAVE_M)) this.vendo = null;
+    if (perto !== this.perto || vendo !== this.vendo) {
+      this.perto = perto;
+      for (const listener of this.listeners) listener();
+    }
+    if (this.guardadoPara && this.guardadoPara.ate < agora) this.guardadoPara = null;
     const aspect = camera.aspect;
-    if (mine && !camera.view?.enabled) camera.setViewOffset(aspect * 1.8, 1.8, aspect * 0.4, 0.76, aspect, 1);
-    else if (!mine && camera.view?.enabled) camera.clearViewOffset();
+    const board = mine !== null || this.vendo !== null;
+    if (board && !camera.view?.enabled) camera.setViewOffset(aspect * 1.8, 1.8, aspect * 0.4, 0.76, aspect, 1);
+    else if (!board && camera.view?.enabled) camera.clearViewOffset();
     // Sat down, the way to a kept seat is done with; until then a gold mark turns over the table.
     if (mine) this.destino = null;
     const destino = this.destino;

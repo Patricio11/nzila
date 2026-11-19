@@ -28,6 +28,10 @@ const FIGURAS: Record<string, string> = {
 interface Props {
   mesas: Mesas;
   mesa: number;
+  /** Open to watch, without a seat (F-210): nothing can be played, the board is seen from the player's side of it. */
+  vendo?: boolean;
+  /** A gesture made by the player's body in the street, for whoever watches to react with. */
+  gesto?: ((kind: "aplaudir" | "rir") => void) | undefined;
 }
 
 /** The world's colours, for the sheet's stylesheet to paint the boards with as the street has them. */
@@ -60,8 +64,10 @@ const clock = (ms: number): string => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
-export function Tabuleiro({ mesas, mesa }: Props) {
+export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
   const [, redraw] = useState(0);
+  // A kota asked to take a seat kept for someone: asked first (F-213).
+  const [asking, setAsking] = useState(false);
   const [chosen, setChosen] = useState<number | null>(null);
   const [promoting, setPromoting] = useState<{ from: number; to: number } | null>(null);
   useEffect(() => {
@@ -78,12 +84,18 @@ export function Tabuleiro({ mesas, mesa }: Props) {
   useEffect(() => {
     setChosen(null);
     setPromoting(null);
+    setAsking(false);
   }, [versao]);
   const partida = mesas.partidaOf(mesa);
   const me = mesas.me;
   const mySeat = said ? said.lugares.findIndex((one) => one.entidade !== 0 && one.entidade === me) : -1;
   const turn = turnOf(said, partida);
   const myTurn = turn !== null && turn === mySeat;
+  // The side the board is seen from: the player's seat, or for a watcher the seat nearest where they stand.
+  const lado = mySeat >= 0 ? mySeat : mesas.ladoDe(mesa);
+  // A seat kept for someone else at this table, which a kota would take if the game began now.
+  const kept = said?.fase === "espera" && mySeat >= 0 && said.lugares.some((one, lugar) => lugar !== mySeat && one.entidade === 0 && one.guardado);
+  const keptFor = kept ? mesas.guardadoNome(mesa) : null;
   const left = mesas.leftMs(mesa);
   const refused = mesas.refused && mesas.refused.until > performance.now() ? mesas.refused.why : null;
   const nameAt = (lugar: number): string => {
@@ -107,12 +119,23 @@ export function Tabuleiro({ mesas, mesa }: Props) {
     line = partida.dado !== null ? tr.t("mesa.escolhe", { n: partida.dado }) : nothing ? tr.t("mesa.outraVez", { n: last.lance.jogo === "ludo" ? last.lance.dado : 0 }) : tr.t("mesa.lanca");
   } else if (myTurn) line = tr.t("mesa.tuaVez");
   else line = tr.t("mesa.vezDe", { nome: nameAt(turn ?? 0) });
+  if (asking && kept) line = `${keptFor ? tr.t("mesa.guardadoPara", { nome: keptFor }) : tr.t("mesa.guardadoAlguem")} ${tr.t("mesa.comecarPergunta")}`;
+  const watching = vendo && mySeat < 0;
+  const crowd = mesas.aVer(mesa);
 
   return (
-    <div class="ms-sheet" style={PALETA} role="dialog" aria-label={tr.t(`mesa.jogo.${table.game}` as "mesa.jogo.xadrez")}>
+    <div class={`ms-sheet${watching ? " ms-sheet-ver" : ""}`} style={PALETA} role="dialog" aria-label={tr.t(`mesa.jogo.${table.game}` as "mesa.jogo.xadrez")}>
       <div class="ms-band" aria-hidden="true" />
       <header class="ms-head">
-        <h2>{tr.t(`mesa.jogo.${table.game}` as "mesa.jogo.xadrez")}</h2>
+        <div class="ms-title">
+          <h2>{tr.t(`mesa.jogo.${table.game}` as "mesa.jogo.xadrez")}</h2>
+          {crowd > 0 ? (
+            <span class="ms-crowd">
+              <i class="ms-eye" aria-hidden="true" />
+              {tr.t("mesa.aVer", { n: crowd })}
+            </span>
+          ) : null}
+        </div>
         <ol class="ms-seats">
           {table.seats.map((_, lugar) => (
             <li key={lugar} class={`ms-seat${turn === lugar ? " ms-seat-turn" : ""}${lugar === mySeat ? " ms-seat-me" : ""}`}>
@@ -125,9 +148,9 @@ export function Tabuleiro({ mesas, mesa }: Props) {
       </header>
       <div class="ms-board">
         {partida.jogo === "ludo" ? (
-          <LudoBoard mesas={mesas} mesa={mesa} said={said} partida={partida} mySeat={mySeat} myTurn={myTurn} ask={ask} />
+          <LudoBoard mesas={mesas} mesa={mesa} said={said} partida={partida} mySeat={mySeat} lado={lado} myTurn={myTurn} ask={ask} />
         ) : (
-          <Squares partida={partida} said={said} mySeat={mySeat} myTurn={myTurn} chosen={chosen} setChosen={setChosen} play={(casas) => ask({ mesa, pedido: "jogar", casas })} promote={setPromoting} />
+          <Squares partida={partida} said={said} lado={lado} myTurn={myTurn} chosen={chosen} setChosen={setChosen} play={(casas) => ask({ mesa, pedido: "jogar", casas })} promote={setPromoting} />
         )}
         {promoting ? (
           <div class="ms-promote">
@@ -139,12 +162,33 @@ export function Tabuleiro({ mesas, mesa }: Props) {
           </div>
         ) : null}
       </div>
-      <p class={`ms-line${refused ? " ms-line-no" : myTurn ? " ms-line-go" : ""}`} aria-live="polite">{line}</p>
-      <footer class="ms-foot">
-        {said?.fase === "espera" && mySeat >= 0 ? <Button kind="quiet" onPress={() => ask({ mesa, pedido: "comecar" })}>{tr.t("mesa.comecar")}</Button> : null}
-        {partida.jogo === "ludo" && myTurn && partida.dado === null ? <Button onPress={() => ask({ mesa, pedido: "lancar" })}>{tr.t("mesa.lancar")}</Button> : null}
-        <Button kind="quiet" onPress={() => ask({ mesa, pedido: "levantar" })}>{tr.t("mesa.levantar")}</Button>
-      </footer>
+      <p class={`ms-line${refused ? " ms-line-no" : myTurn || (asking && kept) ? " ms-line-go" : ""}`} aria-live="polite">
+        {watching && said?.fase === "espera" ? tr.t("mesa.vendo") : line}
+      </p>
+      {watching ? (
+        <footer class="ms-foot ms-foot-ver">
+          <button type="button" class="ms-react" data-gesto="aplaudir" onClick={() => gesto?.("aplaudir")}>
+            <i class="ms-react-mark ms-react-palmas" aria-hidden="true" />
+            {tr.t("emote.aplaudir")}
+          </button>
+          <button type="button" class="ms-react" data-gesto="rir" onClick={() => gesto?.("rir")}>
+            <i class="ms-react-mark ms-react-riso" aria-hidden="true" />
+            {tr.t("emote.rir")}
+          </button>
+          <Button kind="quiet" onPress={() => mesas.deixarDeVer()}>{tr.t("mesa.fechar")}</Button>
+        </footer>
+      ) : asking && kept ? (
+        <footer class="ms-foot">
+          <Button kind="quiet" onPress={() => setAsking(false)}>{tr.t("mesa.esperar")}</Button>
+          <Button onPress={() => (ask({ mesa, pedido: "comecar" }), setAsking(false))}>{tr.t("mesa.jogarJa")}</Button>
+        </footer>
+      ) : (
+        <footer class="ms-foot">
+          {said?.fase === "espera" && mySeat >= 0 ? <Button kind="quiet" onPress={() => (kept ? setAsking(true) : ask({ mesa, pedido: "comecar" }))}>{tr.t("mesa.comecar")}</Button> : null}
+          {partida.jogo === "ludo" && myTurn && partida.dado === null ? <Button onPress={() => ask({ mesa, pedido: "lancar" })}>{tr.t("mesa.lancar")}</Button> : null}
+          <Button kind="quiet" onPress={() => ask({ mesa, pedido: "levantar" })}>{tr.t("mesa.levantar")}</Button>
+        </footer>
+      )}
     </div>
   );
 }
@@ -168,7 +212,7 @@ function sideColour(jogo: string, lugar: number, said: MesaDita | null): string 
 interface SquaresProps {
   partida: Extract<Partida, { jogo: "xadrez" | "damas" }>;
   said: MesaDita | null;
-  mySeat: number;
+  lado: number;
   myTurn: boolean;
   chosen: number | null;
   setChosen: (square: number | null) => void;
@@ -177,10 +221,10 @@ interface SquaresProps {
 }
 
 /** An 8 × 8 board, the player's side at the bottom. */
-function Squares({ partida, said, mySeat, myTurn, chosen, setChosen, play, promote }: SquaresProps) {
+function Squares({ partida, said, lado, myTurn, chosen, setChosen, play, promote }: SquaresProps) {
   const virado = (said?.primeiro ?? 0) === 1;
-  // Seen from the player's seat: seat 1 sees the board as built turned round.
-  const flip = mySeat === 1;
+  // Seen from the player's side: seat 1 sees the board as built turned round.
+  const flip = lado === 1;
   const at = (square: number): { x: number; y: number } => {
     const { row, col } = squareSeen(square, virado);
     return flip ? { x: 7 - col, y: 7 - row } : { x: col, y: row };
@@ -282,15 +326,16 @@ interface LudoProps {
   said: MesaDita | null;
   partida: Extract<Partida, { jogo: "ludo" }>;
   mySeat: number;
+  lado: number;
   myTurn: boolean;
   ask: (pedido: Parameters<Mesas["ask"]>[0]) => void;
 }
 
 /** Não te irrites, the player's arm at the bottom; the pieces that can move with the throw glow, a tap moves one. */
-function LudoBoard({ mesa, said, partida, mySeat, myTurn, ask }: LudoProps) {
+function LudoBoard({ mesa, said, partida, mySeat, lado, myTurn, ask }: LudoProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  // The board turned so that the player's colour is nearest them.
-  const turns = mySeat > 0 ? (4 - mySeat) % 4 : 0;
+  // The board turned so that the player's colour (a watcher's nearest seat) is nearest them.
+  const turns = lado > 0 ? (4 - lado) % 4 : 0;
   useEffect(() => {
     const pen = canvas.current?.getContext("2d");
     if (!pen) return;

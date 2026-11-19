@@ -31,7 +31,8 @@ export interface XadrezMove {
 }
 
 const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-const colourOf = (piece: string): Colour | null => (piece === "." ? null : piece === piece.toUpperCase() ? "w" : "b");
+// A piece's letter is upper case for White: told by its code, which the search asks millions of times.
+const colourOf = (piece: string): Colour | null => (piece === "." ? null : piece.charCodeAt(0) < 97 ? "w" : "b");
 const rowOf = (square: number): number => Math.floor(square / 8);
 const columnOf = (square: number): number => square % 8;
 const KNIGHT = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]] as const;
@@ -69,27 +70,54 @@ function keyOf(game: Xadrez): string {
   return `${game.board.join("")}${game.turn}${game.castling}${game.enPassant}`;
 }
 
+/** The letters of each side's pieces, for asking what attacks a square without building them each time. */
+const LETTERS = { w: { p: "P", n: "N", b: "B", r: "R", q: "Q", k: "K" }, b: { p: "p", n: "n", b: "b", r: "r", q: "q", k: "k" } } as const;
+
 /** Whether a square is attacked by a side. */
 function attacked(board: readonly string[], square: number, by: Colour): boolean {
-  const r = rowOf(square);
-  const c = columnOf(square);
-  const at = (rr: number, cc: number): string => (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 ? board[rr * 8 + cc]! : "");
-  const mine = (piece: string): string => (by === "w" ? piece.toUpperCase() : piece);
+  const r = (square / 8) | 0;
+  const c = square % 8;
+  const L = LETTERS[by];
   // A pawn of `by` attacks from the row behind, as it moves.
   const pawnRow = by === "w" ? r + 1 : r - 1;
-  if (at(pawnRow, c - 1) === mine("p") || at(pawnRow, c + 1) === mine("p")) return true;
-  for (const [dr, dc] of KNIGHT) if (at(r + dr, c + dc) === mine("n")) return true;
-  for (const [dr, dc] of KING) if (at(r + dr, c + dc) === mine("k")) return true;
-  for (const [directions, pieces] of [[ROOK, ["r", "q"]], [BISHOP, ["b", "q"]]] as const) {
-    for (const [dr, dc] of directions) {
-      let rr = r + dr;
-      let cc = c + dc;
-      while (at(rr, cc) === ".") {
-        rr += dr;
-        cc += dc;
+  if (pawnRow >= 0 && pawnRow < 8) {
+    if (c > 0 && board[pawnRow * 8 + c - 1] === L.p) return true;
+    if (c < 7 && board[pawnRow * 8 + c + 1] === L.p) return true;
+  }
+  for (const [dr, dc] of KNIGHT) {
+    const rr = r + dr;
+    const cc = c + dc;
+    if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && board[rr * 8 + cc] === L.n) return true;
+  }
+  for (const [dr, dc] of KING) {
+    const rr = r + dr;
+    const cc = c + dc;
+    if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && board[rr * 8 + cc] === L.k) return true;
+  }
+  for (const [dr, dc] of ROOK) {
+    let rr = r + dr;
+    let cc = c + dc;
+    while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+      const piece = board[rr * 8 + cc];
+      if (piece !== ".") {
+        if (piece === L.r || piece === L.q) return true;
+        break;
       }
-      const piece = at(rr, cc);
-      if (piece && pieces.some((one) => mine(one) === piece)) return true;
+      rr += dr;
+      cc += dc;
+    }
+  }
+  for (const [dr, dc] of BISHOP) {
+    let rr = r + dr;
+    let cc = c + dc;
+    while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+      const piece = board[rr * 8 + cc];
+      if (piece !== ".") {
+        if (piece === L.b || piece === L.q) return true;
+        break;
+      }
+      rr += dr;
+      cc += dc;
     }
   }
   return false;
@@ -186,7 +214,7 @@ function apply(game: Xadrez, move: XadrezMove): Xadrez {
   // A king or a rook that moves, or a rook taken, ends that castling.
   let castling = game.castling;
   const lose = (square: number, rights: string): void => {
-    if (move.from === square || move.to === square) castling = castling.replace(new RegExp(`[${rights}]`, "g"), "");
+    if (castling && (move.from === square || move.to === square)) castling = [...castling].filter((right) => !rights.includes(right)).join("");
   };
   lose(60, "KQ");
   lose(4, "kq");
@@ -202,6 +230,16 @@ function apply(game: Xadrez, move: XadrezMove): Xadrez {
 export function xadrezMoves(game: Xadrez): XadrezMove[] {
   if (game.result !== null) return [];
   return pseudo(game).filter((move) => !inCheck(apply(game, move), game.turn));
+}
+
+/** The same, each with the position it leads to: for the kota's search, which would otherwise make each move twice. */
+function legalAfter(game: Xadrez): { move: XadrezMove; after: Xadrez }[] {
+  const out: { move: XadrezMove; after: Xadrez }[] = [];
+  for (const move of pseudo(game)) {
+    const after = apply(game, move);
+    if (!inCheck(after, game.turn)) out.push({ move, after });
+  }
+  return out;
 }
 
 /** Whether the pieces left can never mate: kings alone, or a king and one bishop or one knight against a king. */
@@ -229,7 +267,9 @@ export function perft(game: Xadrez, depth: number): number {
   return total;
 }
 
-const VALUE: Readonly<Record<string, number>> = { p: 100, n: 310, b: 320, r: 500, q: 900, k: 0 };
+const VALUE: Readonly<Record<string, number>> = { p: 100, n: 310, b: 320, r: 500, q: 900, k: 0, P: 100, N: 310, B: 320, R: 500, Q: 900, K: 0 };
+/** A little for each square's nearness to the middle, worked out once. */
+const MIDDLE = Array.from({ length: 64 }, (_, n) => (7 - (Math.abs(3.5 - rowOf(n)) + Math.abs(3.5 - columnOf(n)))) * 3);
 
 /** How the board stands for a side: the pieces, and a little for being toward the middle. */
 function worth(board: readonly string[], side: Colour): number {
@@ -237,27 +277,41 @@ function worth(board: readonly string[], side: Colour): number {
   for (let n = 0; n < 64; n++) {
     const piece = board[n]!;
     if (piece === ".") continue;
-    const middle = 7 - (Math.abs(3.5 - rowOf(n)) + Math.abs(3.5 - columnOf(n)));
-    const value = VALUE[piece.toLowerCase()]! + (piece.toLowerCase() === "k" ? 0 : middle * 3);
+    const value = VALUE[piece]! + (piece === "k" || piece === "K" ? 0 : MIDDLE[n]!);
     total += colourOf(piece) === side ? value : -value;
   }
   return total;
 }
 
-/** What a kota of the Largo plays: a couple of moves ahead, by the pieces on the board. `depth` 1 to 3. */
+/**
+ * What a kota of the Largo plays: a couple of moves ahead, by the pieces on the board. `depth` 1 to 3.
+ *
+ * The zone thinks for the kota inside its step, which has 50 ms for everyone in the street: the search moves pieces
+ * with `apply` (its moves are the rules' own already) rather than `playXadrez`, which checks a move against every
+ * legal one and then looks for the end of the game. A chess move had taken 80 to 300 ms, and held the street up
+ * each time (2026-11-19, F-221).
+ */
 export function xadrezBot(game: Xadrez, depth = 2): XadrezMove | null {
   const moves = xadrezMoves(game);
   if (moves.length === 0) return null;
   const side = game.turn;
   // Captures first: the search cuts more, and sooner.
-  const ordered = (state: Xadrez, list: XadrezMove[]): XadrezMove[] => [...list].sort((a, b) => Number(state.board[b.to] !== ".") - Number(state.board[a.to] !== "."));
+  const ordered = (state: Xadrez, list: { move: XadrezMove; after: Xadrez }[]): { move: XadrezMove; after: Xadrez }[] =>
+    [...list].sort((a, b) => Number(state.board[b.move.to] !== ".") - Number(state.board[a.move.to] !== "."));
+  // A side with no move is mated when in check, and otherwise it is a draw.
+  const ended = (state: Xadrez, left: number): number => (inCheck(state) ? (state.turn === side ? -100_000 - left : 100_000 + left) : 0);
   const search = (state: Xadrez, left: number, alpha: number, beta: number): number => {
-    if (state.result !== null) return state.result === "empate" ? 0 : state.result === side ? 100_000 + left : -100_000 - left;
-    if (left === 0) return worth(state.board, side);
+    if (left === 0) {
+      // Only a side in check can have been mated: only then are its moves counted.
+      if (inCheck(state) && legalAfter(state).length === 0) return ended(state, left);
+      return worth(state.board, side);
+    }
+    const replies = legalAfter(state);
+    if (replies.length === 0) return ended(state, left);
     const mine = state.turn === side;
     let best = mine ? -Infinity : Infinity;
-    for (const move of ordered(state, xadrezMoves(state))) {
-      const value = search(playXadrez(state, move), left - 1, alpha, beta);
+    for (const { after } of ordered(state, replies)) {
+      const value = search(after, left - 1, alpha, beta);
       if (mine) {
         best = Math.max(best, value);
         alpha = Math.max(alpha, value);
@@ -271,8 +325,8 @@ export function xadrezBot(game: Xadrez, depth = 2): XadrezMove | null {
   };
   let chosen = moves[0]!;
   let top = -Infinity;
-  for (const move of ordered(game, moves)) {
-    const value = search(playXadrez(game, move), depth - 1, -Infinity, Infinity);
+  for (const { move, after } of ordered(game, legalAfter(game))) {
+    const value = search(after, depth - 1, -Infinity, Infinity);
     if (value > top) {
       top = value;
       chosen = move;

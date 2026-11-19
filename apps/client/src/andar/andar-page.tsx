@@ -1055,7 +1055,7 @@ export function Andar() {
           )}
           {shop ? <LazyLoja show={(loja) => <loja.Cantina shop={shop} second={hud.second} place={hud.place} onClose={() => (setShop(null), void errandsRef.current?.mochila())} />} /> : null}
           {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila onClose={() => setBag(false)} />} /> : null}
-          {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} /> : null}
+          {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} gesto={(kind) => (asks.current.emote = kind)} /> : null}
           {met ? (
             <LazySheet
               met={met}

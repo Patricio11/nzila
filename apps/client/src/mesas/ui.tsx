@@ -7,7 +7,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { Mesas } from "./mesas.ts";
 import { Tabuleiro } from "./tabuleiro.tsx";
 
-export function Ui({ mesas, mesa }: { mesas: Mesas; mesa: number | null }) {
+export function Ui({ mesas, mesa, gesto }: { mesas: Mesas; mesa: number | null; gesto?: (kind: "aplaudir" | "rir") => void }) {
   const [, redraw] = useState(0);
   useEffect(() => mesas.listen(() => redraw((n) => n + 1)), [mesas]);
   // The way to a kept seat counts down its metres as the player walks.
@@ -16,6 +16,7 @@ export function Ui({ mesas, mesa }: { mesas: Mesas; mesa: number | null }) {
     return () => clearInterval(ticking);
   }, []);
   if (mesa !== null) return <Tabuleiro mesas={mesas} mesa={mesa} />;
+  if (mesas.vendo !== null) return <Tabuleiro mesas={mesas} mesa={mesas.vendo} vendo gesto={gesto} />;
   const now = performance.now();
   const jogo = (index: number): string => tr.t(`mesa.jogoNome.${mesas.tables[index]!.game}` as "mesa.jogoNome.xadrez");
   const convite = mesas.convite;
@@ -36,10 +37,22 @@ export function Ui({ mesas, mesa }: { mesas: Mesas; mesa: number | null }) {
   }
   const aviso = mesas.aviso && mesas.aviso.ate > now ? mesas.aviso : null;
   const destino = mesas.destino;
-  if (!aviso && !destino) return null;
+  const perto = mesas.perto;
   return (
-    <p class={`ms-aviso${aviso?.kind === "recusou" ? " ms-aviso-nao" : ""}`} role="status">
-      {aviso ? tr.t(`convite.${aviso.kind}`, { nome: aviso.nome }) : tr.t("convite.caminho", { jogo: jogo(destino!.mesa), metros: Math.round(mesas.longeDoDestino()) })}
-    </p>
+    <>
+      {aviso || destino ? (
+        <p class={`ms-aviso${aviso?.kind === "recusou" ? " ms-aviso-nao" : ""}`} role="status">
+          {aviso ? tr.t(`convite.${aviso.kind}`, { nome: aviso.nome }) : tr.t("convite.caminho", { jogo: jogo(destino!.mesa), metros: Math.round(mesas.longeDoDestino()) })}
+        </p>
+      ) : null}
+      {perto !== null ? (
+        // Standing round a table: its board, to watch without sitting (F-210).
+        <button type="button" class="ms-ver" data-jogo={mesas.tables[perto]!.game} aria-label={tr.t("mesa.verNome", { jogo: jogo(perto) })} onClick={() => mesas.ver(perto)}>
+          <i class={`ms-ver-mark ms-ver-${mesas.tables[perto]!.game}`} aria-hidden="true" />
+          <span>{tr.t("mesa.ver")}</span>
+          {mesas.aVer(perto) > 0 ? <b>{mesas.aVer(perto)}</b> : null}
+        </button>
+      ) : null}
+    </>
   );
 }

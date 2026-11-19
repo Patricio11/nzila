@@ -6,6 +6,7 @@ declare global {
   }
 }
 
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { FPS_BUDGET, SHELL_BUDGET_BYTES, expectLooksTheSame, expectNoSidewaysScroll, slowPhone, watch } from "./harness.ts";
 
@@ -804,10 +805,12 @@ test.describe("a person", () => {
       return;
     }
     const seen = watch(page);
-    await page.goto("/andar?auto&tier=poupanca&hour=12");
+    // Walking east and only walking: the scripted turn (?auto) runs from its fifth second, and on a slow machine the body
+    // could be measured after that, at a run (gate of 2026-11-19).
+    await page.goto("/andar?auto=90&tier=poupanca&hour=12");
     await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
     const start = await page.evaluate(() => window.__andar!.x);
-    // The scripted turn begins by walking east (2,3 m a second).
+    // East, at a walk (2,3 m a second).
     await page.waitForFunction((from) => window.__andar!.x > from + 4, start, { timeout: 20_000 });
     // Every foot that came down asked for its sound.
     expect(await page.evaluate(() => window.__andar!.sounds)).toBeGreaterThan(2);
@@ -1054,19 +1057,22 @@ test.describe("two phones in the same street", () => {
 
     // The first walks away north (the other stands beside them, east or west: F-189) for three seconds; the second watches them go, smoothly.
     const before = theirs.others[0]!;
-    const watched: { x: number; z: number }[] = [];
+    const watched: { x: number; z: number; at: number }[] = [];
     await page.keyboard.down("w");
     for (let n = 0; n < 30; n++) {
-      watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN })));
+      watched.push(await other.evaluate(() => ({ x: window.__andar!.others[0]?.x ?? NaN, z: window.__andar!.others[0]?.z ?? NaN, at: window.__andar!.at })));
       await other.waitForTimeout(100);
     }
     await page.keyboard.up("w");
     const after = await other.evaluate(() => window.__andar!.others[0]!);
     const went = Math.hypot(after.x - before.x, after.z - before.z);
     expect(went).toBeGreaterThan(1.5);
-    // A walking pace, and never a jump of more than a stride between two looks a tenth of a second apart.
+    // A walking pace, and never a jump between two looks: no more than a stride, and what more the time that really passed
+    // between the two pictures allows. Looks meant a tenth of a second apart are sometimes a third on a loaded machine,
+    // and a walk covers 0,8 m in that (gate of 2026-11-19); the same rule as the weak line's test below (F-183).
     const steps = watched.slice(1).map((at, n) => Math.hypot(at.x - watched[n]!.x, at.z - watched[n]!.z));
-    expect(Math.max(...steps)).toBeLessThan(0.8);
+    const jumps = watched.slice(1).map((at, n) => steps[n]! - (0.75 + 3 * ((at.at - watched[n]!.at) / 1000)));
+    expect(Math.max(...jumps)).toBeLessThan(0);
     // The walker ends where the zone says, which is where the watcher sees them.
     await page.waitForTimeout(700);
     const walker = await page.evaluate(() => window.__andar!);
@@ -1408,7 +1414,7 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
-  test("at a table of the town (Task 4B.1): the button offers xadrez beside a free seat; sat, the board opens; a move is played and a kota of the bairro answers; up again, the seat is offered again", async ({ page, request }, info) => {
+  test("at a table of the town (Task 4B.1): standing by it, its game can be watched and cheered (F-210); the button offers xadrez beside a free seat; sat, the board opens; a move is played and a kota of the bairro answers; up again, the seat is offered again", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The tables were not checked here." });
       test.skip();
@@ -1443,6 +1449,21 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__andar!.action === "xadrez", undefined, { timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Jogar xadrez" })).toBeVisible();
     await page.screenshot({ path: info.outputPath("mesa-rua.png") });
+    // Standing by the table, its game can be watched without sitting: the kotas' game, read only, from this side.
+    await page.getByRole("button", { name: "Ver o jogo de xadrez" }).click();
+    const watched = page.getByRole("dialog", { name: "Xadrez" });
+    await expect(watched.locator(".ms-crowd")).toHaveText("1 a ver");
+    await expect(watched.locator(".ms-seat-me")).toHaveCount(0);
+    await expect(watched.locator(".ms-piece.ms-can")).toHaveCount(0);
+    await expect(watched.getByRole("button", { name: "Levantar" })).toHaveCount(0);
+    await expect(watched.locator(".ms-line")).toHaveText(/^Vez de Kota|^Estás a ver|ganhou|^Empate/);
+    // A cheer is the player's body clapping in the street, for everyone round the table to see.
+    await watched.getByRole("button", { name: "Aplaudir" }).click();
+    await page.waitForFunction(() => window.__andar!.emote === "aplaudir", undefined, { timeout: 5_000 });
+    await page.screenshot({ path: info.outputPath("mesa-ver.png") });
+    await watched.getByRole("button", { name: "Fechar" }).click();
+    await expect(watched).toHaveCount(0);
+    await page.waitForFunction(() => window.__andar!.emote === null, undefined, { timeout: 10_000 });
     await page.getByRole("button", { name: "Jogar xadrez" }).click();
     // The zone seats the player: the board opens, waiting a moment for someone else, and the gold button is gone.
     await page.waitForFunction(() => window.__andar!.mesa !== null && window.__andar!.seated, undefined, { timeout: 10_000 });
@@ -1579,14 +1600,22 @@ test.describe("two phones in the same street", () => {
     }
     const seen = watch(page);
     // Somebody whose first errand of the day is near where people arrive: at the caixa or at the cantina (the
-    // rehearsal town's places 5 and 6 of 7), so that the test walks a few steps and not across the town.
+    // rehearsal town's places 5 and 6 of 7), so that the test walks a few steps and not across the town; and, when it
+    // is a thing to bring, somebody whose family gave enough to buy it (the day's draw can ask for óleo at 1 800 Mk of
+    // someone given 1 700: F-219).
     type Day = { recados: { n: number; kind: string; who: number; item?: string; place?: number; done: boolean }[]; familia: { amount: number } };
+    const shops = JSON.parse(readFileSync(new URL("../../packages/economy/tunables/shops.json", import.meta.url), "utf8")) as { shops: { cantina: { stock: { item: string; price: number }[] } } };
+    const priceOf = (item: string): number => shops.shops.cantina.stock.find((one) => one.item === item)?.price ?? Infinity;
     let chosen: { guest: { playerId: string; token: string; name: string; biNumber: string; arrivedAt: string }; deviceId: string; day: Day } | null = null;
-    for (let n = 0; n < 40 && !chosen; n++) {
+    for (let n = 0; n < 60 && !chosen; n++) {
       const deviceId = `recados-${n}-${Date.now()}-abcdefgh`;
       const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { playerId: string; token: string; name: string; biNumber: string; arrivedAt: string };
-      const day = (await (await page.request.get("/api/v1/recados", { headers: { authorization: `Bearer ${guest.token}` } })).json()) as Day;
-      if ([5, 6].includes(day.recados[0]!.place! % 7)) chosen = { guest, deviceId, day };
+      const authorization = { authorization: `Bearer ${guest.token}` };
+      const day = (await (await page.request.get("/api/v1/recados", { headers: authorization })).json()) as Day;
+      const first = day.recados[0]!;
+      if (![5, 6].includes(first.place! % 7)) continue;
+      const cash = ((await (await page.request.post("/api/v1/me/origin", { headers: authorization, data: {} })).json()) as { wallet: { cash: number } }).wallet.cash;
+      if (first.kind !== "traz" || priceOf(first.item!) <= cash) chosen = { guest, deviceId, day };
     }
     expect(chosen, "a player whose first errand is near").not.toBeNull();
     const { guest, deviceId, day } = chosen!;
@@ -1594,7 +1623,6 @@ test.describe("two phones in the same street", () => {
     await page.goto("/andar?tier=poupanca&hour=10");
     await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
     const headers = { authorization: `Bearer ${guest.token}` };
-    await page.request.post("/api/v1/me/origin", { headers, data: {} });
     // Mensagens: the family, the three neighbours, the errand for two, what the bairro has today.
     await page.getByRole("button", { name: "Telemóvel" }).click();
     await page.getByRole("button", { name: "Mensagens" }).click();
@@ -1797,6 +1825,13 @@ test.describe("two phones in the same street", () => {
     await expect(board.locator(".ms-seat").nth(0)).toContainText("Lugar guardado");
     await expect(board).toContainText("À espera de mais alguém");
     await other.screenshot({ path: info.outputPath("lugar-guardado.png") });
+    // A kota would take the seat kept for the one who invited: the board says whose it is and asks first (F-213).
+    await board.getByRole("button", { name: "Jogar já com o kota" }).click();
+    await expect(board.locator(".ms-line")).toHaveText(`O lugar de ${myName} está guardado. Começar já, com um kota nesse lugar?`);
+    await other.screenshot({ path: info.outputPath("lugar-guardado-pergunta.png") });
+    await board.getByRole("button", { name: "Esperar" }).click();
+    await expect(board).toContainText("À espera de mais alguém");
+    await expect(board.locator(".ms-seat").nth(0)).toContainText("Lugar guardado");
     expect(seen.errors).toEqual([]);
     expect(otherSeen.errors).toEqual([]);
   });

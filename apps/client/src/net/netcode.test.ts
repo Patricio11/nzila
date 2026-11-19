@@ -6,7 +6,7 @@ import { DEFAULT_CHARACTER, stepCharacter, type CharacterState, type Ground, typ
 import { describe, expect, test } from "vitest";
 import { Channel } from "../../../zone/src/channel.ts";
 import { Conditioner, LateLine, RESEND_MS, askedLine } from "./conditioner.ts";
-import { DELAY_LEAST_MS, DELAY_MOST_MS, Others } from "./others.ts";
+import { CATCH_UP_EXTRA_M_S, CATCH_UP_PACE, DELAY_LEAST_MS, DELAY_MOST_MS, Others, SNAP_M } from "./others.ts";
 import { AGREE_MM, FRAMES_REPEATED, PENDING_AT_MOST, Prediction, SNAP_MM } from "./predict.ts";
 import { SAY_AFTER_MS, TRY_AFTER_MS, TRY_FOR_MS, nextTry } from "./retry.ts";
 import { BALLOON_LEAST_MS, BALLOON_MOST_MS, LINES_KEPT, LINE_SHOWN_MS, TYPING_FOR_MS, Talking } from "./talking.ts";
@@ -228,6 +228,44 @@ describe("everyone else, a moment ago", () => {
     expect(late).toBeLessThanOrEqual(DELAY_MOST_MS);
     // Once it has settled, they are never seen to stop for want of news.
     expect(stalls).toBe(0);
+  });
+
+  test("nobody is drawn jumping: words held back and then arriving together are caught up briskly, never leapt (F-220)", () => {
+    const others = new Others();
+    let last = -1;
+    let biggest = 0;
+    for (let ms = 0; ms <= 4000; ms += 10) {
+      // A snapshot every 100 ms; at two seconds the line holds three back, and they arrive together 300 ms late.
+      if (ms % 100 === 0 && (ms < 2000 || ms > 2300)) others.take(one(ms / 50, (ms / 100) * 230), 1, ms);
+      if (ms === 2300) for (const sent of [2000, 2100, 2200, 2300]) others.take(one(sent / 50, (sent / 100) * 230), 1, ms);
+      const seen = others.at(ms)[0]!;
+      if (last >= 0) biggest = Math.max(biggest, Math.abs(seen.x - last));
+      last = seen.x;
+    }
+    // 2,3 m/s drawn every 10 ms is 23 mm a frame; caught up at most (2,3 x 1,8 + 1) m/s, 51 mm. Leapt, it would be
+    // more than half a metre in one frame.
+    expect(biggest).toBeLessThan(((2.3 * CATCH_UP_PACE + CATCH_UP_EXTRA_M_S) * 10) / 1000 + 1e-9);
+    // And they are where the zone says in the end.
+    expect(last).toBeCloseTo(4000 * 2.3 / 1000 - (others.delayMs / 1000) * 2.3, 1);
+  });
+
+  test("the zone itself moving someone in a burst (their phone's steps came late) is caught up, not leapt; a change of place is drawn at once", () => {
+    const others = new Others();
+    let last = -1;
+    let biggest = 0;
+    for (let ms = 0; ms <= 3000; ms += 10) {
+      // Walking, then held still four words, then a metre and more at once, then walking on.
+      const x = ms < 1000 ? (ms / 100) * 230 : ms < 1400 ? 2300 : 3600 + ((ms - 1400) / 100) * 230;
+      if (ms % 100 === 0) others.take(one(ms / 50, x), 1, ms);
+      const seen = others.at(ms)[0]!;
+      if (last >= 0) biggest = Math.max(biggest, Math.abs(seen.x - last));
+      last = seen.x;
+    }
+    expect(biggest).toBeLessThan(((2.3 * CATCH_UP_PACE + CATCH_UP_EXTRA_M_S) * 10) / 1000 + 0.02);
+    // Farther than a step: drawn there at once.
+    others.take(one(62, 3600 + 16 * 230 + SNAP_M * 1000 + 2000), 1, 3100);
+    others.take(one(64, 3600 + 16 * 230 + SNAP_M * 1000 + 2000), 1, 3200);
+    expect(others.at(3600)[0]!.x).toBeCloseTo((3600 + 16 * 230 + SNAP_M * 1000 + 2000) / 1000, 3);
   });
 
   test("the delay changes too slowly to be seen", () => {

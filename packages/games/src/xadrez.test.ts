@@ -83,6 +83,9 @@ describe("xadrez", () => {
     expect(() => playXadrez(newXadrez(), m("e2e5"))).toThrow(/not a move/);
     expect(xadrezMoves({ ...newXadrez(), result: "w" })).toEqual([]);
     expect(inCheck(fromFen("8/8/8/8/8/8/8/8 w - - 0 1"))).toBe(false);
+    // A king on the far side's back rank: no pawn can stand behind it to attack it.
+    expect(inCheck(fromFen("8/8/8/8/8/8/8/4k2K b - - 0 1"))).toBe(false);
+    expect(inCheck(fromFen("k6K/8/8/8/8/8/8/8 w - - 0 1"))).toBe(false);
   });
 
   test("the kota takes a queen left hanging, mates when it can, and sees a draw and a loss ahead", () => {

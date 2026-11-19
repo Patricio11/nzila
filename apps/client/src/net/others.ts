@@ -9,7 +9,7 @@
 // Nothing here knows about sockets or pictures.
 
 import { type EntityState, type Snapshot } from "@nzila/protocol";
-import { SIM_STEP_MS } from "@nzila/sim";
+import { DEFAULT_CHARACTER, SIM_STEP_MS } from "@nzila/sim";
 
 /** The shortest and the longest the others are drawn behind the zone's word, in milliseconds. */
 export const DELAY_LEAST_MS = 130;
@@ -18,6 +18,19 @@ export const DELAY_MOST_MS = 600;
 const DELAY_DRIFT_PER_S = 60;
 /** What the zone said is kept this long. */
 const KEPT_MS = 1500;
+/**
+ * Nobody is ever drawn jumping (gate of 2026-11-19, F-220). When where someone is to be drawn leaps (a word that came
+ * late after a silence; or the zone itself moving them in a burst, when their own phone's steps reached it late), the
+ * body catches up briskly instead: never faster than this many times their pace, and this much more, metres a
+ * second. Farther than SNAP_M is not a step but a change of place (boarding, a door): that is drawn at once.
+ */
+export const CATCH_UP_PACE = 1.8;
+export const CATCH_UP_EXTRA_M_S = 1;
+export const SNAP_M = 4;
+/** How quickly the pace a catch-up is measured against follows someone's real pace: a burst does not raise it. */
+const PACE_FOLLOWS_MS = 250;
+/** Nobody on foot goes faster than a run. */
+const RUN_M_S = DEFAULT_CHARACTER.runMmPerS / 1000;
 
 export interface Seen {
   readonly id: number;
@@ -52,6 +65,8 @@ export class Others {
   private late = 0;
   private delay = DELAY_LEAST_MS;
   private lastAt: number | null = null;
+  /** Where each was drawn last, in metres, and when: what a leap is caught up from. */
+  private readonly drawn = new Map<number, { x: number; y: number; z: number; at: number; pace: number }>();
 
   /** How far in the past the others are drawn now, in milliseconds: for the tests and the meter. */
   get delayMs(): number {
@@ -77,7 +92,11 @@ export class Others {
       this.said.set(state.id, words);
     }
     // Whoever the zone no longer speaks of has left, or is out of sight.
-    for (const id of this.said.keys()) if (!here.has(id)) this.said.delete(id);
+    for (const id of this.said.keys()) {
+      if (here.has(id)) continue;
+      this.said.delete(id);
+      this.drawn.delete(id);
+    }
   }
 
   /** Where the zone last said each of the others is, in its own units: what the player's body may not walk into. */
@@ -103,11 +122,29 @@ export class Others {
       const b = words[Math.min(words.length - 1, next)]!;
       const k = b.at === a.at ? 0 : Math.min(1, Math.max(0, (when - a.at) / (b.at - a.at)));
       const speed = b.at === a.at ? 0 : Math.hypot(b.state.x - a.state.x, b.state.z - a.state.z) / (b.at - a.at);
+      let x = (a.state.x + (b.state.x - a.state.x) * k) / 1000;
+      let y = (a.state.y + (b.state.y - a.state.y) * k) / 1000;
+      let z = (a.state.z + (b.state.z - a.state.z) * k) / 1000;
+      // A leap is caught up, not jumped; riders go with their vehicle, which is drawn by its own rules.
+      const was = this.drawn.get(id);
+      const elapsed = was ? Math.max(0, nowMs - was.at) : 0;
+      const pace = was ? was.pace + (Math.min(speed, RUN_M_S) - was.pace) * Math.min(1, elapsed / PACE_FOLLOWS_MS) : Math.min(speed, RUN_M_S);
+      if (was && b.state.vehicleId === null) {
+        const gap = Math.hypot(x - was.x, y - was.y, z - was.z);
+        const most = ((pace * CATCH_UP_PACE + CATCH_UP_EXTRA_M_S) * elapsed) / 1000;
+        if (gap > most && gap < SNAP_M) {
+          const part = most / gap;
+          x = was.x + (x - was.x) * part;
+          y = was.y + (y - was.y) * part;
+          z = was.z + (z - was.z) * part;
+        }
+      }
+      this.drawn.set(id, { x, y, z, at: nowMs, pace });
       seen.push({
         id,
-        x: (a.state.x + (b.state.x - a.state.x) * k) / 1000,
-        y: (a.state.y + (b.state.y - a.state.y) * k) / 1000,
-        z: (a.state.z + (b.state.z - a.state.z) * k) / 1000,
+        x,
+        y,
+        z,
         facing: (turn(a.state.yaw, b.state.yaw, k) * Math.PI) / 18_000,
         speed,
         anim: a.state.anim,
