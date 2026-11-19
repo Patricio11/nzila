@@ -395,9 +395,9 @@ flowchart LR
 - Depends on: 4.2 · Unblocks: 4.4, 8.2.
 
 ### Task 4.4: Needs, lightly
-- [ ] **Going hungry costs Energia (D-0.51): with Fome empty, Energia falls faster.** The rule and its tunable exist (2026-11-15); nothing calls it yet.
-- [ ] **Effort costs Energia (D-0.46): the zone counts the steps a player ran and the jumps made and applies `spendEffort`; with Energia low the run and the jump are refused and the HUD says why once.** The rule and its tunables exist (2026-11-15); nothing calls it yet.
-- [ ] Fome and Energia only. Eating and resting restore them; low values slow the player and tint the HUD; an empty bar sends the player to the hospital with a small bill, never death, never lost items.
+- [x] **Going hungry costs Energia (D-0.51): with Fome empty, Energia falls faster.** The rule and its tunable exist (2026-11-15); nothing calls it yet. *(2026-11-19: the zone keeps every player's Fome and Energia and wears them by the rule, step by step while they play (D-4.18).)*
+- [x] **Effort costs Energia (D-0.46): the zone counts the steps a player ran and the jumps made and applies `spendEffort`; with Energia low the run and the jump are refused and the HUD says why once.** The rule and its tunables exist (2026-11-15); nothing calls it yet. *(2026-11-19: built. The channel counts each body's fast steps and each jump as it leaves the ground; under `needs.tiredBelow` (800) the zone lets the run and the jump go from what the phone sends, and the phone stops asking for them; the street says once "Estás sem forças para correr ou saltar. Come alguma coisa ou descansa um bocado.")*
+- [ ] Fome and Energia only. Eating and resting restore them; low values slow the player and tint the HUD; an empty bar sends the player to the hospital with a small bill, never death, never lost items. *(2026-11-19, the first half: kept by the zone, read as a player comes in and written every half minute and as they leave (migration 0014); told to the phone (EVENT.NECESSIDADES); the two thin bars under the wallet chip when a need is under half, and "Estás com fome" under a fifth, fetched only then; "Comer" and "Beber" in the Mochila go to the zone, which takes the thing and gives back what it gives in one transaction (the API's route that ate with no effect is gone). Left: resting (a bench, the van; the bench must become the zone's, F-205), the hospital at zero with its bill, and the compass to food.)*
 - Depends on: 0.2, 4.3 · Unblocks: 4.5, 8.3.
 
 ### Task 4.5: Biscatos (starter jobs)

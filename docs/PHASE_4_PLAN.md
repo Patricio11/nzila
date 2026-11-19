@@ -61,6 +61,8 @@ Opened 2026-11-17, with Phase 3 built and not yet proven on real phones (`docs/c
 
 **D-4.17 A player of 15 to 17 and an adult are not made kambas (proposed, 2026-11-19; the founder to confirm).** Private messages between a minor and an adult stranger are the risk a game with chat is judged by, and the age is self-declared. *Recommendation: keep it until counsel has read the terms; the softer choice is kambas across the line with no private messages.* Waiting on the founder, item 21; F-225.
 
+**D-4.18 The zone is the only keeper of Fome and Energia (delegated, 2026-11-19).** It reads them as a player comes in, wears them with the steps they play and the effort the channel counts, and writes them every half minute and as they leave; eating is asked of the zone, which takes the thing and writes what it gave in one transaction. One writer, so that nothing is lost between two. The needs are kept as what was last set plus the steps, fast steps and jumps since, so that the tunables' rates hold exactly (the rules round down: a slice at a time would lose a sixth of the rate). *Recommendation: yes; built.*
+
 **Done on the way, at the founder's word (2026-11-18):** the street's traffic is the zone's to decide, so two players see the same van (F-190); vehicles that began inside each other are parted (F-180); two who arrive together stand side by side (F-189).
 
 ## Carried into this phase from the founder's rulings of 2026-11-17

@@ -1230,15 +1230,13 @@ describe("things, and the cantina (Tasks 4.2 and 4.3)", () => {
     expect((await app.inject({ method: "GET", url: "/v1/me/items", headers: as(one.token) })).json()).toMatchObject({ items: [], units: 0 });
   });
 
-  test("eaten and drunk one at a time; given to someone beside you, never across a block, never more than they can carry", async () => {
+  test("given to someone beside you, never across a block, never more than they can carry (eating is the zone's, Task 4.4)", async () => {
     const one = await born(1320);
     const two = await born(1321);
     await presence.mark(one.playerId, "loja", "cantina-largo");
-    await shopping(one.token, [{ item: "pao", quantity: 1 }, { item: "gasosa", quantity: 2 }, { item: "arroz", quantity: 1 }], "comer-0001");
-    expect((await post(one.token, "/v1/items/use", { item: "pao" })).json()).toEqual({ used: "comer", items: [{ item: "gasosa", quantity: 2 }, { item: "arroz", quantity: 1 }] });
-    expect((await post(one.token, "/v1/items/use", { item: "pao" })).json()).toEqual({ error: "none" });
-    // Rice is cooked at home, not eaten in the street.
-    expect((await post(one.token, "/v1/items/use", { item: "arroz" })).json()).toEqual({ error: "invalid" });
+    await shopping(one.token, [{ item: "gasosa", quantity: 2 }, { item: "arroz", quantity: 1 }], "comer-0001");
+    // Nothing is eaten through the API any more: the route is gone.
+    expect((await post(one.token, "/v1/items/use", { item: "gasosa" })).statusCode).toBe(404);
     // A gasosa to someone beside you.
     expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ error: "not_together" });
     await presence.mark(one.playerId, "com", two.playerId);

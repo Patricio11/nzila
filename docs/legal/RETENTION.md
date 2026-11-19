@@ -7,7 +7,7 @@ One row per table (Task 0.10). **The periods are proposals written by the develo
 | Table | What it holds | Personal data | Kept for | How it ends |
 |---|---|---|---|---|
 | `provinces`, `districts`, `packs` | The world | None | As long as the game runs | Never deleted |
-| `players` | One row per player: status, in-game name, BI number, age band, last position; for linked accounts an encrypted phone number and its keyed hash | Yes | While the account lives. A guest who has not played for 12 months is deleted. | Deleted with the account: the row is kept with `status = 'deleted'` and every personal column emptied, so the ledger rows that point at it stay valid and anonymous |
+| `players` | One row per player: status, in-game name, BI number, age band, last position, Fome and Energia; for linked accounts an encrypted phone number and its keyed hash | Yes | While the account lives. A guest who has not played for 12 months is deleted. | Deleted with the account: the row is kept with `status = 'deleted'` and every personal column emptied, so the ledger rows that point at it stay valid and anonymous |
 | `devices` | A keyed hash of each device a player used; never the device id | Pseudonymous | 12 months after the device was last seen | Deleted by a scheduled job, and with the account |
 | `player_sessions` | A hash of each session token | Pseudonymous | 30 days after it expires or is revoked | Deleted by a scheduled job, and with the account |
 | `avatars` | How the player's avatar looks | No, but tied to a player | While the account lives | Deleted with the account |

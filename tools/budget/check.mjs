@@ -24,7 +24,7 @@ const SHELL_BUDGET_BYTES = 300 * 1024;
 const ON_DEMAND_BUDGET_BYTES = 20 * 1024;
 // What is opened later: the apps of the Telemóvel, each its own file, the sheet of someone tapped, and the cantina's
 // grille with the Mochila. The shell that lists them is part of the way in.
-const ON_DEMAND = /src\/(telemovel\/(?!telemovel\.tsx$)[\w-]+|conversa\/sheet|cantina\/loja|recados\/rua|mesas\/[\w-]+|render\/dog|sound\/sound)\.tsx?$/;
+const ON_DEMAND = /src\/(telemovel\/(?!telemovel\.tsx$)[\w-]+|conversa\/sheet|cantina\/loja|recados\/rua|mesas\/[\w-]+|necessidades\/[\w-]+|andar\/oferta|render\/dog|sound\/sound)\.tsx?$/;
 const root = process.cwd();
 const dist = join(root, "apps", "client", "dist");
 const counted = new Set([".html", ".css", ".js", ".woff2"]);

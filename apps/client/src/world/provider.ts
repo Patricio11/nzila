@@ -10,7 +10,10 @@ import { type DistrictScene } from "../render/district-scene.ts";
 import { type TierName } from "../render/tiers.ts";
 import { savedPhoto } from "../render/wardrobe.ts";
 import { PANOS, wearPano, type MeuPano } from "./pano.ts";
-import { account, askName, choices, choose, deleteAccount, exportData, refreshAccount, rename, type Account, type Choices, type NameAnswer } from "./account.ts";
+import { account, refreshAccount, type Account, type Choices, type NameAnswer } from "./account.ts";
+
+/** What the Telemóvel's account screens use, fetched the first time one is (F-226). */
+const conta = (): Promise<typeof import("../telemovel/conta.ts")> => import("../telemovel/conta.ts");
 
 /** Who the player is, as the BI shows it. */
 export interface Me {
@@ -87,7 +90,7 @@ export interface WorldProvider {
   /** Whether a name can be had; null when nobody can say. */
   askName(name: string): Promise<NameAnswer | null>;
   /** Takes a name: "ok", or the one word of why not. */
-  rename(name: string): ReturnType<typeof rename>;
+  rename(name: string): Promise<"ok" | "taken" | "refused" | "spent" | "invalid" | "offline">;
   /** What the player has said yes to (analytics, notifications); null when nobody can say. */
   choices(): Promise<Choices | null>;
   choose(purpose: keyof Choices, granted: boolean): Promise<Choices | null>;
@@ -249,26 +252,26 @@ export class LocalWorld implements WorldProvider {
   }
 
   askName(name: string): Promise<NameAnswer | null> {
-    return askName(name);
+    return conta().then((module) => module.askName(name));
   }
 
-  rename(name: string): ReturnType<typeof rename> {
-    return rename(name);
+  rename(name: string): Promise<"ok" | "taken" | "refused" | "spent" | "invalid" | "offline"> {
+    return conta().then((module) => module.rename(name));
   }
 
   choices(): Promise<Choices | null> {
-    return choices();
+    return conta().then((module) => module.choices());
   }
 
   choose(purpose: keyof Choices, granted: boolean): Promise<Choices | null> {
-    return choose(purpose, granted);
+    return conta().then((module) => module.choose(purpose, granted));
   }
 
   exportData(): Promise<Record<string, unknown> | null> {
-    return exportData();
+    return conta().then((module) => module.exportData());
   }
 
   deleteAccount(): Promise<boolean> {
-    return deleteAccount();
+    return conta().then((module) => module.deleteAccount());
   }
 }

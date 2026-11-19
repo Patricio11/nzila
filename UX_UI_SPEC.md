@@ -165,7 +165,7 @@ The first components were correct and plain, and the founder sent them back: "it
 - **`<PriceTag>`** · any cost before a tap: Makuta, minutes or megabytes, with its glyph.
 - **`<SpeechBalloon>`** and **`<ChatBar>`** · proximity chat; quick phrases as chips above the keyboard. Three dots float over anyone typing. Within a few metres a balloon shows its words; farther away it is an empty balloon, so you can see two people talking across the square without reading them. Two players facing each other and talking turn their heads to one another.
 - **`<EmoteWheel>`** · hold the avatar or the emote button; six slots.
-- **`<NeedsBars>`** · Fome and Energia as two thin bars under the wallet chip; hidden when both are above half.
+- **`<NeedsBars>`** · Fome and Energia as two thin bars under the wallet chip; hidden when both are above half. *(Built in the street 2026-11-19, Task 4.4, with the line said once beside them: too tired to run or jump, and hungry under a fifth.)*
 - **`<HeatLine>`** · one calm line when entering a hot block ("Zona quente agora. Fica atento.") with the heat glyph; never a siren.
 - **`<Banner>`** · the single system line at the top: reconnecting, saving, maintenance.
 - **`<DataMeter>`** · megabytes this session and this month, in Definições and on any download prompt.

@@ -13,6 +13,8 @@ import { ageBandOf, type AgeBand, type Look } from "@nzila/protocol";
 import { dataMeter } from "../net/data-meter.ts";
 
 const KEY = "nzila.conta";
+/** Where the account is kept on this phone. */
+export const ACCOUNT_KEY = KEY;
 const API = "/api";
 /** How long the server is waited for: at the door, before the game goes on without it; and for something the player asked for, on a slow network. */
 const DOOR_PATIENCE_MS = 4000;
@@ -230,6 +232,10 @@ export async function dealtOrigin(): Promise<Origin | null> {
 
 /** Counts what the player changes from this phone, so that an answer asked before a change is not laid over it. */
 let changes = 0;
+/** A change the player made here (a name): an answer about the player already on its way is of before, and is let go. */
+export function noteChange(): void {
+  changes++;
+}
 
 interface Whoami {
   kind: "guest" | "linked";
@@ -264,70 +270,7 @@ export async function refreshAccount(): Promise<Account | null> {
   return answer && now && changes === before ? keep(known(now, answer)) : now;
 }
 
-/** Whether a name can be had. Null when there is no server to say. */
-export async function askName(name: string): Promise<NameAnswer | null> {
-  const mine = account();
-  if (!mine?.token) return null;
-  return (await ask<{ answer: NameAnswer }>("POST", "/v1/names/check", { name }, mine.token)).answer?.answer ?? null;
-}
-
-/** Takes a name. "ok", or the one word of why not. */
-export async function rename(name: string): Promise<"ok" | "taken" | "refused" | "spent" | "invalid" | "offline"> {
-  const mine = account();
-  if (!mine?.token) return "offline";
-  const { answer, error } = await ask<{ name: string; nameFree: boolean }>("PUT", "/v1/me/name", { name }, mine.token);
-  if (answer) {
-    changes++;
-    keep({ ...mine, name: answer.name, nameFree: answer.nameFree });
-    return "ok";
-  }
-  return error === "name_taken" ? "taken" : error === "name_refused" ? "refused" : error === "name_spent" ? "spent" : error === "invalid" ? "invalid" : "offline";
-}
-
 export type Choices = { analytics: boolean; notifications: boolean };
-
-/** What the player has said yes to, of the things that can be said no to. Null when there is no server to say. */
-export async function choices(): Promise<Choices | null> {
-  const mine = account();
-  return mine?.token ? (await ask<Choices>("GET", "/v1/me/consents", undefined, mine.token)).answer : null;
-}
-
-/** Says yes or no to one of them. What stands now, or null when it could not be said. */
-export async function choose(purpose: keyof Choices, granted: boolean): Promise<Choices | null> {
-  const mine = account();
-  return mine?.token ? (await ask<Choices>("PUT", "/v1/me/consents", { purpose, granted }, mine.token)).answer : null;
-}
-
-/** Everything the server keeps of the player, with what this phone alone keeps beside it. */
-export async function exportData(): Promise<Record<string, unknown> | null> {
-  const mine = account();
-  if (!mine?.token) return null;
-  const { answer } = await ask<Record<string, unknown>>("GET", "/v1/me/data", undefined, mine.token);
-  if (!answer) return null;
-  const local = (key: string): unknown => {
-    try {
-      return JSON.parse(localStorage.getItem(key) ?? "null") as unknown;
-    } catch {
-      return null;
-    }
-  };
-  return { ...answer, onThisPhone: { settings: local("nzila.settings"), dataUsed: local("nzila.data"), look: local("nzila.look") } };
-}
-
-/** Ends the account on the server, then removes what this phone kept of it. True when it is gone. */
-export async function deleteAccount(): Promise<boolean> {
-  const mine = account();
-  if (!mine?.token || !mine.biNumber) return false;
-  const { answer } = await ask<{ ok: boolean }>("DELETE", "/v1/me", { biNumber: mine.biNumber }, mine.token);
-  if (!answer?.ok) return false;
-  try {
-    // What was the player's goes; how this phone likes the game drawn stays.
-    for (const key of [KEY, "nzila.look", "nzila.foto"]) localStorage.removeItem(key);
-  } catch {
-    // Storage is off: there was nothing kept to remove.
-  }
-  return true;
-}
 
 /** Asks for a code to be sent to a number. */
 export async function sendCode(phone: string): Promise<"ok" | "invalid" | "slow" | "offline"> {
@@ -457,14 +400,6 @@ export async function resetPassword(email: string, code: string, password: strin
   const { answer, error } = await ask<{ playerId: string; token: string }>("POST", "/v1/password/reset", { email, code, password, deviceId, platform: platform() });
   if (!answer) return error === "wrong_code" || error === "invalid" ? "wrong" : "offline";
   return comeInto(deviceId, answer);
-}
-
-/** Someone who knows their password chooses another. */
-export async function changePassword(current: string, next: string): Promise<"ok" | "wrong" | "invalid" | "slow" | "offline"> {
-  const mine = account();
-  if (!mine?.token) return "offline";
-  const { status, answer, error } = await ask<{ ok: boolean }>("PUT", "/v1/me/password", { current, next }, mine.token);
-  return answer ? "ok" : error === "wrong_login" ? "wrong" : error === "invalid" ? "invalid" : status === 429 ? "slow" : "offline";
 }
 
 /** What the player holds now, in a few bytes; and Makuta someone has just handed them, said once. */

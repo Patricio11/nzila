@@ -14,6 +14,7 @@ import {
   encodeTraffic,
   encodeRide,
   encodeNudge,
+  encodeComer,
   TRAFFIC_VEHICLES_AT_MOST,
   encodeEmote,
   EMOTE_NAMES,
@@ -127,6 +128,12 @@ describe("a nudge", () => {
     expect(decodeClientMessage(encodeNudge({ entity: 12 }))).toEqual({ type: "nudge", entity: 12 });
     expect(encodeNudge({ entity: 12 }).length).toBeLessThanOrEqual(3);
     expect(decodeZoneMessage(encodeNudge({ entity: 12 }))).toEqual({ type: "unknown", code: MSG.NUDGE });
+    // Eating or drinking a thing carried, by its name in the catalogue: a name that cannot be one is refused.
+    expect(decodeClientMessage(encodeComer({ item: "pao" }))).toEqual({ type: "comer", item: "pao" });
+    expect(decodeClientMessage(encodeComer({ item: "gasosa-laranja" }))).toEqual({ type: "comer", item: "gasosa-laranja" });
+    expect(() => decodeClientMessage(encodeComer({ item: "Pão" }))).toThrow(ProtocolError);
+    expect(() => decodeClientMessage(encodeComer({ item: "" }))).toThrow(ProtocolError);
+    expect(() => decodeClientMessage(encodeComer({ item: "x".repeat(40) }))).toThrow(ProtocolError);
   });
 });
 

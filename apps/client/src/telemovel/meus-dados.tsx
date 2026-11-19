@@ -8,7 +8,7 @@ import { ptAOLater } from "@nzila/i18n/later";
 import { checkPassword } from "@nzila/protocol";
 import { Button, Toggle } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
-import { changePassword } from "../world/account.ts";
+import { changePassword } from "./conta.ts";
 import { type WorldProvider } from "../world/provider.ts";
 
 // Its words come with it, and with the BI that opens it (F-202).

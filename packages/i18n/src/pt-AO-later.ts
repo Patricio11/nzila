@@ -321,6 +321,15 @@ export const ptAOLater = {
   "mesa.classificacaoVazia": "Ainda ninguém jogou aqui. O primeiro lugar está à espera de dono.",
   "mesa.classificacaoEu": "O teu lugar: {posicao}.º, com {pontos} pontos.",
   "mesa.classificacaoNunca": "Ainda não jogaste aqui: a primeira partida dá-te lugar.",
+  // The browser's offer to install, fetched when a browser makes it (F-226).
+  "install.offer": "Queres o Nzila no ecrã do telemóvel?",
+  "install.yes": "Instalar",
+  "install.later": "Agora não",
+  // Fome and Energia (Task 4.4): the lines said once, and what the Mochila says when eating is refused.
+  "needs.cansado": "Estás sem forças para correr ou saltar. Come alguma coisa ou descansa um bocado.",
+  "needs.fome": "Estás com fome. A cantina do Largo tem pão e gasosa.",
+  "mochila.nao_tens": "Já não tens disso na mochila.",
+  "mochila.nao_se_come": "Isso não se come na rua: é para cozinhar em casa.",
   // Kambas (Task 4B.2): asking, the list, a conversation, going to them.
   "kamba.aba": "Kambas",
   "kamba.abaBairro": "O bairro hoje",

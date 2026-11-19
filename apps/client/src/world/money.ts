@@ -177,13 +177,6 @@ export async function buyThings(shop: string, lines: readonly Held[]): Promise<{
   return { said: said.error === "not_at_shop" ? "far" : said.error === "insufficient" ? "short" : said.error === "too_heavy" ? "heavy" : "offline" };
 }
 
-/** Eats or drinks one of a thing carried. What is left, or null when it could not be done. */
-export async function useThing(item: string): Promise<readonly Held[] | null> {
-  const mine = account();
-  if (!mine?.token) return null;
-  return (await ask<{ used: string; items: Held[] }>("POST", "/v1/items/use", { item }, mine.token)).answer?.items ?? null;
-}
-
 /** What handing a thing to someone came to. "together": the zone does not say the two stand together. */
 export type GaveThing = "ok" | "together" | "heavy" | "none" | "offline";
 

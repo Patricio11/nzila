@@ -150,16 +150,11 @@ export function Andar() {
   // Which app the Telemóvel opens on: the one the address asked for, or the Banco when the player uses a caixa.
   const [phoneApp, setPhoneApp] = useState<string | null>(params.get("telemovel") || null);
   const [marked, setMarked] = useState<Marked | null>(null);
+  // Fome and Energia (Task 4.4): their bars, fetched by the frame loop the first time a need is under half.
+  const [Needs, setNeeds] = useState<typeof import("../necessidades/barras.tsx").Necessidades | null>(null);
   // Kambas (Task 4B.2): what waits in Mensagens, and a kamba's conversation to open it on.
   const [novas, setNovas] = useState(0);
   const [abrirKamba, setAbrirKamba] = useState<string | null>(null);
-  useEffect(() => {
-    if (!account()?.token || params.has("sozinho")) return;
-    let stop = (): void => {};
-    let gone = false;
-    void import("../telemovel/rede-kambas.ts").then((module) => !gone && (stop = module.vigiar(setNovas, setMarked)));
-    return () => ((gone = true), stop());
-  }, []);
   // The cantina whose grille the player is at, and the Mochila, when open.
   const [shop, setShop] = useState<{ id: string; name: string } | null>(null);
   const errandsRef = useRef<Errands | null>(null);
@@ -170,6 +165,7 @@ export function Andar() {
   // The browser's offer to install, kept until the first ride is over: never at the first second (Task 1.8).
   const offer = useRef<InstallOffer | null>(null);
   const [install, setInstall] = useState(false);
+  const [Oferta, setOferta] = useState<typeof import("./oferta.tsx").Oferta | null>(null);
   useEffect(() => {
     const keep = (event: Event): void => {
       event.preventDefault();
@@ -180,7 +176,9 @@ export function Andar() {
   }, []);
   const rode = useRef<() => void>(() => undefined);
   rode.current = () => {
-    if (offer.current && !sessionStorage.getItem("nzila.install")) setInstall(true);
+    if (!offer.current || sessionStorage.getItem("nzila.install")) return;
+    setInstall(true);
+    void import("./oferta.tsx").then((module) => setOferta(() => module.Oferta));
   };
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
@@ -229,6 +227,8 @@ export function Andar() {
     let person: Person | null = null;
     // The zone, when there is one: it says where the player is and who else is in the street (Task 3.3).
     let session: Session | null = null;
+    let needsAsked = false;
+    let stopKambas = (): void => {};
     // What hangs over heads: words, dots, empty balloons. And when the player's last line was refused, until when to say so.
     let over: Over | null = null;
     let said: { kind: "met" | "waved" | "greeted" | "got" | "recado" | "recadoNo"; name: string; amount?: number; until: number } | null = null;
@@ -327,6 +327,8 @@ export function Andar() {
           if (overBox.current) over = new Over(overBox.current);
           // `&paragem=<id>` comes in beside a paragem, as someone off a van does: for the tests of riding together.
           session.join(params.get("paragem") ?? undefined);
+          // The kambas (Task 4B.2): what waits in Mensagens is watched from now, fetched after the way in.
+          void import("../telemovel/rede-kambas.ts").then((module) => !closed && (stopKambas = module.vigiar(setNovas, setMarked)));
           void import("../recados/rua.ts").then((module) => {
             if (closed) return;
             errands = new module.StreetErrands(opened, renderer);
@@ -625,7 +627,9 @@ export function Andar() {
           air.before = air.after >= 1 ? 0 : air.after;
           air.liftBefore = air.liftAfter;
           if (!seat && !ride) {
-            const leaving = asks.current.jump && !state.air;
+            // Too tired (the zone says so, Task 4.4): neither going fast nor jumping is asked for.
+            const tired = session?.needs?.tired === true;
+            const leaving = asks.current.jump && !state.air && !tired;
             let jumped = leaving;
             if (session?.walking) {
               // With the zone: the step is taken twice, once against what the zone knows of (walls, benches, the other
@@ -633,7 +637,7 @@ export function Andar() {
               // the two agree, that is the step, and the zone is sent the stick. When something only the phone sees is
               // in the way, the player stands, and the zone is told a stick at rest: so that the two always agree, and
               // nobody is pulled through a van by a zone that cannot see it (F-152).
-              const frame: InputFrame = { dx: ask.dx, dz: ask.dz, run: ask.run, brake: false, ...(leaving ? { jump: true } : {}) };
+              const frame: InputFrame = { dx: ask.dx, dz: ask.dz, run: ask.run && !tired, brake: false, ...(leaving ? { jump: true } : {}) };
               const bodies = session.bodies();
               const zone = { ...state };
               stepCharacter(zone, toMoveInput(frame), ground, [...district.shared(), ...bodies], DEFAULT_CHARACTER);
@@ -868,6 +872,11 @@ export function Andar() {
             else if (ride.last.dwelling && ride.left && seconds - ride.arrivedAt < 5) band.said = tr.t("ride.cobrador.arrived", { paragem: band.stops[band.next] ?? "" });
             else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { proxima: ahead });
           }
+          const needs = session?.needs;
+          if (needs && !needsAsked && (needs.fome < 5000 || needs.energia < 5000)) {
+            needsAsked = true;
+            void import("../necessidades/barras.tsx").then((module) => setNeeds(() => module.Necessidades));
+          }
           // `&semrede` shows what a minute without a network looks like, for a still.
           setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, said: said && performance.now() < said.until ? { kind: said.kind, name: said.name, amount: said.amount ?? 0 } : null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
@@ -949,6 +958,7 @@ export function Andar() {
     window.addEventListener("resize", onResize);
     return () => {
       closed = true;
+      stopKambas();
       cancelAnimationFrame(frame);
       element.removeEventListener("pointerdown", down);
       element.removeEventListener("pointermove", move);
@@ -978,22 +988,17 @@ export function Andar() {
       <canvas ref={canvas} class="andar-canvas" />
       <div ref={overBox} class="cv-over" aria-hidden="true" />
       {(!hud.ready && !missing) || params.has("chegar") ? <Arriving poupanca={settings.poupanca} /> : null}
-      {install ? (
-        <div class="install" role="dialog" aria-label={tr.t("install.offer")}>
-          <p>{tr.t("install.offer")}</p>
-          <span class="install-keys">
-            <Button onPress={() => (setInstall(false), sessionStorage.setItem("nzila.install", "1"), void offer.current?.prompt?.())}>{tr.t("install.yes")}</Button>
-            <Button kind="quiet" onPress={() => (setInstall(false), sessionStorage.setItem("nzila.install", "1"))}>
-              {tr.t("install.later")}
-            </Button>
-          </span>
-        </div>
+      {install && Oferta ? (
+        <Oferta onYes={() => (setInstall(false), sessionStorage.setItem("nzila.install", "1"), void offer.current?.prompt?.())} onLater={() => (setInstall(false), sessionStorage.setItem("nzila.install", "1"))} />
       ) : null}
       {missing ? <p class="andar-note">The district and the people have not been built on this machine: run `pnpm pack:dev` (it needs Blender).</p> : null}
       {hud.ready ? (
         <div class="andar-hud n-on-dark">
           <div class="andar-top">
-            <WalletChip amount={hud.cash} />
+            <span>
+              <WalletChip amount={hud.cash} />
+              {Needs ? <Needs net={net} /> : null}
+            </span>
             <span class="andar-top-right">
               <Compass heading={hud.heading} marks={hud.marks} />
               <ClockChip secondOfDay={hud.second} />
@@ -1067,7 +1072,7 @@ export function Andar() {
             </div>
           )}
           {shop ? <LazyLoja show={(loja) => <loja.Cantina shop={shop} second={hud.second} place={hud.place} onClose={() => (setShop(null), void errandsRef.current?.mochila())} />} /> : null}
-          {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila onClose={() => setBag(false)} />} /> : null}
+          {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila zone={net.current} onClose={() => setBag(false)} />} /> : null}
           {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} gesto={(kind) => (asks.current.emote = kind)} /> : null}
           {met ? (
             <LazySheet

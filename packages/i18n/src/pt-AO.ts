@@ -37,9 +37,6 @@ export const ptAO = {
   "frontdoor.hoot.said": "Pi piii",
   "frontdoor.hoot.many": "Calma, mano, já vamos",
   // The offer to keep the game on the phone's screen, made after the first ride and never before.
-  "install.offer": "Queres o Nzila no ecrã do telemóvel?",
-  "install.yes": "Instalar",
-  "install.later": "Agora não",
 
   // The age question and the card of origin (Tasks 2.6, 2.3; D-0.44).
   "age.title": "Em que ano nasceste?",

@@ -14,7 +14,7 @@
 
 import { isGreeting } from "@nzila/i18n";
 import { type Object3D } from "three";
-import { type TrafficSaid, CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
+import { encodeComer, type TrafficSaid, CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
 import { Players } from "../render/players.ts";
@@ -97,6 +97,9 @@ export class Session {
   mesaRefused: number | null = null;
   /** Invitations to play, and answers to the player's own, until the code that draws tables has read them. */
   convites: WorldEvent[] = [];
+  /** Fome and Energia as the zone last said them (Task 4.4), and who is waiting to hear what came of eating something. */
+  needs: { fome: number; energia: number; tired: boolean } | null = null;
+  onAte: ((item: string | null, why: string | null) => void) | null = null;
   private readonly offsets: number[] = [];
   /** How far the zone's clock is ahead of this phone's, in milliseconds; null before it has said anything. */
   get zoneClockAhead(): number | null {
@@ -313,6 +316,10 @@ export class Session {
     else if (event.kind === EVENT.GIVEN) this.given = true;
     else if (event.kind === EVENT.MESA_REFUSED) this.mesaRefused = event.args[0] ?? 0;
     else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA || event.kind === EVENT.PONTOS) this.convites.push(event);
+    else if (event.kind === EVENT.NECESSIDADES) {
+      this.needs = { fome: event.args[0] ?? 0, energia: event.args[1] ?? 0, tired: event.args[2] === 1 };
+      if (event.text) this.onAte?.(event.text, null);
+    } else if (event.kind === EVENT.COMER_RECUSADO) this.onAte?.(null, event.text);
     else if (event.kind === EVENT.EMOTE) {
       const name = EMOTE_NAMES[event.args[0] ?? -1];
       if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);
@@ -385,6 +392,12 @@ export class Session {
   nudge(bi: string): void {
     const entity = this.players.entityOf(bi);
     if (this.walking && entity !== null) this.link!.nudge(entity);
+  }
+
+  /** Asks the zone to eat or drink one of a thing carried (Task 4.4); the answer comes to `onAte`. False when not in the street. */
+  eat(item: string): boolean {
+    if (this.walking) this.link!.post(encodeComer({ item }));
+    return this.walking;
   }
 
   /** Says something to the zone made elsewhere: what the player asks of a table. */

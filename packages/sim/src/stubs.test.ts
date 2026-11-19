@@ -4,7 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { HEAT_MAX, heatBand, heatValue, type HeatWeights } from "./heat.ts";
 import { SCORE_MAX, scoreTiming } from "./minigame/index.ts";
-import { NEED_FULL, decayNeeds, spendEffort } from "./needs.ts";
+import { NEED_FULL, decayNeeds, eatNeeds, spendEffort, tooTired } from "./needs.ts";
 import { assaltoLossCap, isShielded, type OffenceKind } from "./offence.ts";
 
 describe("needs", () => {
@@ -41,6 +41,17 @@ describe("needs", () => {
     expect(spendEffort({ fome: 7000, energia: 20 }, 72_000, 3, effort)).toEqual({ fome: 7000, energia: 0 });
     // Numbers that make no sense take nothing and give nothing.
     expect(spendEffort(rested, -500, -2, effort)).toEqual(rested);
+  });
+
+  test("eating gives back what the thing gives, never past full, never less than nothing", () => {
+    expect(eatNeeds({ fome: 3000, energia: 9000 }, { fome: 2500, energia: 400 })).toEqual({ fome: 5500, energia: 9400 });
+    expect(eatNeeds({ fome: 9000, energia: 9900 }, { fome: 2500, energia: 400 })).toEqual({ fome: NEED_FULL, energia: NEED_FULL });
+    expect(eatNeeds({ fome: 3000, energia: 2000 }, { fome: -100, energia: -100 })).toEqual({ fome: 3000, energia: 2000 });
+  });
+
+  test("too tired to run or jump under the line, and not at it", () => {
+    expect(tooTired({ fome: 5000, energia: 799 }, 800)).toBe(true);
+    expect(tooTired({ fome: 5000, energia: 800 }, 800)).toBe(false);
   });
 });
 

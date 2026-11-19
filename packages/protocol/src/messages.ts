@@ -29,6 +29,8 @@ export const MSG = {
   MESA: 16,
   /** Client to zone: what a player asks of a table. */
   MESA_PEDIDO: 17,
+  /** Client to zone: eat or drink one of a thing the player carries (Task 4.4). */
+  COMER: 18,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -221,6 +223,14 @@ export const EVENT = {
   PONTOS: 11,
   /** The answer to this player's invitation. subject: who was invited; args: the table, and 1 for yes or 0 for no. */
   CONVITE_RESPOSTA: 10,
+  /**
+   * This player's Fome and Energia as the zone keeps them (Task 4.4): on arriving, after eating, when they become too
+   * tired to go fast or no longer are, and every half minute. args: fome, energia, 1 when too tired; text: the thing
+   * just eaten or drunk, or empty.
+   */
+  NECESSIDADES: 12,
+  /** What the player asked to eat or drink was not: text is why, "nao_tens" (none carried) or "nao_se_come" (not eaten in the street). */
+  COMER_RECUSADO: 13,
 } as const;
 
 /**
@@ -412,6 +422,24 @@ export function encodeNudge(m: Nudge): Uint8Array {
   return new Writer().u8(MSG.NUDGE).uint(m.entity).finish();
 }
 
+/** Client to zone: eat or drink one of a thing carried, by its name in the catalogue of things. */
+export interface Comer {
+  readonly item: string;
+}
+
+/** A thing's name, as the catalogue writes them. */
+const ITEM_NAME = /^[a-z][a-z0-9-]{0,31}$/;
+
+export function encodeComer(m: Comer): Uint8Array {
+  return new Writer().u8(MSG.COMER).text(m.item).finish();
+}
+
+function readComer(r: Reader): Comer {
+  const item = r.text(32);
+  if (!ITEM_NAME.test(item)) throw new ProtocolError("malformed", "item");
+  return { item };
+}
+
 // ---------------------------------------------------------------- Mesa
 
 /** What a player asks of a table. Numbers are never reused. */
@@ -569,7 +597,8 @@ export type ClientMessage =
   | ({ readonly type: "emote" } & EmoteMade)
   | ({ readonly type: "ride" } & { readonly ride: RideAsked })
   | ({ readonly type: "nudge" } & Nudge)
-  | ({ readonly type: "mesa" } & MesaPedido);
+  | ({ readonly type: "mesa" } & MesaPedido)
+  | ({ readonly type: "comer" } & Comer);
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -587,6 +616,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.RIDE) return { type: "ride", ride: readRide(r) };
   if (type === MSG.NUDGE) return { type: "nudge", entity: r.uint() };
   if (type === MSG.MESA_PEDIDO) return { type: "mesa", ...readMesaPedido(r) };
+  if (type === MSG.COMER) return { type: "comer", ...readComer(r) };
   throw new ProtocolError("unknown_type", String(type));
 }
 

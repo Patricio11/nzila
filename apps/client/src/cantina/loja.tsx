@@ -13,7 +13,7 @@ import { Button, EmptyState, Receipt, SpeechBalloon } from "@nzila/ui";
 import { type ComponentChildren } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { account } from "../world/account.ts";
-import { buyThings, thingsNow, useThing, type BuySaid, type Bought, type Held, type Things } from "../world/money.ts";
+import { buyThings, thingsNow, type BuySaid, type Bought, type Things } from "../world/money.ts";
 import { Coisa } from "./coisas.tsx";
 import "./cantina.css";
 
@@ -256,8 +256,32 @@ export function Cantina({ shop, second, place, onClose }: { shop: { id: string; 
   );
 }
 
+/** The zone, as far as eating is concerned (net/session.ts): it is asked, and answers by `onAte`. */
+interface EatsThrough {
+  eat(item: string): boolean;
+  onAte: ((item: string | null, why: string | null) => void) | null;
+}
+
+/** Eats or drinks one of a thing through the zone, which keeps Fome and Energia (Task 4.4): "ok", or why not. */
+function eatThrough(zone: EatsThrough | null, item: string): Promise<"ok" | "nao_tens" | "nao_se_come" | "offline"> {
+  return new Promise((done) => {
+    if (!zone) return done("offline");
+    const timer = setTimeout(() => ((zone.onAte = null), done("offline")), 6000);
+    zone.onAte = (ate, why) => {
+      clearTimeout(timer);
+      zone.onAte = null;
+      done(ate ? "ok" : why === "nao_se_come" ? "nao_se_come" : "nao_tens");
+    };
+    if (!zone.eat(item)) {
+      clearTimeout(timer);
+      zone.onAte = null;
+      done("offline");
+    }
+  });
+}
+
 /** The Mochila: what the player carries, how much room is left, and eating or drinking what can be. */
-export function Mochila({ onClose }: { onClose: () => void }) {
+export function Mochila({ zone = null, onClose }: { zone?: EatsThrough | null; onClose: () => void }) {
   const [things, setThings] = useState<Things | null>(null);
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -269,10 +293,15 @@ export function Mochila({ onClose }: { onClose: () => void }) {
   }, []);
   const use = async (item: string, how: "comer" | "beber"): Promise<void> => {
     setBusy(item);
-    const left = await useThing(item);
+    const answer = await eatThrough(zone, item);
+    if (answer !== "ok") {
+      setBusy(null);
+      return setSaid({ item, text: tr.t(answer === "offline" ? "mochila.offline" : `mochila.${answer}`), at: Date.now() });
+    }
+    // What is left, as the server has it.
+    const now = await thingsNow();
     setBusy(null);
-    if (!left || !things) return setSaid({ item, text: tr.t("mochila.offline"), at: Date.now() });
-    setThings({ ...things, items: left, units: unitsOf(things.about, left.map((one: Held) => [one.item, one.quantity] as const)) });
+    if (now) setThings(now);
     setSaid({ item, text: tr.t(how === "comer" ? "mochila.ate" : "mochila.drank"), at: Date.now() });
   };
   return (

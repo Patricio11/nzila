@@ -9,7 +9,9 @@
 
 import { isGreeting } from "@nzila/i18n";
 import { TrafficRules, actorAt } from "@nzila/world";
-import { faceOf, keepChatLines, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
+import { eatOne, faceOf, keepChatLines, keepNeeds, needsOf, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
+import { BASE_CATALOGUE, BASE_TUNABLES } from "@nzila/economy";
+import { decayNeeds, eatNeeds, spendEffort, tooTired, type NeedsState } from "@nzila/sim";
 import { type ChatFilter } from "@nzila/i18n";
 import {
   type EntityState,
@@ -117,7 +119,26 @@ interface Held {
   metPlayers: Set<string>;
   /** The tables near them, and the version of each they were last told: a table is told again when it changes, or when they come near again. */
   tables: Map<number, number>;
+  /** Their Fome and Energia, and whether something they asked to eat is being written. */
+  needs: NeedsKept;
+  eating: boolean;
 }
+
+/**
+ * A player's Fome and Energia (Task 4.4), kept exactly: the needs as they were last set, and the steps, the fast
+ * steps and the jumps since. What they are now is worked out from these, so that nothing is lost to rounding a
+ * little at a time; they are set again only when something changes them outright (eating).
+ */
+interface NeedsKept {
+  base: NeedsState;
+  steps: number;
+  fast: number;
+  jumps: number;
+  tired: boolean;
+}
+
+/** The rates of the needs: tunables (Rule 14). */
+const NEEDS = BASE_TUNABLES.needs;
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
 export interface Pace {
@@ -312,14 +333,15 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map() });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
+      this.tellNeeds(line, this.held.get(line)!, "");
       return true;
     }
     this.arriving++;
-    const [last, face, apart, against] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : []]).finally(() => this.arriving--);
+    const [last, face, apart, against, needs] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId)]).finally(() => this.arriving--);
     this.shut.set(playerId, new Set(apart));
     // Silenced by a moderator before they came in: silent from their first word.
     if (against.some((one) => one.kind === "mute")) this.muted.add(playerId);
@@ -336,12 +358,14 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = settleLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map() });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, fast: 0, jumps: 0, tired: tooTired(needs, NEEDS.tiredBelow) }, eating: false });
     this.lineOfEntity.set(entityId, line);
+    this.channel.setTired(entityId, tooTired(needs, NEEDS.tiredBelow));
     // Noted at once where they came in, not at the next five-second round: a kamba going to them finds them (Task 4B.2).
     void this.keep(playerId, this.channel.placeOf(entityId) ?? at, false);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
+    this.tellNeeds(line, this.held.get(line)!, "");
     return true;
   }
 
@@ -370,6 +394,8 @@ export class ChannelRoom {
     }
     this.talk?.forget(held.entityId);
     this.shut.delete(held.playerId);
+    this.takeEffort(held);
+    await keepNeeds(this.sql, held.playerId, this.needsNow(held)).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
     const left = this.channel.leave(held.entityId);
     this.faces.delete(held.entityId);
     for (const other of this.held.values()) other.told.delete(held.entityId);
@@ -397,10 +423,74 @@ export class ChannelRoom {
       else if (message.type === "ride") this.rides(line, held, message.ride);
       else if (message.type === "nudge") this.nudges(held, message.entity);
       else if (message.type === "mesa") this.atTable(line, held, message);
+      else if (message.type === "comer") this.eats(line, held, message.item);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
     }
+  }
+
+  /** Fome and Energia as they are now: what was last set, worn by the steps since, the fast steps and the jumps (Task 4.4). */
+  private needsNow(held: Held): NeedsState {
+    const kept = held.needs;
+    return spendEffort(decayNeeds(kept.base, kept.steps, NEEDS), kept.fast, kept.jumps, NEEDS);
+  }
+
+  /** The effort the channel counted for them since last asked, added to what their needs carry. */
+  private takeEffort(held: Held): void {
+    const effort = this.channel.takeEffort(held.entityId);
+    held.needs.fast += effort.fast;
+    held.needs.jumps += effort.jumps;
+  }
+
+  /** Tells a player their needs, and the thing just eaten or drunk when there is one. */
+  private tellNeeds(line: Line, held: Held, eaten: string): void {
+    const now = this.needsNow(held);
+    line.send(encodeEvent({ kind: EVENT.NECESSIDADES, tick: this.channel.world.tick, subject: 0, args: [now.fome, now.energia, held.needs.tired ? 1 : 0], text: eaten }));
+  }
+
+  /**
+   * Every five seconds for each player in turn: the effort counted is added, and whether they are too tired to go fast
+   * or to jump is looked at again (they are told when it changes). Every thirty, their needs are written down and
+   * they are told them.
+   */
+  private tendNeeds(line: Line, held: Held, lasting: boolean): void {
+    this.takeEffort(held);
+    const now = this.needsNow(held);
+    const tired = tooTired(now, NEEDS.tiredBelow);
+    const changed = tired !== held.needs.tired;
+    if (changed) {
+      held.needs.tired = tired;
+      this.channel.setTired(held.entityId, tired);
+    }
+    if (changed || lasting) this.tellNeeds(line, held, "");
+    if (lasting) void keepNeeds(this.sql, held.playerId, now).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
+  }
+
+  /**
+   * "Comer", "Beber" (Task 4.4): one of a thing carried leaves the Mochila and what it gives goes to Fome and Energia,
+   * written together. Something not eaten in the street (rice, charcoal) is refused, as is something not carried.
+   */
+  private eats(line: Line, held: Held, item: string): void {
+    const kind = BASE_CATALOGUE.items.get(item);
+    const refuse = (why: string): void => line.send(encodeEvent({ kind: EVENT.COMER_RECUSADO, tick: this.channel.world.tick, subject: 0, args: [], text: why }));
+    if (!kind?.use) return refuse("nao_se_come");
+    if (held.eating) return;
+    held.eating = true;
+    this.takeEffort(held);
+    const after = eatNeeds(this.needsNow(held), kind);
+    void eatOne(this.sql, held.playerId, item, after)
+      .then((ate) => {
+        if (!ate) return refuse("nao_tens");
+        held.needs = { base: after, steps: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
+        this.channel.setTired(held.entityId, held.needs.tired);
+        this.tellNeeds(line, held, item);
+      })
+      .catch((error: unknown) => {
+        this.log(`zone: ${held.playerId} could not eat ${item}: ${String(error)}`);
+        refuse("nao_tens");
+      })
+      .finally(() => (held.eating = false));
   }
 
   /** Whether two bodies have shut each other out: either blocked the other. */
@@ -683,6 +773,8 @@ export class ChannelRoom {
     const began = performance.now();
     this.channel.tick();
     const tick = this.channel.world.tick;
+    // A step of play for everyone here: their needs wear with it (Task 4.4).
+    for (const held of this.held.values()) held.needs.steps++;
     if (tick % STEPS_A_SNAPSHOT === 0) {
       const everyone = this.channel.entities();
       for (const [line, held] of this.held) {
@@ -808,10 +900,11 @@ export class ChannelRoom {
     const slot = tick % STEPS_A_NOTE;
     const lasting = Math.floor(tick / STEPS_A_NOTE) % (STEPS_A_CHECKPOINT / STEPS_A_NOTE) === 0;
     let n = 0;
-    for (const held of this.held.values()) {
+    for (const [line, held] of this.held) {
       if (n++ % STEPS_A_NOTE !== slot) continue;
       const at = this.channel.placeOf(held.entityId);
       if (at) void this.keep(held.playerId, at, lasting);
+      this.tendNeeds(line, held, lasting);
     }
     const took = performance.now() - began;
     this.pace.steps++;

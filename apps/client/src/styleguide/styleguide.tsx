@@ -32,6 +32,14 @@ import {
 import { type ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import * as sample from "./fixtures.ts";
+
+/** Fome and Energia in the street, fetched as the street fetches them (statically imported here it would weigh on the way in). */
+let Necessidades: typeof import("../necessidades/barras.tsx").Necessidades | null = null;
+function NeedsInStreet(props: Parameters<typeof import("../necessidades/barras.tsx").Necessidades>[0]) {
+  const [, redraw] = useState(0);
+  if (!Necessidades) void import("../necessidades/barras.tsx").then((module) => ((Necessidades = module.Necessidades), redraw((n) => n + 1)));
+  return Necessidades ? <Necessidades {...props} /> : null;
+}
 import "./styleguide.css";
 
 const TOKENS: readonly (readonly [string, readonly string[]])[] = [
@@ -154,6 +162,8 @@ export function Styleguide() {
           <Case name="needs: hidden above half" on="world"><NeedsBars fome={8000} energia={9000} /><small class="sg-ghost">nothing shown</small></Case>
           <Case name="needs: getting low" on="world"><NeedsBars fome={4200} energia={7000} /></Case>
           <Case name="needs: very low" on="night"><NeedsBars fome={1200} energia={900} /></Case>
+          <Case name="needs in the street: too tired to run" on="world"><NeedsInStreet net={{ current: { needs: { fome: 1500, energia: 600, tired: true } } }} /></Case>
+          <Case name="needs in the street: hungry" on="night"><NeedsInStreet net={{ current: { needs: { fome: 1500, energia: 4000, tired: false } } }} /></Case>
           <Case name="heat: warm" on="world"><HeatLine band={1} /></Case>
           <Case name="heat: hot" on="night"><HeatLine band={2} /></Case>
           <Case name="heat: very hot" on="night"><HeatLine band={3} /></Case>

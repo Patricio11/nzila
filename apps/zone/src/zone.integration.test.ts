@@ -23,6 +23,7 @@ import {
   encodeChatSend,
   encodeChatTyping,
   encodeEmote,
+  encodeComer,
 } from "@nzila/protocol";
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
@@ -300,6 +301,55 @@ describe("where a player was", () => {
     const lied = await phone(one.token, PROTOCOL_VERSION, "a-minha-casa");
     expect(Math.hypot(lied.me().x - 40_000, lied.me().z + 20_000)).toBeLessThan(3500);
     await lied.leave();
+  });
+
+  test("Fome and Energia (Task 4.4): told on arriving; too tired, a run is walked; a drink and a loaf from the Mochila give back and leave it; rice and what is not carried are refused; written down on leaving", async () => {
+    const one = await player();
+    await sql`UPDATE players SET fome = 3000, energia = 500 WHERE id = ${one.id}`;
+    await sql`INSERT INTO items (owner_id, item, quantity) VALUES (${one.id}, 'pao', 2), (${one.id}, 'gasosa', 1), (${one.id}, 'arroz', 1)`;
+    const p = await phone(one.token);
+    const needs = (): WorldEvent[] => p.state.events.filter((event) => event.kind === EVENT.NECESSIDADES);
+    const refused = (): string[] => p.state.events.filter((event) => event.kind === EVENT.COMER_RECUSADO).map((event) => event.text);
+    await until(() => needs().length > 0);
+    // As written, and too tired (under 800).
+    expect(needs()[0]!.args).toEqual([3000, 500, 1]);
+    // Too tired: the stick pushed with the run held walks, at a walk's pace.
+    const ran = async (): Promise<number> => {
+      const from = p.me();
+      await p.walk(20, { ...north, run: true });
+      await until(() => p.me().anim === DOING.idle);
+      return p.me().z - from.z;
+    };
+    const tiredRun = await ran();
+    // A gasosa: Energia back over the line, and the run is a run again.
+    p.socket.send(encodeComer({ item: "gasosa" }));
+    await until(() => needs().some((event) => event.text === "gasosa"));
+    const drank = needs().find((event) => event.text === "gasosa")!;
+    expect(drank.args[1]).toBeGreaterThan(1150);
+    expect(drank.args[2]).toBe(0);
+    const freshRun = await ran();
+    expect(freshRun).toBeGreaterThan(tiredRun * 1.6);
+    // A loaf: Fome back by what a loaf gives (and the gasosa's 100), less the little that time took; one loaf left.
+    p.socket.send(encodeComer({ item: "pao" }));
+    await until(() => needs().some((event) => event.text === "pao"));
+    const ate = needs().find((event) => event.text === "pao")!;
+    expect(ate.args[0]).toBeGreaterThan(3000 + 100 + 900 - 30);
+    expect(ate.args[0]).toBeLessThanOrEqual(3000 + 100 + 900);
+    expect(await sql`SELECT item, quantity FROM items WHERE owner_id = ${one.id} ORDER BY item`).toEqual([{ item: "arroz", quantity: 1 }, { item: "pao", quantity: 1 }]);
+    // Rice is cooked at home; the gasosa is gone.
+    p.socket.send(encodeComer({ item: "arroz" }));
+    p.socket.send(encodeComer({ item: "gasosa" }));
+    await until(() => refused().length === 2);
+    expect(refused().sort()).toEqual(["nao_se_come", "nao_tens"]);
+    // Leaving, they are written down as the zone has them.
+    await p.leave();
+    let kept: { fome: number; energia: number } | undefined;
+    for (let n = 0; n < 40 && !(kept && kept.fome !== 3000); n++) {
+      [kept] = await sql<{ fome: number; energia: number }[]>`SELECT fome, energia FROM players WHERE id = ${one.id}`;
+      await pause(50);
+    }
+    expect(kept!.fome).toBeGreaterThan(3000 + 900 - 60);
+    expect(kept!.energia).toBeGreaterThan(1100);
   });
 
   test("a rehearsal town is played in like any district, and nothing of where anyone stood there is kept", async () => {
@@ -638,7 +688,11 @@ describe("talk in the street", () => {
       socket.binaryType = "arraybuffer";
       const got: string[] = [];
       socket.onopen = () => socket.send(encodeJoin({ protocolVersion: PROTOCOL_VERSION, token }));
-      socket.onmessage = (event: MessageEvent) => void got.push(decodeZoneMessage(new Uint8Array(event.data as ArrayBuffer)).type);
+      socket.onmessage = (event: MessageEvent) => {
+        const message = decodeZoneMessage(new Uint8Array(event.data as ArrayBuffer));
+        // What a newcomer is told of their own Fome and Energia is no talk (Task 4.4).
+        if (message.type !== "event" || message.kind !== EVENT.NECESSIDADES) got.push(message.type);
+      };
       await until(() => got.includes("snapshot"));
       return { socket, got };
     };

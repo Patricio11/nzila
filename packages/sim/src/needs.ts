@@ -1,7 +1,7 @@
-// Fome and Energia. A typed stub: the shape and the one rule that is certain
-// (needs fall with time and never below empty). Phase 4 (Task 4.4) fills in
-// eating, resting, the slow-down and the hospital. Rates come from tunables.
-// Effort is here already: going fast and jumping cost Energia (D-0.46).
+// Fome and Energia (Task 4.4): they fall with time and never below empty,
+// going hungry costs Energia, effort costs Energia (D-0.46), eating and
+// drinking give back, and too little Energia stops the run and the jump. The
+// zone keeps them for each player with these rules; rates come from tunables.
 
 import { clamp, idiv } from "./fixed.ts";
 
@@ -32,6 +32,16 @@ export function decayNeeds(state: NeedsState, steps: number, rates: NeedsRates):
     fome: clamp(state.fome - idiv(rates.fomePerHour * steps, stepsPerHour), 0, NEED_FULL),
     energia: clamp(state.energia - lost, 0, NEED_FULL),
   };
+}
+
+/** What eating or drinking something gives back (Task 4.4): its points added to each bar, never past full. */
+export function eatNeeds(state: NeedsState, gives: { readonly fome: number; readonly energia: number }): NeedsState {
+  return { fome: clamp(state.fome + Math.max(0, gives.fome), 0, NEED_FULL), energia: clamp(state.energia + Math.max(0, gives.energia), 0, NEED_FULL) };
+}
+
+/** Too tired to go fast or to jump (D-0.46): Energia under the line. The zone refuses both, and the phone does not ask. */
+export function tooTired(state: NeedsState, below: number): boolean {
+  return state.energia < below;
 }
 
 /** What effort costs (founder, 2026-11-15: "jump, jogging or walking fast will cost Energia"). */

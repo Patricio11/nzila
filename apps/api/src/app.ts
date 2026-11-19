@@ -5,7 +5,7 @@
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId } from "@nzila/economy";
-import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take, useOne } from "@nzila/db";
+import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
 import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
 import { carriesAddress, tidyLine } from "@nzila/i18n";
@@ -803,20 +803,8 @@ export function buildApp(deps: Deps): FastifyInstance {
     },
   });
 
-  // Eating or drinking something carried. (What it gives back to Fome and Energia arrives with Task 4.4.)
-  declare(app, gate, {
-    method: "POST",
-    url: "/v1/items/use",
-    guard: "player",
-    body: z.strictObject({ item: itemShape }),
-    perMinute: 30,
-    handler: async (body, caller) => {
-      const kind = catalogue.items.get(body.item);
-      if (!kind?.use) throw new Refusal(400, "invalid");
-      if (!(await useOne(deps.sql, caller.player.id, body.item))) throw new Refusal(409, "none");
-      return { used: kind.use, items: await heldBy(deps.sql, caller.player.id) };
-    },
-  });
+  // Eating or drinking something carried is the zone's (Task 4.4): it keeps Fome and Energia, and writes the thing
+  // eaten and what it gave together (`eatOne`).
 
   // Giving something carried to someone beside you: a sweet, a soft drink, a bag of charcoal for a mother. The
   // zone says the two stand together; nothing is given across a block; the other must have room for it.

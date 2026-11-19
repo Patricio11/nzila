@@ -74,6 +74,14 @@ interface Seat {
   /** Steps since they last moved: a step with no frame in it, between two with, is not standing still. */
   stoodFor: number;
   anim: number;
+  /** Effort since it was last taken (Task 4.4): steps walked going fast, and jumps made. */
+  fast: number;
+  jumps: number;
+  /** Whether they were in the air a step ago, and whether a frame walked this step asked to jump. */
+  wasAir: boolean;
+  jumpAsked: boolean;
+  /** Too tired to go fast or to jump: both are let go from what they send (D-0.46). */
+  tired: boolean;
 }
 
 export class Channel {
@@ -121,7 +129,7 @@ export class Channel {
         const id = this.nextId++;
         const y = this.ground.heightAt(Math.floor(x / this.ground.cellMm), Math.floor(z / this.ground.cellMm));
         addCharacter(this.world, id, { x, y, z, yaw: ((at.yaw % 36_000) + 36_000) % 36_000 });
-        this.seats.set(id, { playerId, waiting: [], lastInputSeq: 0, newestSeq: 0, owed: 0, running: false, ackTick: 0, sent: new Map(), seen: [], wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle });
+        this.seats.set(id, { playerId, waiting: [], lastInputSeq: 0, newestSeq: 0, owed: 0, running: false, ackTick: 0, sent: new Map(), seen: [], wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle, fast: 0, jumps: 0, wasAir: false, jumpAsked: false, tired: false });
         return id;
       }
     }
@@ -272,6 +280,22 @@ export class Channel {
     if (seat.sent.has(input.ackTick) && input.ackTick > seat.ackTick) seat.ackTick = input.ackTick;
   }
 
+  /** The effort made since last asked (Task 4.4): steps walked going fast, and jumps. Taken once. */
+  takeEffort(id: number): { fast: number; jumps: number } {
+    const seat = this.seats.get(id);
+    if (!seat) return { fast: 0, jumps: 0 };
+    const effort = { fast: seat.fast, jumps: seat.jumps };
+    seat.fast = 0;
+    seat.jumps = 0;
+    return effort;
+  }
+
+  /** Too tired to go fast or to jump, or no longer (D-0.46). */
+  setTired(id: number, tired: boolean): void {
+    const seat = this.seats.get(id);
+    if (seat) seat.tired = tired;
+  }
+
   /** One step of the world: a twentieth of a second. */
   tick(): void {
     const map = { ground: this.ground, obstacles: this.obstacles };
@@ -291,12 +315,17 @@ export class Channel {
       // With no frame waiting they stand this step: the zone never walks a frame it was not sent, so that
       // what it says and what the phone worked out for itself are the same thing (the phone would otherwise
       // be put right, a little, many times a second).
+      seat.jumpAsked = false;
       for (let walked = 0; walked < FRAMES_A_STEP_AT_MOST && seat.owed >= 1 && seat.waiting.length > 0; walked++) {
         const next = seat.waiting.shift()!;
         seat.owed--;
         seat.lastInputSeq = next.seq;
-        seat.running = next.frame.run;
-        const move = toMoveInput(next.frame);
+        // Too tired, the stick still walks: going fast and jumping are let go (the phone does not ask for them either).
+        const frame = seat.tired ? { ...next.frame, run: false, jump: false } : next.frame;
+        seat.running = frame.run;
+        if (frame.run && (frame.dx !== 0 || frame.dz !== 0)) seat.fast++;
+        if (frame.jump) seat.jumpAsked = true;
+        const move = toMoveInput(frame);
         if (walked === 0) moves.set(id, move);
         else late.push({ id, move });
       }
@@ -318,6 +347,10 @@ export class Channel {
         seat.anim = DOING.sit;
         continue;
       }
+      // A jump is counted as it leaves the ground (Task 4.4): a fall off a step is no jump.
+      const air = (body.state.air ?? 0) > 0;
+      if (air && !seat.wasAir && seat.jumpAsked) seat.jumps++;
+      seat.wasAir = air;
       const moved = Math.hypot(body.state.x - seat.wasX, body.state.z - seat.wasZ);
       seat.stoodFor = moved < 5 ? Math.min(STOOD_STEPS, seat.stoodFor + 1) : 0;
       seat.anim = (body.state.air ?? 0) > 0 ? DOING.air : seat.stoodFor >= STOOD_STEPS ? DOING.idle : seat.running ? DOING.run : DOING.walk;

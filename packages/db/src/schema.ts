@@ -70,6 +70,9 @@ export const players = pgTable("players", {
   arrivedAt: at("arrived_at").notNull().defaultNow(),
   createdAt: at("created_at").notNull().defaultNow(),
   deletedAt: at("deleted_at"),
+  /** Fome and Energia, points of a 10 000 point bar (Task 4.4). */
+  fome: integer("fome").notNull().default(10000),
+  energia: integer("energia").notNull().default(10000),
 });
 
 export const devices = pgTable("devices", {
