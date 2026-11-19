@@ -1,10 +1,14 @@
-// Damas (Task 4B.1), as most of Angola plays it, by the Portuguese rules (the founder confirms, finding F-204):
-//   - an 8 × 8 board, twelve pieces each on the dark squares; the light pieces start;
+// Damas (Task 4B.1), as it is played in Luanda: the Portuguese rules (Damas Clássicas, the federation's own text),
+// with men capturing backward as well, as on the street (the founder, 2026-11-18 and 2026-11-19; findings F-204, F-222):
+//   - an 8 × 8 board with its dark corner on each player's right, twelve pieces each on the dark squares; the light
+//     pieces start;
 //   - a man moves one square diagonally forward, and captures by jumping, forward or backward;
-//   - capturing is obligatory, and of the ways to capture one must take the one that takes the most pieces;
+//   - capturing is obligatory; of the ways to capture one must take the one that takes the most pieces, and of
+//     those, one that takes the most damas;
 //   - a piece captured in a run stays on the board until the run ends, and is never jumped twice;
 //   - a man that ends its move on the far row becomes a dama, which moves and captures along a whole diagonal;
-//   - a player who cannot move loses; forty moves in a row with no capture and no man moving is a draw.
+//   - a player who cannot move loses; twenty moves each with no capture and no man moving is a draw; three damas
+//     against one, one of the three on the long diagonal, is a draw if not won within twelve moves.
 // Pure and deterministic, like the other rules: whoever holds the game hands in the moves.
 
 /** A square's content: 0 empty; 1 and 2 the light man and dama; -1 and -2 the dark ones. */
@@ -17,6 +21,8 @@ export interface Damas {
   readonly turn: 0 | 1;
   /** Moves since the last capture or man's move: forty is a draw. */
   readonly quiet: number;
+  /** Moves made with three damas against one, one of the three on the long diagonal: twenty-four is a draw. */
+  readonly cerco: number;
   /** The winner (0, 1), "empate" for a draw, null while it goes on. */
   readonly result: 0 | 1 | "empate" | null;
 }
@@ -29,15 +35,20 @@ export interface DamasMove {
 }
 
 export const QUIET_DRAW = 40;
+/** Twelve moves each. */
+export const CERCO_DRAW = 24;
 const DIAGONALS = [[-1, -1], [-1, 1], [1, -1], [1, 1]] as const;
 const on = (r: number, c: number): boolean => r >= 0 && r < 8 && c >= 0 && c < 8;
 const sideOf = (square: Square): 0 | 1 | null => (square > 0 ? 0 : square < 0 ? 1 : null);
 
+/** Whether a square is a dark one, the squares played on: the corner on each player's right is dark. */
+export const escura = (square: number): boolean => (Math.floor(square / 8) + (square % 8)) % 2 === 0;
+
 /** The start: the dark pieces on rows 0 to 2, the light on rows 5 to 7, on the dark squares. */
 export function newDamas(): Damas {
   const board: Square[] = [];
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) board.push((r + c) % 2 === 1 ? (r < 3 ? -1 : r > 4 ? 1 : 0) : 0);
-  return { board, turn: 0, quiet: 0, result: null };
+  for (let n = 0; n < 64; n++) board.push(escura(n) ? (n < 24 ? -1 : n >= 40 ? 1 : 0) : 0);
+  return { board, turn: 0, quiet: 0, cerco: 0, result: null };
 }
 
 /** Every run of captures a piece can make from where it stands, with the pieces taken so far. */
@@ -87,8 +98,12 @@ export function damasMoves(game: Damas): DamasMove[] {
     runs.push(...captures(lifted, from, side, Math.abs(piece) === 2, [], [from]));
   }
   if (runs.length > 0) {
+    // The most pieces; then, of those runs, the most damas.
     const most = Math.max(...runs.map((run) => run.takes.length));
-    return runs.filter((run) => run.takes.length === most);
+    const longest = runs.filter((run) => run.takes.length === most);
+    const damas = (run: DamasMove): number => run.takes.filter((square) => Math.abs(game.board[square]!) === 2).length;
+    const best = Math.max(...longest.map(damas));
+    return longest.filter((run) => damas(run) === best);
   }
   const steps: DamasMove[] = [];
   const forward = side === 0 ? -1 : 1;
@@ -128,9 +143,23 @@ export function playDamas(game: Damas, move: DamasMove): Damas {
   board[to] = piece;
   const quiet = move.takes.length > 0 || man ? 0 : game.quiet + 1;
   const turn = (1 - game.turn) as 0 | 1;
-  const next: Damas = { board, turn, quiet, result: null };
-  if (quiet >= QUIET_DRAW) return { ...next, result: "empate" };
-  return damasMoves(next).length === 0 ? { ...next, result: game.turn } : next;
+  const cerco = cercado(board) ? game.cerco + 1 : 0;
+  const next: Damas = { board, turn, quiet, cerco, result: null };
+  if (damasMoves(next).length === 0) return { ...next, result: game.turn };
+  return quiet >= QUIET_DRAW || cerco >= CERCO_DRAW ? { ...next, result: "empate" } : next;
+}
+
+/** Three damas against a lone dama, one of the three on the long diagonal (from one dark corner to the other). */
+function cercado(board: readonly Square[]): boolean {
+  const pieces = (side: 0 | 1): number[] => board.flatMap((piece, square) => (sideOf(piece) === side ? [square] : []));
+  for (const side of [0, 1] as const) {
+    const strong = pieces(side);
+    const weak = pieces((1 - side) as 0 | 1);
+    if (strong.length !== 3 || weak.length !== 1) continue;
+    if (![...strong, ...weak].every((square) => Math.abs(board[square]!) === 2)) continue;
+    if (strong.some((square) => Math.floor(square / 8) === square % 8)) return true;
+  }
+  return false;
 }
 
 /** How the board stands for a side: a man is worth one, a dama three, and a man is worth more the further on it is. */

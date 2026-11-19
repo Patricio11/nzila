@@ -64,7 +64,7 @@ describe("a table in the street", () => {
     expect(comecar(asked, "ana", 6_000)).toBe("fase");
     expect(comecar(one, "beto", 6_000)).toBe("fora");
     // Ana plays first; the kota answers in a moment.
-    const played = feito(jogar(asked, "ana", { jogo: "damas", lance: { path: [40, 33], takes: [] } }, 7_000));
+    const played = feito(jogar(asked, "ana", { jogo: "damas", lance: { path: [41, 32], takes: [] } }, 7_000));
     expect(vezDe(played)).toBe(1);
     expect(passo(played, 7_000 + KOTA_MS - 1, seis)).toBe(played);
     expect(vezDe(passo(played, 7_000 + KOTA_MS, seis))).toBe(0);
@@ -122,7 +122,7 @@ describe("a table in the street", () => {
     expect(jogar(begun, "carla", e2e4, 1)).toBe("fora");
     expect(jogar(begun, "beto", e2e4, 1)).toBe("vez");
     expect(jogar(begun, "ana", { jogo: "xadrez", lance: { from: squareAt("e2"), to: squareAt("e5") } }, 1)).toBe("regras");
-    expect(jogar(begun, "ana", { jogo: "damas", lance: { path: [40, 33], takes: [] } }, 1)).toBe("regras");
+    expect(jogar(begun, "ana", { jogo: "damas", lance: { path: [41, 32], takes: [] } }, 1)).toBe("regras");
     const waiting = feito(sentar(novaMesa("xadrez", 0), 0, "ana", 0));
     expect(jogar(waiting, "ana", e2e4, 1)).toBe("fase");
   });
@@ -148,7 +148,7 @@ describe("a table in the street", () => {
 
   test("damas, the dark side's turn is the seat after the first", () => {
     const begun = feito(sentar(feito(sentar(novaMesa("damas", 0), 0, "ana", 0)), 1, "beto", 0));
-    const played = feito(jogar(begun, "ana", { jogo: "damas", lance: { path: [40, 33], takes: [] } }, 1));
+    const played = feito(jogar(begun, "ana", { jogo: "damas", lance: { path: [41, 32], takes: [] } }, 1));
     expect(vezDe(played)).toBe(1);
   });
 

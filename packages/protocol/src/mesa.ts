@@ -49,7 +49,7 @@ export function encodeMesa(m: MesaDita): Uint8Array {
     const game = partida.estado;
     w.u8(1);
     for (const square of game.board) w.u8(square + 2);
-    w.u8(game.turn).uint(game.quiet).u8(resultado(game.result, [0, 1]));
+    w.u8(game.turn).uint(game.quiet).uint(game.cerco).u8(resultado(game.result, [0, 1]));
   } else {
     const game = partida.estado;
     w.u8(2);
@@ -119,8 +119,9 @@ export function decodeMesa(bytes: Uint8Array): MesaDita {
     const board = Array.from({ length: 64 }, () => (oneOf(r, 5, "square") - 2) as -2 | -1 | 0 | 1 | 2);
     const turn = oneOf(r, 2, "turn") as 0 | 1;
     const quiet = r.uint();
+    const cerco = r.uint();
     const result = [null, 0, 1, "empate"][oneOf(r, 4, "result")] as 0 | 1 | "empate" | null;
-    partida = { jogo: "damas", estado: { board, turn, quiet, result } };
+    partida = { jogo: "damas", estado: { board, turn, quiet, cerco, result } };
   } else {
     if (count !== 4) throw new ProtocolError("malformed", "seats");
     const pieces = Array.from({ length: 4 }, () => Array.from({ length: 4 }, () => oneOf(r, 45, "position") - 1));

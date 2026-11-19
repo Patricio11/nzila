@@ -5,7 +5,8 @@
 // The rules, as they are played:
 //   - two to four players, each with four pieces of a colour, at home;
 //   - a 6 brings a piece out onto its colour's start; with a 6, a piece must come out if one can;
-//   - while all four are at home a player has three throws to make a 6;
+//   - a piece on its own start moves on, if it can, while others still wait at home: the start is kept clear;
+//   - while no piece can move (all at home, or the rest home in the goal) a player has three throws to make a 6;
 //   - a 6 throws again;
 //   - the track is forty squares round; a piece that lands on another player's sends it home; never on one's own;
 //   - after a full round a piece turns into its colour's four squares of the goal, by the exact number, never
@@ -89,7 +90,15 @@ export function ludoMoves(game: Ludo, roll: number): LudoMove[] {
   }
   // With a 6 and a piece at home that can come out, coming out is the only move.
   const out = moves.filter((move) => move.from === AT_HOME);
-  return roll === 6 && out.length > 0 ? out : moves;
+  if (roll === 6 && out.length > 0) return out;
+  // The start is kept clear while others wait at home: the piece standing on it moves on, if it can.
+  const clearing = mine.includes(AT_HOME) ? moves.filter((move) => move.from === 0) : [];
+  return clearing.length > 0 ? clearing : moves;
+}
+
+/** Whether none of a seat's pieces can move but with a 6: each at home, or in the goal with nothing free beyond it. */
+function semJogo(pieces: readonly number[]): boolean {
+  return pieces.every((position) => position === AT_HOME || (position >= TRACK && Array.from({ length: LAST - position }, (_, n) => position + 1 + n).every((beyond) => pieces.includes(beyond))));
 }
 
 /**
@@ -108,9 +117,8 @@ export function playLudo(game: Ludo, roll: number, move: LudoMove | null): Ludo 
     if (move.sends) pieces[move.sends.seat]![move.sends.piece] = AT_HOME;
   }
   if (pieces[seat]!.every((position) => position >= TRACK)) return { ...game, pieces, winner: seat };
-  const allHome = pieces[seat]!.every((position) => position === AT_HOME);
   if (roll === 6) return { ...game, pieces, tries: 3 };
-  if (!move && allHome && game.tries > 1) return { ...game, pieces, tries: game.tries - 1 };
+  if (!move && semJogo(pieces[seat]!) && game.tries > 1) return { ...game, pieces, tries: game.tries - 1 };
   const next = (seat + 1) % game.colours.length;
   return { ...game, pieces, turn: next, tries: 3 };
 }

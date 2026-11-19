@@ -1556,10 +1556,13 @@ test.describe("two phones in the same street", () => {
     // More than the Carteira holds says what is missing, and is not gold.
     if (had < 350 + 20 * 400) {
       await cantina.locator('.ct-pick[data-item="chocolate"]').click();
-      for (let n = 1; n < 20; n++) await cantina.locator('.ct-row:has([data-item="chocolate"])').getByRole("button", { name: "Mais um" }).click();
+      // Twenty, as the row counts them: on a busy machine a tap can be lost (F-211), and the sum would be another.
+      const chocolates = cantina.locator('.ct-row:has([data-item="chocolate"]) output');
+      for (let n = 0; n < 40 && (await chocolates.textContent()) !== "20"; n++) await cantina.locator('.ct-row:has([data-item="chocolate"])').getByRole("button", { name: "Mais um" }).click();
+      await expect(chocolates).toHaveText("20");
       await expect(cantina.getByRole("button", { name: new RegExp(`^Faltam ${dotted(350 + 20 * 400 - had)}\\s*Mk$`) })).toBeDisabled();
       await page.screenshot({ path: info.outputPath("cantina-faltam.png") });
-      for (let n = 0; n < 20; n++) await cantina.locator('.ct-row:has([data-item="chocolate"])').getByRole("button", { name: "Menos um" }).click();
+      for (let n = 0; n < 40 && (await cantina.locator('.ct-row:has([data-item="chocolate"]) output').count()) > 0; n++) await cantina.locator('.ct-row:has([data-item="chocolate"])').getByRole("button", { name: "Menos um" }).click();
     }
     await cantina.getByRole("button", { name: /^Pagar 350\s*Mk$/ }).click();
     // The receipt prints; the dona thanks.

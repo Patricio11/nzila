@@ -132,14 +132,17 @@ export function paintLudo(pen: CanvasRenderingContext2D, side: number, ground: s
   }
 }
 
-/** Paints an 8 × 8 board: `light` and `dark` squares inside a frame of `frame` pixels, with a band of `band` round it. */
-export function paintSquares(pen: CanvasRenderingContext2D, side: number, frame: number, light: string, dark: string, band: string): void {
+/**
+ * Paints an 8 × 8 board: `light` and `dark` squares inside a frame of `frame` pixels, with a band of `band` round it.
+ * `darkCorner`: whether the corner on each player's right is dark (damas, by the Portuguese board) or light (xadrez).
+ */
+export function paintSquares(pen: CanvasRenderingContext2D, side: number, frame: number, light: string, dark: string, band: string, darkCorner = false): void {
   pen.fillStyle = band;
   pen.fillRect(0, 0, side, side);
   const square = (side - frame * 2) / 8;
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
-      pen.fillStyle = (row + col) % 2 === 1 ? dark : light;
+      pen.fillStyle = (row + col) % 2 === (darkCorner ? 0 : 1) ? dark : light;
       pen.fillRect(frame + col * square, frame + row * square, square + 0.5, square + 0.5);
     }
   }

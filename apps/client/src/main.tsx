@@ -46,6 +46,10 @@ if (path === "/bench") {
   // The people, to look at before they are given a skeleton.
   const { Corpo } = await import("./corpo/corpo-page.tsx");
   render(<Corpo />, app);
+} else if (path === "/mesa") {
+  // A board alone, played by the rules without a zone, from any position: the team's and the tests' (F-222).
+  const { MesaEnsaio } = await import("./mesas/ensaio-page.tsx");
+  render(<MesaEnsaio />, app);
 } else if (path === "/styleguide") {
   // The team's page. Loaded only when asked for, so it adds nothing to the shell a player downloads.
   const { Styleguide } = await import("./styleguide/styleguide.tsx");

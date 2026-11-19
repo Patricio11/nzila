@@ -67,9 +67,9 @@ describe("the tables of a channel", () => {
     expect(lanceOf(promoting, [8, 0])).toBeNull();
     expect(lanceOf(promoting, [8, 0, 1, 5])).toBeNull();
     const damas = new Mesas([tables[2]!], 0).mesa(0)!;
-    expect(lanceOf(damas, [40, 33])).toEqual({ jogo: "damas", lance: { path: [40, 33], takes: [] } });
-    expect(lanceOf(damas, [40, 33, 26])).toBeNull();
-    expect(lanceOf({ ...damas, partida: { jogo: "damas", estado: { ...newDamas(), turn: 1 } } }, [17, 24])).toEqual({ jogo: "damas", lance: { path: [17, 24], takes: [] } });
+    expect(lanceOf(damas, [41, 32])).toEqual({ jogo: "damas", lance: { path: [41, 32], takes: [] } });
+    expect(lanceOf(damas, [41, 32, 25])).toBeNull();
+    expect(lanceOf({ ...damas, partida: { jogo: "damas", estado: { ...newDamas(), turn: 1 } } }, [16, 25])).toEqual({ jogo: "damas", lance: { path: [16, 25], takes: [] } });
     const ludo = new Mesas([tables[1]!], 0).mesa(0)!;
     expect(lanceOf(ludo, [0])).toBeNull();
     const thrown = { ...ludo, partida: { ...ludo.partida, dado: 6 } } as typeof ludo;

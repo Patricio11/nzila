@@ -310,3 +310,27 @@ export function passo(mesa: Mesa, agora: number, dado: () => number): Mesa {
   const lugares = feito.lugares.map((one, n): Lugar => (n !== lugar ? one : faltas >= FALTAS ? { jogador: null, guardado: null, faltas: 0 } : { ...one, faltas }));
   return { ...feito, lugares };
 }
+
+/** A pawn's promotion, by its number on the wire and on the phone: none, then dama, torre, bispo, cavalo. */
+const PROMOCOES = [undefined, "q", "r", "b", "n"] as const;
+
+/**
+ * A move named by its squares, as a phone taps it, found among the moves the rules allow; null when it is none.
+ * Xadrez: from, to, and the promotion's number. Damas: the whole path of the piece. Não te irrites: the piece, with
+ * the throw already made. Shared by the zone and the phone's own board, so both read a tap the same way.
+ */
+export function lanceDe(mesa: Mesa, casas: readonly number[]): Lance | null {
+  const partida = mesa.partida;
+  if (partida.jogo === "xadrez") {
+    const promotion = PROMOCOES[casas[2] ?? 0];
+    const move = xadrezMoves(partida.estado).find((one) => one.from === casas[0] && one.to === casas[1] && one.promotion === promotion);
+    return move && casas.length <= 3 ? { jogo: "xadrez", lance: move } : null;
+  }
+  if (partida.jogo === "damas") {
+    const move = damasMoves(partida.estado).find((one) => one.path.length === casas.length && one.path.every((square, n) => square === casas[n]));
+    return move ? { jogo: "damas", lance: move } : null;
+  }
+  if (partida.dado === null || casas.length !== 1) return null;
+  const move = ludoMoves(partida.estado, partida.dado).find((one) => one.piece === casas[0]);
+  return move ? { jogo: "ludo", lance: move, dado: partida.dado } : null;
+}

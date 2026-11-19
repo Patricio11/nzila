@@ -95,7 +95,7 @@ function boardTexture(jogo: Jogo): CanvasTexture {
   if (jogo === "xadrez") paintSquares(pen, 512, 512 * FRAME, CORES.xadrezClaro, CORES.xadrezEscuro, CORES.xadrezMoldura);
   else if (jogo === "damas") {
     // Painted by hand on a plank: cream and black, in a red band with its little yellow triangles.
-    paintSquares(pen, 512, 512 * FRAME, CORES.damasClaro, CORES.damasEscuro, CORES.damasFaixa);
+    paintSquares(pen, 512, 512 * FRAME, CORES.damasClaro, CORES.damasEscuro, CORES.damasFaixa, true);
     pen.fillStyle = CORES.damasTriangulo;
     const band = 512 * FRAME;
     const triangle = (points: readonly (readonly [number, number])[]): void => {

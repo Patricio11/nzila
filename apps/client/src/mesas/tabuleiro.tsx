@@ -5,7 +5,7 @@
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
-import { KOTAS, damasMoves, kotaDe, ludoMoves, xadrezMoves, type Partida } from "@nzila/games";
+import { KOTAS, damasMoves, escura, kotaDe, ludoMoves, xadrezMoves, type DamasMove, type Partida } from "@nzila/games";
 import type { MesaDita } from "@nzila/protocol";
 import { Button } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -25,8 +25,11 @@ const FIGURAS: Record<string, string> = {
   k: "M47 4h6v8h7v6h-7v8h-6v-8h-7v-6h7zM26 92h48v-10h-6l6-34c-4-8-12-12-24-12s-20 4-24 12l6 34h-6z",
 };
 
+/** What the board asks of the tables: the street's (Mesas), or a board alone for the team and the tests (/mesa). */
+export type MesasVista = Pick<Mesas, "listen" | "tables" | "said" | "partidaOf" | "me" | "leftMs" | "refused" | "nameOf" | "ask" | "aVer" | "ladoDe" | "guardadoNome" | "deixarDeVer">;
+
 interface Props {
-  mesas: Mesas;
+  mesas: MesasVista;
   mesa: number;
   /** Open to watch, without a seat (F-210): nothing can be played, the board is seen from the player's side of it. */
   vendo?: boolean;
@@ -69,6 +72,8 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
   // A kota asked to take a seat kept for someone: asked first (F-213).
   const [asking, setAsking] = useState(false);
   const [chosen, setChosen] = useState<number | null>(null);
+  // At damas, the squares of a run of captures tapped so far, after the piece: a run is played a hop at a time.
+  const [hops, setHops] = useState<number[]>([]);
   const [promoting, setPromoting] = useState<{ from: number; to: number } | null>(null);
   useEffect(() => {
     const stop = mesas.listen(() => redraw((n) => n + 1));
@@ -83,6 +88,7 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
   const versao = said?.versao ?? 0;
   useEffect(() => {
     setChosen(null);
+    setHops([]);
     setPromoting(null);
     setAsking(false);
   }, [versao]);
@@ -159,7 +165,7 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
         {partida.jogo === "ludo" ? (
           <LudoBoard mesas={mesas} mesa={mesa} said={said} partida={partida} mySeat={mySeat} lado={lado} myTurn={myTurn} ask={ask} />
         ) : (
-          <Squares partida={partida} said={said} lado={lado} myTurn={myTurn} chosen={chosen} setChosen={setChosen} play={(casas) => ask({ mesa, pedido: "jogar", casas })} promote={setPromoting} />
+          <Squares partida={partida} said={said} lado={lado} myTurn={myTurn} chosen={chosen} setChosen={(square) => (setChosen(square), setHops([]))} hops={hops} setHops={setHops} play={(casas) => ask({ mesa, pedido: "jogar", casas })} promote={setPromoting} />
         )}
         {promoting ? (
           <div class="ms-promote">
@@ -225,12 +231,14 @@ interface SquaresProps {
   myTurn: boolean;
   chosen: number | null;
   setChosen: (square: number | null) => void;
+  hops: readonly number[];
+  setHops: (hops: number[]) => void;
   play: (casas: number[]) => void;
   promote: (move: { from: number; to: number }) => void;
 }
 
 /** An 8 × 8 board, the player's side at the bottom. */
-function Squares({ partida, said, lado, myTurn, chosen, setChosen, play, promote }: SquaresProps) {
+function Squares({ partida, said, lado, myTurn, chosen, setChosen, hops, setHops, play, promote }: SquaresProps) {
   const virado = (said?.primeiro ?? 0) === 1;
   // Seen from the player's side: seat 1 sees the board as built turned round.
   const flip = lado === 1;
@@ -239,22 +247,40 @@ function Squares({ partida, said, lado, myTurn, chosen, setChosen, play, promote
     return flip ? { x: 7 - col, y: 7 - row } : { x: col, y: row };
   };
   const squareAtCell = (x: number, y: number): number => (flip ? squareUnder(7 - y, 7 - x, virado) : squareUnder(y, x, virado));
-  // The moves the rules allow the player, from the piece chosen.
-  type Target = { to: number; casas: number[]; promotion: boolean };
+  // The moves the rules allow the player, from the piece chosen. At damas a run of captures is played a hop at a time:
+  // the squares lit are where the piece may land next, of the runs that begin as the hops tapped so far; the run is
+  // played when only one is left, so two runs to the same square are never confused (F-222). Every run offered takes
+  // as many pieces as the others (the rule of the most), so no run ends where another goes on.
+  type Target = { to: number; casas: number[]; promotion: boolean; done: boolean };
   const targets: Target[] = [];
   const movable = new Set<number>();
+  let following: DamasMove[] = [];
   if (myTurn) {
     if (partida.jogo === "xadrez") {
       for (const move of xadrezMoves(partida.estado)) {
         movable.add(move.from);
-        if (move.from === chosen && !targets.some((one) => one.to === move.to)) targets.push({ to: move.to, casas: [move.from, move.to], promotion: move.promotion !== undefined });
+        if (move.from === chosen && !targets.some((one) => one.to === move.to)) targets.push({ to: move.to, casas: [move.from, move.to], promotion: move.promotion !== undefined, done: true });
       }
     } else {
-      for (const move of damasMoves(partida.estado)) {
-        movable.add(move.path[0]!);
-        if (move.path[0] === chosen) targets.push({ to: move.path[move.path.length - 1]!, casas: [...move.path], promotion: false });
+      const moves = damasMoves(partida.estado);
+      for (const move of moves) movable.add(move.path[0]!);
+      const begun = chosen === null ? [] : [chosen, ...hops];
+      following = moves.filter((move) => begun.length > 0 && begun.every((square, n) => move.path[n] === square));
+      for (const move of following) {
+        const next = move.path[begun.length];
+        if (next === undefined || targets.some((one) => one.to === next)) continue;
+        // The runs that go on through this square: played at once when it is the end of the only one.
+        const through = following.filter((one) => one.path[begun.length] === next);
+        const only = through.length === 1 && through[0]!.path.length === begun.length + 1;
+        targets.push({ to: next, casas: only ? [...through[0]!.path] : [...begun, next], promotion: false, done: only });
       }
     }
+  }
+  // At damas, the pieces the run so far will take, marked; and the hops tapped, drawn as the way the piece goes.
+  const marked = new Set<number>();
+  if (partida.jogo === "damas" && following.length > 0 && hops.length > 0) {
+    const sure = following[0]!.takes.slice(0, hops.length);
+    if (following.every((move) => sure.every((square, n) => move.takes[n] === square))) for (const square of sure) marked.add(square);
   }
   const last = said?.ultimo?.lance;
   const lastSquares = last?.jogo === "xadrez" ? [last.lance.from, last.lance.to] : last?.jogo === "damas" ? [last.lance.path[0]!, last.lance.path[last.lance.path.length - 1]!] : [];
@@ -262,7 +288,8 @@ function Squares({ partida, said, lado, myTurn, chosen, setChosen, play, promote
     const target = targets.find((one) => one.to === square);
     if (target) {
       if (target.promotion) promote({ from: target.casas[0]!, to: target.to });
-      else play(target.casas);
+      else if (target.done) play(target.casas);
+      else setHops(target.casas.slice(1));
       return;
     }
     setChosen(movable.has(square) ? square : null);
@@ -271,8 +298,9 @@ function Squares({ partida, said, lado, myTurn, chosen, setChosen, play, promote
   for (let y = 0; y < 8; y++) {
     for (let x = 0; x < 8; x++) {
       const square = squareAtCell(x, y);
-      const dark = (Math.floor(square / 8) + (square % 8)) % 2 === 1;
-      cells.push(<rect key={`s${square}`} x={x} y={y} width={1} height={1} class={dark ? "ms-dark" : "ms-light"} onClick={() => tap(square)} />);
+      // Damas has its dark corner on each player's right, by the Portuguese board; xadrez its light one (h1).
+      const dark = partida.jogo === "damas" ? escura(square) : (Math.floor(square / 8) + (square % 8)) % 2 === 1;
+      cells.push(<rect key={`s${square}`} x={x} y={y} width={1} height={1} class={dark ? "ms-dark" : "ms-light"} data-quadrado={square} onClick={() => tap(square)} />);
     }
   }
   const marks = lastSquares.map((square) => {
@@ -296,7 +324,7 @@ function Squares({ partida, said, lado, myTurn, chosen, setChosen, play, promote
       const piece = partida.estado.board[square]!;
       if (piece === 0) continue;
       pieces.push(
-        <g key={`p${square}`} transform={`translate(${p.x + 0.5} ${p.y + 0.5})`} class={`ms-piece${square === chosen ? " ms-chosen" : ""}${myTurn && movable.has(square) ? " ms-can" : ""}`} onClick={() => tap(square)}>
+        <g key={`p${square}`} transform={`translate(${p.x + 0.5} ${p.y + 0.5})`} class={`ms-piece${square === chosen ? " ms-chosen" : ""}${myTurn && movable.has(square) ? " ms-can" : ""}${marked.has(square) ? " ms-taken" : ""}`} onClick={() => tap(square)}>
           <circle r="0.4" class={piece > 0 ? "ms-cap-light" : "ms-cap-dark"} />
           <circle r="0.29" class="ms-cap-ring" />
           {Math.abs(piece) === 2 ? <path class="ms-crown" d="M-0.18 0.08h0.36l0.04-0.2l-0.12 0.08l-0.1-0.14l-0.1 0.14l-0.12-0.08z" /> : null}
@@ -306,14 +334,18 @@ function Squares({ partida, said, lado, myTurn, chosen, setChosen, play, promote
   }
   const dots = targets.map((target) => {
     const p = at(target.to);
-    return <circle key={`t${target.to}`} cx={p.x + 0.5} cy={p.y + 0.5} r={0.22} class="ms-target" onClick={() => tap(target.to)} />;
+    return <circle key={`t${target.to}`} cx={p.x + 0.5} cy={p.y + 0.5} r={0.22} class="ms-target" data-casa={target.to} onClick={() => tap(target.to)} />;
   });
+  // The way the piece has gone in a run tapped so far: a line through the hops, and the piece shown where it stands now.
+  const way = chosen !== null && hops.length > 0 ? [chosen, ...hops].map((square) => at(square)) : [];
+  const route = way.length > 1 ? <polyline class="ms-route" points={way.map((p) => `${p.x + 0.5},${p.y + 0.5}`).join(" ")} /> : null;
   return (
     <svg class={`ms-squares ms-${partida.jogo}`} viewBox="-0.25 -0.25 8.5 8.5">
       <rect x="-0.25" y="-0.25" width="8.5" height="8.5" class="ms-frame" />
       {cells}
       {marks}
       {pieces}
+      {route}
       {dots}
     </svg>
   );
@@ -330,7 +362,7 @@ function Die({ value, colour }: { value: number; colour: string }) {
 }
 
 interface LudoProps {
-  mesas: Mesas;
+  mesas: MesasVista;
   mesa: number;
   said: MesaDita | null;
   partida: Extract<Partida, { jogo: "ludo" }>;
@@ -363,23 +395,29 @@ function LudoBoard({ mesa, said, partida, mySeat, lado, myTurn, ask }: LudoProps
   const game = partida.estado;
   const moves = myTurn && partida.dado !== null ? ludoMoves(game, partida.dado) : [];
   const pieces = [];
+  const goes = [];
   for (let seat = 0; seat < game.pieces.length; seat++) {
     for (let piece = 0; piece < 4; piece++) {
       const [x, y] = view(ludoCell(game, seat, piece));
       const move = seat === mySeat ? moves.find((one) => one.piece === piece) : undefined;
       const colour = game.colours[seat]!;
+      const play = (): void => {
+        if (move) ask({ mesa, pedido: "jogar", casas: [piece] });
+      };
       pieces.push(
-        <g key={`${seat}-${piece}`} transform={`translate(${x + 0.5} ${y + 0.5})`} class={`ms-piece${move ? " ms-can" : ""}`} onClick={() => move && ask({ mesa, pedido: "jogar", casas: [piece] })}>
+        <g key={`${seat}-${piece}`} transform={`translate(${x + 0.5} ${y + 0.5})`} class={`ms-piece${move ? " ms-can" : ""}`} data-peca={`${seat}-${piece}`} onClick={play}>
           <circle r="0.36" fill={LUDO_CORES[colour]} stroke={LUDO_FUNDOS[colour]} stroke-width="0.07" />
           <circle r="0.14" cy="-0.06" class="ms-shine" />
         </g>,
       );
       if (move) {
+        // Where it would go, over every piece (it may be someone's, to be sent home), and a tap there moves it too.
         const [tx, ty] = view(ludoCell({ ...game, pieces: game.pieces.map((one, s) => (s === seat ? one.map((p, n) => (n === piece ? move.to : p)) : one)) }, seat, piece));
-        pieces.push(<circle key={`t${piece}`} cx={tx + 0.5} cy={ty + 0.5} r={0.18} class="ms-target" />);
+        goes.push(<circle key={`t${piece}`} cx={tx + 0.5} cy={ty + 0.5} r={move.sends ? 0.24 : 0.18} class={`ms-target${move.sends ? " ms-target-manda" : ""}`} data-peca={`vai-${piece}`} onClick={play} />);
       }
     }
   }
+  pieces.push(...goes);
   // The die shows the last throw, in the colour of whoever threw it, rolling in each time it is thrown.
   const last = said?.ultimo;
   const thrown = partida.dado ?? (last?.lance.jogo === "ludo" ? last.lance.dado : null);

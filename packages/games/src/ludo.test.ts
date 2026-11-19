@@ -29,8 +29,9 @@ describe("Não te irrites", () => {
     const after = playLudo(game, 6, moves[0]!);
     expect(after.pieces[0]).toEqual([0, AT_HOME, 10, AT_HOME]);
     expect(after.turn).toBe(0);
-    // With its start held by its own piece, a 6 moves a piece on instead.
-    expect(ludoMoves(after, 6).map((move) => move.piece).sort()).toEqual([0, 2]);
+    // With its start held by its own piece and others still at home, the piece on the start moves on: the start is
+    // kept clear (it had been free to move another piece instead: F-222).
+    expect(ludoMoves(after, 6).map((move) => move.piece)).toEqual([0]);
   });
 
   test("landing on someone sends them home; never onto one's own", () => {
@@ -104,5 +105,19 @@ describe("Não te irrites", () => {
     }
     expect(game.winner).not.toBeNull();
     expect(game.pieces[game.winner!]!.every((position) => position >= TRACK)).toBe(true);
+  });
+
+  test("the start is kept clear only when the piece on it can move; three throws while no piece can move but with a 6", () => {
+    // The piece on the start cannot go 3 (its own piece is there): another moves.
+    const blocked = placed([[0, 3, AT_HOME, AT_HOME], [AT_HOME, AT_HOME, AT_HOME, AT_HOME]]);
+    expect(ludoMoves(blocked, 3).map((move) => move.piece)).toEqual([1]);
+    // One piece home in the goal at its far end and the rest at home: nothing can move but with a 6, so three throws.
+    const settled = placed([[LAST, AT_HOME, AT_HOME, AT_HOME], [AT_HOME, AT_HOME, AT_HOME, AT_HOME]]);
+    expect(ludoMoves(settled, 2)).toEqual([]);
+    expect(playLudo(settled, 2, null)).toMatchObject({ turn: 0, tries: 2 });
+    // A piece in the goal with room beyond it could move with the right throw: one throw, as for a piece on the track.
+    const room = placed([[LAST - 1, AT_HOME, AT_HOME, AT_HOME], [AT_HOME, AT_HOME, AT_HOME, AT_HOME]]);
+    expect(ludoMoves(room, 5)).toEqual([]);
+    expect(playLudo(room, 5, null)).toMatchObject({ turn: 1, tries: 3 });
   });
 });
