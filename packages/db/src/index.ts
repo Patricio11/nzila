@@ -13,3 +13,4 @@ export * from "./ledger.ts";
 export * from "./items.ts";
 export * from "./recados.ts";
 export * from "./partidas.ts";
+export * from "./kambas.ts";

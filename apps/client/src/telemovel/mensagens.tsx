@@ -5,6 +5,8 @@
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { Button } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
+import { Kambas } from "./kambas.tsx";
+import { novidadesAgora, onNovidades } from "./rede-kambas.ts";
 import { familia, feito, messageOf, onToday, placeIn, today, whoOf, type FeitoSaid, type Recado, type Today } from "../recados/recados.ts";
 import { type WorldProvider } from "../world/provider.ts";
 import { type Marked } from "./telemovel.tsx";
@@ -19,7 +21,30 @@ function Face({ name, tone }: { name: string; tone: number }) {
   );
 }
 
-export function Mensagens({ world, marked, onMark }: { world: WorldProvider; marked: Marked | null; onMark: (place: Marked | null) => void }) {
+/** Mensagens: two tabs, the kambas and the bairro today. It opens on the kambas when something waits there. */
+export function Mensagens({ world, marked, onMark, abrir = null }: { world: WorldProvider; marked: Marked | null; onMark: (place: Marked | null) => void; abrir?: string | null }) {
+  const [novas, setNovas] = useState(novidadesAgora());
+  const [aba, setAba] = useState<"kambas" | "bairro">(abrir || novidadesAgora().pedidos + novidadesAgora().porLer > 0 ? "kambas" : "bairro");
+  useEffect(() => onNovidades(setNovas), []);
+  const waiting = novas.pedidos + novas.porLer;
+  return (
+    <>
+      <div class="kb-abas" role="tablist">
+        <button type="button" role="tab" class="kb-aba" aria-selected={aba === "kambas"} onClick={() => setAba("kambas")}>
+          {tr.t("kamba.aba")}
+          {waiting > 0 && aba !== "kambas" ? <b>{waiting > 9 ? "9+" : waiting}</b> : null}
+        </button>
+        <button type="button" role="tab" class="kb-aba" aria-selected={aba === "bairro"} onClick={() => setAba("bairro")}>
+          {tr.t("kamba.abaBairro")}
+        </button>
+      </div>
+      {aba === "kambas" ? <Kambas world={world} onMark={onMark} abrir={abrir} /> : <Bairro world={world} marked={marked} onMark={onMark} />}
+    </>
+  );
+}
+
+/** What the bairro asks of the player today, the family's word, the errand for two, what the bairro has, its festa. */
+function Bairro({ world, marked, onMark }: { world: WorldProvider; marked: Marked | null; onMark: (place: Marked | null) => void }) {
   const [day, setDay] = useState<Today | null>(null);
   const [offline, setOffline] = useState(false);
   const [said, setSaid] = useState<{ n: number | "familia"; text: string } | null>(null);

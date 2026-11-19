@@ -338,6 +338,8 @@ export class ChannelRoom {
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
     this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map() });
     this.lineOfEntity.set(entityId, line);
+    // Noted at once where they came in, not at the next five-second round: a kamba going to them finds them (Task 4B.2).
+    void this.keep(playerId, this.channel.placeOf(entityId) ?? at, false);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
     this.welcome(line);
     return true;
@@ -847,15 +849,15 @@ export class ChannelRoom {
   }
 
   /**
-   * Writes down where a player stands: always in the note, and where it lasts when `lasting`.
+   * Writes down where a player stands: always in the note, which their kambas read to go to them (Task 4B.2), and
+   * where it lasts when `lasting` and this is a district the database knows (not a rehearsal town).
    * A failure is said and survived: the player goes on playing.
    */
   private async keep(playerId: string, at: Place, lasting = true): Promise<void> {
-    if (!this.remember) return;
     const where = { districtId: this.district.id, x: at.x, y: at.y, z: at.z };
     try {
       await this.presence?.stand(playerId, { ...where, yaw: at.yaw });
-      if (lasting) await keepWhereabouts(this.sql, playerId, this.district.provinceId, where);
+      if (lasting && this.remember) await keepWhereabouts(this.sql, playerId, this.district.provinceId, where);
     } catch (error) {
       this.log(`zone: could not keep where ${playerId} stands: ${String(error)}`);
     }

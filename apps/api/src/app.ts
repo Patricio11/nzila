@@ -7,6 +7,8 @@ import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId } from "@nzila/economy";
 import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take, useOne } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
+import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
+import { carriesAddress, tidyLine } from "@nzila/i18n";
 import { classificacaoDe, lastGift, lugarNaClassificacao, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
@@ -446,7 +448,16 @@ export function buildApp(deps: Deps): FastifyInstance {
       // everyone there they never left (Task 3.4). Only while that zone still speaks, and only for that district.
       const kept = await presence.held(caller.player.id);
       const keeper = kept && kept.room === room ? zones.find((zone) => zone.id === kept.zoneId) : undefined;
-      const picked = kept && keeper ? { zoneId: keeper.id, address: keeper.address, channel: kept.channel } : pickChannel(zones, room, channels, body.channel);
+      // Friends first (Task 4B.2): asked for no copy, a player goes to the copy where most of their kambas are, while it has room.
+      let friends: number | undefined;
+      if (!body.channel && !(kept && keeper)) {
+        const ids = new Set((await kambasDe(deps.sql, caller.player.id)).map((one) => one.playerId));
+        const count = new Map<number, number>();
+        for (const zone of zones) for (const one of zone.rooms) if (one.name === room) for (const channel of one.channels) count.set(channel.number, (channel.who ?? []).filter((id) => ids.has(id)).length);
+        const best = [...count].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
+        friends = best?.[0];
+      }
+      const picked = kept && keeper ? { zoneId: keeper.id, address: keeper.address, channel: kept.channel } : ((friends !== undefined ? pickChannel(zones, room, channels, friends) : null) ?? pickChannel(zones, room, channels, body.channel));
       // Only an invitation can find its channel full: anyone else is given another.
       if (!picked) throw new Refusal(409, "full");
       const seat = await presence.reserve({ playerId: caller.player.id, zoneId: picked.zoneId, room, channel: picked.channel });
@@ -477,12 +488,14 @@ export function buildApp(deps: Deps): FastifyInstance {
     guard: "player",
     body: z.strictObject({ biNumber: biShape }),
     perMinute: 60,
-    handler: async (body) => {
-      const [row] = await deps.sql<{ name: string | null; bi_number: string; arrived_at: Date; bairro: string | null }[]>`
-        SELECT p.name, p.bi_number, p.arrived_at, o.bairro FROM players p LEFT JOIN player_origins o ON o.player_id = p.id
+    handler: async (body, caller) => {
+      const [row] = await deps.sql<{ id: string; name: string | null; bi_number: string; arrived_at: Date; bairro: string | null }[]>`
+        SELECT p.id, p.name, p.bi_number, p.arrived_at, o.bairro FROM players p LEFT JOIN player_origins o ON o.player_id = p.id
         WHERE p.bi_number = ${body.biNumber} AND p.status = 'active'`;
       if (!row) throw new Refusal(404, "not_found");
-      return { name: row.name, biNumber: row.bi_number, bairro: row.bairro, arrivedAt: row.arrived_at.toISOString() };
+      // And where the two stand to each other: kambas, an ask either way, or nothing yet (Task 4B.2).
+      const kamba = row.id === caller.player.id ? "nada" : await entreNos(deps.sql, caller.player.id, row.id);
+      return { name: row.name, biNumber: row.bi_number, bairro: row.bairro, arrivedAt: row.arrived_at.toISOString(), kamba };
     },
   });
 
@@ -534,6 +547,128 @@ export function buildApp(deps: Deps): FastifyInstance {
       const note = body.note?.trim();
       const report = await reportPlayer(deps.sql, caller.player.id, await other(body.biNumber, caller.player.id), body.reason, note ? note : null);
       return { ok: true, report };
+    },
+  });
+
+  // ------------------------------------------------------------ kambas (Task 4B.2, Task 10.1 brought forward)
+  // Asked from the BI card of someone met, a kamba once they say yes. The list says who is in the street now, in
+  // which bairro and copy of it, and where they stand: kambas only, and only while they play. Kambas write to each
+  // other here, with the street's rules (no words the game does not pass on, no addresses to elsewhere); a player of
+  // 15 to 17 and an adult are not made kambas (F-225, the founder to confirm).
+  const where = async (): Promise<Map<string, { districtId: string; canal: number }>> => {
+    const found = new Map<string, { districtId: string; canal: number }>();
+    for (const zone of await presence.zones()) for (const room of zone.rooms) for (const channel of room.channels) for (const id of channel.who ?? []) found.set(id, { districtId: room.name.replaceAll(".", "/"), canal: channel.number });
+    return found;
+  };
+  const sameAge = async (a: string, b: string): Promise<boolean> => {
+    const rows = await deps.sql<{ age_band: string | null }[]>`SELECT age_band FROM players WHERE id IN (${a}, ${b})`;
+    const minors = rows.filter((row) => row.age_band === "15_17").length;
+    return minors === 0 || minors === rows.length;
+  };
+
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/kambas",
+    guard: "player",
+    body: nothing,
+    perMinute: 30,
+    handler: async (_body, caller) => {
+      const [kambas, pedidos, onde] = await Promise.all([kambasDe(deps.sql, caller.player.id), pedidosPara(deps.sql, caller.player.id), where()]);
+      const list = await Promise.all(
+        kambas.map(async ({ playerId, ...one }) => {
+          const here = onde.get(playerId);
+          const stood = here ? await presence.standing(playerId) : null;
+          return { ...one, onde: here ? { ...here, ...(stood && stood.districtId === here.districtId ? { x: stood.x, z: stood.z } : {}) } : null };
+        }),
+      );
+      return { kambas: list, pedidos };
+    },
+  });
+
+  // What is new, asked now and then while the game is open: a few bytes.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/kambas/novidades",
+    guard: "player",
+    body: nothing,
+    perMinute: 12,
+    handler: async (_body, caller) => novidades(deps.sql, caller.player.id),
+  });
+
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/kambas/pedir",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape }),
+    perMinute: 10,
+    handler: async (body, caller) => {
+      const them = await other(body.biNumber, caller.player.id);
+      if (!(await sameAge(caller.player.id, them))) return { said: "fechado" };
+      return { said: await pedirKamba(deps.sql, caller.player.id, them) };
+    },
+  });
+
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/kambas/responder",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape, sim: z.boolean() }),
+    perMinute: 30,
+    handler: async (body, caller) => ({ said: await responderKamba(deps.sql, caller.player.id, await other(body.biNumber, caller.player.id), body.sim) }),
+  });
+
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/kambas/deixar",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape }),
+    perMinute: 10,
+    handler: async (body, caller) => {
+      await separar(deps.sql, caller.player.id, await other(body.biNumber, caller.player.id));
+      return { ok: true };
+    },
+  });
+
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/kambas/calar",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape, calado: z.boolean() }),
+    perMinute: 20,
+    handler: async (body, caller) => ({ ok: await calarKamba(deps.sql, caller.player.id, await other(body.biNumber, caller.player.id), body.calado) }),
+  });
+
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/mensagens/conversa",
+    guard: "player",
+    body: z.strictObject({ biNumber: biShape }),
+    perMinute: 30,
+    handler: async (body, caller) => ({ mensagens: await conversa(deps.sql, caller.player.id, await other(body.biNumber, caller.player.id)) }),
+  });
+
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/mensagens/escrever",
+    guard: "player",
+    body: z.union([
+      z.strictObject({ biNumber: biShape, texto: z.string().max(1000) }),
+      z.strictObject({ biNumber: biShape, convite: z.strictObject({ jogo: z.enum(["xadrez", "damas", "ludo"]), districtId: z.string().regex(/^[a-z0-9-]{1,24}\/[a-z0-9-]{1,24}$/) }) }),
+    ]),
+    perMinute: 20,
+    handler: async (body, caller) => {
+      const them = await other(body.biNumber, caller.player.id);
+      let escrito: Escrito;
+      if ("texto" in body) {
+        const texto = tidyLine(body.texto, MENSAGEM_MAX_CHARS);
+        if (texto.length === 0) throw new Refusal(422, "vazio");
+        if (carriesAddress(texto)) throw new Refusal(422, "endereco");
+        if (names.find(texto).length > 0) throw new Refusal(422, "palavras");
+        escrito = { kind: "texto", texto };
+      } else escrito = { kind: "convite", ...body.convite };
+      const mensagem = await escrever(deps.sql, caller.player.id, them, escrito);
+      if (!mensagem) throw new Refusal(409, "nao_kambas");
+      return { mensagem };
     },
   });
 

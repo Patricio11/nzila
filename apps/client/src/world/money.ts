@@ -10,6 +10,8 @@ export interface PlayerCard {
   readonly biNumber: string;
   readonly bairro: string | null;
   readonly arrivedAt: string;
+  /** Where the two stand to each other (Task 4B.2). */
+  readonly kamba?: "kambas" | "pedido_enviado" | "pedido_recebido" | "nada";
 }
 
 /** The BI of another player, by its number. Null when it cannot be had. */

@@ -12,7 +12,7 @@
 //
 // A line that is not said is still kept for moderation: by the room.
 
-import { type ChatFilter } from "@nzila/i18n";
+import { carriesAddress, tidyLine, type ChatFilter } from "@nzila/i18n";
 import { CHAT_MAX_CHARS, CHAT_REFUSAL, type EntityState } from "@nzila/protocol";
 
 /** Within this, someone is seen to speak (a balloon); within the nearer, their words are read. Millimetres. */
@@ -21,17 +21,8 @@ export const READ_MM = 7_000;
 /** A speaker's pace: at least this long between lines, and no more than this many in ten seconds. */
 export const LINE_GAP_MS = 500;
 export const LINES_IN_TEN_SECONDS = 6;
-/**
- * An address to somewhere outside the game: a link, a site's name with its ending, a handle. Talk in the street
- * carries none (Rule 11: it is how strangers are led off to where nobody is watching, and how scams arrive).
- * Read on the line with its spaces taken out too, so that "w w w . sitio . com" is the same thing.
- */
-const ADDRESS = /(https?:\/\/|www\.|\b[a-z0-9-]{2,}\.(com|net|org|ao|pt|br|co|io|me|ly|gg|tv|xyz|info|app|link|site|online|shop)\b|\bwa\.me\b|\bt\.me\b)/i;
-/** A handle on some other service: an at-sign at the start of a word. Read only as written, or every "fixe @ praia" would be one. */
-const HANDLE = /(^|\s)@[a-z0-9_.]{3,}/i;
-export function carriesAddress(text: string): boolean {
-  return HANDLE.test(text) || ADDRESS.test(text) || ADDRESS.test(text.replace(/\s+/g, "")) || ADDRESS.test(text.replace(/\s*(ponto|dot)\s*/gi, "."));
-}
+/** Moved to the i18n package, where Mensagens reads it too (Task 4B.2). */
+export { carriesAddress };
 
 /** Line numbers remembered a speaker: a line sent twice over a bad network is said once (Rule 5). */
 const REMEMBERED_IDS = 16;
@@ -52,7 +43,7 @@ interface Speaker {
 
 /** One line of text as it may be said: no line breaks, no control or invisible characters, single spaces, no longer than a line may be. */
 export function tidy(text: string): string {
-  return [...text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s+/g, " ").trim()].slice(0, CHAT_MAX_CHARS).join("");
+  return tidyLine(text, CHAT_MAX_CHARS);
 }
 
 export class Talk {

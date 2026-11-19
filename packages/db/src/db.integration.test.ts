@@ -77,7 +77,7 @@ async function balance(id: string): Promise<number> {
 
 describe("migrations", () => {
   test("apply once, and a second run applies nothing", async () => {
-    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins", "0004_player_names", "0005_login_codes", "0006_player_email", "0007_email_verified", "0008_talk", "0009_studio", "0010_items", "0011_recados", "0012_partidas"]);
+    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins", "0004_player_names", "0005_login_codes", "0006_player_email", "0007_email_verified", "0008_talk", "0009_studio", "0010_items", "0011_recados", "0012_partidas", "0013_kambas"]);
     expect(await migrate(sql)).toEqual([]);
   });
 
@@ -318,13 +318,13 @@ describe("what was said is not kept for ever", () => {
       (${b!.id}, ${a!.id}, 'other', 'closed', now() - interval '91 days', now() - interval '100 days'),
       (${b!.id}, ${a!.id}, 'other', 'closed', now() - interval '10 days', now() - interval '100 days'),
       (${b!.id}, ${a!.id}, 'other', 'open', NULL, now() - interval '200 days')`;
-    expect(await expireTalk(sql)).toEqual({ lines: 1, reports: 1 });
+    expect(await expireTalk(sql)).toEqual({ lines: 1, reports: 1, mensagens: 0 });
     expect((await sql<{ text: string }[]>`SELECT text FROM chat_lines WHERE player_id = ${a!.id} ORDER BY at`).map((row) => row.text)).toEqual(["de há quatro semanas", "de hoje"]);
     expect((await sql`SELECT 1 FROM reports WHERE reported_id = ${a!.id}`).length).toBe(3);
     // The report made today carries the line said today, copied: it will outlive it.
     const [kept] = await sql<{ lines: { text: string }[] }[]>`SELECT lines FROM reports WHERE id = ${fresh}`;
     expect(kept!.lines.map((line) => line.text)).toEqual(["de hoje"]);
-    expect(await expireTalk(sql)).toEqual({ lines: 0, reports: 0 });
+    expect(await expireTalk(sql)).toEqual({ lines: 0, reports: 0, mensagens: 0 });
   });
 });
 

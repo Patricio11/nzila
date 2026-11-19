@@ -28,6 +28,6 @@ const port = Number(process.env.ZONE_PORT ?? 2577);
 const presence = await redisPresence(redisUrl(), "nzila-e2e");
 // A fallen line's place is kept eight seconds here, not sixty: long enough for the test that comes back to it,
 // short enough that a test which fails does not leave a body standing in the next test's street.
-// A quick game at a table lasts 25 seconds here, not three minutes: the test that plays one to its end waits that long.
+// A quick game at a table lasts 40 seconds here, not three minutes: the test that plays one to its end waits that long.
 const zone = await startZone({ sql, districts, presence, filter: loadChatFilter(), holdMs: 8000, rapidaMs: 40_000 }, port);
 console.log(`zone for the browser tests: ${zone.roomNames.join(", ")} on ${port}`);

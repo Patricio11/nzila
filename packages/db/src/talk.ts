@@ -33,9 +33,11 @@ export async function playerOfBi(sql: Sql, biNumber: string): Promise<string | n
   return row?.id ?? null;
 }
 
-/** "Bloquear". Asking twice changes nothing. */
+/** "Bloquear". Asking twice changes nothing. It ends a kamba between them, and any ask (Task 4B.2). */
 export async function blockPlayer(sql: Sql, playerId: string, blockedId: string): Promise<void> {
   await sql`INSERT INTO player_blocks (player_id, blocked_id) VALUES (${playerId}, ${blockedId}) ON CONFLICT DO NOTHING`;
+  await sql`DELETE FROM kambas WHERE (player_id = ${playerId} AND kamba_id = ${blockedId}) OR (player_id = ${blockedId} AND kamba_id = ${playerId})`;
+  await sql`DELETE FROM kamba_pedidos WHERE (de = ${playerId} AND para = ${blockedId}) OR (de = ${blockedId} AND para = ${playerId})`;
 }
 
 export async function unblockPlayer(sql: Sql, playerId: string, blockedId: string): Promise<void> {
@@ -54,13 +56,14 @@ export const CHAT_KEPT_DAYS = 30;
 export const REPORT_KEPT_DAYS = 90;
 
 /**
- * Deletes what has been kept its time: lines said more than thirty days ago, and reports closed more than ninety
- * days ago (with the lines copied into them). Gives back how many of each went.
+ * Deletes what has been kept its time: lines said more than thirty days ago, what kambas wrote more than thirty days
+ * ago, and reports closed more than ninety days ago (with the lines copied into them). Gives back how many of each went.
  */
-export async function expireTalk(sql: Sql): Promise<{ lines: number; reports: number }> {
+export async function expireTalk(sql: Sql): Promise<{ lines: number; reports: number; mensagens: number }> {
   const lines = await sql`DELETE FROM chat_lines WHERE at < now() - make_interval(days => ${CHAT_KEPT_DAYS})`;
+  const mensagens = await sql`DELETE FROM mensagens WHERE at < now() - make_interval(days => ${CHAT_KEPT_DAYS})`;
   const reports = await sql`DELETE FROM reports WHERE status = 'closed' AND closed_at < now() - make_interval(days => ${REPORT_KEPT_DAYS})`;
-  return { lines: lines.count, reports: reports.count };
+  return { lines: lines.count, reports: reports.count, mensagens: mensagens.count };
 }
 
 export const REPORT_REASONS = ["insults", "harassment", "sexual", "scam", "cheating", "name", "other"] as const;
@@ -79,7 +82,13 @@ export async function reportPlayer(sql: Sql, reporterId: string, reportedId: str
     SELECT at, text, said, district_id, channel FROM chat_lines
     WHERE player_id = ${reportedId} AND at > now() - make_interval(mins => ${LINES_FROM_MINUTES})
     ORDER BY at DESC, id DESC LIMIT ${LINES_IN_A_REPORT}`;
-  const copied = lines.reverse().map((line) => ({ at: line.at.toISOString(), text: line.text, said: line.said, districtId: line.district_id, channel: line.channel }));
+  // And what they last wrote to the reporter in Mensagens, if they are kambas (Task 4B.2): "mensagens" for its district.
+  const written = await sql<{ at: Date; texto: string }[]>`
+    SELECT at, texto FROM mensagens WHERE de = ${reportedId} AND para = ${reporterId} AND kind = 'texto' ORDER BY at DESC, id DESC LIMIT ${LINES_IN_A_REPORT}`;
+  const copied = [
+    ...lines.reverse().map((line) => ({ at: line.at.toISOString(), text: line.text, said: line.said, districtId: line.district_id, channel: line.channel })),
+    ...written.reverse().map((line) => ({ at: line.at.toISOString(), text: line.texto, said: true, districtId: "mensagens", channel: 0 })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO reports (reporter_id, reported_id, reason, note, lines)
     VALUES (${reporterId}, ${reportedId}, ${reason}, ${note}, ${sql.json(copied as never)}) RETURNING id`;

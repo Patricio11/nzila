@@ -789,7 +789,8 @@ describe("other players: looking, shutting out, reporting (Rule 11)", () => {
     const card = await post(me.token, "/v1/players/card", { biNumber: them.biNumber });
     expect(card.statusCode).toBe(200);
     const shown = card.json() as Record<string, unknown>;
-    expect(Object.keys(shown).sort()).toEqual(["arrivedAt", "bairro", "biNumber", "name"]);
+    // And where the one looking stands to them (kambas, an ask, or nothing): the looker's own, not the other's (Task 4B.2).
+    expect(Object.keys(shown).sort()).toEqual(["arrivedAt", "bairro", "biNumber", "kamba", "name"]);
     expect(shown).toMatchObject({ name: them.name, biNumber: them.biNumber });
     expect(typeof shown.bairro).toBe("string");
     expect((await post(me.token, "/v1/players/card", { biNumber: "99999999-LA" })).statusCode).toBe(404);
@@ -1431,5 +1432,120 @@ describe("the tables' ranking (Task 4B.1)", () => {
     // A beat two kotas who play it well (1 100 points: about 20 each) and a newcomer (16): three wins at once.
     expect(ludo.map((one) => one.depois - one.antes)).toEqual([57, -16]);
     expect(await sql`SELECT empates FROM classificacao WHERE player_id = ${a.playerId} AND jogo = 'damas'`).toEqual([{ empates: 1 }]);
+  });
+});
+
+describe("kambas (Task 4B.2)", () => {
+  const post = (token: string, url: string, payload: object) => app.inject({ method: "POST", url, headers: as(token), payload });
+  const get = (token: string, url: string) => app.inject({ method: "GET", url, headers: as(token) });
+
+  test("asked from the card, a kamba on a yes: two asks crossing are one yes; the card and the list say so; a no tells nobody", async () => {
+    const ana = await newGuest(1600);
+    const beto = await newGuest(1601);
+    const carla = await newGuest(1602);
+    // The card says nothing yet; Ana asks.
+    expect((await post(ana.token, "/v1/players/card", { biNumber: beto.biNumber })).json()).toMatchObject({ kamba: "nada" });
+    expect((await post(ana.token, "/v1/kambas/pedir", { biNumber: beto.biNumber })).json()).toEqual({ said: "pedido" });
+    expect((await post(ana.token, "/v1/players/card", { biNumber: beto.biNumber })).json()).toMatchObject({ kamba: "pedido_enviado" });
+    expect((await post(beto.token, "/v1/players/card", { biNumber: ana.biNumber })).json()).toMatchObject({ kamba: "pedido_recebido" });
+    // Beto is waiting to be told; his list has Ana's ask, by name and BI, never her id.
+    expect((await get(beto.token, "/v1/kambas/novidades")).json()).toEqual({ pedidos: 1, porLer: 0 });
+    const asked = await get(beto.token, "/v1/kambas");
+    expect(asked.json()).toMatchObject({ kambas: [], pedidos: [{ nome: ana.name, bi: ana.biNumber }] });
+    expect(asked.body).not.toContain(ana.playerId);
+    // He says yes: kambas both ways.
+    expect((await post(beto.token, "/v1/kambas/responder", { biNumber: ana.biNumber, sim: true })).json()).toEqual({ said: "kambas" });
+    expect((await post(ana.token, "/v1/kambas/pedir", { biNumber: beto.biNumber })).json()).toEqual({ said: "ja" });
+    expect((await get(ana.token, "/v1/kambas")).json()).toMatchObject({ kambas: [{ nome: beto.name, bi: beto.biNumber, porLer: 0, ultima: null, onde: null }], pedidos: [] });
+    // Carla and Ana ask each other: the second ask is the yes.
+    expect((await post(carla.token, "/v1/kambas/pedir", { biNumber: ana.biNumber })).json()).toEqual({ said: "pedido" });
+    expect((await post(ana.token, "/v1/kambas/pedir", { biNumber: carla.biNumber })).json()).toEqual({ said: "kambas" });
+    // Beto asks Carla, who says no: the ask is gone, and Beto is not told.
+    await post(beto.token, "/v1/kambas/pedir", { biNumber: carla.biNumber });
+    expect((await post(carla.token, "/v1/kambas/responder", { biNumber: beto.biNumber, sim: false })).json()).toEqual({ said: "recusado" });
+    expect((await post(carla.token, "/v1/kambas/responder", { biNumber: beto.biNumber, sim: true })).json()).toEqual({ said: "sem_pedido" });
+    expect((await post(beto.token, "/v1/players/card", { biNumber: carla.biNumber })).json()).toMatchObject({ kamba: "nada" });
+    // Nobody asks themselves, or a BI that is nobody's, or without a session.
+    expect((await post(ana.token, "/v1/kambas/pedir", { biNumber: ana.biNumber })).statusCode).toBe(400);
+    expect((await post(ana.token, "/v1/kambas/pedir", { biNumber: "AO-000-NINGUEM" })).statusCode).toBe(404);
+    expect((await app.inject({ method: "POST", url: "/v1/kambas/pedir", payload: { biNumber: beto.biNumber } })).statusCode).toBe(401);
+  });
+
+  test("kambas write to each other: read marks it read, the street's rules hold, a muted conversation counts for nothing, a stranger cannot write", async () => {
+    const ana = await newGuest(1603);
+    const beto = await newGuest(1604);
+    const dino = await newGuest(1605);
+    await post(ana.token, "/v1/kambas/pedir", { biNumber: beto.biNumber });
+    await post(beto.token, "/v1/kambas/responder", { biNumber: ana.biNumber, sim: true });
+
+    const wrote = await post(ana.token, "/v1/mensagens/escrever", { biNumber: beto.biNumber, texto: "  Bom dia,\n kamba!  " });
+    expect(wrote.statusCode).toBe(200);
+    expect(wrote.json()).toMatchObject({ mensagem: { minha: true, kind: "texto", texto: "Bom dia, kamba!" } });
+    await post(ana.token, "/v1/mensagens/escrever", { biNumber: beto.biNumber, convite: { jogo: "damas", districtId: "ao-lua/l1" } });
+    expect((await get(beto.token, "/v1/kambas/novidades")).json()).toEqual({ pedidos: 0, porLer: 2 });
+    expect((await get(beto.token, "/v1/kambas")).json()).toMatchObject({ kambas: [{ nome: ana.name, porLer: 2, ultima: { kind: "convite", jogo: "damas", minha: false } }] });
+    // Beto reads: oldest first, his to read, and nothing waits after.
+    const read = (await post(beto.token, "/v1/mensagens/conversa", { biNumber: ana.biNumber })).json() as { mensagens: { minha: boolean; kind: string; texto: string; jogo: string | null; districtId: string | null }[] };
+    expect(read.mensagens.map(({ minha, kind, texto, jogo, districtId }) => ({ minha, kind, texto, jogo, districtId }))).toEqual([
+      { minha: false, kind: "texto", texto: "Bom dia, kamba!", jogo: null, districtId: null },
+      { minha: false, kind: "convite", texto: "", jogo: "damas", districtId: "ao-lua/l1" },
+    ]);
+    expect((await get(beto.token, "/v1/kambas/novidades")).json()).toEqual({ pedidos: 0, porLer: 0 });
+
+    // The street's rules: no address to elsewhere, nothing empty.
+    expect((await post(beto.token, "/v1/mensagens/escrever", { biNumber: ana.biNumber, texto: "fala comigo em wa.me/244900" })).json()).toEqual({ error: "endereco" });
+    expect((await post(beto.token, "/v1/mensagens/escrever", { biNumber: ana.biNumber, texto: " \n " })).json()).toEqual({ error: "vazio" });
+    expect((await post(beto.token, "/v1/mensagens/escrever", { biNumber: ana.biNumber, convite: { jogo: "sueca", districtId: "ao-lua/l1" } })).statusCode).toBe(400);
+    // Someone who is not a kamba cannot write, nor read anything but nothing.
+    expect((await post(dino.token, "/v1/mensagens/escrever", { biNumber: ana.biNumber, texto: "olá" })).json()).toEqual({ error: "nao_kambas" });
+    expect((await post(dino.token, "/v1/mensagens/conversa", { biNumber: ana.biNumber })).json()).toEqual({ mensagens: [] });
+
+    // Muted, what Beto writes is kept and not counted for Ana.
+    expect((await post(ana.token, "/v1/kambas/calar", { biNumber: beto.biNumber, calado: true })).json()).toEqual({ ok: true });
+    await post(beto.token, "/v1/mensagens/escrever", { biNumber: ana.biNumber, texto: "Bora?" });
+    expect((await get(ana.token, "/v1/kambas/novidades")).json()).toEqual({ pedidos: 0, porLer: 0 });
+    expect((await get(ana.token, "/v1/kambas")).json()).toMatchObject({ kambas: [{ calado: true, porLer: 1 }] });
+
+    // Reported, what Beto wrote her goes with the report.
+    expect((await post(ana.token, "/v1/reports", { biNumber: beto.biNumber, reason: "insults" })).statusCode).toBe(200);
+    const [report] = await sql<{ lines: { text: string; districtId: string }[] }[]>`SELECT lines FROM reports WHERE reporter_id = ${ana.playerId} ORDER BY id DESC LIMIT 1`;
+    expect(report!.lines).toEqual([expect.objectContaining({ text: "Bora?", districtId: "mensagens" })]);
+
+    // Blocking ends it: not kambas, no writing, and no asking again while blocked.
+    expect((await app.inject({ method: "POST", url: "/v1/blocks", headers: as(ana.token), payload: { biNumber: beto.biNumber } })).statusCode).toBe(200);
+    expect((await get(ana.token, "/v1/kambas")).json()).toEqual({ kambas: [], pedidos: [] });
+    expect((await post(beto.token, "/v1/mensagens/escrever", { biNumber: ana.biNumber, texto: "Então?" })).json()).toEqual({ error: "nao_kambas" });
+    expect((await post(beto.token, "/v1/kambas/pedir", { biNumber: ana.biNumber })).json()).toEqual({ said: "fechado" });
+
+    // What Ana may ask to see of her data has what she wrote, and to whom by BI.
+    const mine = (await get(ana.token, "/v1/me/data")).json() as { wrote: { para: string; texto: string }[]; kambas: unknown[] };
+    expect(mine.wrote.map((one) => [one.para, one.texto])).toEqual([[beto.biNumber, "Bom dia, kamba!"], [beto.biNumber, ""]]);
+    expect(mine.kambas).toEqual([]);
+  });
+
+  test("who is in the street and where; friends first in the copy of the bairro their kambas are in; a player of 15 to 17 and an adult are not made kambas", async () => {
+    const ana = await newGuest(1606);
+    const beto = await newGuest(1607);
+    const teen = await newGuest(1608);
+    await post(ana.token, "/v1/kambas/pedir", { biNumber: beto.biNumber });
+    await post(beto.token, "/v1/kambas/responder", { biNumber: ana.biNumber, sim: true });
+    // Beto plays in the second copy of the Marginal, standing by the esplanada.
+    await presence.announce({ id: "zone-k", address: "", rooms: [{ name: "ao-lua.l1", channels: [{ number: 1, players: 5, who: [] }, { number: 2, players: 3, who: [beto.playerId] }] }] });
+    await presence.stand(beto.playerId, { districtId: "ao-lua/l1", x: 12_000, y: 0, z: -4000, yaw: 0 });
+    expect((await get(ana.token, "/v1/kambas")).json()).toMatchObject({ kambas: [{ nome: beto.name, onde: { districtId: "ao-lua/l1", canal: 2, x: 12_000, z: -4000 } }] });
+    // Ana comes in asking for no copy: she is put in Beto's.
+    const joined = await post(ana.token, "/v1/play/join", { districtId: "ao-lua/l1" });
+    expect(joined.json()).toMatchObject({ channel: 2 });
+    await presence.retire("zone-k");
+
+    // 15 to 17 and 18 or over: no ask either way.
+    await sql`UPDATE players SET age_band = '15_17' WHERE id = ${teen.playerId}`;
+    expect((await post(teen.token, "/v1/kambas/pedir", { biNumber: ana.biNumber })).json()).toEqual({ said: "fechado" });
+    expect((await post(ana.token, "/v1/kambas/pedir", { biNumber: teen.biNumber })).json()).toEqual({ said: "fechado" });
+
+    // Deleting an account leaves nobody's kamba behind.
+    expect((await app.inject({ method: "DELETE", url: "/v1/me", headers: as(beto.token), payload: { biNumber: beto.biNumber } })).statusCode).toBe(200);
+    expect((await get(ana.token, "/v1/kambas")).json()).toEqual({ kambas: [], pedidos: [] });
+    expect(await sql`SELECT 1 FROM kambas WHERE player_id = ${beto.playerId} OR kamba_id = ${beto.playerId}`).toEqual([]);
   });
 });

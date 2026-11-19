@@ -280,6 +280,42 @@ export const classificacao = pgTable(
   (t) => [primaryKey({ columns: [t.playerId, t.jogo, t.districtId] })],
 );
 
+/** Who asked whom to be a kamba, waiting for a yes (Task 4B.2). */
+export const kambaPedidos = pgTable(
+  "kamba_pedidos",
+  {
+    de: uuid("de").notNull(),
+    para: uuid("para").notNull(),
+    at: at("at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.de, t.para] })],
+);
+
+/** Kambas: one row each way. */
+export const kambas = pgTable(
+  "kambas",
+  {
+    playerId: uuid("player_id").notNull(),
+    kambaId: uuid("kamba_id").notNull(),
+    desde: at("desde").notNull().defaultNow(),
+    calado: boolean("calado").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.playerId, t.kambaId] })],
+);
+
+/** What kambas write to each other: a line, or come and play. Kept thirty days. */
+export const mensagens = pgTable("mensagens", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  de: uuid("de").notNull(),
+  para: uuid("para").notNull(),
+  kind: text("kind").notNull().default("texto"),
+  texto: text("texto").notNull().default(""),
+  jogo: text("jogo"),
+  districtId: text("district_id"),
+  at: at("at").notNull().defaultNow(),
+  lidaAt: at("lida_at"),
+});
+
 export const staffRoles = pgTable(
   "staff_roles",
   {
@@ -370,6 +406,9 @@ export const tables = {
   partidas,
   partidaLugares,
   classificacao,
+  kambaPedidos,
+  kambas,
+  mensagens,
   staffRoles,
   auditLog,
   featureFlags,

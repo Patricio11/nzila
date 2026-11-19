@@ -8,6 +8,7 @@ import { useEffect, useState } from "preact/hooks";
 import { arrivedOn } from "../telemovel/bi.tsx";
 import { Coisa } from "../cantina/coisas.tsx";
 import { giveThing, thingsNow, type GaveThing, type Held, payPlayer, type Paid, blockPlayer, playerCard, reportPlayer, type PlayerCard, type ReportReason } from "../world/money.ts";
+import { pedir, responder, type EntreNos } from "../telemovel/rede-kambas.ts";
 import { type Met } from "./conversa.tsx";
 import "./conversa.css";
 import "./sheet.css";
@@ -21,7 +22,7 @@ const REASONS: readonly ReportReason[] = ["insults", "harassment", "sexual", "sc
  * Someone met in the street: their BI, and what can be done. Report, block and mute are here with "Falar", on the
  * one sheet, because a way to talk never comes without them (Rule 11).
  */
-export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClose, onGave = () => {}, jogos = [], onConvidar }: { met: Met; silenced: boolean; onSilence: (on: boolean) => void; onShutOut: (on: boolean) => void; onTalk: () => void; onClose: () => void; onGave?: () => void; jogos?: readonly string[]; onConvidar?: (jogo: string) => void }) {
+export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClose, onGave = () => {}, jogos = [], onConvidar, onEscrever }: { met: Met; silenced: boolean; onSilence: (on: boolean) => void; onShutOut: (on: boolean) => void; onTalk: () => void; onClose: () => void; onGave?: () => void; jogos?: readonly string[]; onConvidar?: (jogo: string) => void; onEscrever?: (bi: string) => void }) {
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [shut, setShut] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,6 +40,24 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
   // Inviting them to play at a table (Task 4B.1): the choice of game, and the game asked.
   const [inviting, setInviting] = useState(false);
   const [invited, setInvited] = useState<string | null>(null);
+  // Kambas (Task 4B.2): where the two stand, and what asking came to.
+  const [kamba, setKamba] = useState<EntreNos>("nada");
+  const [kambaSaid, setKambaSaid] = useState<string | null>(null);
+  const add = async (): Promise<void> => {
+    setBusy(true);
+    setKambaSaid(null);
+    if (kamba === "pedido_recebido") {
+      const done = await responder(met.bi, true);
+      if (done === "kambas") setKamba("kambas");
+      setKambaSaid(done === "kambas" ? tr.t("kamba.aceite", { nome: met.name }) : tr.t(`kamba.pedir.${done === "offline" ? "offline" : "fechado"}`, { nome: met.name }));
+    } else {
+      const done = await pedir(met.bi);
+      if (done === "kambas" || done === "ja") setKamba("kambas");
+      else if (done === "pedido") setKamba("pedido_enviado");
+      setKambaSaid(tr.t(`kamba.pedir.${done}`, { nome: met.name }));
+    }
+    setBusy(false);
+  };
   const offer = async (): Promise<void> => {
     setSaid(null);
     setGave(null);
@@ -72,7 +91,12 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
   };
   useEffect(() => {
     let alive = true;
-    if (met.bi) void playerCard(met.bi).then((found) => alive && setCard(found));
+    if (met.bi)
+      void playerCard(met.bi).then((found) => {
+        if (!alive) return;
+        setCard(found);
+        if (found?.kamba) setKamba(found.kamba);
+      });
     return () => void (alive = false);
   }, [met.bi]);
 
@@ -114,6 +138,11 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
           {handed ? (
             <p class="cv-said" role="status">
               {tr.t(`give.said.${handed.said}`, { name: met.name, item: handed.item ? tr.t(`item.${handed.item}` as "item.pao") : "" })}
+            </p>
+          ) : null}
+          {kambaSaid ? (
+            <p class="cv-said" role="status">
+              {kambaSaid}
             </p>
           ) : null}
           {invited ? (
@@ -210,9 +239,15 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
               <Button kind="quiet" onPress={() => void offer()}>
                 {tr.t("give.open")}
               </Button>
-              <Button kind="quiet" disabled>
-                {tr.t("player.add")}
-              </Button>
+              {kamba === "kambas" ? (
+                <Button kind="quiet" disabled={!onEscrever} onPress={() => onEscrever?.(met.bi)}>
+                  {tr.t("kamba.escrever")}
+                </Button>
+              ) : (
+                <Button kind="quiet" busy={busy} disabled={kamba === "pedido_enviado"} onPress={() => void add()}>
+                  {kamba === "nada" ? tr.t("player.add") : tr.t(`kamba.estado.${kamba}`)}
+                </Button>
+              )}
               <Button kind="quiet" onPress={() => onSilence(!silenced)}>
                 {tr.t(silenced ? "player.unmute" : "player.mute")}
               </Button>

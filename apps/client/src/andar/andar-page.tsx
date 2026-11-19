@@ -150,6 +150,16 @@ export function Andar() {
   // Which app the Telemóvel opens on: the one the address asked for, or the Banco when the player uses a caixa.
   const [phoneApp, setPhoneApp] = useState<string | null>(params.get("telemovel") || null);
   const [marked, setMarked] = useState<Marked | null>(null);
+  // Kambas (Task 4B.2): what waits in Mensagens, and a kamba's conversation to open it on.
+  const [novas, setNovas] = useState(0);
+  const [abrirKamba, setAbrirKamba] = useState<string | null>(null);
+  useEffect(() => {
+    if (!account()?.token || params.has("sozinho")) return;
+    let stop = (): void => {};
+    let gone = false;
+    void import("../telemovel/rede-kambas.ts").then((module) => !gone && (stop = module.vigiar(setNovas, setMarked)));
+    return () => ((gone = true), stop());
+  }, []);
   // The cantina whose grille the player is at, and the Mochila, when open.
   const [shop, setShop] = useState<{ id: string; name: string } | null>(null);
   const errandsRef = useRef<Errands | null>(null);
@@ -1029,7 +1039,10 @@ export function Andar() {
           <div class="andar-buttons">
             <span class="andar-pair">
               <HudButton glyph="mochila" label={tr.t("hud.mochila")} on={bag} onPress={() => (setShop(null), setBag(!bag))} />
-              <HudButton glyph="telemovel" label={tr.t("hud.phone")} on={phone} onPress={() => setPhone(!phone)} />
+              <span class="andar-badged">
+                <HudButton glyph="telemovel" label={tr.t("hud.phone")} on={phone} onPress={() => setPhone(!phone)} />
+                {novas ? <b class="n-badge">{novas > 9 ? "9+" : novas}</b> : null}
+              </span>
             </span>
             <span class="andar-pair">
               <span class="andar-wheel-anchor">
@@ -1041,7 +1054,7 @@ export function Andar() {
             </span>
             {hud.action ? <ContextAction label={tr.t(`action.${hud.action}`)} disabled={hud.action === "stopAsked"} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>
-          <Telemovel world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} onClose={() => (setPhone(false), setPhoneApp(null))} />
+          <Telemovel world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} abrir={abrirKamba} onClose={() => (setPhone(false), setPhoneApp(null), setAbrirKamba(null))} />
           {/* The Telemóvel covers the foot of the screen: the chat bar steps aside while it is open, or it would lie over the sheet's last key. */}
           {phone || met || shop || bag ? null : <ChatLog lines={hud.lines} refused={hud.refused} raised={composing && hud.talk} />}
           {phone || met || shop || bag ? null : (
@@ -1065,6 +1078,7 @@ export function Andar() {
               onGave={() => net.current?.nudge(met.bi)}
               jogos={tablesRef.current?.jogos() ?? []}
               onConvidar={(jogo) => tablesRef.current?.convidar(jogo, met.entity)}
+              onEscrever={(bi) => (setMet(null), setAbrirKamba(bi), setPhoneApp("mensagens"), setPhone(true))}
               onTalk={() => (setMet(null), setComposing(true))}
               onClose={() => setMet(null)}
             />

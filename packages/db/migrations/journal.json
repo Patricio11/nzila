@@ -46,5 +46,9 @@
   {
     "id": "0012_partidas",
     "sha256": "dedfb5f9e42ed220ce399ab5befa4f7486c51df8d7af525784c6c9030e518607"
+  },
+  {
+    "id": "0013_kambas",
+    "sha256": "2f950592fa08a27ad63da1b987a24de63b3a70c5415ae167e05706e6ee6fd50b"
   }
 ]

@@ -1844,6 +1844,75 @@ test.describe("two phones in the same street", () => {
     expect(otherSeen.errors).toEqual([]);
   });
 
+  test("kambas (Task 4B.2): asked from the card, a yes in Mensagens; they write to each other; an invitation to play, and the compass points at the one who sent it", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Kambas were not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    const myName = await comeIn(page, 91);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const otherSeen = watch(other);
+    const otherName = await comeIn(other, 92);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    await other.goto("/andar?tier=poupanca&hour=12");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1 && window.__andar!.names >= 1, undefined, { timeout: 20_000 });
+
+    // "Adicionar" on the card of the other.
+    expect(await tapSomeone(page, otherName), "a tap on the other player opened their card").toBe(true);
+    const sheet = page.getByRole("dialog", { name: otherName });
+    await sheet.getByRole("button", { name: "Adicionar" }).click();
+    await expect(sheet.getByRole("status")).toContainText(`Pedido enviado a ${otherName}`);
+    await expect(sheet.getByRole("button", { name: "Pedido enviado" })).toBeDisabled();
+    await page.screenshot({ path: info.outputPath("kamba-pedido-enviado.png") });
+    await sheet.getByRole("button", { name: "Fechar" }).click();
+
+    // The other sees a count on the Telemóvel, opens Mensagens on the kambas, and says yes.
+    // What waits is asked every thirty seconds (F-225): the count shows by the next time it is asked.
+    await expect(other.locator(".andar-badged .n-badge")).toHaveText("1", { timeout: 35_000 });
+    await other.screenshot({ path: info.outputPath("kamba-conta.png") });
+    await other.getByRole("button", { name: "Telemóvel" }).click();
+    await other.getByRole("button", { name: "Mensagens" }).click();
+    await expect(other.getByRole("tab", { name: "Kambas" })).toHaveAttribute("aria-selected", "true");
+    const asked = other.locator(".kb-pedido", { hasText: myName });
+    await expect(asked).toBeVisible();
+    await other.screenshot({ path: info.outputPath("kamba-pedido.png") });
+    await asked.getByRole("button", { name: "Aceitar" }).click();
+    await expect(other.locator(".kb-said")).toHaveText(`Tu e ${myName} já são kambas.`);
+    // In the list, in the street now; their conversation, empty, says how it starts.
+    const row = other.locator(".kb-linha", { hasText: myName });
+    await expect(row.locator(".kb-onde")).toHaveClass(/kb-onde-rua/);
+    await other.screenshot({ path: info.outputPath("kamba-lista.png") });
+    await row.click();
+    await expect(other.locator(".kb-primeira")).toContainText(myName);
+    await other.getByRole("textbox", { name: `Escreve a ${myName}…` }).fill("Bom dia, kamba!");
+    await other.getByRole("button", { name: "Enviar" }).click();
+    await expect(other.locator(".kb-bolha.kb-minha")).toContainText("Bom dia, kamba!");
+    // And asks them to come and play damas.
+    await other.locator(".kb-seguranca").getByRole("button", { name: "Convidar para jogar" }).click();
+    await other.locator(".kb-jogos").getByRole("button", { name: "Damas" }).click();
+    await expect(other.locator(".kb-convite.kb-minha")).toContainText("Chamaste para damas");
+    await other.screenshot({ path: info.outputPath("kamba-conversa.png") });
+
+    // The first: the card now says "Escrever", which opens the conversation.
+    expect(await tapSomeone(page, otherName), "a second tap opened their card again").toBe(true);
+    await sheet.getByRole("button", { name: "Escrever" }).click();
+    await expect(page.locator(".kb-bolha", { hasText: "Bom dia, kamba!" })).toBeVisible({ timeout: 10_000 });
+    const invitation = page.locator(".kb-convite", { hasText: `${otherName} chama-te para damas` });
+    await expect(invitation).toBeVisible();
+    await page.screenshot({ path: info.outputPath("kamba-convite.png") });
+    // "Ir ter com": in the same street, the compass points at them.
+    await invitation.getByRole("button", { name: "Ir ter com" }).click();
+    await expect(page.locator(".kb-said")).toHaveText(`A bússola aponta para ${otherName}.`);
+    await page.screenshot({ path: info.outputPath("kamba-ir.png") });
+    expect(seen.errors, "the first phone said nothing went wrong").toEqual([]);
+    expect(otherSeen.errors, "the second phone said nothing went wrong").toEqual([]);
+  });
+
   test("Convidar para jogar (Task 4B.1): a tap on someone, a game; they are asked and say yes; both are told; the one invited walks to the table and is seated in the seat kept for them", async ({ page, browser, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Invitations were not checked here." });
@@ -1987,7 +2056,8 @@ test.describe("two phones in the same street", () => {
     await expect(sheet.locator(".n-bi-fields")).toContainText("-LA");
     // Rule 11: every one of them on the same sheet as "Falar".
     for (const name of ["Falar", "Silenciar", "Bloquear", "Denunciar"]) await expect(sheet.getByRole("button", { name, exact: true })).toBeVisible();
-    await expect(sheet.getByRole("button", { name: "Adicionar" })).toBeDisabled();
+    // And asking them to be a kamba (Task 4B.2: its own test is "kambas").
+    await expect(sheet.getByRole("button", { name: "Adicionar" })).toBeEnabled();
     await page.screenshot({ path: info.outputPath("jogador-bi.png") });
 
     // Silenciar: what the other says is no longer heard on this phone, at once.

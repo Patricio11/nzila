@@ -214,15 +214,6 @@ export const ptAO = {
   "chat.refused.slow": "Calma. Uma frase de cada vez.",
   "chat.refused.links": "Essa frase não foi dita. Aqui não se passam endereços.",
   "chat.refused.muted": "A moderação tirou-te a palavra por agora.",
-  "player.add": "Adicionar",
-  "player.mute": "Silenciar",
-  "player.unmute": "Voltar a ouvir",
-  "player.block": "Bloquear",
-  "player.unblock": "Desbloquear",
-  "player.report": "Denunciar",
-  "player.close": "Fechar",
-  "player.shut": "Feito. Já não se ouvem um ao outro.",
-  "player.heard": "Feito. Voltam a ouvir-se.",
   "data.session": "{size} nesta sessão",
   "data.month": "{size} este mês",
   "data.label": "Dados usados",
@@ -308,7 +299,6 @@ export const ptAO = {
   "app.casa.soon": "Ainda não tens casa. Os quartos para alugar vêm a seguir.",
   "app.garagem.soon": "Ainda não tens carro nem mota. Por agora, anda de candongueiro.",
   "app.negocio.soon": "Ainda não podes abrir negócio. Primeiro o trabalho, depois a banca.",
-  "app.bi.soon": "O teu BI ainda está a ser passado.",
   "app.definicoes.soon": "As definições estão a chegar.",
   // Mapa
   // Definições

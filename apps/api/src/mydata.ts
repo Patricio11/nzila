@@ -7,7 +7,7 @@
 // and the card of origin go. The history of consents stays for its period:
 // it is the proof that they agreed. The audit log records that it was done.
 
-import { audit, blockedBy, classificacaoDoJogador, consentsOf, statementOf, walletOf } from "@nzila/db";
+import { audit, blockedBy, classificacaoDoJogador, kambasDe, mensagensDoJogador, consentsOf, statementOf, walletOf } from "@nzila/db";
 import { accountId } from "@nzila/economy";
 import { type OriginTable } from "@nzila/economy";
 import { settleLook } from "@nzila/protocol";
@@ -53,6 +53,9 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
     moderation: measures.map((row) => ({ at: row.at, kind: row.kind, reason: row.reason, until: row.until, lifted: row.lifted_at })),
     // Their points at the tables' games, game by game and bairro by bairro.
     tables: await classificacaoDoJogador(sql, playerId),
+    // Their kambas, by name and BI number, and what they wrote to kambas (kept thirty days).
+    kambas: (await kambasDe(sql, playerId)).map((one) => ({ name: one.nome, biNumber: one.bi, since: one.desde })),
+    wrote: await mensagensDoJogador(sql, playerId),
   };
 }
 
@@ -80,6 +83,9 @@ export async function deleteAccount(sql: Sql, playerId: string, biNumber: string
     await tx`DELETE FROM player_blocks WHERE player_id = ${playerId} OR blocked_id = ${playerId}`;
     // Off the tables' rankings: the games they played stay, as games, under a player who is now nobody.
     await tx`DELETE FROM classificacao WHERE player_id = ${playerId}`;
+    // Nobody's kamba any more, and no ask waits for them; what they wrote stays its thirty days, read by nobody.
+    await tx`DELETE FROM kambas WHERE player_id = ${playerId} OR kamba_id = ${playerId}`;
+    await tx`DELETE FROM kamba_pedidos WHERE de = ${playerId} OR para = ${playerId}`;
     await tx`
       UPDATE players SET status = 'deleted', deleted_at = now(), name = NULL, name_key = NULL, bi_number = NULL, age_band = NULL,
         home_district_id = NULL, province_id = NULL, district_id = NULL, x = NULL, y = NULL, z = NULL, phone_enc = NULL, phone_hash = NULL,

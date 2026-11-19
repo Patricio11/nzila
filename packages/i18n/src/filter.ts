@@ -41,6 +41,23 @@ export function parseWordList(text: string): string[] {
     .filter(Boolean);
 }
 
+/** One line of text as it may be said or written: no line breaks, no control or invisible characters, single spaces, no longer than `max`. */
+export function tidyLine(text: string, max: number): string {
+  return [...text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s+/g, " ").trim()].slice(0, max).join("");
+}
+
+/**
+ * An address to somewhere outside the game: a link, a site's name with its ending, a handle. Talk in the street and
+ * between kambas carries none (Rule 11: it is how strangers are led off to where nobody is watching, and how scams
+ * arrive). Read on the line with its spaces taken out too, so that "w w w . sitio . com" is the same thing.
+ */
+const ADDRESS = /(https?:\/\/|www\.|\b[a-z0-9-]{2,}\.(com|net|org|ao|pt|br|co|io|me|ly|gg|tv|xyz|info|app|link|site|online|shop)\b|\bwa\.me\b|\bt\.me\b)/i;
+/** A handle on some other service: an at-sign at the start of a word. Read only as written, or every "fixe @ praia" would be one. */
+const HANDLE = /(^|\s)@[a-z0-9_.]{3,}/i;
+export function carriesAddress(text: string): boolean {
+  return HANDLE.test(text) || ADDRESS.test(text) || ADDRESS.test(text.replace(/\s+/g, "")) || ADDRESS.test(text.replace(/\s*(ponto|dot)\s*/gi, "."));
+}
+
 export interface ChatFilter {
   /** The listed words found in a text, each once, as they are written in the list. */
   find(text: string): string[];
