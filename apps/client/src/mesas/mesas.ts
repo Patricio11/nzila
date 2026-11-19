@@ -7,15 +7,15 @@
 // player asks of a table goes from here.
 
 import { type Partida, newDamas, newLudo, newXadrez } from "@nzila/games";
-import { decodeMesa, encodeMesaPedido, MESA_RECUSAS, type MesaDita, type MesaPedido } from "@nzila/protocol";
+import { decodeMesa, encodeMesaPedido, EVENT, MESA_RECUSAS, type MesaDita, type MesaPedido } from "@nzila/protocol";
 import { tableObstacles, type Manifest } from "@nzila/world/client";
-import { BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, CylinderGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshLambertMaterial, PlaneGeometry, Quaternion, SRGBColorSpace, Vector3 } from "three";
+import { BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Quaternion, SRGBColorSpace, Vector3 } from "three";
 import type { Session } from "../net/session.ts";
 import type { DistrictScene } from "../render/district-scene.ts";
 import type { Person } from "../render/person.ts";
 import type { WorldRenderer } from "../render/world-renderer.ts";
 import { CORES, FRAME, LUDO_CORES, ludoCell, paintLudo, paintSquares, squareSeen } from "./casas.ts";
-import { Tabuleiro } from "./tabuleiro.tsx";
+import { Ui } from "./ui.tsx";
 
 export type Table = NonNullable<Manifest["tables"]>[number];
 export type Jogo = Table["game"];
@@ -168,7 +168,18 @@ export class Mesas {
   /** Why the last thing asked of a table was not done, and until when to say so. */
   refused: { why: (typeof MESA_RECUSAS)[number]; until: number } | null = null;
   /** The board on the phone, for the page to draw. */
-  readonly Tabuleiro = Tabuleiro;
+  readonly Ui = Ui;
+  /** An invitation to play, waiting for the player's answer: who, at which table, until when. */
+  convite: { entidade: number; nome: string; mesa: number; ate: number } | null = null;
+  /** The table where a seat is kept for the player (an invitation accepted, theirs or another's), until when. */
+  destino: { mesa: number; ate: number } | null = null;
+  /** Something to say for a moment: an invitation sent, accepted, declined. */
+  aviso: { kind: "aceitou" | "recusou"; nome: string; ate: number } | null = null;
+  /** Where the player stands, as the last frame had it: for the nearest table, and the way to one. */
+  x = 0;
+  z = 0;
+  /** The gold mark over the table where a seat is kept for the player. */
+  private readonly marca: Mesh;
   private readonly renderer: WorldRenderer;
   private readonly scene: DistrictScene;
   private readonly session: Session | null;
@@ -216,6 +227,10 @@ export class Mesas {
       }
       return { table, board, kotas: table.seats.map(() => null), whole: table.seats.map(() => null), fetching: false, fetchingWhole: false, die, thrownAt: -9, moving: null };
     });
+    // A mark over the table a seat is kept at: a gold cone pointing down, turning, seen from across the square.
+    this.marca = new Mesh(new ConeGeometry(0.22, 0.42, 4).rotateX(Math.PI), new MeshBasicMaterial({ color: new Color(CORES.damasTriangulo) }));
+    this.marca.visible = false;
+    renderer.scene.add(this.marca);
     const count = (jogo: Jogo): number => this.tables.filter((table) => table.game === jogo).length;
     const instanced = (geometry: BufferGeometry, most: number): InstancedMesh => {
       const mesh = new InstancedMesh(geometry, new MeshLambertMaterial(), Math.max(1, most));
@@ -242,6 +257,43 @@ export class Mesas {
   /** The name of a player at a table, by their number in the channel. */
   nameOf(entity: number): string | null {
     return this.session?.who(entity)?.name ?? null;
+  }
+
+  /** The games this street has tables for, when there is a zone to play them with. */
+  jogos(): Jogo[] {
+    return this.session?.walking ? [...new Set(this.tables.map((table) => table.game))] : [];
+  }
+
+  /** Whether a table has room for two who want to play: no player at it, nobody's seat kept. */
+  private livre(mesa: number): boolean {
+    const said = this.said[mesa];
+    return !said || said.lugares.every((one) => one.entidade === 0 && !one.guardado);
+  }
+
+  /** Invites someone, by their number in the channel, to play `jogo` at the nearest table of it that has room. */
+  convidar(jogo: string, entidade: number): void {
+    const tables = this.tables.flatMap((table, mesa) => (table.game === jogo ? [{ mesa, far: Math.hypot(table.pos[0] - this.x, table.pos[2] - this.z), livre: this.livre(mesa) }] : []));
+    const chosen = tables.sort((a, b) => Number(b.livre) - Number(a.livre) || a.far - b.far)[0];
+    if (!chosen) return;
+    this.ask({ mesa: chosen.mesa, pedido: "convidar", entidade });
+  }
+
+  /** The player answers the invitation waiting for them. */
+  responder(sim: boolean): void {
+    const convite = this.convite;
+    if (!convite) return;
+    this.ask({ mesa: convite.mesa, pedido: sim ? "aceitar" : "recusar", entidade: convite.entidade });
+    if (sim) this.destino = { mesa: convite.mesa, ate: performance.now() + 10 * 60_000 };
+    this.convite = null;
+    for (const listener of this.listeners) listener();
+  }
+
+  /** How far the player is from the table where a seat is kept for them, in metres. */
+  longeDoDestino(): number {
+    const destino = this.destino;
+    if (!destino) return 0;
+    const table = this.tables[destino.mesa]!;
+    return Math.hypot(table.pos[0] - this.x, table.pos[2] - this.z);
   }
 
   /** Tells `listener` whenever a table changes; gives back how to stop. */
@@ -303,7 +355,24 @@ export class Mesas {
         session.mesaRefused = null;
         for (const listener of this.listeners) listener();
       }
+      // Invitations to play, and the answers to the player's own (Task 4B.1).
+      for (const event of session.convites.splice(0)) {
+        const nome = session.who(event.subject)?.name ?? "";
+        const mesa = event.args[0] ?? 0;
+        if (mesa >= this.tables.length) continue;
+        if (event.kind === EVENT.CONVITE) this.convite = { entidade: event.subject, nome, mesa, ate: performance.now() + 60_000 };
+        else if (event.args[1] === 1) {
+          this.destino = { mesa, ate: performance.now() + 10 * 60_000 };
+          this.aviso = { kind: "aceitou", nome, ate: performance.now() + 6000 };
+        } else this.aviso = { kind: "recusou", nome, ate: performance.now() + 5000 };
+        for (const listener of this.listeners) listener();
+      }
     }
+    this.x = x;
+    this.z = z;
+    const agora = performance.now();
+    if (this.convite && this.convite.ate < agora) this.convite = null;
+    if (this.destino && this.destino.ate < agora) this.destino = null;
     this.draw(seconds, x, z);
     let mine: AtTables["mine"] = null;
     const camera = this.renderer.camera;
@@ -316,7 +385,8 @@ export class Mesas {
         if (me !== null && sitter?.entidade === me) mine = { mesa, lugar, seat: this.seatOf(mesa, lugar) };
         const far = Math.hypot(seat.pos[0] - x, seat.pos[2] - z);
         // A seat is free when a kota has it: the kota gets up for a player.
-        if (far < nearest && (!sitter || (sitter.entidade === 0 && !sitter.guardado))) {
+        // A seat kept for someone is not offered, but at the table where one is kept for the player: the zone seats them in theirs.
+        if (far < nearest && (!sitter || (sitter.entidade === 0 && (!sitter.guardado || this.destino?.mesa === mesa)))) {
           nearest = far;
           near = { mesa, lugar, jogo: table.game };
         }
@@ -328,6 +398,15 @@ export class Mesas {
     const aspect = camera.aspect;
     if (mine && !camera.view?.enabled) camera.setViewOffset(aspect * 1.8, 1.8, aspect * 0.4, 0.76, aspect, 1);
     else if (!mine && camera.view?.enabled) camera.clearViewOffset();
+    // Sat down, the way to a kept seat is done with; until then a gold mark turns over the table.
+    if (mine) this.destino = null;
+    const destino = this.destino;
+    this.marca.visible = destino !== null;
+    if (destino) {
+      const table = this.tables[destino.mesa]!;
+      this.marca.position.set(table.pos[0], table.pos[1] + 1.9 + Math.sin(seconds * 2.4) * 0.12, table.pos[2]);
+      this.marca.rotation.y = seconds * 1.6;
+    }
     // A seat is offered only where the zone is there to give it: alone in the street, the tables are to look at.
     return { mine, near: mine || !this.session?.walking ? null : near };
   }
@@ -463,7 +542,8 @@ export class Mesas {
       // The kotas: whoever has a seat no player has, sitting, thinking, laughing when they win. Up close, whole.
       const close = far < WHOLE_WITHIN_M && shown.whole.every((one) => one !== null);
       for (const [lugar, seat] of table.seats.entries()) {
-        const isKota = !said || said.lugares[lugar]?.entidade === 0;
+        // A seat kept for someone invited is left empty for them: no kota sits in it.
+        const isKota = !said || (said.lugares[lugar]?.entidade === 0 && !said.lugares[lugar]?.guardado);
         const light = shown.kotas[lugar];
         const whole = shown.whole[lugar];
         if (light) light.root.visible = false;
@@ -509,6 +589,8 @@ export class Mesas {
   }
 
   close(): void {
+    this.marca.removeFromParent();
+    this.marca.geometry.dispose();
     for (const shown of this.shown) {
       shown.board.removeFromParent();
       shown.die?.removeFromParent();

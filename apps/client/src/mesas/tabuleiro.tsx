@@ -88,6 +88,7 @@ export function Tabuleiro({ mesas, mesa }: Props) {
   const refused = mesas.refused && mesas.refused.until > performance.now() ? mesas.refused.why : null;
   const nameAt = (lugar: number): string => {
     const entity = said?.lugares[lugar]?.entidade ?? 0;
+    if (entity === 0 && said?.lugares[lugar]?.guardado) return tr.t("mesa.guardado");
     return entity === 0 ? tr.t(`mesa.kota.${(mesa * 2 + lugar) % 4}` as "mesa.kota.0") : (mesas.nameOf(entity) ?? tr.t("mesa.alguem"));
   };
   const ask = (pedido: Parameters<Mesas["ask"]>[0]): void => mesas.ask(pedido);

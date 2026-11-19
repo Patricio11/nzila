@@ -95,6 +95,8 @@ export class Session {
   /** The tables the zone has spoken of, as it said them, until the code that draws tables has read them; and why the last thing asked of one was not done. */
   mesas: Uint8Array[] = [];
   mesaRefused: number | null = null;
+  /** Invitations to play, and answers to the player's own, until the code that draws tables has read them. */
+  convites: WorldEvent[] = [];
   private readonly offsets: number[] = [];
   /** How far the zone's clock is ahead of this phone's, in milliseconds; null before it has said anything. */
   get zoneClockAhead(): number | null {
@@ -310,6 +312,7 @@ export class Session {
     else if (event.kind === EVENT.RIDE_REFUSED) this.rideRefused = true;
     else if (event.kind === EVENT.GIVEN) this.given = true;
     else if (event.kind === EVENT.MESA_REFUSED) this.mesaRefused = event.args[0] ?? 0;
+    else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA) this.convites.push(event);
     else if (event.kind === EVENT.EMOTE) {
       const name = EMOTE_NAMES[event.args[0] ?? -1];
       if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);

@@ -88,6 +88,9 @@ describe("what a player asks of a table", () => {
       { mesa: 0, pedido: "comecar" as const },
       { mesa: 1, pedido: "jogar" as const, casas: [52, 36, 0] },
       { mesa: 1, pedido: "lancar" as const },
+      { mesa: 2, pedido: "convidar" as const, entidade: 41 },
+      { mesa: 2, pedido: "aceitar" as const, entidade: 7 },
+      { mesa: 2, pedido: "recusar" as const, entidade: 300 },
     ];
     for (const one of asked) expect(decodeClientMessage(encodeMesaPedido(one))).toEqual({ type: "mesa", ...one });
   });

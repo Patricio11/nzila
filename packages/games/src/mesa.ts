@@ -193,6 +193,26 @@ export function guardar(mesa: Mesa, jogador: string, lugar: number, para: string
   return { ...mesa, lugares, versao: mesa.versao + 1 };
 }
 
+/**
+ * Seats kept for players who have agreed to play together (an invitation accepted): one for each, free ones, for
+ * GUARDA_MS. Nobody else sits in them; the kotas play on until one of them sits, and the game waits for the other.
+ */
+export function reservar(mesa: Mesa, jogadores: readonly string[], agora: number): Mesa | Recusa {
+  if (jogadores.some((jogador) => lugarDe(mesa, jogador) >= 0)) return "sentado";
+  const livres = mesa.lugares.flatMap((one, n) => (one.jogador === null && (one.guardado === null || one.guardado.ate <= agora) ? [n] : []));
+  if (livres.length < jogadores.length) return "ocupado";
+  const lugares = mesa.lugares.map((one, n): Lugar => {
+    const para = jogadores[livres.indexOf(n)];
+    return para === undefined ? one : { ...one, guardado: { para, ate: agora + GUARDA_MS } };
+  });
+  return { ...mesa, lugares, versao: mesa.versao + 1 };
+}
+
+/** The seat kept for a player at a table, now, or -1. */
+export function lugarGuardado(mesa: Mesa, jogador: string, agora: number): number {
+  return mesa.lugares.findIndex((one) => one.jogador === null && one.guardado !== null && one.guardado.para === jogador && one.guardado.ate > agora);
+}
+
 /** A seated player whose turn it is makes a move. */
 export function jogar(mesa: Mesa, jogador: string, lance: Lance, agora: number): Mesa | Recusa {
   const lugar = lugarDe(mesa, jogador);

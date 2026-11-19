@@ -3,7 +3,7 @@
 import { DESCANSO_MS, ESPERA_MS, FALTAS, KOTAS_MS, VEZ_MS, newDamas, squareAt } from "@nzila/games";
 import { decodeMesa } from "@nzila/protocol";
 import { describe, expect, test } from "vitest";
-import { MESA_REACH_MM, Mesas, lanceOf, type TablePlace } from "./mesas.ts";
+import { CONVITES_HORA, CONVITE_MS, MESA_REACH_MM, Mesas, lanceOf, type TablePlace } from "./mesas.ts";
 
 /** A chess table at (10 m, 10 m), seats north and south; a table of Não te irrites at (20 m, 10 m), four round it. */
 const tables: TablePlace[] = [
@@ -141,5 +141,57 @@ describe("the tables of a channel", () => {
     const table = ended.mesa(0)!;
     Object.assign(ended, { mesas: [{ ...table, fase: "fim", desde: 0 }] });
     expect(decodeMesa(ended.said(0, entity, 4000)).restaMs).toBe(DESCANSO_MS - 4000);
+  });
+
+  test("an invitation: asked, answered yes, a seat kept for each; the invited sits in theirs from whichever stool", () => {
+    const mesas = new Mesas(tables, 0);
+    expect(mesas.convidar("ana", "beto", 0, 1000)).toBe(true);
+    expect(mesas.aceitar("beto", "ana", 0, 2000)).toBe(true);
+    const table = mesas.mesa(0)!;
+    expect(table.lugares.map((one) => one.guardado?.para)).toEqual(["ana", "beto"]);
+    // Beto walks up to Ana's stool: he is seated in his own.
+    expect(mesas.ask("beto", by(10_000, 8000), { mesa: 0, pedido: "sentar", lugar: 0 }, 3000)).toEqual({ sit: tables[0]!.seats[1] });
+    expect(mesas.seatOf("beto")).toEqual({ mesa: 0, lugar: 1 });
+    // Someone else cannot take Ana's.
+    expect(mesas.ask("carla", by(10_000, 8000), { mesa: 0, pedido: "sentar", lugar: 0 }, 3000)).toBe("ocupado");
+    expect(mesas.ask("ana", by(10_000, 8000), { mesa: 0, pedido: "sentar", lugar: 0 }, 3000)).toEqual({ sit: tables[0]!.seats[0] });
+    expect(mesas.mesa(0)!.fase).toBe("jogo");
+  });
+
+  test("an invitation answered no, one never sent, one too late, one to oneself or someone sitting: each said so", () => {
+    const mesas = new Mesas(tables, 0);
+    expect(mesas.convidar("ana", "ana", 0, 0)).toBe("lugar");
+    expect(mesas.convidar("ana", "beto", 9, 0)).toBe("lugar");
+    expect(mesas.aceitar("beto", "ana", 0, 0)).toBe("convite");
+    expect(mesas.recusar("beto", "ana")).toBe("convite");
+    expect(mesas.convidar("ana", "beto", 0, 0)).toBe(true);
+    expect(mesas.recusar("beto", "carla")).toBe("convite");
+    expect(mesas.recusar("beto", "ana")).toBe(true);
+    expect(mesas.aceitar("beto", "ana", 0, 10)).toBe("convite");
+    // Too late, or to another table than the one asked.
+    mesas.convidar("ana", "beto", 0, 100);
+    expect(mesas.aceitar("beto", "ana", 2, 200)).toBe("convite");
+    mesas.convidar("ana", "beto", 0, 300);
+    expect(mesas.aceitar("beto", "ana", 0, 300 + CONVITE_MS)).toBe("convite");
+    // Someone sitting is not invited, and does not invite.
+    mesas.ask("carla", by(10_000, 8000), { mesa: 0, pedido: "sentar", lugar: 0 }, 400);
+    expect(mesas.convidar("ana", "carla", 2, 500)).toBe("sentado");
+    expect(mesas.convidar("carla", "ana", 2, 500)).toBe("sentado");
+    // A table with no room for two.
+    expect(mesas.convidar("ana", "beto", 0, 500)).toBe("ocupado");
+    // The table filled between the asking and the yes.
+    const busy = new Mesas(tables, 0);
+    busy.convidar("ana", "beto", 0, 0);
+    busy.ask("dino", by(10_000, 8000), { mesa: 0, pedido: "sentar", lugar: 0 }, 1);
+    expect(busy.aceitar("beto", "ana", 0, 2)).toBe("ocupado");
+  });
+
+  test("six invitations an hour, and no more", () => {
+    const mesas = new Mesas(tables, 0);
+    for (let n = 0; n < CONVITES_HORA; n++) expect(mesas.convidar("ana", `p${n}`, 1, n * 1000)).toBe(true);
+    expect(mesas.convidar("ana", "zeca", 1, 10_000)).toBe("muitos");
+    expect(mesas.convidar("ana", "zeca", 1, 3_600_000 + 1)).toBe(true);
+    // An answer is not a move: asked of a table as one, it is refused.
+    expect(mesas.ask("ana", null, { mesa: 1, pedido: "aceitar", entidade: 3 }, 0)).toBe("convite");
   });
 });

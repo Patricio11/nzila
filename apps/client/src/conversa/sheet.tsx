@@ -10,6 +10,7 @@ import { Coisa } from "../cantina/coisas.tsx";
 import { giveThing, thingsNow, type GaveThing, type Held, payPlayer, type Paid, blockPlayer, playerCard, reportPlayer, type PlayerCard, type ReportReason } from "../world/money.ts";
 import { type Met } from "./conversa.tsx";
 import "./conversa.css";
+import "./sheet.css";
 
 // The words of this sheet came with it (F-195).
 tr.extend(ptAOLater);
@@ -20,7 +21,7 @@ const REASONS: readonly ReportReason[] = ["insults", "harassment", "sexual", "sc
  * Someone met in the street: their BI, and what can be done. Report, block and mute are here with "Falar", on the
  * one sheet, because a way to talk never comes without them (Rule 11).
  */
-export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClose, onGave = () => {} }: { met: Met; silenced: boolean; onSilence: (on: boolean) => void; onShutOut: (on: boolean) => void; onTalk: () => void; onClose: () => void; onGave?: () => void }) {
+export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClose, onGave = () => {}, jogos = [], onConvidar }: { met: Met; silenced: boolean; onSilence: (on: boolean) => void; onShutOut: (on: boolean) => void; onTalk: () => void; onClose: () => void; onGave?: () => void; jogos?: readonly string[]; onConvidar?: (jogo: string) => void }) {
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [shut, setShut] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -35,6 +36,9 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
   // Handing them a thing from the Mochila: what is carried, and what came of it.
   const [offering, setOffering] = useState<readonly Held[] | null>(null);
   const [handed, setHanded] = useState<{ said: GaveThing; item: string } | null>(null);
+  // Inviting them to play at a table (Task 4B.1): the choice of game, and the game asked.
+  const [inviting, setInviting] = useState(false);
+  const [invited, setInvited] = useState<string | null>(null);
   const offer = async (): Promise<void> => {
     setSaid(null);
     setGave(null);
@@ -112,7 +116,29 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
               {tr.t(`give.said.${handed.said}`, { name: met.name, item: handed.item ? tr.t(`item.${handed.item}` as "item.pao") : "" })}
             </p>
           ) : null}
-          {offering ? (
+          {invited ? (
+            <p class="cv-said" role="status">
+              {tr.t("convite.enviado", { name: met.name, jogo: tr.t(`mesa.jogo.${invited}` as "mesa.jogo.xadrez") })}
+            </p>
+          ) : null}
+          {inviting ? (
+            <div class="cv-report">
+              <h3>{tr.t("convite.titulo", { name: met.name })}</h3>
+              <div class="cv-games">
+                {jogos.map((jogo) => (
+                  <button key={jogo} type="button" class="cv-game" data-jogo={jogo} onClick={() => (onConvidar?.(jogo), setInvited(jogo), setInviting(false))}>
+                    <i class={`cv-game-mark cv-game-${jogo}`} aria-hidden="true" />
+                    <span>{tr.t(`mesa.jogo.${jogo}` as "mesa.jogo.xadrez")}</span>
+                  </button>
+                ))}
+              </div>
+              <div class="cv-keys">
+                <Button kind="quiet" onPress={() => setInviting(false)}>
+                  {tr.t("report.cancel")}
+                </Button>
+              </div>
+            </div>
+          ) : offering ? (
             <div class="cv-report">
               <h3>{tr.t("give.title", { name: met.name })}</h3>
               {offering.length === 0 ? (
@@ -171,6 +197,13 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
           ) : (
             <div class="cv-actions">
               <Button onPress={onTalk}>{tr.t("action.talk")}</Button>
+              {jogos.length > 0 && onConvidar ? (
+                <span class="cv-convite">
+                  <Button kind="quiet" onPress={() => (setSaid(null), setGave(null), setHanded(null), setInvited(null), setInviting(true))}>
+                    {tr.t("convite.abrir")}
+                  </Button>
+                </span>
+              ) : null}
               <Button kind="quiet" onPress={() => (setSaid(null), setGave(null), setHanded(null), setGiving(true))}>
                 {tr.t("pay.open")}
               </Button>

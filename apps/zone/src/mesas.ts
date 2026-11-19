@@ -5,7 +5,7 @@
 
 import { randomInt } from "node:crypto";
 import {
-  DESCANSO_MS, ESPERA_MS, VEZ_MS, comecar, damasMoves, jogar, lancar, levantar, ludoMoves, lugarDe, novaMesa, passo, recusou, sentar, vezDe, xadrezMoves,
+  DESCANSO_MS, ESPERA_MS, VEZ_MS, comecar, damasMoves, jogar, lancar, levantar, ludoMoves, lugarDe, lugarGuardado, novaMesa, passo, recusou, reservar, sentar, vezDe, xadrezMoves,
   type Jogo, type Lance, type Mesa, type Recusa,
 } from "@nzila/games";
 import { encodeMesa, type MesaPedido } from "@nzila/protocol";
@@ -16,6 +16,9 @@ export const MESA_REACH_MM = 2500;
 export const MESA_SEEN_MM = 45_000;
 /** How far behind the seat, away from the table, someone who gets up is put. */
 const GET_UP_MM = 650;
+/** How long an invitation waits for its answer, and how many a player may send in an hour. */
+export const CONVITE_MS = 60_000;
+export const CONVITES_HORA = 6;
 /** The pieces a pawn may become, as a phone names them (1 to 4). */
 const PROMOCOES = [undefined, "q", "r", "b", "n"] as const;
 
@@ -30,13 +33,16 @@ export interface TablePlace {
 /** What a request did to the player's body: sat them in a seat, stood them up beside one, or neither. */
 export type Feito = { readonly sit: Place } | { readonly stand: Place } | { readonly nada: true };
 
-/** Why a table would not: the rules' reasons, and "longe": too far from the seat. */
-export type MesaRecusa = Recusa | "longe";
+/** Why a table would not: the rules' reasons; too far from the seat; too many invitations; no such invitation. */
+export type MesaRecusa = Recusa | "longe" | "muitos" | "convite";
 
 export class Mesas {
   private readonly places: readonly TablePlace[];
   private readonly mesas: Mesa[];
   private readonly dado: () => number;
+  /** Invitations waiting for an answer, by who is invited; and when each player sent theirs, for the hour's count. */
+  private readonly convites = new Map<string, { de: string; mesa: number; ate: number }>();
+  private readonly enviados = new Map<string, number[]>();
 
   constructor(places: readonly TablePlace[], now: number, dado: () => number = () => randomInt(1, 7)) {
     this.places = places;
@@ -82,13 +88,17 @@ export class Mesas {
     const index = pedido.mesa;
     let done: Mesa | Recusa;
     if (pedido.pedido === "sentar") {
-      const seat = this.places[index]!.seats[pedido.lugar];
-      if (!seat) return "lugar";
-      if (!at || Math.hypot(seat.x - at.x, seat.z - at.z) > MESA_REACH_MM) return "longe";
+      // Within reach of the stool they came to; someone a seat is kept for sits in that one, whichever stool it was.
+      const asked = this.places[index]!.seats[pedido.lugar];
+      if (!asked) return "lugar";
+      if (!at || Math.hypot(asked.x - at.x, asked.z - at.z) > MESA_REACH_MM) return "longe";
+      const kept = lugarGuardado(mesa, playerId, now);
+      const lugar = kept >= 0 ? kept : pedido.lugar;
+      const seat = this.places[index]!.seats[lugar]!;
       // One table at a time.
       const elsewhere = this.seatOf(playerId);
       if (elsewhere && elsewhere.mesa !== index) return "sentado";
-      done = sentar(mesa, pedido.lugar, playerId, now);
+      done = sentar(mesa, lugar, playerId, now);
       if (recusou(done)) return done;
       this.mesas[index] = done;
       return { sit: seat };
@@ -102,6 +112,7 @@ export class Mesas {
     }
     if (pedido.pedido === "comecar") done = comecar(mesa, playerId, now);
     else if (pedido.pedido === "lancar") done = lancar(mesa, playerId, this.dado(), now);
+    else if (pedido.pedido !== "jogar") return "convite";
     else {
       const lance = lanceOf(mesa, pedido.casas);
       if (!lance) return lugarDe(mesa, playerId) < 0 ? "fora" : "regras";
@@ -110,6 +121,41 @@ export class Mesas {
     if (recusou(done)) return done;
     this.mesas[index] = done;
     return { nada: true };
+  }
+
+  /**
+   * `de` invites `para` to play at a table: one with a seat free for each. Kept a minute for the answer; six in an
+   * hour at the most. Neither is to be sitting already.
+   */
+  convidar(de: string, para: string, mesa: number, now: number): true | MesaRecusa {
+    const table = this.mesas[mesa];
+    if (!table || de === para) return "lugar";
+    if (this.seatOf(de) || this.seatOf(para)) return "sentado";
+    if (recusou(reservar(table, [de, para], now))) return "ocupado";
+    const sent = (this.enviados.get(de) ?? []).filter((at) => now - at < 3_600_000);
+    if (sent.length >= CONVITES_HORA) return "muitos";
+    this.enviados.set(de, [...sent, now]);
+    this.convites.set(para, { de, mesa, ate: now + CONVITE_MS });
+    return true;
+  }
+
+  /** `para` accepts the invitation of `de` to that table: a seat is kept for each, ten minutes. */
+  aceitar(para: string, de: string, mesa: number, now: number): true | MesaRecusa {
+    const convite = this.convites.get(para);
+    if (!convite || convite.de !== de || convite.mesa !== mesa || convite.ate <= now) return "convite";
+    this.convites.delete(para);
+    const kept = reservar(this.mesas[mesa]!, [de, para], now);
+    if (recusou(kept)) return kept;
+    this.mesas[mesa] = kept;
+    return true;
+  }
+
+  /** `para` says no to the invitation of `de`. */
+  recusar(para: string, de: string): true | MesaRecusa {
+    const convite = this.convites.get(para);
+    if (!convite || convite.de !== de) return "convite";
+    this.convites.delete(para);
+    return true;
   }
 
   /** A player leaves the street: their seat, if they had one, is a kota's. */

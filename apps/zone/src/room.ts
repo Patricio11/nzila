@@ -518,6 +518,7 @@ export class ChannelRoom {
   private atTable(line: Line, held: Held, pedido: MesaPedido): void {
     if (!this.mesas) return;
     const now = Date.now();
+    if (pedido.pedido === "convidar" || pedido.pedido === "aceitar" || pedido.pedido === "recusar") return this.invites(line, held, pedido, now);
     const at = this.channel.ridingOf(held.entityId) ? null : (this.channel.sittingOf(held.entityId) ?? this.channel.placeOf(held.entityId));
     const done = this.mesas.ask(held.playerId, at, pedido, now);
     if (typeof done === "string") {
@@ -527,6 +528,29 @@ export class ChannelRoom {
     if ("sit" in done) this.channel.sit(held.entityId, done.sit);
     if ("stand" in done) this.channel.standUp(held.entityId, done.stand);
     this.tellTables(now);
+  }
+
+  /**
+   * Invitations to play (Task 4B.1): to someone in the channel, never across a block. The one invited is asked; the
+   * one who invited is told the answer; a yes keeps a seat for each at the table and tells whoever is near it.
+   */
+  private invites(line: Line, held: Held, pedido: Extract<MesaPedido, { entidade: number }>, now: number): void {
+    const mesas = this.mesas!;
+    const other = this.lineOfEntity.get(pedido.entidade);
+    const otherHeld = other ? this.held.get(other) : undefined;
+    const tick = this.channel.world.tick;
+    const refuse = (why: (typeof MESA_RECUSAS)[number]): void => line.send(encodeEvent({ kind: EVENT.MESA_REFUSED, tick, subject: pedido.mesa, args: [MESA_RECUSAS.indexOf(why)], text: "" }));
+    if (!other || !otherHeld || this.apart(held.entityId, pedido.entidade)) return refuse("convite");
+    if (pedido.pedido === "convidar") {
+      const done = mesas.convidar(held.playerId, otherHeld.playerId, pedido.mesa, now);
+      if (done !== true) return refuse(done);
+      other.send(encodeEvent({ kind: EVENT.CONVITE, tick, subject: held.entityId, args: [pedido.mesa], text: "" }));
+      return;
+    }
+    const done = pedido.pedido === "aceitar" ? mesas.aceitar(held.playerId, otherHeld.playerId, pedido.mesa, now) : mesas.recusar(held.playerId, otherHeld.playerId);
+    if (done !== true) return refuse(done);
+    other.send(encodeEvent({ kind: EVENT.CONVITE_RESPOSTA, tick, subject: held.entityId, args: [pedido.mesa, pedido.pedido === "aceitar" ? 1 : 0], text: "" }));
+    if (pedido.pedido === "aceitar") this.tellTables(now);
   }
 
   /** Whoever is near a table is told how it stands, when it has changed since they were last told or they have just come near. */

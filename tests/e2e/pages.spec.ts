@@ -1333,16 +1333,16 @@ test.describe("two phones in the same street", () => {
       await page.keyboard.press("e");
       await page.waitForFunction(() => window.__andar!.action === "caixa", undefined, { timeout: 15_000 });
     }
-    // (The errand done before the bank was opened, if there was one: what it paid is in the Carteira too.)
-    const before = await page.evaluate(async () => {
+    // (The errand done before the bank was opened, if there was one: what it paid is in the Carteira too. Its payment
+    // may land a moment after the button comes back, so the books are read until the Banco and they agree.)
+    const wallet = (): Promise<number> => page.evaluate(async () => {
       const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
       return ((await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cash: number }).cash;
     });
-    had += before - had;
     await page.getByRole("button", { name: "Usar a caixa" }).click();
     const banco = page.getByRole("dialog", { name: "Telemóvel" });
     await expect(banco.locator(".tm-bank-risk")).toContainText("Na carteira");
-    await expect(banco.locator(".tm-bank-risk dd")).toContainText(dotted(had));
+    await expect.poll(async () => (await banco.locator(".tm-bank-risk dd").textContent())?.includes(dotted((had = await wallet()))), { timeout: 10_000 }).toBe(true);
     await expect(banco.locator(".tm-bank-lines")).toContainText("Da tua família");
     await page.screenshot({ path: info.outputPath("caixa-banco.png") });
     // Nothing can be banked that is not held; five hundred can.
@@ -1697,6 +1697,75 @@ test.describe("two phones in the same street", () => {
     await page.screenshot({ path: info.outputPath("conversa-gesto.png") });
 
     await other.close();
+    expect(seen.errors).toEqual([]);
+    expect(otherSeen.errors).toEqual([]);
+  });
+
+  test("Convidar para jogar (Task 4B.1): a tap on someone, a game; they are asked and say yes; both are told; the one invited walks to the table and is seated in the seat kept for them", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Invitations were not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    const myName = await comeIn(page, 81);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const otherSeen = watch(other);
+    const otherName = await comeIn(other, 82);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    await other.goto("/andar?tier=poupanca&hour=12");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1 && window.__andar!.names >= 1, undefined, { timeout: 20_000 });
+    expect(await tapSomeone(page, otherName), "a tap on the other player opened their card").toBe(true);
+    const sheet = page.getByRole("dialog", { name: otherName });
+    await sheet.getByRole("button", { name: "Convidar para jogar" }).click();
+    await sheet.getByRole("button", { name: "Xadrez" }).click();
+    await expect(sheet.getByRole("status")).toContainText("Convite enviado");
+    // The other is asked, plainly, and says yes.
+    const asked = other.getByRole("dialog", { name: `${myName} convida-te para uma partida de xadrez.` });
+    await expect(asked).toBeVisible({ timeout: 8000 });
+    await other.screenshot({ path: info.outputPath("convite.png") });
+    await asked.getByRole("button", { name: "Vamos" }).click();
+    await expect(asked).toHaveCount(0);
+    // Both are told: the one who asked that it is a yes, the one asked where their seat is kept.
+    await expect(page.locator(".ms-aviso")).toHaveText(`${otherName} aceitou. Os vossos lugares estão guardados.`, { timeout: 8000 });
+    await expect(other.locator(".ms-aviso")).toContainText("O teu lugar na mesa de xadrez está guardado");
+    await page.getByRole("dialog", { name: otherName }).getByRole("button", { name: "Fechar" }).click().catch(() => {});
+    await page.screenshot({ path: info.outputPath("aceitou.png") });
+    // The one invited walks to the table, to the stool of the one who invited them: they are seated in their own.
+    const manifest = (await (await request.get("/packs/dev/manifest.json")).json()) as { tables: { game: string; pos: [number, number, number]; seats: { pos: [number, number, number] }[] }[] };
+    const from = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    const table = manifest.tables.filter((one) => one.game === "xadrez").sort((a, b) => Math.hypot(a.pos[0] - from.x, a.pos[2] - from.z) - Math.hypot(b.pos[0] - from.x, b.pos[2] - from.z))[0]!;
+    const stool = table.seats[0]!.pos;
+    const away = Math.hypot(stool[0] - table.pos[0], stool[2] - table.pos[2]);
+    const stand = { x: stool[0] + ((stool[0] - table.pos[0]) / away) * 0.75, z: stool[2] + ((stool[2] - table.pos[2]) / away) * 0.75 };
+    const walkTo = async (x: number, z: number, within: number): Promise<void> => {
+      for (let n = 0; n < 300; n++) {
+        const at = await other.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+        const dx = x - at.x;
+        const dz = z - at.z;
+        if (Math.hypot(dx, dz) < within) return;
+        const keys = [...(dx > 0.2 ? ["d"] : dx < -0.2 ? ["a"] : []), ...(dz > 0.2 ? ["s"] : dz < -0.2 ? ["w"] : [])];
+        for (const key of keys) await other.keyboard.down(key);
+        await other.waitForTimeout(Math.min(350, 50 + Math.hypot(dx, dz) * 110));
+        for (const key of keys) await other.keyboard.up(key);
+      }
+    };
+    const start = await other.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    await walkTo(stand.x, start.z, 0.4);
+    await walkTo(stand.x, stand.z, 0.3);
+    await other.waitForFunction(() => window.__andar!.action === "xadrez", undefined, { timeout: 15_000 });
+    await other.getByRole("button", { name: "Jogar xadrez" }).click();
+    await other.waitForFunction(() => window.__andar!.mesa !== null && window.__andar!.seated, undefined, { timeout: 10_000 });
+    const board = other.getByRole("dialog", { name: "Xadrez" });
+    // Seated across from the stool they came to, waiting for the one whose seat is kept: no kota sits in it.
+    await expect(board.locator(".ms-seat-me")).toHaveCount(1);
+    await expect(board.locator(".ms-seat").nth(1)).toHaveClass(/ms-seat-me/);
+    await expect(board.locator(".ms-seat").nth(0)).toContainText("Lugar guardado");
+    await expect(board).toContainText("À espera de mais alguém");
+    await other.screenshot({ path: info.outputPath("lugar-guardado.png") });
     expect(seen.errors).toEqual([]);
     expect(otherSeen.errors).toEqual([]);
   });

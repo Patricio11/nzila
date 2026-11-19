@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { squareAt, xadrezMoves, type Xadrez } from "./xadrez.ts";
 import {
   DESCANSO_MS, ESPERA_MS, FALTAS, GUARDA_MS, KOTAS_MS, KOTA_MS, LUGARES, VEZ_MS,
-  comecar, guardar, jogar, lancar, levantar, lugarDe, novaMesa, passo, recusou, sentar, vezDe, type Mesa, type Recusa,
+  comecar, guardar, jogar, lancar, levantar, lugarDe, lugarGuardado, reservar, novaMesa, passo, recusou, sentar, vezDe, type Mesa, type Recusa,
 } from "./mesa.ts";
 
 /** What was done, when it had to be done: a test that meant it to be refused says so. */
@@ -254,5 +254,33 @@ describe("a table in the street", () => {
     expect(passo(mesa, clock + DESCANSO_MS, dado).primeiro).toBe(1);
     // In the new game, the second seat throws first.
     expect(vezDe(passo(mesa, clock + DESCANSO_MS, dado))).toBe(1);
+  });
+
+  test("two who agreed to play: a seat kept for each; nobody else sits in them; the first to sit waits for the other", () => {
+    const kotas = novaMesa("xadrez", 0);
+    const kept = feito(reservar(kotas, ["ana", "beto"], 0));
+    expect([lugarGuardado(kept, "ana", 1), lugarGuardado(kept, "beto", 1), lugarGuardado(kept, "carla", 1)]).toEqual([0, 1, -1]);
+    // The kotas play on meanwhile.
+    expect(passo(kept, KOTAS_MS, seis).ultimo).not.toBeNull();
+    expect(sentar(kept, 0, "carla", 5)).toBe("ocupado");
+    const one = feito(sentar(kept, 0, "ana", 5));
+    expect(one.fase).toBe("espera");
+    // The wait holds for Beto, whose seat is kept.
+    expect(passo(one, ESPERA_MS + 10, seis)).toBe(one);
+    expect(feito(sentar(one, 1, "beto", 20)).fase).toBe("jogo");
+    // Run out, the keeping is forgotten.
+    expect(lugarGuardado(kept, "ana", GUARDA_MS)).toBe(-1);
+  });
+
+  test("seats are kept only where there are enough free ones, and not for someone already sitting", () => {
+    const sat = feito(sentar(novaMesa("xadrez", 0), 0, "ana", 0));
+    expect(reservar(sat, ["beto", "carla"], 0)).toBe("ocupado");
+    expect(reservar(sat, ["ana", "beto"], 0)).toBe("sentado");
+    // One free seat, kept for one.
+    expect(lugarGuardado(feito(reservar(sat, ["beto"], 0)), "beto", 1)).toBe(1);
+    // A keeping run out frees the seat for another.
+    const old = feito(reservar(novaMesa("ludo", 0), ["ana", "beto", "carla", "dino"], 0));
+    expect(reservar(old, ["eva"], 1)).toBe("ocupado");
+    expect(lugarGuardado(feito(reservar(old, ["eva"], GUARDA_MS)), "eva", GUARDA_MS + 1)).toBe(0);
   });
 });

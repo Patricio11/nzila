@@ -102,9 +102,9 @@ const PAGES = [
   ["mesas-largo", "/andar?pack=l1&em=203,165.5&cam=180&hour=10.5&transito=30"],
   ["mesas-largo-tarde", "/andar?pack=l1&em=199,166&cam=205&hour=16.8&transito=30"],
   ["mesas-largo-noite", "/andar?pack=l1&em=203,165.5&cam=180&hour=20.5&transito=30"],
-  ["mesas-xadrez-perto", "/andar?pack=l1&em=201.5,171.2&cam=165&hour=12&transito=30"],
-  ["mesas-damas-perto", "/andar?pack=l1&em=210.5,171.3&cam=195&hour=12&transito=30"],
-  ["mesas-ludo-perto", "/andar?pack=l1&em=196,171.1&cam=170&hour=12&transito=30"],
+  ["mesas-xadrez-perto", "/andar?pack=l1&em=199.9,172.4&cam=180&hour=12&transito=30"],
+  ["mesas-damas-perto", "/andar?pack=l1&em=208.9,172.4&cam=180&hour=12&transito=30"],
+  ["mesas-ludo-perto", "/andar?pack=l1&em=194.3,172.4&cam=180&hour=12&transito=30"],
   ["hud", "/andar?hour=16.8&cam=200"],
   ...["acenar", "rir", "aplaudir", "chamar", "dancar"].map((g, i) => [`hud-${g}`, `/andar?hour=16.8&cam=${i % 2 ? 150 : 30}&quem=${i + 1}&gesto=${g}`]),
   ["ela-joelhos-lado", "/andar?hour=15&cam=90&quem=6&gesto=dancar&t=6.0&pausa"],
@@ -328,12 +328,18 @@ try {
   await waitForServer();
   browser = await chromium.launch();
   const only = process.argv[3];
+  let opened = 0;
   for (const [pageName, path] of PAGES) {
     // `pnpm shots <label> corpo` takes only the pages whose name begins that way.
     if (only && !pageName.startsWith(only)) continue;
     for (const [sizeName, width, height] of SIZES) {
       // A face fills either screen the same way: once is enough.
       if (pageName.endsWith("-rosto") && sizeName === "phone") continue;
+      // A fresh browser every forty pages: one browser drawing the world a hundred and fifty times ran out and crashed (F-212).
+      if (++opened % 40 === 0) {
+        await browser.close();
+        browser = await chromium.launch();
+      }
       const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2 });
       page.setDefaultTimeout(60_000);
       const errors = [];

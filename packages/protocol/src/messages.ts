@@ -215,10 +215,18 @@ export const EVENT = {
   MET: 5,
   /** What the player asked of a table was not done. subject: the table; args[0]: why (its place in MESA_RECUSAS). */
   MESA_REFUSED: 8,
+  /** Someone invites this player to play at a table. subject: who; args[0]: the table. */
+  CONVITE: 9,
+  /** The answer to this player's invitation. subject: who was invited; args: the table, and 1 for yes or 0 for no. */
+  CONVITE_RESPOSTA: 10,
 } as const;
 
-/** Why a table did not do what was asked: a seat that is not there, taken, already sitting, not sitting, not now, not their turn, not by the rules, too far. Never reordered. */
-export const MESA_RECUSAS = ["lugar", "ocupado", "sentado", "fora", "fase", "vez", "regras", "longe"] as const;
+/**
+ * Why a table did not do what was asked: a seat that is not there, taken, already sitting, not sitting, not now, not
+ * their turn, not by the rules, too far; too many invitations in the hour; an invitation that is not there (any more).
+ * Never reordered.
+ */
+export const MESA_RECUSAS = ["lugar", "ocupado", "sentado", "fora", "fase", "vez", "regras", "longe", "muitos", "convite"] as const;
 
 /** Why a line was not said. Numbers are never reused. */
 export const CHAT_REFUSAL = {
@@ -405,7 +413,7 @@ export function encodeNudge(m: Nudge): Uint8Array {
 // ---------------------------------------------------------------- Mesa
 
 /** What a player asks of a table. Numbers are never reused. */
-const PEDIDOS = ["", "sentar", "levantar", "comecar", "jogar", "lancar"] as const;
+const PEDIDOS = ["", "sentar", "levantar", "comecar", "jogar", "lancar", "convidar", "aceitar", "recusar"] as const;
 /** The most squares a move names: a run of captures at damas. */
 const CASAS_MAX = 16;
 
@@ -420,11 +428,14 @@ export type MesaPedido =
   | { readonly mesa: number; readonly pedido: "levantar" }
   | { readonly mesa: number; readonly pedido: "comecar" }
   | { readonly mesa: number; readonly pedido: "lancar" }
-  | { readonly mesa: number; readonly pedido: "jogar"; readonly casas: readonly number[] };
+  | { readonly mesa: number; readonly pedido: "jogar"; readonly casas: readonly number[] }
+  /** Invite someone (by their number in the channel) to play at this table; accept or decline their invitation to it. */
+  | { readonly mesa: number; readonly pedido: "convidar" | "aceitar" | "recusar"; readonly entidade: number };
 
 export function encodeMesaPedido(m: MesaPedido): Uint8Array {
   const w = new Writer().u8(MSG.MESA_PEDIDO).uint(m.mesa).u8(PEDIDOS.indexOf(m.pedido));
   if (m.pedido === "sentar") w.u8(m.lugar);
+  if (m.pedido === "convidar" || m.pedido === "aceitar" || m.pedido === "recusar") w.uint(m.entidade);
   if (m.pedido === "jogar") {
     if (m.casas.length > CASAS_MAX) throw new RangeError("a move names at most 16 squares");
     w.u8(m.casas.length);
@@ -439,6 +450,7 @@ function readMesaPedido(r: Reader): MesaPedido {
   const pedido = PEDIDOS[code];
   if (!pedido) throw new ProtocolError("malformed", "table request");
   if (pedido === "sentar") return { mesa, pedido, lugar: r.bounded(3, "seat") };
+  if (pedido === "convidar" || pedido === "aceitar" || pedido === "recusar") return { mesa, pedido, entidade: r.uint() };
   if (pedido !== "jogar") return { mesa, pedido };
   const count = r.bounded(CASAS_MAX, "squares");
   const casas: number[] = [];

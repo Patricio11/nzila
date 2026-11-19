@@ -1055,7 +1055,7 @@ export function Andar() {
           )}
           {shop ? <LazyLoja show={(loja) => <loja.Cantina shop={shop} second={hud.second} place={hud.place} onClose={() => (setShop(null), void errandsRef.current?.mochila())} />} /> : null}
           {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila onClose={() => setBag(false)} />} /> : null}
-          {table !== null && tablesRef.current ? <tablesRef.current.Tabuleiro mesas={tablesRef.current} mesa={table} /> : null}
+          {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} /> : null}
           {met ? (
             <LazySheet
               met={met}
@@ -1063,6 +1063,8 @@ export function Andar() {
               onSilence={(on) => (net.current?.silence(met.entity, on), setMet({ ...met }))}
               onShutOut={(on) => net.current?.talk.silence(met.entity, on)}
               onGave={() => net.current?.nudge(met.bi)}
+              jogos={tablesRef.current?.jogos() ?? []}
+              onConvidar={(jogo) => tablesRef.current?.convidar(jogo, met.entity)}
               onTalk={() => (setMet(null), setComposing(true))}
               onClose={() => setMet(null)}
             />
