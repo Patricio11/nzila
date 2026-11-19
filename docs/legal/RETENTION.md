@@ -17,15 +17,24 @@ One row per table (Task 0.10). **The periods are proposals written by the develo
 | `audit_log` | Who did what to whom, and why | Staff ids; player ids as subjects | 5 years | Append-only: it cannot be edited or emptied. Rows past the period are removed by a migration reviewed for the purpose, never by a job with standing permission to delete |
 | `feature_flags` | Switches | None | As long as the game runs | Edited through the Estúdio, each change audited |
 | `ledger_accounts`, `ledger_transfers`, `balances` | Every movement of Makuta | Account ids contain a player id | As long as the game runs | Never deleted: the books must always add up to zero. When an account is deleted the player row is anonymised, which makes these rows anonymous too |
+| `login_codes` | A keyed hash of each one-time code sent to prove an address, with when it expires | Pseudonymous | Minutes in use; **the rows are not yet swept** (F-229) | To be deleted a day after they expire |
+| `staff_sessions` | A hash of each staff session token | Pseudonymous (staff) | Twelve hours in use; **the rows are not yet swept** (F-229) | To be deleted thirty days after they end |
+| `chat_lines` | Every line said in the street, passed on or refused, with how many heard it | Yes: what a player wrote | 30 days | Deleted by the zone's daily sweep. A line copied into a report lives with the report. After an account is deleted, its lines stay their 30 days under a player who is nobody |
+| `player_blocks` | Who shut out whom | Player ids | While both accounts live | Deleted with either account. Blocking also ends a kamba between the two |
+| `reports` | A player's report, the reported player's last lines (and what they wrote the reporter in Mensagens) copied as they were | Yes | Until closed, then 90 days | Deleted by the zone's daily sweep after the 90 days |
+| `sanctions` | Mutes, suspensions, bans and kicks, each with its reason | Player ids, staff ids | While the account exists; a lifted one stays, marked lifted | The player reads them in "Os meus dados" |
+| `items` | Each thing a player holds, where it is | Player ids | While it exists in the game | Eaten, given or sold, it goes; an account's things stay under a player who is nobody |
+| `receipts` | Every purchase's receipt, line by line | Player ids | As long as the game runs, as the ledger | Never deleted: each matches a ledger transfer |
+| `recados_feitos`, `cartoes_cheios` | Which of the day's errands a player did, and the cantina's stamp cards | Player ids | As long as the game runs | Never deleted: each payment matches a ledger transfer |
+| `partidas`, `partida_lugares` | Every game finished at a table with a player at it: where, which game, each seat's player or kota, the result and the points before and after | Player ids | As long as the game runs | A deleted account's games stay, as games, under a player who is nobody |
+| `classificacao` | Each player's points, games, wins, draws and losses at each game in each bairro | Player ids | While the account lives | Deleted with the account; in "Os meus dados" |
+| `kamba_pedidos`, `kambas` | Who asked whom to be a kamba; who are kambas, since when, and whether a conversation is muted | Player ids | While both accounts live | Ended by either (Deixar de ser kamba, Bloquear) and deleted with either account; in "Os meus dados" |
+| `mensagens` | What kambas wrote to each other, and when it was read | Yes: what a player wrote | 30 days, as what is said in the street | Deleted by the zone's daily sweep. What the reported player wrote the reporter is copied into the report. In "Os meus dados", what the player wrote and to whom by BI number |
 | `schema_migrations` | Which migrations ran | None | As long as the game runs | Never deleted |
 
 ## Not in the database yet
 
 | What | Planned rule | Task |
 |---|---|---|
-| Sanctions (mute, suspend, ban, kick) | Kept while the account exists: a moderator judging a second report must see the first. Each has its reason; a lifted one stays, marked lifted. The player reads them in "Os meus dados" (what, when, why; not which moderator). **Built 2026-11-17.** What happens to them when an account is deleted is not decided (they stay under a player who is by then nobody) | 3.8 |
-| Staff sessions | Twelve hours, then dead; the rows are not yet swept | 3.8 |
-| Chat messages | Kept for moderation for 30 days, then deleted; a message attached to a report is kept until the report is closed, then 90 days. **Built 2026-11-17:** every line sent to the street, said or refused, is in `chat_lines`; the last twenty lines of a reported player are copied into the report as it is made; the zone deletes lines after 30 days and closed reports after 90, as it starts and every hour (`expireTalk`). A deleted account's lines stay their thirty days under a player who is by then nobody. | 3.6 |
-| Reports and moderation decisions | 2 years after the decision | 3.6, 3.8 |
 | Analytics events | No player id; sampled; 13 months | 4B.4 |
 | Real-money purchases | As tax and consumer law require; in their own store, never in the ledger | 14B |

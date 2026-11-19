@@ -58,10 +58,10 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 
 # CURRENT STATE (read this before doing anything)
 
-## AT A GLANCE (2026-11-17)
-**Phase 0 is complete. Phase 1 is built and not yet proven on a phone. Phase 2 (identity) is complete. Phase 3 (multiplayer) is built and not yet proven on real phones. Phase 4 (economy) is open: read `docs/PHASE_4_PLAN.md`; start with Task 4.1.** The repository lives at `c:\dev\nzila` (kept out of OneDrive on purpose; never move it back).
+## AT A GLANCE (2026-11-19)
+**Phase 0 is complete. Phase 1 is built and not yet proven on a phone. Phase 2 (identity) is complete. Phase 3 (multiplayer) is built and not yet proven on real phones. Phase 4 (economy) is half built: read `docs/PHASE_4_PLAN.md`; what is left is Tasks 4.4 to 4.7. Tasks 4B.1 (the tables) and 4B.2 (kambas) were built ahead of it at the founder's word (D-4.14); next in the roadmap's order is 4B.3, or Phase 4's remaining tasks, as the founder chooses.** The repository lives at `c:\dev\nzila` (kept out of OneDrive on purpose; never move it back).
 
-**What can be played:** `pnpm dev:client`, then http://localhost:5173. The front door states the megabytes and goes into `/andar?pack=l1`: one person in **Marginal e Baixa**, walking, running and jumping by the shared simulation, sitting, making gestures, boarding a candongueiro and riding it from a seat inside; a street with people on timetables (zungueiras, sellers, the man who fishes and the officer who runs him off), cars, a kupapata and moto-táxis; street name plates; the Telemóvel with a Mapa and Definições; installable, and kept on the phone by a service worker. Everything is made by us as Blender scripts in `art/scripts/` (D-0.40): no kits.
+**What can be played:** `pnpm dev`, then http://localhost:5173. Everyone registers at the door (D-4.12), makes their person and is dealt a family, then walks **Marginal e Baixa** with everyone else in the bairro: walking, running and jumping by the shared simulation, gestures, greetings that make two strangers known, talk in the street, riding a candongueiro together; the Carteira and the Banco at a caixa, "Dar Makuta" and "Dar uma coisa" to someone beside you, the cantina's grille, the Mochila; os recados do dia in Mensagens; **the tables** (xadrez, damas as in Luanda, Não te irrites) with the bairro's kotas, watched and cheered, an invitation to play, a quick game of three minutes, and every game ranked per game and per bairro; **kambas**, asked from the card, written to in Mensagens and gone to ("Ir ter com"). Everything is made by us as Blender scripts in `art/scripts/` (D-0.40): no kits.
 
 **What Phase 1 still owes** (`docs/completed/PHASE_1_COMPLETE.md`, and each line in `ROADMAP.md` and `docs/FINDINGS.md`): the founder's two checks, the reference phones and the look test with five Luandans, before anything is public; the rest of the district's second art pass and shops that can be entered; a baked, instanced far crowd and more than one face; real sound (the cobrador's call, recorded beds, licensed music); traffic that brakes, a fare, talking inside the van. The look chooser, the light body, first sounds, recovery from a lost context and the viaduct exist.
 
@@ -74,15 +74,15 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 - **Phase 1** (Primeiro Passeio: walk the Marginal on a real phone, local simulation): **built 2026-11-15; its founder's checks (1.9) and some lines open, carried.**
 - **Phase 2** (identity: guest play, saved accounts, the BI, persistence): **complete 2026-11-16** (`docs/completed/PHASE_2_COMPLETE.md`). A BI is saved with an email address and a password; mail is printed on the API's console until the founder gives a Resend key; phone codes and Google are left by his word (D-2.11).
 - **Phase 3** (multiplayer core: zones, channels, netcode, chat, safety v1, bot swarm): **built 2026-11-17; not yet proven on real phones** (`docs/completed/PHASE_3_COMPLETE.md`). The zone (`apps/zone`, a plain WebSocket server on our own protocol) decides where everyone is; the matchmaker puts everyone in a bairro in the same street (a second copy only past 60; nobody chooses or is invited, D-3.12); talk is open, with block, mute and report on the same sheet; a greeting answered by a greeting makes two strangers known to each other; the Estúdio (`apps/studio`, port 5180, staff made with `pnpm staff:add`) reads reports and acts. `pnpm dev` runs game, API, zone and Estúdio; `pnpm verify:phase3` shows the second channel at 60, 80 in a channel and a killed zone (everyone back in about 10 s). **Owed:** three real phones in a channel; the zone's step time read on a server (F-182). Traffic and the street's people are still each phone's own (F-152).
-- **Phase 4** (economy core: ledger, wallet and bank, items, shops, biscatos): **open since 2026-11-17: read `docs/PHASE_4_PLAN.md`; start with Task 4.1.**
-- **Phase 4B** (alfa aberta: real players on the Marginal, Não te irrites, share cards, the first retention numbers): not started.
+- **Phase 4** (economy core: ledger, wallet and bank, items, shops, biscatos): **open since 2026-11-17, half built** (`docs/PHASE_4_PLAN.md`). Built: everyone registers (4.0), the ledger, the Carteira and the Banco, giving in person (4.1), things and the Mochila (4.2), the cantina's grille (4.3), os recados do dia (4.6b). Left: needs (4.4), biscatos (4.5), tunables and the economy dashboard (4.6), the phase's checks (4.7).
+- **Phase 4B** (alfa aberta: real players on the Marginal, the tables, share cards, the first retention numbers): **begun ahead of its order on 2026-11-19 (D-4.14).** Built: the tables (4B.1: three games, the kotas, watching, invitations, the quick game, the ranking; stakes still to do) and kambas (4B.2). The alpha itself waits for Phase 4 and the second bairro (D-4.8).
 - **Phase 5** (casa: rent, furnish, visits, locks): not started.
 - **Phase 6** (getting around: candongueiro, kupapata, vehicles, driving, the carta): not started.
 - **Phase 7** (crime and justice): not started.
 - **Phase 8** (negócios: player-owned restaurants and shops): not started.
 - **Phase 8B** (terra e banco: hortas, lavras, animals, savings and credit): not started.
 - **Phase 9** (escola and careers): not started.
-- **Phase 10** (social and leisure: kambas, football, discoteca, kixikila, events): not started.
+- **Phase 10** (social and leisure: football, discoteca, kixikila, events): not started; its kambas (10.1) were built in 4B.2, and its damas in 4B.1.
 - **Phase 11** (second district: prove the pack pipeline with the Ilha de Luanda): not started.
 - **Phase 12** (Estúdio and live ops): not started.
 - **Phase 13** (hardening: tests, security, privacy, performance, load): not started.
@@ -180,6 +180,9 @@ When I give you a Phase: take task detail from `ROADMAP.md`, screen and art deta
 11. ~~A video of a real kuduro dancer.~~ Two films supplied 2026-11-15 (found online, not filmed by the founder), kept outside git in `screenshots/Videos/` and used only to look at: the first Dançar was keyed from them. A film of his own, with the dancer's permission, is still the better reference.
 20. **The music in those films cannot go in the game as it is (D-0.18).** The founder asked on 2026-11-15 that the kuduro in the videos and a third file (a full track from a known artist's album, as uploaded by a channel) be the radio in the candongueiros. They are commercial recordings: playing them needs a written licence from whoever owns each one, and a game that streams them without one can be taken down and sued, in Angola and in South Africa. What is needed from the founder: the name of each track and artist, and a first conversation with the artist or label (item 13). Until then the radio is built to play whatever is licensed, and plays nothing that is not.
 12. A first conversation with a mobile operator about zero-rated data, once the alpha has numbers (D-0.35).
+21. **Kambas across the 18 line (D-4.17, F-225).** Built so that a player of 15 to 17 and an adult cannot become kambas (no private messages between a minor and an adult stranger). Keep it, or allow kambas with no private messages across the line?
+22. **Where the Largo 1º de Maio belongs (`docs/reference/BAIRROS.md` §12 and §13, F-223).** Rangel's edge, Ingombota, Maculusso, or a corner shared by the bairros that meet there? And which roundabout of Vila Alice is photo 88?
+23. **The display typeface cut to one weight (F-226).** Fraunces is one file from weight 600 to 700 (34 KB of the 300 KB the way in may weigh, and the way in is full). A single 700 would be about half. A look decision: the founder sees both before it is done.
 
 ---
 
@@ -278,7 +281,7 @@ Chosen for this project's shape. Versions are not pinned here: use the current s
 | Cliente do banco | the bank branch, Banco app | open savings, take and repay credit, insure |
 | Dono de negócio | Negócio app, the lot | lease a lot, get the alvará, set a menu and prices, buy supplies, hire players, serve NPC and player customers, read the books, pay tax |
 | Funcionário | the workplace | accept a job offer from a player, work shifts, be paid from the business till |
-| Kamba | Mensagens, Contactos | add friends, chat, find and join them, form a turma, run a kixikila |
+| Kamba | The BI card ("Adicionar"), Mensagens (the Kambas tab) | add friends, chat, find and join them ("Ir ter com"), invite them to a table; later form a turma, run a kixikila |
 | Organizador | campo, discoteca, events | book a pitch, pick teams, play a match; run a night as DJ; host an event |
 | Turista | Mapa, Passaporte das Maravilhas | travel between districts and provinces, visit wonders, take photos, collect stamps |
 | Infractor | the street, the esquadra, the cadeia | attempt an offence, flee, be caught, pay the fine or serve the time, carry a record that fades |

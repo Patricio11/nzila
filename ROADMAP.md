@@ -325,7 +325,7 @@ flowchart LR
 
 ### Task 3.2: Matchmaker and channels
 - [x] `POST /play/join`: picks a channel of the district (fill to 60 before opening another, cap 80, tunable), reserves a seat, returns the address. **(2026-11-17, D-3.13: the number is shown only when the bairro has more than one copy at that moment; the matchmaker says how many.)** Channels are named in the world's voice (Canal 1, Canal 2) and visible in the Mapa app. *(2026-11-17: `POST /v1/play/join`. People are put in the fullest channel that is not yet comfortably full (`channels.fillTo`, 60), then a new one is opened; a channel never holds more than `channels.cap` (80), which the zone enforces. The seat is a ticket taken once: the phone shows the zone that and never its session. The Mapa wears the channel's name beside the district's.)*
-- [ ] ~~Join a specific channel by invite link.~~ **(Founder, 2026-11-17, D-3.12: there is no invite. Everyone in a bairro is in the same street; a channel is only the second copy that opens when a bairro is too full for one, and nobody chooses it.)** Friends-first placement arrives with 10.1. *(2026-11-17: the matchmaker takes an invitation to a channel and lets it past "comfortably full", and `&canal=3` in the address asks for one. Not ticked: nothing in the game makes or shares such a link yet (F-166).)*
+- [ ] ~~Join a specific channel by invite link.~~ **(Founder, 2026-11-17, D-3.12: there is no invite. Everyone in a bairro is in the same street; a channel is only the second copy that opens when a bairro is too full for one, and nobody chooses it.)** Friends-first placement arrives with 10.1. *(2026-11-17: the matchmaker takes an invitation to a channel and lets it past "comfortably full", and `&canal=3` in the address asks for one. Not ticked: nothing in the game makes or shares such a link yet (F-166).)* *(2026-11-19: friends-first placement built with the kambas (4B.2): a player who asks for no copy of the bairro is put in the one where most of their kambas are, while it has room; "Ir ter com" goes to a kamba's copy.)*
 - [x] Zone processes register in Redis; a dead process's players are rerouted. *(2026-11-17: `packages/presence`: a zone says every three seconds where it is reached and who is in each channel, and is forgotten ten seconds after it stops; the matchmaker sends nobody to a zone it has not heard from, and a phone whose line drops asks the matchmaker again. Tested with zones as cards; two real processes for one district are 3.9's (F-166).)*
 - Depends on: 3.1 · Unblocks: 3.4, 10.1, 11.2.
 
@@ -443,7 +443,7 @@ The phases below keep their numbers and their tasks. **The order they are built 
 
 **Nobody ages and nobody dies (D-4.9).** A player's body is theirs for as long as they play. Only those under 18 grow: the children of a household (10.17), and, by the calendar, a player of 15 to 17 who becomes 18.
 
-## PHASE 4B: ALFA ABERTA (real players on the Marginal)
+## PHASE 4B: ALFA ABERTA (real players on the Marginal) *(4B.1 and 4B.2 built ahead of Phase 4's end at the founder's word, 2026-11-19, D-4.14)*
 *Goal: anyone with the link can walk the Marginal, talk, ride, earn, spend and sit down to a game of Não te irrites, and we learn from numbers what they come back for. Decided by the founder on 2026-11-14 (D-0.28). Kept deliberately small: it opens what Phases 1 to 4 built and adds only what makes people stay and tell someone.*
 
 **Dependency gate:** Phase 4 complete. Short terms and privacy pages are live. The founder and at least one more person can moderate in Portuguese every evening of the alpha.
@@ -770,7 +770,7 @@ The phases below keep their numbers and their tasks. **The order they are built 
 **Dependency gate:** Phases 3 and 4 complete.
 
 ### Task 10.1: Kambas (required for beta)
-- [ ] Friend requests from the BI card; who is online and where; "Ir ter com" places you in a friend's channel; private messages in the Mensagens app with the same safety tools.
+- [x] Friend requests from the BI card; who is online and where; "Ir ter com" places you in a friend's channel; private messages in the Mensagens app with the same safety tools. *(2026-11-19: built in Task 4B.2, brought forward; see there.)*
 - Depends on: 2.3, 3.2, 3.5 · Unblocks: 10.2, 14.1.
 
 ### Task 10.2: Turmas
@@ -815,7 +815,7 @@ The phases below keep their numbers and their tasks. **The order they are built 
 - Depends on: 4.5, 10.1 · Unblocks: 10.11, 10.12, 10.14.
 
 ### Task 10.11: Damas and sueca
-- [ ] On the table framework of 4B.1. Damas by the rules played in Angola (the founder confirms which). Sueca for four in two pairs, with a kamba as partner or a stranger at the table; signals between partners are part of the culture and are left to the players.
+- [ ] On the table framework of 4B.1. Damas by the rules played in Angola (the founder confirms which). *(2026-11-19: damas built in 4B.1, as the founder chose: the Portuguese rules with men capturing backward, as in Luanda (D-4.13). Sueca is still to do.)* Sueca for four in two pairs, with a kamba as partner or a stranger at the table; signals between partners are part of the culture and are left to the players.
 - [ ] A ranking per table and per bairro; a turma can hold a table as its own. *(2026-11-19: per game and per bairro is built in 4B.1, and damas is on it; per table and the turma's table are still to do.)*
 - Depends on: 4B.1, 10.10 · Unblocks: 10.6.
 

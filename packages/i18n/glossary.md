@@ -48,6 +48,12 @@ Every word a player reads is Portuguese of Angola (Rule 10) and is written again
 | BI | the player's identity card in the game | |
 | Modo Poupança | the low-data mode | |
 | multa, esquadra, cadeia, fiança, ficha | the fine, the police station, jail, bail, a record | |
+| kota | an elder, said with respect; the bairro's players at the tables (Kota Zeca, Kota Domingos) | a woman is "Mamã" (Mamã Joana) |
+| kamba | a friend; in the game, someone who said yes to being one | "Adicionar", "Ir ter com" |
+| mesa, partida, partida rápida | a table in the street, a game at it, a game of three minutes | "Bora jogar damas" |
+| damas, xadrez, Não te irrites | the three games of the tables | a game's name is written small inside a sentence ("chama-te para damas") |
+| classificação, pontos | the bairro's ranking at a game, a player's points in it | "O teu lugar: 1.º, com 1.004 pontos." |
+| terreno | a plot of land to buy and build on | "Comprar terreno" (D-0.55) |
 
 ## Never write
 

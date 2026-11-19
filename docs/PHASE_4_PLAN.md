@@ -51,6 +51,16 @@ Opened 2026-11-17, with Phase 3 built and not yet proven on real phones (`docs/c
 
 **D-4.12 There are no guests: everyone registers (the founder, 2026-11-18; built the same day, Task 4.0).** An address and a password at the door, the address proved later, before sending Makuta or asking someone out; then the character; then the family. As first written, when it was a question: He proposed that everyone registers, to keep things simple. The recommendation given to him: yes to one kind of player, with registration as an address and a password and nothing else before the first step, and the address proved (the code by mail, already built) before a player may send Makuta or ask someone out. Registration alone does not stop one person making many accounts: D-4.11 and the proof of the address do. What it costs is the door that asks for nothing, which was the one thing our front door had over the competitor's.
 
+**D-4.13 Damas as it is played in Luanda (the founder, 2026-11-19).** The Portuguese rules (the board with a dark corner on the right, capturing obligatory and taking the most pieces, a crowned dama that flies), with men capturing backward as well as forward, "as in Luanda", where the federation's text has them capture forward only. Built and checked move by move (F-204, F-222).
+
+**D-4.14 The tables and the kambas before the rest of Phase 4 (the founder, 2026-11-19).** "Continue with the three-minute game, then recording results with a ranking, then kambas, with inviting a friend from another bairro." Tasks 4B.1 and 4B.2 are built ahead of the order of D-4.8, while 4.4 to 4.7 wait; the alpha itself (4B.3 to 4B.5) still waits for Phase 4 and the second bairro.
+
+**D-4.15 The ranking is counted the way chess counts it (delegated, 2026-11-19).** Points per game and per bairro, from 1.000; a kota stands at the points of its strength (the beginner 800, the good player 1.100, the feared 1.400), so beating the feared kota is worth about three times beating the beginner, as the founder asked; a kota's points never move. `packages/games/src/classificacao.ts`, F-224.
+
+**D-4.16 The bairros of the founder's maps: Vila Alice and Maculusso, not Vila Flor (the founder, 2026-11-19).** "Forget about Vila Flor, we do Vila Alice; and add the Bairro do Maculusso." Researched in `docs/reference/BAIRROS.md` with the founder's photographs (F-223).
+
+**D-4.17 A player of 15 to 17 and an adult are not made kambas (proposed, 2026-11-19; the founder to confirm).** Private messages between a minor and an adult stranger are the risk a game with chat is judged by, and the age is self-declared. *Recommendation: keep it until counsel has read the terms; the softer choice is kambas across the line with no private messages.* Waiting on the founder, item 21; F-225.
+
 **Done on the way, at the founder's word (2026-11-18):** the street's traffic is the zone's to decide, so two players see the same van (F-190); vehicles that began inside each other are parted (F-180); two who arrive together stand side by side (F-189).
 
 ## Carried into this phase from the founder's rulings of 2026-11-17

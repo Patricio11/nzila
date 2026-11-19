@@ -21,7 +21,7 @@ All but the last are part of `pnpm test:all`, the gate before any commit, and of
 
 | Budget | Limit | Measured by | Enforced | Today |
 |---|---|---|---|---|
-| The shell: HTML, CSS, JS and fonts, the renderer included (D-1.2) | 300 KB compressed | The size check; and the phone profile, which counts the bytes the first visit really downloads | Yes | 209 KB in all, of which the renderer with its model loader is 162 KB; the front door alone downloads 17 KB |
+| The shell: HTML, CSS, JS and fonts, the renderer included (D-1.2) | 300 KB compressed | The size check; and the phone profile, which counts the bytes the first visit really downloads | Yes | 299,9 KB (2026-11-19, after the tables and the kambas: full, F-226) |
 | First play, shell included | 6 MB | The pack check holds a district's first view to 5,7 MB (6 MB less the shell) | Yes, from the first pack | No pack yet |
 | A district at the Normal tier | 8 MB | The pack check and the size check | Yes | The development district (boxes): 0,34 MB at Normal, 0,12 MB on the lowest tier |
 | One streamed chunk at the Normal tier | 400 KB | The pack check and the size check | Yes | Under 40 KB in the development district |
