@@ -10,11 +10,13 @@
 //   - a player whose time for a move runs out has the kota play it for them; three in a row, and the seat is the kota's;
 //   - a player who gets up leaves the seat to a kota, who finishes the game for them;
 //   - after a game, a short rest, and the next begins with whoever is still sitting, the first side going to the other seat;
-//   - a seat can be kept for someone invited, for ten minutes: nobody else sits in it, and no kota starts in their place.
+//   - a seat can be kept for someone invited, for ten minutes: nobody else sits in it, and no kota starts in their place;
+//   - each seat has its own kota of the bairro, each with a character: one who is learning and blunders now and then,
+//     one who plays a good game, and the ones the bairro fears, at the boards or at Não te irrites.
 
-import { damasBot, newDamas, playDamas, type Damas, type DamasMove } from "./damas.ts";
+import { damasBot, damasMoves, newDamas, playDamas, type Damas, type DamasMove } from "./damas.ts";
 import { ludoBot, ludoMoves, newLudo, playLudo, type Ludo, type LudoMove } from "./ludo.ts";
-import { newXadrez, playXadrez, xadrezBot, type Xadrez, type XadrezMove } from "./xadrez.ts";
+import { newXadrez, playXadrez, xadrezBot, xadrezMoves, type Xadrez, type XadrezMove } from "./xadrez.ts";
 
 export type Jogo = "xadrez" | "damas" | "ludo";
 export const JOGOS: readonly Jogo[] = ["xadrez", "damas", "ludo"];
@@ -34,9 +36,27 @@ export const DESCANSO_MS = 10_000;
 export const FALTAS = 3;
 /** How long a seat is kept for someone invited. */
 export const GUARDA_MS = 10 * 60_000;
-/** How strong the kotas play: moves ahead. */
-const XADREZ_FUNDO = 2;
-const DAMAS_FUNDO = 3;
+/**
+ * How strong a kota plays. "principiante": a move ahead, and one move in three without thinking; "conhecedor": a
+ * couple of moves ahead; "temido": at xadrez the exchanges followed through, at damas five moves ahead, at Não te
+ * irrites every throw used as well as it can be. All inside the zone's step: at most some 20 ms a move (F-221).
+ */
+export type Forca = "principiante" | "conhecedor" | "temido";
+/** The kotas of the bairro, by number: who they are at each game, and whether they are a mamã. Names are the phone's words. */
+export const KOTAS: readonly { readonly forca: Readonly<Record<Jogo, Forca>>; readonly mulher: boolean }[] = [
+  // Kota Zeca, still learning, who takes it well.
+  { forca: { xadrez: "principiante", damas: "principiante", ludo: "principiante" }, mulher: false },
+  // Kota Mbala, a good game of anything.
+  { forca: { xadrez: "conhecedor", damas: "conhecedor", ludo: "conhecedor" }, mulher: false },
+  // Mamã Joana, who never loses at Não te irrites.
+  { forca: { xadrez: "conhecedor", damas: "conhecedor", ludo: "temido" }, mulher: true },
+  // Kota Domingos, feared at the boards.
+  { forca: { xadrez: "temido", damas: "temido", ludo: "conhecedor" }, mulher: false },
+];
+/** Which kota sits at a seat of a table: the same on every phone and in the zone. */
+export const kotaDe = (mesa: number, lugar: number): number => (mesa * 2 + lugar) % KOTAS.length;
+/** The kota who plays a good game: a table made without its kotas named has them at every seat. */
+const MBALA = 1;
 
 export type Partida =
   | { readonly jogo: "xadrez"; readonly estado: Xadrez }
@@ -65,6 +85,8 @@ export type Fase = "espera" | "jogo" | "fim";
 export interface Mesa {
   readonly jogo: Jogo;
   readonly lugares: readonly Lugar[];
+  /** The kota of each seat (KOTAS), who plays it when no player does. */
+  readonly kotas: readonly number[];
   readonly partida: Partida;
   readonly fase: Fase;
   /** When the phase, or the turn now running, began. */
@@ -89,10 +111,10 @@ function partidaNova(jogo: Jogo, primeiro: number): Partida {
   return { jogo, estado: { ...newLudo([0, 1, 2, 3]), turn: primeiro }, dado: null };
 }
 
-/** A table as the street first has it: kotas playing among themselves. */
-export function novaMesa(jogo: Jogo, agora: number): Mesa {
+/** A table as the street first has it: kotas playing among themselves. `kotas`, which of them sits at each seat. */
+export function novaMesa(jogo: Jogo, agora: number, kotas: readonly number[] = Array.from({ length: LUGARES[jogo] }, () => MBALA)): Mesa {
   const lugares = Array.from({ length: LUGARES[jogo] }, (): Lugar => ({ jogador: null, guardado: null, faltas: 0 }));
-  return { jogo, lugares, partida: partidaNova(jogo, 0), fase: "jogo", desde: agora, primeiro: 0, ultimo: null, versao: 1 };
+  return { jogo, lugares, kotas, partida: partidaNova(jogo, 0), fase: "jogo", desde: agora, primeiro: 0, ultimo: null, versao: 1 };
 }
 
 /** Whether the game in the table's hands is over. */
@@ -141,13 +163,29 @@ function lancarPor(mesa: Mesa, lugar: number, dado: number, agora: number): Mesa
   return mudou(mesa, { partida: { ...partida, dado } }, agora);
 }
 
-/** What a kota does with the seat to play: a move by the rules, or for Não te irrites a throw, then the move. */
+/** One of a list, chosen by the dice the zone throws: the table stays pure, and a game can be played again from them. */
+const aoCalhas = <T>(list: readonly T[], dado: () => number): T => list[(dado() * 7 + dado()) % list.length]!;
+
+/**
+ * What a kota does with the seat to play, as strong as that kota is: a move by the rules, or for Não te irrites a
+ * throw, then the move. A beginner plays one move in three without thinking (a throw of 1 or 2 says so).
+ */
 function kotaJoga(mesa: Mesa, lugar: number, dado: () => number, agora: number): Mesa {
   const partida = mesa.partida;
-  if (partida.jogo === "xadrez") return aplicar(mesa, lugar, { jogo: "xadrez", lance: xadrezBot(partida.estado, XADREZ_FUNDO)! }, agora);
-  if (partida.jogo === "damas") return aplicar(mesa, lugar, { jogo: "damas", lance: damasBot(partida.estado, DAMAS_FUNDO)! }, agora);
+  const forca = KOTAS[mesa.kotas[lugar]!]!.forca[mesa.jogo];
+  const distraido = (): boolean => forca === "principiante" && dado() <= 2;
+  if (partida.jogo === "xadrez") {
+    const lance = distraido() ? aoCalhas(xadrezMoves(partida.estado), dado) : xadrezBot(partida.estado, forca === "principiante" ? 1 : 2, forca === "temido" ? 4 : 0)!;
+    return aplicar(mesa, lugar, { jogo: "xadrez", lance }, agora);
+  }
+  if (partida.jogo === "damas") {
+    const lance = distraido() ? aoCalhas(damasMoves(partida.estado), dado) : damasBot(partida.estado, forca === "principiante" ? 1 : forca === "temido" ? 5 : 3)!;
+    return aplicar(mesa, lugar, { jogo: "damas", lance }, agora);
+  }
   if (partida.dado === null) return lancarPor(mesa, lugar, dado(), agora);
-  return aplicar(mesa, lugar, { jogo: "ludo", lance: ludoBot(partida.estado, partida.dado), dado: partida.dado }, agora);
+  const moves = ludoMoves(partida.estado, partida.dado);
+  const lance = distraido() ? aoCalhas(moves, dado) : ludoBot(partida.estado, partida.dado);
+  return aplicar(mesa, lugar, { jogo: "ludo", lance, dado: partida.dado }, agora);
 }
 
 /**

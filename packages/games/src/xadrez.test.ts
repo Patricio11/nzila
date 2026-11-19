@@ -98,5 +98,16 @@ describe("xadrez", () => {
     expect(xadrezBot(fromFen("k7/8/1Q6/8/8/8/8/7K w - - 0 1"), 2)).not.toBeNull();
     expect(xadrezBot(fromFen("7k/8/8/8/8/8/5q2/7K b - - 0 1"), 2)).not.toBeNull();
     expect(xadrezBot({ ...newXadrez(), result: "empate" })).toBeNull();
+    // A kota does not walk into a mate: with the back rank to guard, the rook stays on it.
+    const guard = fromFen("3r2k1/5ppp/8/8/8/8/5PPP/R5K1 b - - 0 1");
+    for (const [depth, trocas] of [[2, 0], [2, 4]] as const) {
+      const move = xadrezBot(guard, depth, trocas)!;
+      const after = playXadrez(guard, move);
+      const mates = xadrezMoves(after).filter((reply) => {
+        const next = playXadrez(after, reply);
+        return next.result === "w";
+      });
+      expect(mates, `${squareName(move.from)}${squareName(move.to)}`).toEqual([]);
+    }
   });
 });

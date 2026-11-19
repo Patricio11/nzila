@@ -115,3 +115,8 @@
 /* A face laughing. */
 .ms-react-riso { width: 22px; border-radius: 50%; background: radial-gradient(circle at 33% 38%, var(--n-noite) 0 9%, transparent 11%), radial-gradient(circle at 67% 38%, var(--n-noite) 0 9%, transparent 11%), var(--n-dourado); }
 .ms-react-riso::after { content: ""; position: absolute; left: 5px; right: 5px; top: 11px; height: 6px; border-radius: 0 0 8px 8px; background: var(--n-noite); }
+
+/* How a kota plays, beside their name: a beginner quiet, a good player gold, the feared one in the cloth's red. */
+.ms-forca { padding: 1px 6px; border-radius: 8px; font: var(--type-small); font-size: 11px; line-height: 16px; white-space: nowrap; color: var(--n-luz-suave); box-shadow: inset 0 0 0 1px var(--n-linha); }
+.ms-forca-conhecedor { color: var(--n-dourado); box-shadow: inset 0 0 0 1px var(--n-dourado-fundo); }
+.ms-forca-temido { color: var(--n-luz); background: var(--n-vermelho); box-shadow: none; }

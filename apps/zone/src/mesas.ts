@@ -5,7 +5,7 @@
 
 import { randomInt } from "node:crypto";
 import {
-  DESCANSO_MS, ESPERA_MS, VEZ_MS, comecar, damasMoves, jogar, lancar, levantar, ludoMoves, lugarDe, lugarGuardado, novaMesa, passo, recusou, reservar, sentar, vezDe, xadrezMoves,
+  DESCANSO_MS, ESPERA_MS, LUGARES, VEZ_MS, comecar, kotaDe, damasMoves, jogar, lancar, levantar, ludoMoves, lugarDe, lugarGuardado, novaMesa, passo, recusou, reservar, sentar, vezDe, xadrezMoves,
   type Jogo, type Lance, type Mesa, type Recusa,
 } from "@nzila/games";
 import { encodeMesa, type MesaPedido } from "@nzila/protocol";
@@ -46,7 +46,8 @@ export class Mesas {
 
   constructor(places: readonly TablePlace[], now: number, dado: () => number = () => randomInt(1, 7)) {
     this.places = places;
-    this.mesas = places.map((place) => novaMesa(place.jogo, now));
+    // Each seat has its own kota of the bairro, the same one the phones name (kotaDe).
+    this.mesas = places.map((place, mesa) => novaMesa(place.jogo, now, Array.from({ length: LUGARES[place.jogo] }, (_, lugar) => kotaDe(mesa, lugar))));
     this.dado = dado;
   }
 

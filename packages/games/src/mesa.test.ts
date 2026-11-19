@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { squareAt, xadrezMoves, type Xadrez } from "./xadrez.ts";
 import {
-  DESCANSO_MS, ESPERA_MS, FALTAS, GUARDA_MS, KOTAS_MS, KOTA_MS, LUGARES, VEZ_MS,
-  comecar, guardar, jogar, lancar, levantar, lugarDe, lugarGuardado, reservar, novaMesa, passo, recusou, sentar, vezDe, type Mesa, type Recusa,
+  DESCANSO_MS, ESPERA_MS, FALTAS, GUARDA_MS, KOTAS, KOTAS_MS, KOTA_MS, LUGARES, VEZ_MS,
+  comecar, guardar, kotaDe, jogar, lancar, levantar, lugarDe, lugarGuardado, reservar, novaMesa, passo, recusou, sentar, vezDe, type Mesa, type Recusa,
 } from "./mesa.ts";
 
 /** What was done, when it had to be done: a test that meant it to be refused says so. */
@@ -283,4 +283,51 @@ describe("a table in the street", () => {
     expect(reservar(old, ["eva"], 1)).toBe("ocupado");
     expect(lugarGuardado(feito(reservar(old, ["eva"], GUARDA_MS)), "eva", GUARDA_MS + 1)).toBe(0);
   });
+});
+
+describe("the kotas of the bairro, each with a character", () => {
+  test("each seat has its own kota, the same in the zone and on every phone: four, in turn round the tables", () => {
+    expect([kotaDe(0, 0), kotaDe(0, 1), kotaDe(1, 0), kotaDe(1, 1), kotaDe(2, 0), kotaDe(3, 3)]).toEqual([0, 1, 2, 3, 0, 1]);
+    expect(KOTAS.map((kota) => kota.forca.xadrez)).toEqual(["principiante", "conhecedor", "conhecedor", "temido"]);
+    // Mamã Joana is feared at Não te irrites; Kota Domingos at the boards.
+    expect(KOTAS[2]!.forca.ludo).toBe("temido");
+    expect(KOTAS[2]!.mulher).toBe(true);
+    expect(novaMesa("damas", 0).kotas).toEqual([1, 1]);
+    expect(novaMesa("ludo", 0, [0, 1, 2, 3]).kotas).toEqual([0, 1, 2, 3]);
+  });
+
+  test("a beginner sometimes plays without thinking (a throw of 1 or 2 says so), and otherwise thinks a move ahead", () => {
+    // Kota Zeca against Kota Domingos: the dice say "without thinking", then which move.
+    let rolls = [1, 3, 5];
+    const dice = (): number => rolls.shift() ?? 6;
+    const careless = passo(novaMesa("xadrez", 0, [0, 3]), KOTAS_MS, dice);
+    expect(careless.ultimo?.lugar).toBe(0);
+    expect(rolls).toEqual([]);
+    rolls = [6];
+    const careful = passo(novaMesa("xadrez", 0, [0, 3]), KOTAS_MS, dice);
+    expect(careful.ultimo?.lugar).toBe(0);
+    // A feared kota throws nothing to decide: it only thinks.
+    rolls = [1, 1, 1];
+    const feared = passo(novaMesa("xadrez", 0, [3, 0]), KOTAS_MS, dice);
+    expect(feared.ultimo?.lugar).toBe(0);
+    expect(rolls).toEqual([1, 1, 1]);
+  });
+
+  test("whole games among kotas of every strength end, by the rules, at every table", () => {
+    for (const jogo of ["xadrez", "damas", "ludo"] as const) {
+      for (const kotas of jogo === "ludo" ? [[0, 1, 2, 3], [3, 2, 1, 0]] : [[0, 3], [3, 0], [0, 0], [3, 3]]) {
+        let seed = 7;
+        const dice = (): number => ((seed = (seed * 1103515245 + 12345) % 2147483648) % 6) + 1;
+        let mesa = novaMesa(jogo, 0, kotas);
+        let agora = 0;
+        for (let n = 0; n < 1200 && mesa.fase === "jogo"; n++) {
+          agora += KOTAS_MS;
+          mesa = passo(mesa, agora, dice);
+        }
+        // Xadrez among kotas can go on a long while: what is asked is that every move was the rules', and most end.
+        expect(["jogo", "fim"]).toContain(mesa.fase);
+        expect(mesa.versao).toBeGreaterThan(20);
+      }
+    }
+  }, 60_000);
 });

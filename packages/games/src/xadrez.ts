@@ -290,8 +290,11 @@ function worth(board: readonly string[], side: Colour): number {
  * with `apply` (its moves are the rules' own already) rather than `playXadrez`, which checks a move against every
  * legal one and then looks for the end of the game. A chess move had taken 80 to 300 ms, and held the street up
  * each time (2026-11-19, F-221).
+ *
+ * `trocas`: how many captures more a feared kota follows through where the search would stop, so as not to stop in
+ * the middle of an exchange and leave a piece hanging; each side may also stop taking when taking would lose.
  */
-export function xadrezBot(game: Xadrez, depth = 2): XadrezMove | null {
+export function xadrezBot(game: Xadrez, depth = 2, trocas = 0): XadrezMove | null {
   const moves = xadrezMoves(game);
   if (moves.length === 0) return null;
   const side = game.turn;
@@ -300,11 +303,39 @@ export function xadrezBot(game: Xadrez, depth = 2): XadrezMove | null {
     [...list].sort((a, b) => Number(state.board[b.move.to] !== ".") - Number(state.board[a.move.to] !== "."));
   // A side with no move is mated when in check, and otherwise it is a draw.
   const ended = (state: Xadrez, left: number): number => (inCheck(state) ? (state.turn === side ? -100_000 - left : 100_000 + left) : 0);
+  // At the end of the search: the exchanges under way played out, captures only, the most valuable taken first.
+  const quiet = (state: Xadrez, left: number, alpha: number, beta: number): number => {
+    const still = worth(state.board, side);
+    if (left === 0) return still;
+    const mine = state.turn === side;
+    // Not taking is always a choice: what stands now bounds the answer.
+    if (mine ? still >= beta : still <= alpha) return still;
+    let best = still;
+    if (mine) alpha = Math.max(alpha, still);
+    else beta = Math.min(beta, still);
+    const takes = pseudo(state)
+      .filter((move) => state.board[move.to] !== ".")
+      .sort((a, b) => VALUE[state.board[b.to]!]! - VALUE[state.board[a.to]!]!);
+    for (const move of takes) {
+      const after = apply(state, move);
+      if (inCheck(after, state.turn)) continue;
+      const value = quiet(after, left - 1, alpha, beta);
+      if (mine) {
+        best = Math.max(best, value);
+        alpha = Math.max(alpha, value);
+      } else {
+        best = Math.min(best, value);
+        beta = Math.min(beta, value);
+      }
+      if (beta <= alpha) break;
+    }
+    return best;
+  };
   const search = (state: Xadrez, left: number, alpha: number, beta: number): number => {
     if (left === 0) {
       // Only a side in check can have been mated: only then are its moves counted.
       if (inCheck(state) && legalAfter(state).length === 0) return ended(state, left);
-      return worth(state.board, side);
+      return trocas > 0 ? quiet(state, trocas, alpha, beta) : worth(state.board, side);
     }
     const replies = legalAfter(state);
     if (replies.length === 0) return ended(state, left);
@@ -326,7 +357,7 @@ export function xadrezBot(game: Xadrez, depth = 2): XadrezMove | null {
   let chosen = moves[0]!;
   let top = -Infinity;
   for (const { move, after } of ordered(game, legalAfter(game))) {
-    const value = search(after, depth - 1, -Infinity, Infinity);
+    const value = search(after, depth - 1, top, Infinity);
     if (value > top) {
       top = value;
       chosen = move;

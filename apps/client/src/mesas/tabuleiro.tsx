@@ -5,7 +5,7 @@
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
-import { damasMoves, ludoMoves, xadrezMoves, type Partida } from "@nzila/games";
+import { KOTAS, damasMoves, kotaDe, ludoMoves, xadrezMoves, type Partida } from "@nzila/games";
 import type { MesaDita } from "@nzila/protocol";
 import { Button } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -101,7 +101,15 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
   const nameAt = (lugar: number): string => {
     const entity = said?.lugares[lugar]?.entidade ?? 0;
     if (entity === 0 && said?.lugares[lugar]?.guardado) return tr.t("mesa.guardado");
-    return entity === 0 ? tr.t(`mesa.kota.${(mesa * 2 + lugar) % 4}` as "mesa.kota.0") : (mesas.nameOf(entity) ?? tr.t("mesa.alguem"));
+    return entity === 0 ? tr.t(`mesa.kota.${kotaDe(mesa, lugar)}` as "mesa.kota.0") : (mesas.nameOf(entity) ?? tr.t("mesa.alguem"));
+  };
+  // What kind of player the kota of a seat is, when a kota plays it: the player chooses whom to sit across from.
+  const forcaAt = (lugar: number): { forca: string; label: string } | null => {
+    const one = said?.lugares[lugar];
+    if (one && (one.entidade !== 0 || one.guardado)) return null;
+    const kota = KOTAS[kotaDe(mesa, lugar)]!;
+    const forca = kota.forca[table.game];
+    return { forca, label: tr.t(`mesa.forca.${forca === "temido" && kota.mulher ? "temida" : forca}` as "mesa.forca.temido") };
   };
   const ask = (pedido: Parameters<Mesas["ask"]>[0]): void => mesas.ask(pedido);
 
@@ -141,6 +149,7 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
             <li key={lugar} class={`ms-seat${turn === lugar ? " ms-seat-turn" : ""}${lugar === mySeat ? " ms-seat-me" : ""}`}>
               <i class="ms-side" style={{ background: sideColour(table.game, lugar, said) }} />
               <span>{lugar === mySeat ? tr.t("mesa.tu") : nameAt(lugar)}</span>
+              {lugar !== mySeat && forcaAt(lugar) ? <small class={`ms-forca ms-forca-${forcaAt(lugar)!.forca}`}>{forcaAt(lugar)!.label}</small> : null}
               {turn === lugar && said?.lugares[lugar]?.entidade !== 0 ? <b>{clock(left)}</b> : null}
             </li>
           ))}

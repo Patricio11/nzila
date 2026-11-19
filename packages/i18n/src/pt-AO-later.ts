@@ -292,6 +292,11 @@ export const ptAOLater = {
   "mesa.kota.2": "Mamã Joana",
   "mesa.kota.3": "Kota Domingos",
   "mesa.alguem": "Alguém",
+  // How a kota plays, beside their name on the board.
+  "mesa.forca.principiante": "Principiante",
+  "mesa.forca.conhecedor": "Joga bem",
+  "mesa.forca.temido": "Temido",
+  "mesa.forca.temida": "Temida",
   "mesa.guardado": "Lugar guardado",
   "mesa.tu": "Tu",
   "mesa.espera": "À espera de mais alguém para jogar… {s} s",
