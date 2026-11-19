@@ -366,6 +366,12 @@ export class Mesas {
     this.session?.post(encodeMesaPedido(pedido));
   }
 
+  /** What a quick game being played at a table has left, by this phone's clock; 0 when none is being played. */
+  fimLeftMs(mesa: number): number {
+    const said = this.said[mesa];
+    return said && said.fimMs > 0 ? Math.max(0, said.fimMs - (performance.now() - this.heardAt[mesa]!)) : 0;
+  }
+
   /** The time a table's turn (or wait, or rest) has left, by this phone's clock. */
   leftMs(mesa: number): number {
     const said = this.said[mesa];

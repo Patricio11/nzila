@@ -413,7 +413,7 @@ export function encodeNudge(m: Nudge): Uint8Array {
 // ---------------------------------------------------------------- Mesa
 
 /** What a player asks of a table. Numbers are never reused. */
-const PEDIDOS = ["", "sentar", "levantar", "comecar", "jogar", "lancar", "convidar", "aceitar", "recusar"] as const;
+const PEDIDOS = ["", "sentar", "levantar", "comecar", "jogar", "lancar", "convidar", "aceitar", "recusar", "rapida"] as const;
 /** The most squares a move names: a run of captures at damas. */
 const CASAS_MAX = 16;
 
@@ -430,12 +430,15 @@ export type MesaPedido =
   | { readonly mesa: number; readonly pedido: "lancar" }
   | { readonly mesa: number; readonly pedido: "jogar"; readonly casas: readonly number[] }
   /** Invite someone (by their number in the channel) to play at this table; accept or decline their invitation to it. */
-  | { readonly mesa: number; readonly pedido: "convidar" | "aceitar" | "recusar"; readonly entidade: number };
+  | { readonly mesa: number; readonly pedido: "convidar" | "aceitar" | "recusar"; readonly entidade: number }
+  /** Choose a quick game (three minutes) for the game about to begin, or the slow one. */
+  | { readonly mesa: number; readonly pedido: "rapida"; readonly sim: boolean };
 
 export function encodeMesaPedido(m: MesaPedido): Uint8Array {
   const w = new Writer().u8(MSG.MESA_PEDIDO).uint(m.mesa).u8(PEDIDOS.indexOf(m.pedido));
   if (m.pedido === "sentar") w.u8(m.lugar);
   if (m.pedido === "convidar" || m.pedido === "aceitar" || m.pedido === "recusar") w.uint(m.entidade);
+  if (m.pedido === "rapida") w.bool(m.sim);
   if (m.pedido === "jogar") {
     if (m.casas.length > CASAS_MAX) throw new RangeError("a move names at most 16 squares");
     w.u8(m.casas.length);
@@ -451,6 +454,7 @@ function readMesaPedido(r: Reader): MesaPedido {
   if (!pedido) throw new ProtocolError("malformed", "table request");
   if (pedido === "sentar") return { mesa, pedido, lugar: r.bounded(3, "seat") };
   if (pedido === "convidar" || pedido === "aceitar" || pedido === "recusar") return { mesa, pedido, entidade: r.uint() };
+  if (pedido === "rapida") return { mesa, pedido, sim: r.bool() };
   if (pedido !== "jogar") return { mesa, pedido };
   const count = r.bounded(CASAS_MAX, "squares");
   const casas: number[] = [];

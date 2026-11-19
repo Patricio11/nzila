@@ -1,6 +1,6 @@
 // The tables of a channel without a network: who may sit, what a move named by its squares is, what the phones are told.
 
-import { DESCANSO_MS, ESPERA_MS, FALTAS, KOTAS_MS, VEZ_MS, newDamas, squareAt } from "@nzila/games";
+import { DESCANSO_MS, ESPERA_MS, FALTAS, KOTAS_MS, RAPIDA_MS, VEZ_MS, VEZ_RAPIDA_MS, newDamas, squareAt } from "@nzila/games";
 import { decodeMesa } from "@nzila/protocol";
 import { describe, expect, test } from "vitest";
 import { CONVITES_HORA, CONVITE_MS, MESA_REACH_MM, Mesas, lanceOf, type TablePlace } from "./mesas.ts";
@@ -141,6 +141,22 @@ describe("the tables of a channel", () => {
     const table = ended.mesa(0)!;
     Object.assign(ended, { mesas: [{ ...table, fase: "fim", desde: 0 }] });
     expect(decodeMesa(ended.said(0, entity, 4000)).restaMs).toBe(DESCANSO_MS - 4000);
+  });
+
+  test("a quick game: chosen by the seated player, told to the phones with its time left; shorter turns", () => {
+    const mesas = new Mesas(tables, 0, () => 6);
+    const entity = (playerId: string): number => (playerId === "ana" ? 42 : 0);
+    mesas.ask("ana", by(10_000, 12_000), { mesa: 0, pedido: "sentar", lugar: 1 }, 0);
+    // Someone not sitting cannot choose it.
+    expect(mesas.ask("beto", null, { mesa: 0, pedido: "rapida", sim: true }, 100)).toBe("fora");
+    expect(mesas.ask("ana", null, { mesa: 0, pedido: "rapida", sim: true }, 100)).toEqual({ nada: true });
+    expect(decodeMesa(mesas.said(0, entity, 200))).toMatchObject({ rapida: true, fimMs: 0, porTempo: false });
+    mesas.ask("ana", null, { mesa: 0, pedido: "comecar" }, 1000);
+    mesas.step(1000 + 1400);
+    // Ana's turn at a quick game: the quick turn's time, and the game's own.
+    const told = decodeMesa(mesas.said(0, entity, 2400 + 5000));
+    expect(told.restaMs).toBe(VEZ_RAPIDA_MS.xadrez - 5000);
+    expect(told.fimMs).toBe(RAPIDA_MS - 6400);
   });
 
   test("an invitation: asked, answered yes, a seat kept for each; the invited sits in theirs from whichever stool", () => {

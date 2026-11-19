@@ -5,7 +5,7 @@
 
 import { randomInt } from "node:crypto";
 import {
-  DESCANSO_MS, ESPERA_MS, LUGARES, VEZ_MS, comecar, kotaDe, jogar, lanceDe, lancar, levantar, lugarDe, lugarGuardado, novaMesa, passo, recusou, reservar, sentar, vezDe,
+  DESCANSO_MS, ESPERA_MS, LUGARES, comecar, escolherRapida, resta, vezMs, kotaDe, jogar, lanceDe, lancar, levantar, lugarDe, lugarGuardado, novaMesa, passo, recusou, reservar, sentar, vezDe,
   type Jogo, type Mesa, type Recusa,
 } from "@nzila/games";
 import { encodeMesa, type MesaPedido } from "@nzila/protocol";
@@ -111,6 +111,7 @@ export class Mesas {
       return { stand: this.standingBy(index, lugar) };
     }
     if (pedido.pedido === "comecar") done = comecar(mesa, playerId, now);
+    else if (pedido.pedido === "rapida") done = escolherRapida(mesa, playerId, pedido.sim);
     else if (pedido.pedido === "lancar") done = lancar(mesa, playerId, this.dado(), now);
     else if (pedido.pedido !== "jogar") return "convite";
     else {
@@ -192,13 +193,16 @@ export class Mesas {
     const mesa = this.mesas[index]!;
     const passed = now - mesa.desde;
     const turn = vezDe(mesa);
-    const left = mesa.fase === "espera" ? ESPERA_MS - passed : mesa.fase === "fim" ? DESCANSO_MS - passed : turn !== null && mesa.lugares[turn]!.jogador !== null ? VEZ_MS[mesa.jogo] - passed : 0;
+    const left = mesa.fase === "espera" ? ESPERA_MS - passed : mesa.fase === "fim" ? DESCANSO_MS - passed : turn !== null && mesa.lugares[turn]!.jogador !== null ? vezMs(mesa) - passed : 0;
     return encodeMesa({
       mesa: index,
       versao: mesa.versao,
       fase: mesa.fase,
       primeiro: mesa.primeiro,
       restaMs: Math.max(0, left),
+      rapida: mesa.rapida,
+      fimMs: resta(mesa, now) ?? 0,
+      porTempo: mesa.porTempo,
       lugares: mesa.lugares.map((lugar) => ({ entidade: lugar.jogador === null ? 0 : entityOf(lugar.jogador), guardado: lugar.jogador === null && lugar.guardado !== null && lugar.guardado.ate > now })),
       partida: mesa.partida,
       ultimo: mesa.ultimo,

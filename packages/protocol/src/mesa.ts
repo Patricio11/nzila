@@ -26,6 +26,12 @@ export interface MesaDita {
   readonly primeiro: number;
   /** What the turn now running has left, in milliseconds; 0 when a kota plays it, or none runs. */
   readonly restaMs: number;
+  /** A quick game chosen for this table (three minutes, shorter turns). */
+  readonly rapida: boolean;
+  /** What a quick game being played has left, in milliseconds; 0 when none is being played. */
+  readonly fimMs: number;
+  /** The game just ended because a quick game's time ran out. */
+  readonly porTempo: boolean;
   /** Who sits in each seat, by entity (0: a kota of the bairro), and whether a free seat is kept for someone. */
   readonly lugares: readonly { readonly entidade: number; readonly guardado: boolean }[];
   readonly partida: Partida;
@@ -35,7 +41,8 @@ export interface MesaDita {
 const resultado = (value: string | number | null, sides: readonly (string | number)[]): number => (value === null ? 0 : value === "empate" ? 3 : sides.indexOf(value) + 1);
 
 export function encodeMesa(m: MesaDita): Uint8Array {
-  const w = new Writer().u8(MSG.MESA).uint(m.mesa).uint(m.versao).u8(FASES.indexOf(m.fase)).u8(m.primeiro).uint(Math.max(0, Math.round(m.restaMs))).u8(m.lugares.length);
+  const w = new Writer().u8(MSG.MESA).uint(m.mesa).uint(m.versao).u8(FASES.indexOf(m.fase)).u8(m.primeiro).uint(Math.max(0, Math.round(m.restaMs)));
+  w.bool(m.rapida).uint(Math.max(0, Math.round(m.fimMs))).bool(m.porTempo).u8(m.lugares.length);
   for (const lugar of m.lugares) w.uint(lugar.entidade).bool(lugar.guardado);
   const partida = m.partida;
   if (partida.jogo === "xadrez") {
@@ -102,6 +109,9 @@ export function decodeMesa(bytes: Uint8Array): MesaDita {
   const fase = FASES[oneOf(r, FASES.length, "phase")]!;
   const primeiro = oneOf(r, LUGARES_MAX, "first seat");
   const restaMs = r.uint();
+  const rapida = r.bool();
+  const fimMs = r.uint();
+  const porTempo = r.bool();
   const count = r.u8();
   if (count < 2 || count > LUGARES_MAX) throw new ProtocolError("malformed", "seats");
   const lugares = Array.from({ length: count }, () => ({ entidade: r.uint(), guardado: r.bool() }));
@@ -156,5 +166,5 @@ export function decodeMesa(bytes: Uint8Array): MesaDita {
     }
     ultimo = { lugar, lance };
   }
-  return { mesa, versao, fase, primeiro, restaMs, lugares, partida, ultimo };
+  return { mesa, versao, fase, primeiro, restaMs, rapida, fimMs, porTempo, lugares, partida, ultimo };
 }

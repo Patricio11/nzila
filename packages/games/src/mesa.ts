@@ -11,11 +11,13 @@
 //   - a player who gets up leaves the seat to a kota, who finishes the game for them;
 //   - after a game, a short rest, and the next begins with whoever is still sitting, the first side going to the other seat;
 //   - a seat can be kept for someone invited, for ten minutes: nobody else sits in it, and no kota starts in their place;
+//   - a seated player may choose a quick game (a partida rápida): shorter turns, and the game over at three minutes,
+//     won by whoever is ahead; a table nobody sits at goes back to the slow game;
 //   - each seat has its own kota of the bairro, each with a character: one who is learning and blunders now and then,
 //     one who plays a good game, and the ones the bairro fears, at the boards or at Não te irrites.
 
 import { damasBot, damasMoves, newDamas, playDamas, type Damas, type DamasMove } from "./damas.ts";
-import { ludoBot, ludoMoves, newLudo, playLudo, type Ludo, type LudoMove } from "./ludo.ts";
+import { TRACK, ludoBot, ludoMoves, newLudo, playLudo, type Ludo, type LudoMove } from "./ludo.ts";
 import { newXadrez, playXadrez, xadrezBot, xadrezMoves, type Xadrez, type XadrezMove } from "./xadrez.ts";
 
 export type Jogo = "xadrez" | "damas" | "ludo";
@@ -25,6 +27,9 @@ export const LUGARES: Readonly<Record<Jogo, number>> = { xadrez: 2, damas: 2, lu
 
 /** How long a player has for each move, by game. */
 export const VEZ_MS: Readonly<Record<Jogo, number>> = { xadrez: 90_000, damas: 60_000, ludo: 20_000 };
+/** A quick game (partida rápida): how long each move may take, and how long the whole game lasts. */
+export const VEZ_RAPIDA_MS: Readonly<Record<Jogo, number>> = { xadrez: 15_000, damas: 10_000, ludo: 8_000 };
+export const RAPIDA_MS = 180_000;
 /** How long a kota thinks with a player at the table; and among kotas alone, slowly enough to be watched. */
 export const KOTA_MS = 1_400;
 export const KOTAS_MS = 5_000;
@@ -97,6 +102,12 @@ export interface Mesa {
   readonly ultimo: { readonly lugar: number; readonly lance: Lance } | null;
   /** Counted up with every change: a phone knows what is new. */
   readonly versao: number;
+  /** A quick game chosen (by a seated player): shorter turns, and three minutes to the whole game. */
+  readonly rapida: boolean;
+  /** When the game being played began. */
+  readonly inicio: number;
+  /** The game just ended because a quick game's time ran out, not by the rules of the game. */
+  readonly porTempo: boolean;
 }
 
 /** Why something asked of a table was not done. */
@@ -114,7 +125,7 @@ function partidaNova(jogo: Jogo, primeiro: number): Partida {
 /** A table as the street first has it: kotas playing among themselves. `kotas`, which of them sits at each seat. */
 export function novaMesa(jogo: Jogo, agora: number, kotas: readonly number[] = Array.from({ length: LUGARES[jogo] }, () => MBALA)): Mesa {
   const lugares = Array.from({ length: LUGARES[jogo] }, (): Lugar => ({ jogador: null, guardado: null, faltas: 0 }));
-  return { jogo, lugares, kotas, partida: partidaNova(jogo, 0), fase: "jogo", desde: agora, primeiro: 0, ultimo: null, versao: 1 };
+  return { jogo, lugares, kotas, partida: partidaNova(jogo, 0), fase: "jogo", desde: agora, primeiro: 0, ultimo: null, versao: 1, rapida: false, inicio: agora, porTempo: false };
 }
 
 /** Whether the game in the table's hands is over. */
@@ -142,8 +153,57 @@ const comGente = (lugares: readonly Lugar[]): boolean => lugares.some((lugar) =>
 /** Whether a seat is kept for someone other than this player, now. */
 const guardadoPara = (lugar: Lugar, jogador: string, agora: number): boolean => lugar.guardado !== null && lugar.guardado.ate > agora && lugar.guardado.para !== jogador;
 
-/** The table with a change made: counted, and the turn's clock started again. */
-const mudou = (mesa: Mesa, mudanca: Partial<Mesa>, agora: number): Mesa => ({ ...mesa, ...mudanca, desde: agora, versao: mesa.versao + 1 });
+/**
+ * The table with a change made: counted, and the turn's clock started again. A game that begins now is timed from
+ * now; a table nobody sits at any more goes back to the slow game.
+ */
+const mudou = (mesa: Mesa, mudanca: Partial<Mesa>, agora: number): Mesa => {
+  const feita = { ...mesa, ...mudanca, desde: agora, versao: mesa.versao + 1 };
+  const comeca = feita.fase === "jogo" && mesa.fase !== "jogo";
+  return { ...feita, ...(comeca ? { inicio: agora, porTempo: false } : {}), ...(comGente(feita.lugares) ? {} : { rapida: false }) };
+};
+
+/** How long a move may take at this table now. */
+export const vezMs = (mesa: Mesa): number => (mesa.rapida ? VEZ_RAPIDA_MS : VEZ_MS)[mesa.jogo];
+
+/** How long is left of a quick game being played, in milliseconds; null when it is not one. */
+export function resta(mesa: Mesa, agora: number): number | null {
+  return mesa.rapida && mesa.fase === "jogo" ? Math.max(0, mesa.inicio + RAPIDA_MS - agora) : null;
+}
+
+/**
+ * A seated player chooses a quick game or the slow one, for the game about to begin (while the table waits, or rests
+ * after a game). Every player at the table sees it.
+ */
+export function escolherRapida(mesa: Mesa, jogador: string, sim: boolean): Mesa | Recusa {
+  if (lugarDe(mesa, jogador) < 0) return "fora";
+  if (mesa.fase === "jogo") return "fase";
+  // The wait, or the rest, goes on as it was: only the choice changes.
+  return mesa.rapida === sim ? mesa : { ...mesa, rapida: sim, versao: mesa.versao + 1 };
+}
+
+/**
+ * The game when a quick game's time runs out: won by whoever is ahead. At xadrez the pieces on the board, by their
+ * worth (a pawn 1, a knight or a bishop 3, a rook 5, a queen 9); at damas the pieces, a dama counting as two men; at
+ * Não te irrites the pieces brought home, then how far all four have gone. Level at xadrez or damas is a draw.
+ */
+export function ganhaPorTempo(partida: Partida): Partida {
+  if (partida.jogo === "xadrez") {
+    const worth: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+    let balance = 0;
+    for (const piece of partida.estado.board) if (piece !== ".") balance += (piece === piece.toUpperCase() ? 1 : -1) * worth[piece.toLowerCase()]!;
+    return { ...partida, estado: { ...partida.estado, result: balance > 0 ? "w" : balance < 0 ? "b" : "empate" } };
+  }
+  if (partida.jogo === "damas") {
+    let balance = 0;
+    for (const square of partida.estado.board) balance += square === 0 ? 0 : Math.sign(square) * Math.abs(square);
+    return { ...partida, estado: { ...partida.estado, result: balance > 0 ? 0 : balance < 0 ? 1 : "empate" } };
+  }
+  const score = (pieces: readonly number[]): number => pieces.reduce((sum, position) => sum + (position >= TRACK ? 1000 : position + 1), 0);
+  const scores = partida.estado.pieces.map(score);
+  const best = Math.max(...scores);
+  return { ...partida, estado: { ...partida.estado, winner: scores.indexOf(best) }, dado: null };
+}
 
 /** A move handed in for the seat to play, by the rules; the game over when it ends it. */
 function aplicar(mesa: Mesa, lugar: number, lance: Lance, agora: number): Mesa {
@@ -289,6 +349,8 @@ function descansa(mesa: Mesa, lugar: number): Mesa {
  */
 export function passo(mesa: Mesa, agora: number, dado: () => number): Mesa {
   const passou = agora - mesa.desde;
+  // A quick game whose three minutes are up ends now, won by whoever is ahead.
+  if (resta(mesa, agora) === 0) return mudou(mesa, { partida: ganhaPorTempo(mesa.partida), fase: "fim", porTempo: true }, agora);
   if (mesa.fase === "espera") {
     // A seat kept for someone invited holds the game until they come or the keeping runs out.
     const guardando = mesa.lugares.some((one) => one.jogador === null && one.guardado !== null && one.guardado.ate > agora);
@@ -302,7 +364,7 @@ export function passo(mesa: Mesa, agora: number, dado: () => number): Mesa {
   const lugar = vezDe(mesa)!;
   const seat = mesa.lugares[lugar]!;
   if (seat.jogador === null) return passou >= (comGente(mesa.lugares) ? KOTA_MS : KOTAS_MS) ? kotaJoga(mesa, lugar, dado, agora) : mesa;
-  if (passou < VEZ_MS[mesa.jogo]) return mesa;
+  if (passou < vezMs(mesa)) return mesa;
   // The player's time is up: the kota beside them plays it, throw and move.
   let feito = kotaJoga(mesa, lugar, dado, agora);
   if (feito.partida.jogo === "ludo" && feito.partida.dado !== null) feito = kotaJoga(feito, lugar, dado, agora);

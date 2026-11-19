@@ -131,3 +131,20 @@
 
 /* The board alone (/mesa): the night of the street behind it. */
 .ms-ensaio { position: fixed; inset: 0; background: var(--n-noite-fundo); }
+
+/* A quick game: an hourglass, the switch to choose it before a game, and the game's own clock while it is played. */
+.ms-ampulheta { width: 12px; height: 16px; flex: none; background: var(--n-dourado);
+  clip-path: polygon(0 0, 100% 0, 100% 8%, 58% 50%, 100% 92%, 100% 100%, 0 100%, 0 92%, 42% 50%, 0 8%); }
+.ms-rapida { display: flex; align-items: center; gap: 10px; min-height: var(--target); padding: 6px 12px; border: 0; border-radius: var(--r-button); background: var(--n-noite-2);
+  color: var(--n-luz); font: var(--type-label); cursor: pointer; box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.ms-rapida span { flex: 1; text-align: left; }
+.ms-interruptor { position: relative; width: 40px; height: 22px; flex: none; border-radius: 11px; background: var(--n-linha); transition: background 160ms; }
+.ms-interruptor::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--n-luz); transition: transform 180ms cubic-bezier(0.2, 1.4, 0.4, 1); }
+.ms-rapida-sim { box-shadow: inset 0 0 0 2px var(--n-dourado); }
+.ms-rapida-sim .ms-interruptor { background: var(--n-dourado); }
+.ms-rapida-sim .ms-interruptor::after { transform: translateX(18px); background: var(--n-noite); }
+.ms-relogio { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--r-chip); background: var(--n-noite-2); color: var(--n-dourado);
+  font: var(--type-label); font-size: 14px; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1.5px var(--n-dourado-fundo); }
+.ms-relogio-fim { color: var(--n-luz); background: var(--n-vermelho); box-shadow: none; animation: ms-pulse-relogio 1s ease-in-out infinite; }
+.ms-relogio-fim .ms-ampulheta { background: var(--n-luz); }
+@keyframes ms-pulse-relogio { 50% { transform: scale(1.06); } }

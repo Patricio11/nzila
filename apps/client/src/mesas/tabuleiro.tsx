@@ -26,7 +26,7 @@ const FIGURAS: Record<string, string> = {
 };
 
 /** What the board asks of the tables: the street's (Mesas), or a board alone for the team and the tests (/mesa). */
-export type MesasVista = Pick<Mesas, "listen" | "tables" | "said" | "partidaOf" | "me" | "leftMs" | "refused" | "nameOf" | "ask" | "aVer" | "ladoDe" | "guardadoNome" | "deixarDeVer">;
+export type MesasVista = Pick<Mesas, "listen" | "tables" | "said" | "partidaOf" | "me" | "leftMs" | "fimLeftMs" | "refused" | "nameOf" | "ask" | "aVer" | "ladoDe" | "guardadoNome" | "deixarDeVer">;
 
 interface Props {
   mesas: MesasVista;
@@ -126,6 +126,8 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
   else if (said.fase === "fim") {
     const won = winner(said);
     line = won < 0 ? tr.t("mesa.empate") : won === mySeat ? tr.t("mesa.ganhaste") : tr.t("mesa.ganhou", { nome: nameAt(won) });
+    // A quick game the clock ended: said first.
+    if (said.porTempo) line = `${tr.t("mesa.acabouTempo")} ${line}`;
   } else if (myTurn && partida.jogo === "ludo") {
     // A throw of the player's that moved nothing is said, with what came out; then what to do now.
     const last = said?.ultimo;
@@ -143,6 +145,12 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
       <header class="ms-head">
         <div class="ms-title">
           <h2>{tr.t(`mesa.jogo.${table.game}` as "mesa.jogo.xadrez")}</h2>
+          {said?.rapida && said.fase === "jogo" ? (
+            <span class={`ms-relogio${mesas.fimLeftMs(mesa) < 30_000 ? " ms-relogio-fim" : ""}`} aria-label={tr.t("mesa.rapidaResta", { tempo: clock(mesas.fimLeftMs(mesa)) })}>
+              <i class="ms-ampulheta" aria-hidden="true" />
+              {clock(mesas.fimLeftMs(mesa))}
+            </span>
+          ) : null}
           {crowd > 0 ? (
             <span class="ms-crowd">
               <i class="ms-eye" aria-hidden="true" />
@@ -177,6 +185,14 @@ export function Tabuleiro({ mesas, mesa, vendo = false, gesto }: Props) {
           </div>
         ) : null}
       </div>
+      {mySeat >= 0 && said && said.fase !== "jogo" && !asking ? (
+        // Before a game: the seated player chooses a quick one, or the slow one.
+        <button type="button" class={`ms-rapida${said.rapida ? " ms-rapida-sim" : ""}`} role="switch" aria-checked={said.rapida} onClick={() => ask({ mesa, pedido: "rapida", sim: !said.rapida })}>
+          <i class="ms-ampulheta" aria-hidden="true" />
+          <span>{tr.t("mesa.rapida")}</span>
+          <b class="ms-interruptor" aria-hidden="true" />
+        </button>
+      ) : null}
       <p class={`ms-line${refused ? " ms-line-no" : myTurn || (asking && kept) ? " ms-line-go" : ""}`} aria-live="polite">
         {watching && said?.fase === "espera" ? tr.t("mesa.vendo") : line}
       </p>

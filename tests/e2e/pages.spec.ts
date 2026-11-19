@@ -1470,10 +1470,18 @@ test.describe("two phones in the same street", () => {
     const board = page.getByRole("dialog", { name: "Xadrez" });
     await expect(board).toContainText("À espera de mais alguém");
     await expect(page.getByRole("button", { name: "Jogar xadrez" })).toHaveCount(0);
+    // A quick game: chosen before it begins, and the zone says so back.
+    const quick = board.getByRole("switch", { name: "Partida rápida · 3 min" });
+    await expect(quick).toHaveAttribute("aria-checked", "false");
+    await quick.click();
+    await expect(quick).toHaveAttribute("aria-checked", "true", { timeout: 5_000 });
+    await page.screenshot({ path: info.outputPath("mesa-rapida.png") });
     await board.getByRole("button", { name: "Jogar já com o kota" }).click();
-    // Whoever plays White moves first: the kota, or the player.
+    // Whoever plays White moves first: the kota, or the player. The game's own clock runs from three minutes, the
+    // turn's from fifteen seconds.
     await expect(board.locator(".ms-line")).toHaveText("É a tua vez.", { timeout: 15_000 });
-    await expect(board.locator(".ms-seat-turn b")).toHaveText(/^1:[23]\d$/);
+    await expect(board.locator(".ms-relogio")).toHaveText(/^[23]:\d\d$/);
+    await expect(board.locator(".ms-seat-turn b")).toHaveText(/^0:1\d$/);
     await page.screenshot({ path: info.outputPath("mesa-vez.png") });
     // A pawn chosen lights where it may go; the farther of the two is played.
     const moved = await board.locator(".ms-piece.ms-can").count();

@@ -8,7 +8,7 @@
 //   /mesa?jogo=ludo&ludo=<a,b,c,d;...>&vez=<seat>&dado=<n>   each seat's four pieces (-1 at home), whose turn, the throw
 //   &kota                                  a kota answers each move, as at a table in the street
 
-import { KOTA_MS, fromFen, jogar, lancar, lanceDe, newDamas, newLudo, newXadrez, novaMesa, passo, recusou, vezDe, type Mesa, type Partida, type Square } from "@nzila/games";
+import { KOTA_MS, escolherRapida, fromFen, jogar, lancar, lanceDe, newDamas, newLudo, newXadrez, novaMesa, passo, recusou, vezDe, type Mesa, type Partida, type Square } from "@nzila/games";
 import { MESA_RECUSAS, type MesaDita, type MesaPedido } from "@nzila/protocol";
 import { useEffect, useState } from "preact/hooks";
 import type { Table } from "./mesas.ts";
@@ -73,6 +73,9 @@ class Ensaio implements MesasVista {
       fase: mesa.fase,
       primeiro: mesa.primeiro,
       restaMs: 90_000,
+      rapida: mesa.rapida,
+      fimMs: 0,
+      porTempo: mesa.porTempo,
       lugares: mesa.lugares.map((one) => ({ entidade: one.jogador === "eu" ? ME : 0, guardado: false })),
       partida: mesa.partida,
       ultimo: mesa.ultimo,
@@ -93,6 +96,7 @@ class Ensaio implements MesasVista {
       const lance = lanceDe(this.mesa, pedido.casas);
       if (lance) done = jogar(this.mesa, "eu", lance, now);
     } else if (pedido.pedido === "lancar") done = lancar(this.mesa, "eu", this.dado, now);
+    else if (pedido.pedido === "rapida") done = escolherRapida(this.mesa, "eu", pedido.sim);
     else return;
     if (recusou(done)) {
       this.refused = { why: done, until: performance.now() + 3500 };
@@ -121,6 +125,10 @@ class Ensaio implements MesasVista {
 
   leftMs(): number {
     return 90_000;
+  }
+
+  fimLeftMs(): number {
+    return 0;
   }
 
   nameOf(): string | null {

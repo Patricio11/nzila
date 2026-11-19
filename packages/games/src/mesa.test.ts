@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { squareAt, xadrezMoves, type Xadrez } from "./xadrez.ts";
 import {
-  DESCANSO_MS, ESPERA_MS, FALTAS, GUARDA_MS, KOTAS, KOTAS_MS, KOTA_MS, LUGARES, VEZ_MS,
-  comecar, guardar, kotaDe, jogar, lancar, levantar, lugarDe, lugarGuardado, reservar, novaMesa, passo, recusou, sentar, vezDe, type Mesa, type Recusa,
+  DESCANSO_MS, ESPERA_MS, FALTAS, GUARDA_MS, KOTAS, KOTAS_MS, KOTA_MS, LUGARES, RAPIDA_MS, VEZ_MS, VEZ_RAPIDA_MS,
+  comecar, escolherRapida, ganhaPorTempo, guardar, kotaDe, resta, vezMs, jogar, lancar, levantar, lugarDe, lugarGuardado, reservar, novaMesa, passo, recusou, sentar, vezDe, type Mesa, type Recusa,
 } from "./mesa.ts";
 
 /** What was done, when it had to be done: a test that meant it to be refused says so. */
@@ -330,4 +330,64 @@ describe("the kotas of the bairro, each with a character", () => {
       }
     }
   }, 60_000);
+});
+
+describe("a quick game (partida rápida)", () => {
+  test("chosen by a seated player while the table waits or rests, not in the middle of a game; a table nobody sits at goes back to the slow game", () => {
+    const waiting = feito(sentar(novaMesa("xadrez", 0), 0, "ana", 0));
+    expect(waiting.rapida).toBe(false);
+    expect(escolherRapida(waiting, "beto", true)).toBe("fora");
+    const quick = feito(escolherRapida(waiting, "ana", true));
+    expect(quick).toMatchObject({ rapida: true, versao: waiting.versao + 1, desde: waiting.desde });
+    // The same choice twice changes nothing.
+    expect(escolherRapida(quick, "ana", true)).toBe(quick);
+    const begun = feito(comecar(quick, "ana", 5_000));
+    expect(begun).toMatchObject({ fase: "jogo", inicio: 5_000 });
+    expect(escolherRapida(begun, "ana", false)).toBe("fase");
+    // Up and gone: the kotas play their slow game.
+    expect(feito(levantar(begun, "ana", 6_000)).rapida).toBe(false);
+  });
+
+  test("shorter turns, and the time of the whole game counted from its start", () => {
+    const begun = feito(comecar(feito(escolherRapida(feito(sentar(novaMesa("damas", 0), 0, "ana", 0)), "ana", true)), "ana", 1_000));
+    expect(vezMs(begun)).toBe(VEZ_RAPIDA_MS.damas);
+    expect(vezMs(novaMesa("damas", 0))).toBe(VEZ_MS.damas);
+    expect(resta(begun, 61_000)).toBe(RAPIDA_MS - 60_000);
+    expect(resta(begun, 1_000 + RAPIDA_MS + 5)).toBe(0);
+    expect(resta(novaMesa("damas", 0), 0)).toBeNull();
+    // A player's quick turn runs out sooner: the kota plays it for them.
+    const late = passo(begun, 1_000 + VEZ_RAPIDA_MS.damas, seis);
+    expect(late.versao).toBeGreaterThan(begun.versao);
+    expect(late.lugares[0]!.faltas).toBe(1);
+  });
+
+  test("when the three minutes are up the game ends, won by whoever is ahead, and it is said that the clock ended it", () => {
+    const begun = feito(comecar(feito(escolherRapida(feito(sentar(novaMesa("xadrez", 0), 0, "ana", 0)), "ana", true)), "ana", 0));
+    // White a knight ahead.
+    const ahead = { ...begun, partida: { jogo: "xadrez" as const, estado: { ...begun.partida.estado as Xadrez, board: (begun.partida.estado as Xadrez).board.map((piece) => (piece === "n" ? "." : piece)) } } };
+    const over = passo(ahead, RAPIDA_MS, seis);
+    expect(over).toMatchObject({ fase: "fim", porTempo: true });
+    expect(over.partida.jogo === "xadrez" && over.partida.estado.result).toBe("w");
+    // The next game is not ended by the clock until its own three minutes are up.
+    const next = passo(over, RAPIDA_MS + DESCANSO_MS, seis);
+    expect(next).toMatchObject({ fase: "jogo", porTempo: false, inicio: RAPIDA_MS + DESCANSO_MS });
+  });
+
+  test("who is ahead: at xadrez by the pieces' worth, at damas a dama for two men, at Não te irrites pieces home and then how far; level is a draw", () => {
+    const xadrez = novaMesa("xadrez", 0).partida as Extract<ReturnType<typeof ganhaPorTempo>, { jogo: "xadrez" }>;
+    expect(ganhaPorTempo(xadrez)).toMatchObject({ estado: { result: "empate" } });
+    const blackAhead = { ...xadrez, estado: { ...xadrez.estado, board: xadrez.estado.board.map((piece) => (piece === "Q" ? "." : piece)) } };
+    expect(ganhaPorTempo(blackAhead)).toMatchObject({ estado: { result: "b" } });
+    const damas = novaMesa("damas", 0).partida as Extract<ReturnType<typeof ganhaPorTempo>, { jogo: "damas" }>;
+    expect(ganhaPorTempo(damas)).toMatchObject({ estado: { result: "empate" } });
+    // One dark dama against two light men: level. One more light man: light ahead. Two dark damas: dark ahead.
+    const board = (pieces: [number, -2 | -1 | 1 | 2][]): typeof damas => ({ ...damas, estado: { ...damas.estado, board: Array.from({ length: 64 }, (_, n) => pieces.find(([at]) => at === n)?.[1] ?? 0) } });
+    expect(ganhaPorTempo(board([[0, -2], [62, 1], [60, 1]]))).toMatchObject({ estado: { result: "empate" } });
+    expect(ganhaPorTempo(board([[0, -2], [62, 1], [60, 1], [58, 1]]))).toMatchObject({ estado: { result: 0 } });
+    expect(ganhaPorTempo(board([[0, -2], [2, -2], [62, 1]]))).toMatchObject({ estado: { result: 1 } });
+    const ludo = novaMesa("ludo", 0).partida as Extract<ReturnType<typeof ganhaPorTempo>, { jogo: "ludo" }>;
+    // Seat 2 has one home; seat 1 is far on with all four but none home: one home counts more.
+    const pieces = [[-1, -1, -1, -1], [30, 31, 32, 33], [40, -1, -1, -1], [-1, -1, -1, 5]];
+    expect(ganhaPorTempo({ ...ludo, estado: { ...ludo.estado, pieces }, dado: 4 })).toMatchObject({ estado: { winner: 2 }, dado: null });
+  });
 });

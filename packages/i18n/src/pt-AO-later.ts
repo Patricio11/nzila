@@ -312,6 +312,9 @@ export const ptAOLater = {
   "mesa.lancar": "Lançar o dado",
   "mesa.levantar": "Levantar",
   // Watching a table without sitting (F-210), and asking before a kota takes a kept seat (F-213).
+  "mesa.rapida": "Partida rápida · 3 min",
+  "mesa.rapidaResta": "Faltam {tempo} da partida rápida",
+  "mesa.acabouTempo": "Acabou o tempo.",
   "mesa.ver": "Ver o jogo",
   "mesa.verNome": "Ver o jogo de {jogo}",
   "mesa.aVer": "{n} a ver",
