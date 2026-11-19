@@ -11,8 +11,8 @@
 
 import { EMOTE_NAMES, type EmoteName } from "@nzila/protocol";
 import { Bone, Group, Mesh, Quaternion, SkinnedMesh, Vector3, type Material } from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { type WorldRenderer } from "./world-renderer.ts";
+import { modelLoader } from "./model-loader.ts";
 
 export interface Gait {
   /** Metres a second over the ground, as actually travelled. */
@@ -483,7 +483,7 @@ export class Person {
 
 /** Loads one person's model and dresses it in the world's palette. */
 export async function loadPerson(renderer: WorldRenderer, url: string, height: number, skirt: boolean, female = false): Promise<Person> {
-  const gltf = await new GLTFLoader().loadAsync(url);
+  const gltf = await modelLoader().loadAsync(url);
   let body: SkinnedMesh | null = null;
   gltf.scene.traverse((node) => {
     if (!(node instanceof Mesh)) return;

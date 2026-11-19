@@ -748,8 +748,9 @@ test.describe("the people of the street", () => {
     await page.waitForFunction(() => (window.__cena?.people?.length ?? 0) > 0 && window.__cena!.stream !== undefined && window.__cena!.stream.shown === window.__cena!.stream.wanted && window.__cena!.stream.loading === 0, undefined, { timeout: 45_000 });
     const quiet = await page.evaluate(() => window.__cena!);
     expect(quiet.people!.find((p) => p.role === "pescador")).toMatchObject({ pose: "fish", speed: 0 });
-    // Eighteen people at most at Normal (six in their whole body), and the whole picture inside the reference budget.
+    // Eighteen people at most at Normal (three in their whole body), and the whole picture inside the reference budget.
     expect(quiet.people!.length).toBeLessThanOrEqual(18);
+    console.log(`street of people [${info.project.name}]: ${quiet.triangles} triangles, ${quiet.people!.length} people`);
     expect(quiet.triangles).toBeLessThan(120_000);
     await page.evaluate(() => window.__cenaMoment!(96));
     await page.waitForFunction(() => window.__cena!.people!.some((p) => p.role === "pescador" && p.speed > 0), undefined, { timeout: 10_000 });
@@ -762,6 +763,36 @@ test.describe("the people of the street", () => {
     expect(officer.speed).toBeLessThan(fisher.speed);
     expect(officer.x).toBeGreaterThan(fisher.x);
     expect(seen.errors).toEqual([]);
+  });
+
+  test.describe("when a download fails", () => {
+    // The game's service worker answers the packs itself, and a route is not asked about what it answers.
+    test.use({ serviceWorkers: "block" });
+
+    test("a body that cannot be fetched (a line that fell, a page left) is no error: the light one stands in (F-215)", async ({ page, request }, info) => {
+      if (!(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+        info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). Failed downloads were not checked here." });
+        test.skip();
+        return;
+      }
+      // In WebKit a route breaks the page's blob: workers (the chunks' decoder starts its workers from them), and the
+      // street never comes. What is checked here does not depend on the engine: it is checked on the Chromium phone.
+      test.skip(info.project.name === "iphone", "a route breaks blob: workers in WebKit under Playwright");
+      const thrown: string[] = [];
+      page.on("pageerror", (error) => thrown.push(error.message));
+      // Every whole body is cut off on its way; the light ones come.
+      let cut = 0;
+      await page.route(/\/packs\/dev-people\/pessoa-\d+\.glb$/, (route) => {
+        cut += 1;
+        return route.abort("connectionfailed");
+      });
+      await page.goto("/cena?pack=l1&tier=normal&hour=12&transito=30&at=367.5,53.5,1.6&look=362,48.8,1.1");
+      await page.waitForFunction(() => (window.__cena?.people?.length ?? 0) > 0 && window.__cena!.stream !== undefined && window.__cena!.stream.shown === window.__cena!.stream.wanted, undefined, { timeout: 45_000 });
+      await expect.poll(() => cut, { timeout: 10_000 }).toBeGreaterThan(0);
+      await page.waitForTimeout(1500);
+      expect(await page.evaluate(() => window.__cena!.people!.length)).toBeGreaterThan(0);
+      expect(thrown).toEqual([]);
+    });
   });
 });
 

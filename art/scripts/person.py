@@ -1091,8 +1091,8 @@ def clothes(b, T, ring, loft, top, colour, spec, chest, chest_z, waist, waist_z,
             middle = T((0.0, 1.47, -0.06))
             for k in range(10):
                 j = (k + 1) % 10
-                # Only the half behind the neck; its top lies back, open toward the head.
-                if k in (1, 2, 3) or (i == len(hood) - 2 and k in (0, 4)):
+                # Only the half behind the neck, lying on the back, open toward the head.
+                if k < 5:
                     continue
                 b.face([low[k], low[j], high[j], high[k]], colour, away_from=middle, two_sided=True)
         # The pocket across the belly, its edge in a darker thread, and the two cords from the neck.

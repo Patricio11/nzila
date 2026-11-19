@@ -3,7 +3,6 @@
 // same body is a copy that shares its shape and has its own skeleton.
 
 import { Mesh, SkinnedMesh, type BufferGeometry, type Group, type Material, type Object3D } from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { meteredFetch } from "../net/data-meter.ts";
 import type { Dog } from "./dog.ts";
@@ -12,6 +11,7 @@ import { Person } from "./person.ts";
 /** A body of the street: a person, or a dog. */
 export type Body = Person | Dog;
 import { type WorldRenderer } from "./world-renderer.ts";
+import { modelLoader } from "./model-loader.ts";
 
 const PEOPLE = "/packs/dev-people/";
 
@@ -60,20 +60,31 @@ export class People {
     return body instanceof Person ? body : null;
   }
 
-  /** A body for anyone of the street, a dog included. */
+  /**
+   * A body for anyone of the street, a dog included; null when it could not be fetched (a line that fell, the page
+   * left while it came). Every caller lets a null pass, so a failed download is never an error on the page, and
+   * the next time the same body is wanted it is fetched again.
+   */
   async makeBody(who: Listed, light = false): Promise<Body | null> {
     const file = light ? who.model.replace(/\.glb$/, "-leve.glb") : who.model;
     let loading = this.models.get(file);
     if (!loading) {
       loading = meteredFetch(PEOPLE + file).then(async (bytes) => {
-        const scene = (await new GLTFLoader().parseAsync(bytes, "")).scene;
+        const scene = (await modelLoader().parseAsync(bytes, "")).scene;
         // The material the file came with is not used: every body wears the world's one palette.
         scene.traverse((node) => node instanceof Mesh && (node.material as Material).dispose());
         return scene;
       });
       this.models.set(file, loading);
     }
-    const scene = cloneSkinned(await loading) as Group;
+    let model: Object3D;
+    try {
+      model = await loading;
+    } catch {
+      if (this.models.get(file) === loading) this.models.delete(file);
+      return null;
+    }
+    const scene = cloneSkinned(model) as Group;
     const found: SkinnedMesh[] = [];
     scene.traverse((node) => {
       if (!(node instanceof Mesh)) return;

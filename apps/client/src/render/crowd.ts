@@ -88,11 +88,11 @@ export class Crowd {
   /** Gives the nearest people their bodies and poses them for this moment. */
   update(nowMs: number, elapsedMs: number, viewerX: number, viewerZ: number, ground: Ground | null): void {
     const seconds = nowMs / 1000;
-    // The nearest few wear their whole body (three on the reference phone, six at Normal, ten at Alta: some
-    // 2.400 triangles each, and one that casts a shadow is drawn twice). Everyone else the tier allows wears
-    // the light one, some 500 triangles and no shadow: 9, 18 or 30 people in all, which leaves the busiest
-    // view of L1 inside the triangle budget.
-    const wholes = Math.max(3, Math.round(this.renderer.tier.crowd / 4));
+    // The nearest few wear their whole body (three on the reference phone and at Normal, five at Alta: some
+    // 5.500 triangles each since the people were rebuilt, and one that casts a shadow is drawn twice, F-215).
+    // Everyone else the tier allows wears the light one, some 800 triangles and no shadow: 9, 18 or 30 people
+    // in all, which leaves the busiest view of L1 inside the triangle budget.
+    const wholes = Math.max(3, Math.round(this.renderer.tier.crowd / 6));
     const most = Math.round(this.renderer.tier.crowd * 0.75);
     const near: { walker: Walker; at: ActorMoment; far: number }[] = [];
     for (const walker of this.walkers) {
@@ -120,7 +120,11 @@ export class Crowd {
       if (n < wholes && !walker.whole && !walker.fetching && this.people) {
         walker.fetching = true;
         void this.people.makeBody(walker.who).then((whole) => {
-          if (!whole) return;
+          // Not come (a weak line): asked for again in a while, not every frame.
+          if (!whole) {
+            setTimeout(() => (walker.fetching = false), 10_000);
+            return;
+          }
           whole.root.visible = false;
           this.root.add(whole.root);
           walker.whole = whole;

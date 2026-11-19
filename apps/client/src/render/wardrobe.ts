@@ -7,10 +7,10 @@
 import { COLOURS, type Look } from "@nzila/protocol";
 import { ATLAS_CELLS, ATLAS_NAMES, atlasUv } from "@nzila/world/client";
 import { Mesh, SkinnedMesh, type BufferAttribute, type Group, type Material } from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { meteredFetch } from "../net/data-meter.ts";
 import { Person } from "./person.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
+import { modelLoader } from "./model-loader.ts";
 
 const WARDROBE = "/packs/guarda-roupa/";
 
@@ -115,7 +115,7 @@ function repaint(mesh: Mesh, paints: Readonly<Record<string, string>>): void {
 }
 
 async function piece(renderer: WorldRenderer, model: string): Promise<{ scene: Group; mesh: SkinnedMesh }> {
-  const scene = (await new GLTFLoader().parseAsync(await meteredFetch(WARDROBE + model), "")).scene;
+  const scene = (await modelLoader().parseAsync(await meteredFetch(WARDROBE + model), "")).scene;
   const found: SkinnedMesh[] = [];
   scene.traverse((node) => {
     if (!(node instanceof Mesh)) return;

@@ -3,9 +3,9 @@
 // together; still for a while, it lies down where it is, as the dogs of the street do in the shade.
 
 import { Bone, Group, Mesh, Quaternion, SkinnedMesh, Vector3, type Material } from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { type Gait } from "./person.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
+import { modelLoader } from "./model-loader.ts";
 
 interface Joint {
   readonly bone: Bone;
@@ -148,7 +148,7 @@ export class Dog {
 
 /** Loads one dog's model and dresses it in the world's palette (the pose page; the street uses `People`). */
 export async function loadDog(renderer: WorldRenderer, url: string, height: number): Promise<Dog> {
-  const gltf = await new GLTFLoader().loadAsync(url);
+  const gltf = await modelLoader().loadAsync(url);
   let body: SkinnedMesh | null = null;
   gltf.scene.traverse((node) => {
     if (!(node instanceof Mesh)) return;

@@ -18,8 +18,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { Logger, NodeIO } from "@gltf-transform/core";
-import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
-import { dedup, flatten, join as joinMeshes, meshopt, prune, simplify, weld } from "@gltf-transform/functions";
+import { ALL_EXTENSIONS, EXTMeshoptCompression, KHRMeshQuantization, KHRTextureBasisu } from "@gltf-transform/extensions";
+import { dedup, flatten, join as joinMeshes, meshopt, prune, quantize, simplify, weld } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer";
 
 const run = promisify(execFile);
@@ -104,6 +104,32 @@ export async function lightenGlb(bytes: Uint8Array, ratio: number): Promise<{ by
     for (const primitive of mesh.listPrimitives()) triangles += (primitive.getIndices()?.getCount() ?? primitive.getAttribute("POSITION")?.getCount() ?? 0) / 3;
   }
   return { bytes: await gltf.writeBinary(document), triangles: Math.round(triangles) };
+}
+
+/**
+ * Makes a model with a skeleton (a person, a piece of the wardrobe) smaller to send, and the same to draw: its
+ * normals, its corners of the palette and its bone weights are stored as small whole numbers (KHR_mesh_quantization,
+ * which every browser's loader reads with nothing more to fetch), its positions are left as they are, and the whole
+ * is meshopt-compressed without loss (the decoder is the one the world's chunks use). A position
+ * stored small would need a correction carried by the skeleton, and the wardrobe moves hair, beards and glasses onto
+ * the body's own skeleton when it dresses someone: the correction would be lost on the way (F-215). The palette's
+ * picture, which the game already has, is dropped.
+ */
+export async function packSkinned(bytes: Uint8Array): Promise<Uint8Array> {
+  const gltf = await gltfIo();
+  const document = await gltf.readBinary(bytes);
+  document.setLogger(new Logger(Logger.Verbosity.SILENT));
+  for (const material of document.getRoot().listMaterials()) {
+    if (material.getName().startsWith(PALETTE_MATERIAL)) material.setBaseColorTexture(null);
+  }
+  await document.transform(quantize({ pattern: /^(NORMAL|TEXCOORD_0|WEIGHTS_0)$/, quantizeNormal: 8, quantizeTexcoord: 16, quantizeWeight: 8 }), prune({ keepAttributes: true }));
+  // Normals stored as bytes are allowed only under the extension. The library decides whether to declare it from the
+  // positions alone (4.5.1), and these are left as they are, so it is declared here.
+  const small = document.getRoot().listMeshes().some((mesh) => mesh.listPrimitives().some((primitive) => (primitive.getAttribute("NORMAL")?.getComponentSize() ?? 4) < 4));
+  if (small) document.createExtension(KHRMeshQuantization).setRequired(true);
+  // And the bytes themselves compressed, losslessly, as the world's chunks are: the game already has the decoder.
+  document.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
+  return gltf.writeBinary(document);
 }
 
 export async function optimiseGlb(bytes: Uint8Array): Promise<Uint8Array> {

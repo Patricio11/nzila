@@ -11,7 +11,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { ATLAS_CELLS, ATLAS_CELL_PX, ATLAS_NAMES, atlasPixels, type Registry, type SourceManifest } from "@nzila/world";
-import { blender, exportChunks, findBlender, findKtx, optimiseGlb, lightenGlb } from "./assets.ts";
+import { blender, exportChunks, findBlender, findKtx, optimiseGlb, lightenGlb, packSkinned } from "./assets.ts";
 import { PackError, buildPack } from "./build.ts";
 import { checkPack } from "./check.ts";
 
@@ -163,15 +163,16 @@ export async function buildPeople(workDir: string, outDir: string): Promise<{ pe
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   await writeFile(join(outDir, "pessoas.glb"), model);
-  // Each person alone with a skeleton. These are not put through the optimiser yet: it is
-  // written for the world's still models, and a skeleton is not something to risk in it unseen.
+  // Each person alone with a skeleton. Not put through the optimiser, which is written for the world's still
+  // models (it would merge and move them): only made small where that cannot touch the skeleton (packSkinned).
   let light = 0;
   for (let i = 0; i < list.people.length; i++) {
     const full = await readFile(join(workDir, `pessoa-${i}.glb`));
-    await writeFile(join(outDir, `pessoa-${i}.glb`), full);
-    // And the same person in a fifth of the triangles, for the far side of the street (D-0.30).
-    const lighter = await lightenGlb(full, 0.2);
-    await writeFile(join(outDir, `pessoa-${i}-leve.glb`), lighter.bytes);
+    await writeFile(join(outDir, `pessoa-${i}.glb`), await packSkinned(full));
+    // And the same person in a seventh of the triangles, for the far side of the street (D-0.30): the whole body
+    // is fuller since 2026-11-19, the light one stays near what it was (F-215).
+    const lighter = await lightenGlb(full, 0.15);
+    await writeFile(join(outDir, `pessoa-${i}-leve.glb`), await packSkinned(lighter.bytes));
     light += lighter.triangles;
   }
   Object.assign(list, { light: Math.round(light / list.people.length) });
@@ -190,9 +191,10 @@ export async function buildWardrobe(workDir: string, outDir: string): Promise<{ 
   let pieces = 0;
   for (const name of await readdir(workDir)) {
     const file = await readFile(join(workDir, name));
-    await writeFile(join(outDir, name), file);
+    const sent = name.endsWith(".glb") ? await packSkinned(file) : file;
+    await writeFile(join(outDir, name), sent);
     if (name.endsWith(".glb")) {
-      bytes += file.length;
+      bytes += sent.length;
       pieces += 1;
     }
   }
