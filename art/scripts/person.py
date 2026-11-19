@@ -169,12 +169,20 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
 
     # ------------------------------------------------------------------ torso
     b.part = "torso"
+    # The shape of a grown body (2026-11-19, the founder, against the leading game's update: "learn on the body
+    # shape"). A man tapers from a broad chest and shoulders to a narrower waist, with hips narrower than his chest
+    # (the V); a woman's waist is clearly narrower than her bust and her hips. Half-widths and half-depths, metres.
     if female:
-        shoulder, chest, chest_z, waist, waist_z, hip, hip_z = 0.172, 0.150, 0.116, 0.120, 0.090, 0.176, 0.116
+        shoulder, chest, chest_z, waist, waist_z, hip, hip_z = 0.172, 0.150, 0.116, 0.112, 0.086, 0.180, 0.118
         chest_off, hip_off = 0.010, -0.012
     else:
-        shoulder, chest, chest_z, waist, waist_z, hip, hip_z = 0.205, 0.180, 0.122, 0.146, 0.104, 0.158, 0.106
-        chest_off, hip_off = 0.006, -0.004
+        shoulder, chest, chest_z, waist, waist_z, hip, hip_z = 0.210, 0.190, 0.126, 0.136, 0.100, 0.152, 0.104
+        chest_off, hip_off = 0.008, -0.004
+    # A kota's body (grey hair, unless the spec says otherwise): the chest and shoulders soften and the middle fills,
+    # as an older man's do; the V is a young man's.
+    elder = spec.get("elder", spec.get("hair_colour") == "hairGrey" or spec.get("role") == "kota")
+    if elder and male:
+        shoulder, chest, chest_z, waist, waist_z = shoulder * 0.97, chest * 0.96, chest_z * 0.98, waist * 1.12, waist_z * 1.14
     shoulder, chest, waist, hip = shoulder * build, chest * build, waist * build, hip * build
     chest_z, waist_z, hip_z = chest_z * build, waist_z * build, hip_z * build
     # The neck: a man's thick, set behind the jaw; the torso ends at its foot and the head's surface begins there.
@@ -198,10 +206,12 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
         (hem, hip * 0.985, hip_z * 0.99, hip_off * 0.6, 1.0, 2.1, None),
         (hem, hip * 0.985, hip_z * 0.99, hip_off * 0.6, puff + 0.07, 2.1, torso_colour),
         (1.07, waist, waist_z, 0.0, puff, 2.1, torso_colour),
-        (1.17, (waist + chest) * 0.5, (waist_z + chest_z) * 0.5, chest_off * 0.5, puff, 2.2 if male else 2.0, torso_colour),
-        (1.27, chest, chest_z, chest_off, puff, 2.4 if male else 2.0, torso_colour),
-        (1.375, shoulder * 0.93, chest_z * 0.86, 0.004, puff, 2.3 if male else 2.1, torso_colour),
-        (1.425, shoulder * 0.70, (0.082 if male else 0.072) * build, -0.006, puff, 2.0, neckline),
+        # The ribs widen fast above the waist: the taper is in the lower back, not a straight side.
+        (1.17, waist + (chest - waist) * 0.62, waist_z + (chest_z - waist_z) * 0.6, chest_off * 0.5, puff, 2.15 if male else 2.0, torso_colour),
+        (1.27, chest, chest_z, chest_off, puff, 2.2 if male else 2.0, torso_colour),
+        (1.375, shoulder * 0.93, chest_z * 0.86, 0.004, puff, 2.2 if male else 2.1, torso_colour),
+        # The shoulders slope from the neck to the arm (the trapezius), never a square box.
+        (1.425, shoulder * (0.66 if male else 0.66), (0.080 if male else 0.072) * build, -0.006, puff, 2.0, neckline),
         (neck_y, neck_rx, neck_rz, neck_off, 1.0, 2.0, None),
     ]
     stations = refine(stations, 1)
@@ -344,7 +354,8 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
 
     for side in (-1, 1):
         b.part = "leg.L" if side > 0 else "leg.R"
-        lx = side * hip * 0.50
+        # The legs stand where they always stood (their bones too): a narrower waist and hips above them is the shape, not a closer stance.
+        lx = side * (0.158 if male else 0.176) * build * 0.50
         rows = []
         for i, (y, rx, rz, off) in enumerate(leg_rows):
             if cloth_to is not None and y > cloth_to:
@@ -384,8 +395,13 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     if female:
         arm_rows = [(1.425, 0.026, 0.036), (1.385, 0.044, 0.046), (1.31, 0.041, 0.043), (1.225, 0.037, 0.040), (1.145, 0.031, 0.033), (1.075, 0.035, 0.035), (0.985, 0.029, 0.028), (0.895, 0.023, 0.028)]
     else:
-        arm_rows = [(1.425, 0.030, 0.040), (1.385, 0.053, 0.055), (1.31, 0.049, 0.051), (1.225, 0.044, 0.047), (1.145, 0.036, 0.038), (1.075, 0.042, 0.041), (0.985, 0.033, 0.031), (0.895, 0.025, 0.030)]
-    arm_rows = refine([(y, rx * (build if y > 1.15 else legs_thick), rz * (build if y > 1.15 else legs_thick)) for (y, rx, rz) in arm_rows], 1)
+        # A man's arm: a round shoulder (the deltoid), the upper arm's mass, a narrow elbow, the forearm's swell.
+        # (Measured against a policeman in his uniform: more than this and a heavier man in long sleeves reads as a bodybuilder.)
+        # The top of the arm starts under the slope of the shoulder and rounds into it (begun higher, or narrower, it
+        # stood up over the slope and read as a shoulder pad).
+        arm_rows = [(1.402, 0.038, 0.042), (1.386, 0.049, 0.051), (1.362, 0.055, 0.056), (1.31, 0.051, 0.052), (1.225, 0.045, 0.047), (1.145, 0.036, 0.038), (1.075, 0.044, 0.042), (0.985, 0.034, 0.031), (0.895, 0.025, 0.030)]
+    lean = 0.95 if elder and male else 1.0
+    arm_rows = refine([(y, rx * lean * (build if y > 1.15 else legs_thick), rz * lean * (build if y > 1.15 else legs_thick)) for (y, rx, rz) in arm_rows], 1)
     hand_k = 1.0 if child else (0.96 if female else 1.08)
     for side in (-1, 1):
         b.part = "arm.L" if side > 0 else "arm.R"
@@ -1221,7 +1237,8 @@ def pesos_cao(spec, x=0.0, z=0.0, ground=0.0):
 
 def shoulder_width(spec):
     female = spec.get("sex", "f") == "f"
-    return (0.172 if female else 0.205) * spec.get("build", 1.0)
+    elder = spec.get("elder", spec.get("hair_colour") == "hairGrey" or spec.get("role") == "kota")
+    return (0.172 if female else 0.210 * (0.97 if elder else 1.0)) * spec.get("build", 1.0)
 
 
 def hip_width(spec):

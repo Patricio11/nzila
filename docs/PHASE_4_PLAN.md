@@ -63,6 +63,8 @@ Opened 2026-11-17, with Phase 3 built and not yet proven on real phones (`docs/c
 
 **D-4.18 The zone is the only keeper of Fome and Energia (delegated, 2026-11-19).** It reads them as a player comes in, wears them with the steps they play and the effort the channel counts, and writes them every half minute and as they leave; eating is asked of the zone, which takes the thing and writes what it gave in one transaction. One writer, so that nothing is lost between two. The needs are kept as what was last set plus the steps, fast steps and jumps since, so that the tunables' rates hold exactly (the rules round down: a slice at a time would lose a sixth of the rate). *Recommendation: yes; built.*
 
+**D-4.19 Great public hospitals carry their real names (the founder, 2026-11-20, agreeing to the recommendation).** The Hospital Josina Machel is L1's hospital, a landmark as the Fortaleza is, shown with respect (no crime, no deaths, no queues made fun of); centros médicos and postos de saúde take invented names; private clinics are brands and are not named (D-0.11). Counsel reads it before the alpha (Waiting item 7). `LUANDA_REFERENCE.md` §6f.
+
 **Done on the way, at the founder's word (2026-11-18):** the street's traffic is the zone's to decide, so two players see the same van (F-190); vehicles that began inside each other are parted (F-180); two who arrive together stand side by side (F-189).
 
 ## Carried into this phase from the founder's rulings of 2026-11-17
