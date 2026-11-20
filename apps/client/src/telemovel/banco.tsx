@@ -14,7 +14,7 @@ import "@nzila/ui/later.css";
 tr.extend(ptAOLater);
 
 /** What a movement is called. One the game does not have a word for yet is a "Movimento". */
-const REASONS = ["grant", "bank_in", "bank_out", "purchase", "p2p", "errand", "family"] as const;
+const REASONS = ["grant", "bank_in", "bank_out", "purchase", "p2p", "errand", "family", "wage"] as const;
 const reasonOf = (reason: string): string => tr.t(`bank.reason.${REASONS.find((one) => one === reason) ?? "other"}`);
 const day = (iso: string): string => new Date(iso).toLocaleString("pt-AO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 

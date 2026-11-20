@@ -81,6 +81,8 @@ export interface WorldProvider {
   atShop(): { id: string; name: string } | null;
   /** The biscato whose place the player stands at (Task 4.5): its kind and the place's name. */
   atBiscato(): { kind: string; name: string } | null;
+  /** Where the player stands, as the page last said (metres), or null before the street is open. */
+  readonly player: { readonly x: number; readonly z: number } | null;
   /** The other players in the street, as far as this phone is told of them. */
   people(): { x: number; z: number }[];
   /** The vans on the road now. */

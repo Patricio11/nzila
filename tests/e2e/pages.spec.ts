@@ -1750,6 +1750,24 @@ test.describe("two phones in the same street", () => {
     await fim.getByRole("button", { name: "Voltar à rua" }).click();
     await expect(page.getByRole("dialog", { name: "Pronto, já está." })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Lavar pratos" })).toBeVisible();
+    // The Biscatos app: what today's have paid, then the district's four, nearest first; one marked for the compass.
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    const phone = page.getByRole("dialog", { name: "Telemóvel" });
+    await phone.getByRole("button", { name: "Biscatos" }).click();
+    await expect(phone.locator(".tb-hoje")).toContainText(`Hoje já ganhaste ${wallet.cashLines[0]!.amount}`);
+    await expect(phone.locator(".tb-um")).toHaveCount(4);
+    await expect(phone.locator(".tb-um").first()).toContainText("Lavar pratos");
+    await expect(phone.locator(".tb-um").first()).toContainText("150 a 450 Mk · 1 min 15 s · a ");
+    await page.screenshot({ path: info.outputPath("biscatos-app.png") });
+    // The compass's gold marks are today's errands' too: marking adds one.
+    const golds = await page.locator(".n-compass-target").count();
+    await phone.locator(".tb-um").nth(1).getByRole("button", { name: "Marcar" }).click();
+    await expect(phone.locator(".tb-um").nth(1).getByRole("button", { name: "Desmarcar" })).toBeVisible();
+    await expect(page.locator(".n-compass-target")).toHaveCount(golds + 1);
+    // In the Banco's statement the pay is a biscato's.
+    await phone.getByRole("button", { name: "Voltar" }).click();
+    await phone.getByRole("button", { name: "Banco" }).click();
+    await expect(phone).toContainText("Um biscato");
     expect(seen.errors).toEqual([]);
   });
 

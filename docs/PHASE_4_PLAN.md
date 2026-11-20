@@ -12,7 +12,7 @@ Opened 2026-11-17, with Phase 3 built and not yet proven on real phones (`docs/c
 | 4.2 Items and inventory | 4.1 | Ticked (2026-11-18): things in data, a row of each kind a player holds in a place, the carry limit, the Mochila. Places beyond the Mochila and the house (a vehicle, a business, evidence) join with their phases |
 | 4.3 NPC shops and markets | 4.2 | The cantina through its grille is built (2026-11-18). Waits: its inside (interiors are Phase 5's, 5.1), phone top-ups (with the Telemóvel's credit), the market's stalls, selling, the clothes shops |
 | 4.4 Needs, lightly | 0.2, 4.3 | The rules exist (`health.ts`, D-0.46, D-0.51) and nothing calls them. The zone now exists to call them |
-| 4.5 Biscatos | 4.1, 4.4 | Three jobs until the Ilha (D-0.47) |
+| 4.5 Biscatos | 4.1, 4.4 | Built (2026-11-20, D-4.22): lavar pratos, levar carga, zunga, lavar carros, and the Biscatos app. The pescador waits for the Ilha (D-0.47) |
 | 4.6 Tunables and the economy dashboard | 0.3, 3.8, 4.1 | 3.8 is built: the Estúdio has a place for it |
 | 4.7 Wiring, verification, doc convention | 4.1 to 4.6 | |
 

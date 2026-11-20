@@ -40,6 +40,7 @@ const BUILT: Partial<Record<AppId, Fetch>> = {
   bi: async () => (await import("./bi.tsx")).Bi as ComponentType<AppProps>,
   banco: async () => (await import("./banco.tsx")).Banco as ComponentType<AppProps>,
   mensagens: async () => (await import("./mensagens.tsx")).Mensagens as ComponentType<AppProps>,
+  biscatos: async () => (await import("./biscatos.tsx")).Biscatos as ComponentType<AppProps>,
 };
 const fetched = new Map<AppId, ComponentType<AppProps>>();
 

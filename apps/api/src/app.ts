@@ -700,7 +700,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     handler: async (_body, caller) => {
       const paidToday = await biscatosPaidToday(deps.sql, caller.player.id);
       const kinds = Object.fromEntries(BISCATO_KINDS.map((kind) => [kind, { leastMk: BASE_BISCATOS.kinds[kind].leastMk, mostMk: BASE_BISCATOS.kinds[kind].mostMk, seconds: BASE_BISCATOS.kinds[kind].seconds }]));
-      return { paidToday, percent: taperPercent(BASE_BISCATOS, paidToday), kinds };
+      return { paidToday, percent: taperPercent(BASE_BISCATOS, paidToday), kinds, taper: BASE_BISCATOS.taper };
     },
   });
 
