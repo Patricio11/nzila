@@ -12,7 +12,7 @@ describe("the rules of biscatos (Task 4.5, D-4.22)", () => {
   });
 
   test("wrong rules are refused, every fault said", () => {
-    expect(() => parseBiscatos({})).toThrow(/version[\s\S]*kinds\.pratos[\s\S]*kinds\.carga[\s\S]*kinds\.zunga[\s\S]*taper[\s\S]*roundTo/);
+    expect(() => parseBiscatos({})).toThrow(/version[\s\S]*kinds\.pratos[\s\S]*kinds\.carga[\s\S]*kinds\.zunga[\s\S]*kinds\.carros[\s\S]*taper[\s\S]*roundTo/);
     const kinds = { ...BASE_BISCATOS.kinds, pratos: { leastMk: 500, mostMk: 100, seconds: 10, energia: -1, fome: 0 } };
     expect(() => parseBiscatos({ ...BASE_BISCATOS, kinds })).toThrow(/leastMk and mostMk[\s\S]*seconds[\s\S]*energia and fome/);
     const fault = /taper/;
@@ -29,6 +29,7 @@ describe("the rules of biscatos (Task 4.5, D-4.22)", () => {
     expect(isBiscatoKind("pratos")).toBe(true);
     expect(isBiscatoKind("carga")).toBe(true);
     expect(isBiscatoKind("zunga")).toBe(true);
+    expect(isBiscatoKind("carros")).toBe(true);
     expect(isBiscatoKind("assalto")).toBe(false);
   });
 

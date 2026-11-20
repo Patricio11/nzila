@@ -190,7 +190,7 @@ def riser(xa, xb, d, y0, y1, colour):
 
 # What kind of place each point of interest is: the house glyph on the sign that floats over it.
 POI_GLYPHS = {"miradouro": "vista", "musicos": "musica", "gelados": "gelado", "por-do-sol": "sol", "palmeiras": "palmeira", "pontao": "pontao", "livreiro": "livro",
-              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos", "biscato-carga-mutamba": "biscatos", "biscato-zunga-marginal": "biscatos"}
+              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos", "biscato-carga-mutamba": "biscatos", "biscato-zunga-marginal": "biscatos", "biscato-carros-baixa": "biscatos"}
 
 
 def poi(key, x, z, name, line, y=G):
@@ -546,6 +546,8 @@ paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutam
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down
 poi("cobrador", lx0 + 44.0, z0 + 4.5, "A paragem da Mutamba", "Diz-se que o cobrador daqui se ouve na Ilha.")
 # A biscato (Task 4.5): the roboteiros wait with their carrinhos a little along from the paragem, for what the vans set down.
+# A biscato (Task 4.5): the lavadores wait with their buckets on the other side of the paragem, where cars stop.
+poi("biscato-carros-baixa", lx0 + 34.0, z0 + 4.5, "Os lavadores da Baixa", "Um balde, uma esponja e a fila de carros. O dono paga na hora.")
 poi("biscato-carga-mutamba", lx0 + 53.5, z0 + 4.5, "Os carrinhos da Mutamba", "O que sai das carrinhas vai para as bancas. Leva-se a carrinho, paga-se por carga.")
 # The iron palace, and beside it the old cinema.
 fx0, fx1 = BLOCKS[2]

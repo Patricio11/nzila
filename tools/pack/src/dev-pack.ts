@@ -70,6 +70,7 @@ interface DevLayout {
   cantina: [number, number, number];
   carga: [number, number, number];
   zunga: [number, number, number];
+  carros: [number, number, number];
   seats: { pos: [number, number, number]; facing: number }[];
   tables: { game: "xadrez" | "damas" | "ludo"; pos: [number, number, number]; facing: number; size: number; seats: { pos: [number, number, number]; facing: number }[] }[];
   water: { rect: [number, number, number, number]; level: number };
@@ -89,7 +90,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
   const chunks = await exportChunks(join(src, "district.blend"), src, join(scripts, "export_chunks.py"));
 
   const layout = JSON.parse(await readFile(join(src, "layout.json"), "utf8")) as DevLayout;
-  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares.", "dev.cantina.name": "Cantina de Ensaio", "dev.biscato.pratos.name": "Bacia de Ensaio", "dev.biscato.pratos.line": "Lavam-se pratos aqui. A tia paga na hora.", "dev.biscato.carga.name": "Carrinhos de Ensaio", "dev.biscato.carga.line": "Há sempre carga para levar à banca. Paga-se por cada uma.", "dev.biscato.zunga.name": "Bacias de Ensaio", "dev.biscato.zunga.line": "Leva uma bacia e vende a quem passa.", "dev.cantina.line": "Pão, gasosa, arroz, sabão, velas. Tudo pela grade." };
+  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares.", "dev.cantina.name": "Cantina de Ensaio", "dev.biscato.pratos.name": "Bacia de Ensaio", "dev.biscato.pratos.line": "Lavam-se pratos aqui. A tia paga na hora.", "dev.biscato.carga.name": "Carrinhos de Ensaio", "dev.biscato.carga.line": "Há sempre carga para levar à banca. Paga-se por cada uma.", "dev.biscato.zunga.name": "Bacias de Ensaio", "dev.biscato.zunga.line": "Leva uma bacia e vende a quem passa.", "dev.biscato.carros.name": "Baldes de Ensaio", "dev.biscato.carros.line": "Um balde, uma esponja e carros à espera.", "dev.cantina.line": "Pão, gasosa, arroz, sabão, velas. Tudo pela grade." };
   const manifest: SourceManifest = {
     id: "zz-dev/d1",
     province: "zz-dev",
@@ -115,6 +116,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
       // Loads to carry (Task 4.5): on open pavement near where people arrive, clear of every other button's place.
       { id: "biscato-carga-ensaio", pos: layout.carga, nameKey: "dev.biscato.carga.name", lineKey: "dev.biscato.carga.line", positive: true, stamp: false, glyph: "biscatos" },
       { id: "biscato-zunga-ensaio", pos: layout.zunga, nameKey: "dev.biscato.zunga.name", lineKey: "dev.biscato.zunga.line", positive: true, stamp: false, glyph: "biscatos" },
+      { id: "biscato-carros-ensaio", pos: layout.carros, nameKey: "dev.biscato.carros.name", lineKey: "dev.biscato.carros.line", positive: true, stamp: false, glyph: "biscatos" },
     ],
     routes: [],
     paragens: layout.paragens.map((pos, n) => {

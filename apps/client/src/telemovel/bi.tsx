@@ -12,6 +12,7 @@ import { type WorldProvider } from "../world/provider.ts";
 import { Guardar } from "./guardar.tsx";
 import { MeusDados } from "./meus-dados.tsx";
 import { ptAOLater } from "@nzila/i18n/later";
+import "@nzila/ui/later.css";
 
 // The words of this app came with it (F-195).
 tr.extend(ptAOLater);

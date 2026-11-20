@@ -1147,7 +1147,7 @@ describe("a biscato's pay (Task 4.5, D-4.22)", () => {
       await presence.mark(one.playerId, "biscato", `ronda-${n}:pratos:1000`, 600);
       await pagar(one.token);
     }
-    expect((await app.inject({ method: "GET", url: "/v1/biscatos", headers: as(one.token) })).json()).toEqual({ paidToday: 2320, percent: 50, kinds: { pratos: { leastMk: 150, mostMk: 450, seconds: 75 }, carga: { leastMk: 200, mostMk: 550, seconds: 90 }, zunga: { leastMk: 150, mostMk: 500, seconds: 75 } } });
+    expect((await app.inject({ method: "GET", url: "/v1/biscatos", headers: as(one.token) })).json()).toEqual({ paidToday: 2320, percent: 50, kinds: { pratos: { leastMk: 150, mostMk: 450, seconds: 75 }, carga: { leastMk: 200, mostMk: 550, seconds: 90 }, zunga: { leastMk: 150, mostMk: 500, seconds: 75 }, carros: { leastMk: 200, mostMk: 600, seconds: 90 } } });
     await presence.mark(one.playerId, "biscato", "ronda-sete:pratos:1000", 600);
     expect((await pagar(one.token)).json()).toMatchObject({ receipt: { total: 220 }, paidToday: 2540, percent: 50 });
     // A round of nothing pays nothing and writes nothing.

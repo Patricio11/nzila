@@ -8,6 +8,7 @@ import { bankMove, walletNow, type WalletLine } from "../world/money.ts";
 import { type WorldProvider } from "../world/provider.ts";
 import { tentar, today } from "../recados/recados.ts";
 import { ptAOLater } from "@nzila/i18n/later";
+import "@nzila/ui/later.css";
 
 // The words of this app came with it (F-195).
 tr.extend(ptAOLater);

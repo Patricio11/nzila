@@ -111,9 +111,9 @@ function LazyLoja({ show }: { show: (module: Loja) => preact.JSX.Element }) {
 
 // Each biscato's screen, by its kind: fetched when its button is pressed (Task 4.5).
 const pratos = () => import("../biscatos/pratos.tsx");
-const BISCATOS: Record<string, typeof pratos | undefined> = { pratos, carga: () => import("../biscatos/carga.tsx"), zunga: () => import("../biscatos/zunga.tsx") };
+const BISCATOS: Record<string, typeof pratos | undefined> = { pratos, carga: () => import("../biscatos/carga.tsx"), zunga: () => import("../biscatos/zunga.tsx"), carros: () => import("../biscatos/carros.tsx") };
 // A biscato's button is named by its kind ("pratos": "Lavar pratos").
-type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy" | "entregar" | "procurar" | "xadrez" | "damas" | "ludo" | "pratos" | "carga" | "zunga";
+type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy" | "entregar" | "procurar" | "xadrez" | "damas" | "ludo" | "pratos" | "carga" | "zunga" | "carros";
 type Errands = import("../recados/rua.ts").StreetErrands;
 /** The tables of the bairro (Task 4B.1), fetched when the district has any. */
 type Tables = import("../mesas/mesas.ts").Mesas;

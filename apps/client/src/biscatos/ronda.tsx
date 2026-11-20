@@ -11,6 +11,7 @@ import { type ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { askAsPlayer } from "../world/account.ts";
 import "./biscatos.css";
+import "@nzila/ui/later.css";
 
 // The words of this came with it.
 tr.extend(ptAOLater);

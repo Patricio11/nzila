@@ -16,6 +16,7 @@ import { account } from "../world/account.ts";
 import { buyThings, thingsNow, type BuySaid, type Bought, type Things } from "../world/money.ts";
 import { Coisa } from "./coisas.tsx";
 import "./cantina.css";
+import "@nzila/ui/later.css";
 
 // The words of this sheet came with it (F-195).
 tr.extend(ptAOLater);

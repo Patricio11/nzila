@@ -12,6 +12,7 @@ import { pedir, responder, type EntreNos } from "../telemovel/rede-kambas.ts";
 import { type Met } from "./conversa.tsx";
 import "./conversa.css";
 import "./sheet.css";
+import "@nzila/ui/later.css";
 
 // The words of this sheet came with it (F-195).
 tr.extend(ptAOLater);

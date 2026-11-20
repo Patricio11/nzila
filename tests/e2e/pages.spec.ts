@@ -1841,6 +1841,52 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("lavar carros (Task 4.5): at the buckets the gold button says Lavar carros; the mud gone part by part, the car drives off; paid", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Lavar carros was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(120_000);
+    const seen = watch(page);
+    await comeIn(page, 100);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const manifest = (await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] };
+    const spot = manifest.pois.find((one) => one.id === "biscato-carros-ensaio")!.pos;
+    await walkTo(page, spot[0], spot[2], 1.2);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "carros", undefined, { timeout: 10_000 });
+    await page.keyboard.press("e");
+    const work = page.getByRole("dialog", { name: "Lavar carros" });
+    await expect(work.locator(".bk-lama").first()).toBeVisible({ timeout: 10_000 });
+    // The sponge, dragged across the car once by a thumb: the mud it went over is less.
+    const place = (await work.locator(".bk-lugar").boundingBox())!;
+    await page.mouse.move(place.x + place.width * 0.1, place.y + place.height * 0.7);
+    await page.mouse.down();
+    await page.mouse.move(place.x + place.width * 0.9, place.y + place.height * 0.7, { steps: 12 });
+    await page.screenshot({ path: info.outputPath("biscato-carros.png") });
+    await page.mouse.up();
+    // A hand in the page: the number of each muddy part, a pass every tenth of a second, until two cars are washed.
+    await page.evaluate(async () => {
+      const end = performance.now() + 25_000;
+      while (performance.now() < end && !/Lavados: [2-9]/.test(document.querySelector(".bc-done")?.textContent ?? "")) {
+        const mud = document.querySelector(".bk-carro:not(.bk-sai) .bk-lama")?.className ?? "";
+        const part = /bk-parte-(\d)/.exec(mud)?.[1];
+        if (part !== undefined) window.dispatchEvent(new KeyboardEvent("keydown", { key: String(Number(part) + 1) }));
+        await new Promise((done) => setTimeout(done, 110));
+      }
+    });
+    await expect(work.locator(".bc-done")).toContainText("Lavados: 2");
+    await work.getByRole("button", { name: "Sair" }).click();
+    const fim = page.getByRole("dialog", { name: "Pronto, já está." });
+    await expect(fim).toContainText("Lavaste 2 carros.");
+    await expect(fim.locator(".n-receipt")).toContainText("Baldes de Ensaio", { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("biscato-carros-fim.png") });
+    await fim.getByRole("button", { name: "Voltar à rua" }).click();
+    await expect(page.getByRole("button", { name: "Lavar carros" })).toBeVisible();
+    expect(seen.errors).toEqual([]);
+  });
+
   test("os recados do dia: the neighbours' messages in Mensagens, the family's money for the taxi, and an errand walked and done in the street, paid at once", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The errands were not checked here." });

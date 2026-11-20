@@ -163,6 +163,7 @@ export const ptAO = {
   "action.pratos": "Lavar pratos",
   "action.carga": "Levar carga",
   "action.zunga": "Zungar",
+  "action.carros": "Lavar carros",
   "action.xadrez": "Jogar xadrez",
   "action.damas": "Jogar damas",
   "action.ludo": "Não te irrites",

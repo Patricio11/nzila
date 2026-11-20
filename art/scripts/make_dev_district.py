@@ -467,6 +467,9 @@ places["carga"] = [round(_carga[0], 2), KERB, round(_carga[1], 2)]
 # And a bacia to sell from (zunga), as clear of the carrinhos as of the rest.
 _zunga = _clear_spot([_carga])
 places["zunga"] = [round(_zunga[0], 2), KERB, round(_zunga[1], 2)]
+# And the lavadores' buckets (lavar carros).
+_carros = _clear_spot([_carga, _zunga])
+places["carros"] = [round(_carros[0], 2), KERB, round(_carros[1], 2)]
 
 # Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
 # a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
@@ -528,6 +531,7 @@ layout = {
     "cantina": places["cantina"],
     "carga": places["carga"],
     "zunga": places["zunga"],
+    "carros": places["carros"],
     "seats": [{"pos": [round(x, 2), round(y, 2), round(z, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for x, y, z, yaw in b.seats],
     "tables": [{"game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for t in tables],
     # The bay: from the foot of the sea wall out past the edge of what is modelled.

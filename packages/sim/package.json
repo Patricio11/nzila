@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./pratos": "./src/minigame/pratos.ts",
     "./carga": "./src/minigame/carga.ts",
-    "./zunga": "./src/minigame/zunga.ts"
+    "./zunga": "./src/minigame/zunga.ts",
+    "./carros": "./src/minigame/carros.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

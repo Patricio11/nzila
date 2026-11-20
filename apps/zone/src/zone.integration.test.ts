@@ -32,6 +32,7 @@ import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
 import { scoreCarga } from "@nzila/sim/carga";
 import { zungaRound } from "@nzila/sim/zunga";
+import { carrosRound } from "@nzila/sim/carros";
 import { PRATOS_FLICK, PRATOS_RUB, pratosRound, scorePratos, type PratosInput } from "@nzila/sim/pratos";
 import postgres, { type Sql } from "postgres";
 import { WebSocket as Cuttable } from "ws";
@@ -59,11 +60,13 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
     ["carga", { x: 70_000, y: 0, z: 59_000, yaw: 0 }],
     // And beside the kitandeiras, for a bacia to sell from.
     ["zunga", { x: 80_000, y: 0, z: 59_000, yaw: 0 }],
+    // And beside the lavadores' buckets, by the road.
+    ["carros", { x: 90_000, y: 0, z: 59_000, yaw: 0 }],
   ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 },
   // One bench's seat, facing +Z (F-205).
   benches: [{ x: -80_000, y: 450, z: 80_000, yaw: 0 }],
   // A kiosk's bacia, where plates are washed for pay.
-  biscatos: [{ kind: "pratos", x: 60_000, z: 60_000 }, { kind: "carga", x: 70_000, z: 60_000 }, { kind: "zunga", x: 80_000, z: 60_000 }],
+  biscatos: [{ kind: "pratos", x: 60_000, z: 60_000 }, { kind: "carga", x: 70_000, z: 60_000 }, { kind: "zunga", x: 80_000, z: 60_000 }, { kind: "carros", x: 90_000, z: 60_000 }],
   // A caixa two metres from where people arrive.
   caixas: [{ x: 2000, z: 0 }],
   // The district's places, in the pack's order: one beside where people arrive, one where people talk.
@@ -498,6 +501,27 @@ describe("where a player was", () => {
     expect(failed).toBe(0);
     expect(score).toBe(Math.trunc(1000 / most!));
     expect(await presence.marked(one.id, "biscato")).toMatch(new RegExp(`:zunga:${score}$`));
+    await p.leave();
+  }, 30_000);
+
+  test("lavar carros (Task 4.5): the first car gone over part by part is washed, and drives off", async () => {
+    const one = await player();
+    const p = await phone(one.token, PROTOCOL_VERSION, "carros");
+    const heard = (kind: number): WorldEvent[] => p.state.events.filter((event) => event.kind === kind);
+    p.socket.send(encodeBiscato({ op: "comecar", kind: "carros" }));
+    await until(() => heard(EVENT.BISCATO).length === 1);
+    const [seed, lengthMs] = heard(EVENT.BISCATO)[0]!.args as [number, number];
+    expect(lengthMs).toBe(90_000);
+    // Every layer of every dirty part of the first car, a pass each, a tenth of a second apart.
+    const first = carrosRound(seed, lengthMs)[0]!;
+    const passes = first.dirt.flatMap((layers, part) => Array.from({ length: layers }, () => part)).map((part, n) => ({ t: n * 100, what: part }));
+    await pause(passes.length * 100 + 300);
+    p.socket.send(encodeBiscato({ op: "mais", inputs: passes }));
+    p.socket.send(encodeBiscato({ op: "acabar" }));
+    await until(() => heard(EVENT.BISCATO_FIM).length === 1);
+    const [score, washed, failed, most] = heard(EVENT.BISCATO_FIM)[0]!.args;
+    expect([washed, failed]).toEqual([1, 0]);
+    expect(score).toBe(Math.trunc(1000 / most!));
     await p.leave();
   }, 30_000);
 

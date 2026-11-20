@@ -6,6 +6,7 @@
 
 import { type BiscatoKind } from "@nzila/economy/biscatos";
 import { scoreCarga } from "@nzila/sim/carga";
+import { carrosRound, scoreCarros } from "@nzila/sim/carros";
 import { pratosRound, scorePratos } from "@nzila/sim/pratos";
 import { scoreZunga, zungaRound } from "@nzila/sim/zunga";
 
@@ -68,6 +69,13 @@ export function scoreRonda(ronda: Ronda, playedMs: number): Feito {
   if (ronda.kind === "carga") {
     const carga = scoreCarga(ronda.seed, ronda.lengthMs, ronda.inputs, playedMs + AHEAD_SLACK_MS);
     return { score: carga.score, done: carga.delivered, failed: carga.fallen, most: carga.most };
+  }
+  if (ronda.kind === "carros") {
+    const carros = scoreCarros(carrosRound(ronda.seed, ronda.lengthMs), ronda.inputs, ronda.lengthMs);
+    // What went wrong: the cars that came while it was played and were left unwashed.
+    const played = Math.min(ronda.lengthMs, playedMs + AHEAD_SLACK_MS);
+    const came = carrosRound(ronda.seed, ronda.lengthMs).filter((car) => car.arrives < played).length;
+    return { score: carros.score, done: carros.washed, failed: Math.max(0, came - carros.washed), most: carros.cars };
   }
   if (ronda.kind === "zunga") {
     // Only the passers-by who came while it was played: one who would have come later did not walk on unserved.

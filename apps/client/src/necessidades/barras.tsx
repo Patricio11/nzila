@@ -15,6 +15,7 @@ import { askAsPlayer } from "../world/account.ts";
 import { nearestFood, type Arredores } from "./comida.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 import "./barras.css";
+import "@nzila/ui/later.css";
 
 // The words of this came with it.
 tr.extend(ptAOLater);

@@ -27,6 +27,7 @@ import { rememberTier, rememberedTier } from "../render/tier-store.ts";
 import { TIERS, chooseTier, type TierName } from "../render/tiers.ts";
 import { WorldRenderer, type FrameCounts } from "../render/world-renderer.ts";
 import "./cena.css";
+import "@nzila/ui/later.css";
 
 const TIER_NAMES: readonly TierName[] = ["poupanca", "normal", "alta"];
 const worldClock = compileClock(DEFAULT_CLOCK);
