@@ -14,7 +14,7 @@
 
 import { isGreeting } from "@nzila/i18n";
 import { type Object3D } from "three";
-import { encodeBanco, encodeComer, type TrafficSaid, CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
+import { encodeBanco, encodeComer, type TrafficSaid, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
 import { Players } from "../render/players.ts";
@@ -52,6 +52,9 @@ function knownHere(): Set<string> {
 }
 
 export const STILL: InputFrame = { dx: 0, dz: 0, run: false, brake: false };
+
+/** Why a line was not said, by its CHAT_REFUSAL number (messages.test.ts holds the numbers). */
+const REFUSED: readonly Refused[] = ["words", "words", "slow", "links", "muted"];
 
 export class Session {
   private readonly districtId: string;
@@ -99,6 +102,8 @@ export class Session {
   convites: WorldEvent[] = [];
   /** Fome and Energia as the zone last said them (Task 4.4), and who is waiting to hear what came of eating something. */
   needs: { fome: number; energia: number; tired: boolean } | null = null;
+  /** A stay at the hospital the zone has just taken the player to, until it has been shown (its bill asked of the API). */
+  hospital: string | null = null;
   onAte: ((item: string | null, why: string | null) => void) | null = null;
   private readonly offsets: number[] = [];
   /** How far the zone's clock is ahead of this phone's, in milliseconds; null before it has said anything. */
@@ -311,7 +316,8 @@ export class Session {
 
   private happened(event: WorldEvent): void {
     if (event.kind === EVENT.CHAT_OPEN) this.chatOpen = true;
-    else if (event.kind === EVENT.CHAT_REFUSED) this.refused = event.args[0] === CHAT_REFUSAL.SLOW_DOWN ? "slow" : event.args[0] === CHAT_REFUSAL.LINKS ? "links" : event.args[0] === CHAT_REFUSAL.MUTED ? "muted" : "words";
+    // By CHAT_REFUSAL's numbers on the wire (2 too quick, 3 a link, 4 silenced; anything else a word).
+    else if (event.kind === EVENT.CHAT_REFUSED) this.refused = REFUSED[event.args[0] ?? 0] ?? "words";
     else if (event.kind === EVENT.RIDE_REFUSED) this.rideRefused = true;
     else if (event.kind === EVENT.GIVEN) this.given = true;
     else if (event.kind === EVENT.MESA_REFUSED) this.mesaRefused = event.args[0] ?? 0;
@@ -320,6 +326,7 @@ export class Session {
       this.needs = { fome: event.args[0] ?? 0, energia: event.args[1] ?? 0, tired: event.args[2] === 1 };
       if (event.text) this.onAte?.(event.text, null);
     } else if (event.kind === EVENT.COMER_RECUSADO) this.onAte?.(null, event.text);
+    else if (event.kind === EVENT.HOSPITAL) this.hospital = event.text;
     else if (event.kind === EVENT.EMOTE) {
       const name = EMOTE_NAMES[event.args[0] ?? -1];
       if (name && !this.talk.silenced(event.subject)) this.players.gesture(event.subject, name);

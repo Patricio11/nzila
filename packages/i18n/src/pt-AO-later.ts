@@ -326,6 +326,13 @@ export const ptAOLater = {
   "install.yes": "Instalar",
   "install.later": "Agora não",
   // Fome and Energia (Task 4.4): the lines said once, and what the Mochila says when eating is refused.
+  "needs.hospital.titulo": "Ficaste sem forças.",
+  "needs.hospital.texto": "Trouxeram-te ao hospital. Já estás de pé: come qualquer coisa e descansa um bocado.",
+  "needs.hospital.recibo": "Hospital",
+  "needs.hospital.consulta": "Consulta e soro",
+  "needs.hospital.nada": "Não tinhas dinheiro contigo nem no banco: não te cobraram nada.",
+  "needs.hospital.semRede": "Sem rede agora: a conta do hospital fica para depois.",
+  "needs.hospital.voltar": "Voltar à rua",
   "needs.cansado": "Estás sem forças para correr ou saltar. Come alguma coisa ou descansa um bocado.",
   "needs.fome": "Estás com fome. A cantina do Largo tem pão e gasosa.",
   "mochila.nao_tens": "Já não tens disso na mochila.",

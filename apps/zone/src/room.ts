@@ -144,6 +144,8 @@ const NEEDS = BASE_TUNABLES.needs;
 /** How near a bench's seat a player must stand to sit on it, and how far in front of it they stand up. Millimetres. */
 const BENCH_REACH_MM = 2500;
 const BENCH_STEP_MM = 600;
+/** How long the zone's note of a stay at the hospital lasts for the API to ask its bill, in seconds. */
+const HOSPITAL_NOTE_S = 600;
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
 export interface Pace {
@@ -469,8 +471,29 @@ export class ChannelRoom {
       held.needs.tired = tired;
       this.channel.setTired(held.entityId, tired);
     }
+    // Nothing left: to the hospital, back on their feet there (the bill is the API's, on the zone's note).
+    if (now.energia <= 0 && this.toHospital(line, held, now)) return;
     if (changed || lasting) this.tellNeeds(line, held, "");
     if (lasting) void keepNeeds(this.sql, held.playerId, now).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
+  }
+
+  /**
+   * Energia at zero (Task 4.4): the body is taken to the district's hospital (its door, when the pack has none yet),
+   * they wake with Energia and some Fome back, never dead and never robbed, and a note is left for the API, which
+   * asks a small bill for the stay. Not from a van or a seat: whoever sits or rides is resting already.
+   */
+  private toHospital(line: Line, held: Held, now: NeedsState): boolean {
+    if (this.channel.ridingOf(held.entityId) || this.channel.sittingOf(held.entityId)) return false;
+    if (!this.channel.put(held.entityId, this.district.hospital ?? this.district.arrival)) return false;
+    const after = { fome: Math.max(now.fome, NEEDS.hospitalFome), energia: NEEDS.hospitalEnergia };
+    held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
+    this.channel.setTired(held.entityId, held.needs.tired);
+    const stay = `${Date.now().toString(36)}${held.entityId.toString(36)}`;
+    void this.presence?.mark(held.playerId, "hospital", stay, HOSPITAL_NOTE_S).catch(() => {});
+    void keepNeeds(this.sql, held.playerId, after).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
+    line.send(encodeEvent({ kind: EVENT.HOSPITAL, tick: this.channel.world.tick, subject: 0, args: [], text: stay }));
+    this.tellNeeds(line, held, "");
+    return true;
   }
 
   /**

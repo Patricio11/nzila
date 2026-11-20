@@ -225,6 +225,12 @@ export class Channel {
     return this.sitting.has(id) && this.putDown(id, at);
   }
 
+  /** A body on foot is taken somewhere else (to the hospital), where there is room nearest the place. False when there is none. */
+  put(id: number, at: Place): boolean {
+    if (this.riding.has(id) || this.sitting.has(id)) return false;
+    return this.putDown(id, at);
+  }
+
   /** A body carried or seated is set down on the ground again, where there is room, nearest the place asked for. */
   private putDown(id: number, at: Place): boolean {
     const body = this.world.characters.find((one) => one.id === id)!;

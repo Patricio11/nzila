@@ -23,7 +23,10 @@
     "energiaPerJump": 15,
     "energiaPerHungryHour": 3000,
     "tiredBelow": 800,
-    "energiaPerRestHour": 6000
+    "energiaPerRestHour": 6000,
+    "hospitalEnergia": 6000,
+    "hospitalFome": 5000,
+    "hospitalBill": 1500
   },
   "crime": {
     "shieldPlayHours": 5,

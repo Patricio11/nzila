@@ -233,6 +233,8 @@ export const EVENT = {
   NECESSIDADES: 12,
   /** What the player asked to eat or drink was not: text is why, "nao_tens" (none carried) or "nao_se_come" (not eaten in the street). */
   COMER_RECUSADO: 13,
+  /** This player's Energia ran out: they woke at the hospital (Task 4.4). text: the stay, by which the API is asked for its bill. */
+  HOSPITAL: 14,
 } as const;
 
 /**

@@ -7,6 +7,7 @@ import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId } from "@nzila/economy";
 import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
+import { payHospital } from "@nzila/db";
 import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
 import { carriesAddress, tidyLine } from "@nzila/i18n";
 import { classificacaoDe, lastGift, lugarNaClassificacao, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
@@ -669,6 +670,22 @@ export function buildApp(deps: Deps): FastifyInstance {
       const mensagem = await escrever(deps.sql, caller.player.id, them, escrito);
       if (!mensagem) throw new Refusal(409, "nao_kambas");
       return { mensagem };
+    },
+  });
+
+  // The hospital's bill (Task 4.4): asked by the phone of a player the zone took there (its note, for ten minutes),
+  // paid once a stay, small, and never more than they have.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/hospital/conta",
+    guard: "player",
+    body: nothing,
+    perMinute: 10,
+    handler: async (_body, caller) => {
+      const stay = await presence.marked(caller.player.id, "hospital");
+      if (!stay) throw new Refusal(409, "not_there");
+      const receipt = await payHospital(deps.sql, { playerId: caller.player.id, stay, bill: BASE_TUNABLES.needs.hospitalBill, districtId: null });
+      return { receipt, ...(await walletOf(deps.sql, caller.player.id)) };
     },
   });
 

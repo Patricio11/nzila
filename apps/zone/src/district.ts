@@ -45,6 +45,8 @@ export interface District {
   readonly tables?: readonly TablePlace[];
   /** The benches' seats, in the pack's order: a phone names one by its number to sit on it (F-205). Millimetres. */
   readonly benches?: readonly Place[];
+  /** Where a player whose Energia runs out wakes (Task 4.4): the district's hospital or centro médico, from its places. */
+  readonly hospital?: Place;
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -105,7 +107,10 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     seats: one.seats.map((seat) => ({ x: mm(seat.pos[0]), y: mm(seat.pos[1]), z: mm(seat.pos[2]), yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) })),
   }));
   const benches = (manifest.seats ?? []).map((seat): Place => ({ x: mm(seat.pos[0]), y: mm(seat.pos[1]), z: mm(seat.pos[2]), yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) }));
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, tables, benches, ...(await trafficOf(manifest, packDir)) };
+  // The hospital or the centro médico, by its name among the district's places (WORLD_ATLAS.md §5.1, step 7).
+  const clinic = (manifest.pois ?? []).find((one) => /^(hospital|centro-medico)/.test(one.id));
+  const hospital = clinic ? { x: mm(clinic.pos[0]), y: mm(clinic.pos[1]), z: mm(clinic.pos[2]), yaw: 0 } : undefined;
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, tables, benches, ...(hospital ? { hospital } : {}), ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

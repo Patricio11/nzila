@@ -391,6 +391,35 @@ describe("where a player was", () => {
     // Two walks, meals and the database: more than an integration test's fifteen seconds when the gate is loaded (F-176).
   }, 30_000);
 
+  test("Energia at zero (Task 4.4): taken to the hospital (the door, in a district without one), back on their feet with Energia and some Fome, and a note left for the bill", async () => {
+    const one = await player();
+    await sql`UPDATE players SET fome = 1000, energia = 1 WHERE id = ${one.id}`;
+    const p = await phone(one.token, PROTOCOL_VERSION, "mutamba");
+    expect(Math.hypot(p.me().x - 40_000, p.me().z + 20_000)).toBeLessThan(3500);
+    const woke = (): WorldEvent | undefined => p.state.events.find((event) => event.kind === EVENT.HOSPITAL);
+    // Time takes the last of it at the next tending, within five seconds.
+    await until(() => woke() !== undefined, 12_000);
+    const stay = woke()!.text;
+    expect(stay).toMatch(/^[0-9a-z]+$/);
+    // At the district's door: this one has no hospital among its places.
+    await until(() => Math.hypot(p.me().x, p.me().z) < 2000);
+    // Told at once: Energia back to 6 000, Fome raised to 5 000, not tired.
+    const after = p.state.events.filter((event) => event.kind === EVENT.NECESSIDADES).at(-1)!;
+    expect(after.args).toEqual([5000, 6000, 0]);
+    // The API's note, by which it asks the bill once.
+    expect(await presence.marked(one.id, "hospital")).toBe(stay);
+    let kept: { fome: number; energia: number } | undefined;
+    for (let n = 0; n < 40 && !(kept && kept.energia === 6000); n++) {
+      [kept] = await sql<{ fome: number; energia: number }[]>`SELECT fome, energia FROM players WHERE id = ${one.id}`;
+      await pause(50);
+    }
+    expect(kept).toEqual({ fome: 5000, energia: 6000 });
+    // Once only: the next tending finds Energia, not a second stay.
+    await pause(5500);
+    expect(p.state.events.filter((event) => event.kind === EVENT.HOSPITAL)).toHaveLength(1);
+    await p.leave();
+  }, 30_000);
+
   test("a rehearsal town is played in like any district, and nothing of where anyone stood there is kept", async () => {
     const one = await player();
     const there = await phone(one.token, PROTOCOL_VERSION, undefined, "zz-dev.d1");

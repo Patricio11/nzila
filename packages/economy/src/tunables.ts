@@ -56,6 +56,10 @@ const SPEC = {
     energiaPerHungryHour: range(0, 100_000),
     /** Energia won back per real hour sitting (a bench, a stool) or riding a van (Task 4.4). */
     energiaPerRestHour: range(0, 100_000),
+    /** Energia at zero (Task 4.4): the player wakes at the hospital with this much Energia and at least this much Fome, and a small bill. */
+    hospitalEnergia: range(0, 10_000),
+    hospitalFome: range(0, 10_000),
+    hospitalBill: MK,
     /** Under this much Energia a player can neither go fast nor jump (D-0.46, Task 4.4). */
     tiredBelow: range(0, 10_000),
   },

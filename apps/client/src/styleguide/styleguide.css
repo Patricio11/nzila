@@ -36,3 +36,6 @@
 .sg-ghost { opacity: 0.8; color: var(--n-tinta) !important; }
 .sg-pano { width: 288px; height: 240px; border-radius: var(--r-button); overflow: hidden; box-shadow: inset 0 0 0 1px var(--n-linha); }
 .sg-pano-band { width: 288px; padding: var(--s-4) 0; }
+
+/* The hospital is a screen of its own in the street: held inside its case here. */
+.sg-hospital { position: relative; width: 100%; height: 420px; overflow: hidden; transform: translateZ(0); }

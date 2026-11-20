@@ -1125,6 +1125,41 @@ describe("the bank: into the Banco and out of it, at a caixa (Task 4.1)", () => 
   });
 });
 
+describe("the hospital's bill (Task 4.4)", () => {
+  const conta = (token: string) => app.inject({ method: "POST", url: "/v1/hospital/conta", headers: as(token) });
+
+  test("asked only on the zone's note of a stay; paid from the Carteira then the Banco; once a stay; never more than they have", async () => {
+    const one = await newGuest(810);
+    const origin = ((await app.inject({ method: "POST", url: "/v1/me/origin", headers: as(one.token) })).json() as { origin: { makuta: number } }).origin.makuta;
+    // Enough for two stays whatever a family gave (some give 1 500): given through the ledger, from the faucet (F-219).
+    const [faucet] = await sql<{ id: string }[]>`SELECT id FROM ledger_accounts WHERE kind = 'system_faucet' LIMIT 1`;
+    await sql`INSERT INTO ledger_transfers (debit_account, credit_account, amount, reason, action_id) VALUES (${faucet!.id}, ${`player_cash:${one.playerId}`}, 5000, 'starting_grant', ${`hospital-test-${one.playerId}`})`;
+    const makuta = origin + 5000;
+    // A thousand in the hand, the rest in the Banco: the bill of 1 500 takes the thousand and 500 of the Banco.
+    await presence.mark(one.playerId, "caixa");
+    await app.inject({ method: "POST", url: "/v1/bank/deposit", headers: as(one.token), payload: { amount: makuta - 1000, key: "hospital-01" } });
+    // No zone has taken them to a hospital: there is no bill to ask.
+    const nowhere = await conta(one.token);
+    expect(nowhere.statusCode).toBe(409);
+    expect(nowhere.json()).toEqual({ error: "not_there" });
+    await presence.mark(one.playerId, "hospital", "estadia-um", 600);
+    const paid = await conta(one.token);
+    expect(paid.statusCode).toBe(200);
+    expect(paid.json()).toMatchObject({ cash: 0, bank: makuta - 1000 - 500, receipt: { shop: "hospital", total: 1500, lines: [{ item: "consulta", quantity: 1, price: 1500, amount: 1500 }] } });
+    // The phone asks again (a dropped line, a page opened twice): the same receipt, nothing more taken.
+    const again = await conta(one.token);
+    expect(again.json()).toEqual(paid.json());
+    // A second stay is a second bill.
+    await presence.mark(one.playerId, "hospital", "estadia-dois", 600);
+    expect((await conta(one.token)).json()).toMatchObject({ cash: 0, bank: makuta - 1000 - 2000, receipt: { total: 1500 } });
+    // Nothing in the hand nor in the Banco: nothing taken, no debt, and the phone says so.
+    const broke = await newGuest(811);
+    await presence.mark(broke.playerId, "hospital", "estadia-tres", 600);
+    expect((await conta(broke.token)).json()).toMatchObject({ cash: 0, bank: 0, receipt: { id: 0, total: 0 } });
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+});
+
 
 describe("handing Makuta to another player, in person (Task 4.1, D-4.11)", () => {
   const post = (token: string, url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: as(token), payload });
