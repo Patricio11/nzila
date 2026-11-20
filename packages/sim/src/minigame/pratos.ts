@@ -17,7 +17,8 @@ export const PRATOS_FLICK = 1;
 /** One thing the thumb did, at a time from the round's start in milliseconds. */
 export interface PratosInput {
   readonly t: number;
-  readonly what: typeof PRATOS_RUB | typeof PRATOS_FLICK;
+  /** PRATOS_RUB, or anything else a flick. */
+  readonly what: number;
 }
 
 /** One plate: when it lands on the pile, and how many rubs its dirt takes. */

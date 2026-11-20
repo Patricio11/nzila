@@ -190,7 +190,7 @@ def riser(xa, xb, d, y0, y1, colour):
 
 # What kind of place each point of interest is: the house glyph on the sign that floats over it.
 POI_GLYPHS = {"miradouro": "vista", "musicos": "musica", "gelados": "gelado", "por-do-sol": "sol", "palmeiras": "palmeira", "pontao": "pontao", "livreiro": "livro",
-              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos", "biscato-carga-mutamba": "biscatos"}
+              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos", "biscato-carga-mutamba": "biscatos", "biscato-zunga-marginal": "biscatos"}
 
 
 def poi(key, x, z, name, line, y=G):
@@ -397,6 +397,8 @@ rect = kb.posto(b, 384.0, shore(384) + 26.0, G + 0.03)
 mark(rect[0], rect[1], rect[2], rect[3], "#")
 places["police"].append([384.0, G, round(shore(384) + 26.0, 2)])
 block(389.5, shore(389.5) + 23.0, kb.bandeira(b, 389.5, shore(389.5) + 23.0, G + 0.03, mast=7.5, wide=2.1))
+# A biscato (Task 4.5): the kitandeiras of the promenade lend a bacia to whoever will walk it up and down.
+poi("biscato-zunga-marginal", 234.0, shore(234) + 11.0, "As kitandeiras da Marginal", "Há sempre uma bacia a mais. Pega nela e vende a quem passa no passeio.")
 poi("por-do-sol", 250.0, shore(250) + 5.0, "O pôr do sol na Marginal", "Senta-te no muro e espera. É todos os dias e nunca é igual.")
 poi("palmeiras", 170.0, shore(170) + 15.5, "A avenida das palmeiras", "Uma fila de palmeiras a perder de vista, de uma ponta à outra da baía.")
 

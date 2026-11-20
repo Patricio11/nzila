@@ -970,10 +970,14 @@ test.describe("the door (D-4.12: everyone registers)", () => {
     await again.getByRole("link", { name: "Já tenho conta" }).click();
     await again.getByLabel("O teu e-mail").fill(email);
     await again.getByLabel("A tua palavra-passe").fill("uma frase que so eu sei");
+    // Signing in here ends the session on the first phone (one active session a player): whatever that phone asks
+    // from now on is answered 401, which is how it is told. Everything before must be clean; after, only that.
+    const beforeSignIn = seen.errors.length;
     await again.getByRole("button", { name: "Entrar", exact: true }).click();
     await again.waitForURL((url) => url.pathname !== "/", { timeout: 30_000 });
     await again.context().close();
-    expect(seen.errors.filter((error) => !error.includes("409") && !error.includes("400"))).toEqual([]);
+    expect(seen.errors.slice(0, beforeSignIn).filter((error) => !error.includes("409") && !error.includes("400"))).toEqual([]);
+    expect(seen.errors.slice(beforeSignIn).filter((error) => !error.includes("401"))).toEqual([]);
   });
 });
 
@@ -1791,6 +1795,49 @@ test.describe("two phones in the same street", () => {
     await page.screenshot({ path: info.outputPath("biscato-carga-fim.png") });
     await fim.getByRole("button", { name: "Voltar à rua" }).click();
     await expect(page.getByRole("button", { name: "Levar carga" })).toBeVisible();
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("zunga (Task 4.5): at the bacias the gold button says Zungar; each passer-by given what they ask for; paid", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Zunga was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(120_000);
+    const seen = watch(page);
+    await comeIn(page, 99);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const manifest = (await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] };
+    const spot = manifest.pois.find((one) => one.id === "biscato-zunga-ensaio")!.pos;
+    await walkTo(page, spot[0], spot[2], 1.2);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "zunga", undefined, { timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Zungar" })).toBeVisible();
+    await page.keyboard.press("e");
+    const work = page.getByRole("dialog", { name: "Zungar" });
+    // The first passer-by stops and asks.
+    await expect(work.locator(".bz-quer")).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("biscato-zunga.png") });
+    // A hand in the page: it reads what each one asks for and taps it from the bacia, until three have bought.
+    await page.evaluate(async () => {
+      const goods = ["banana", "ginguba", "agua", "pao"];
+      const end = performance.now() + 20_000;
+      while (performance.now() < end && !/Vendidos: [3-9]/.test(document.querySelector(".bc-done")?.textContent ?? "")) {
+        const asked = document.querySelector(".bz-quer .bz-coisa")?.className ?? "";
+        const n = goods.findIndex((good) => asked.includes(`bz-${good}`));
+        if (n >= 0) document.querySelectorAll(".bz-tocar")[n]!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        await new Promise((done) => setTimeout(done, 300));
+      }
+    });
+    await expect(work.locator(".bc-done")).toContainText("Vendidos: 3");
+    await work.getByRole("button", { name: "Sair" }).click();
+    const fim = page.getByRole("dialog", { name: "Pronto, já está." });
+    await expect(fim).toContainText("Vendeste a 3 pessoas.");
+    await expect(fim.locator(".n-receipt")).toContainText("Bacias de Ensaio", { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("biscato-zunga-fim.png") });
+    await fim.getByRole("button", { name: "Voltar à rua" }).click();
+    await expect(page.getByRole("button", { name: "Zungar" })).toBeVisible();
     expect(seen.errors).toEqual([]);
   });
 

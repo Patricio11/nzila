@@ -476,13 +476,16 @@ function readBanco(r: Reader): Banco {
 
 /** The most of a thumb's inputs one message carries: the phone sends a round's in batches as it goes. */
 export const BISCATO_BATCH_MAX = 256;
+/** What one input says is a number from 0 to this: a rub or a flick, left or right, which thing from the bacia. */
+export const BISCATO_WHAT_MAX = 7;
 /** A biscato's kind, as a place's id names it. */
 const BISCATO_KIND = /^[a-z]{2,16}$/;
 
 /**
  * Client to zone, about a biscato (Task 4.5): begin the one of this kind where the player stands; what the thumb
- * has done since the last batch, each at a time from the round's start in milliseconds (`what`: 0 a rub, 1 a
- * flick; the zone keeps the order); or that the player is done, early or at the end.
+ * has done since the last batch, each at a time from the round's start in milliseconds and what it was (0 to 7, by
+ * the biscato: a rub or a flick, a push left or right, which thing from the bacia; the zone keeps the order); or
+ * that the player is done, early or at the end.
  */
 export type BiscatoPedido =
   | { readonly op: "comecar"; readonly kind: string }
@@ -496,9 +499,10 @@ export function encodeBiscato(m: BiscatoPedido): Uint8Array {
   if (m.inputs.length > BISCATO_BATCH_MAX) throw new RangeError("too many inputs for one batch");
   w.u8(2).uint(m.inputs.length);
   let was = 0;
-  // Each as the time since the one before, doubled, and what it was in the lowest bit.
+  // Each as the time since the one before, times eight, and what it was in the lowest three bits.
   for (const input of m.inputs) {
-    w.uint((input.t - was) * 2 + input.what);
+    if (!Number.isInteger(input.what) || input.what < 0 || input.what > BISCATO_WHAT_MAX) throw new RangeError("not an input a biscato knows");
+    w.uint((input.t - was) * 8 + input.what);
     was = input.t;
   }
   return w.finish();
@@ -518,8 +522,8 @@ function readBiscato(r: Reader): BiscatoPedido {
   let t = 0;
   for (let i = 0; i < count; i++) {
     const packed = r.uint();
-    t += Math.floor(packed / 2);
-    inputs.push({ t, what: packed % 2 });
+    t += Math.floor(packed / 8);
+    inputs.push({ t, what: packed % 8 });
   }
   return { op: "mais", inputs };
 }

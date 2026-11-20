@@ -14,9 +14,10 @@ import { SCORE_MAX } from "./timing.ts";
 export const CARGA_LEFT = 0;
 export const CARGA_RIGHT = 1;
 
+/** A tap, at a time from the round's start: CARGA_LEFT, or anything else a push to the right. */
 export interface CargaInput {
   readonly t: number;
-  readonly what: typeof CARGA_LEFT | typeof CARGA_RIGHT;
+  readonly what: number;
 }
 
 /** One step of the world, in milliseconds. */

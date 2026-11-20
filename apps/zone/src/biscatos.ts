@@ -7,6 +7,7 @@
 import { type BiscatoKind } from "@nzila/economy/biscatos";
 import { scoreCarga } from "@nzila/sim/carga";
 import { pratosRound, scorePratos } from "@nzila/sim/pratos";
+import { scoreZunga, zungaRound } from "@nzila/sim/zunga";
 
 /** How near a biscato's place a player must stand to begin it, in millimetres. */
 export const BISCATO_REACH_MM = 2500;
@@ -24,7 +25,7 @@ export interface Ronda {
   /** When it began, on the zone's clock (milliseconds). */
   readonly startedAt: number;
   readonly lengthMs: number;
-  readonly inputs: { t: number; what: 0 | 1 }[];
+  readonly inputs: { t: number; what: number }[];
 }
 
 /** The most inputs a round keeps: more is not a hand. */
@@ -54,7 +55,7 @@ export function takeInputs(ronda: Ronda, inputs: readonly { readonly t: number; 
   if (first < last || latest > now - ronda.startedAt + AHEAD_SLACK_MS) return false;
   for (const input of inputs) {
     if (ronda.inputs.length >= INPUTS_MAX) break;
-    ronda.inputs.push({ t: input.t, what: input.what === 1 ? 1 : 0 });
+    ronda.inputs.push({ t: input.t, what: input.what & 7 });
   }
   return true;
 }
@@ -67,6 +68,14 @@ export function scoreRonda(ronda: Ronda, playedMs: number): Feito {
   if (ronda.kind === "carga") {
     const carga = scoreCarga(ronda.seed, ronda.lengthMs, ronda.inputs, playedMs + AHEAD_SLACK_MS);
     return { score: carga.score, done: carga.delivered, failed: carga.fallen, most: carga.most };
+  }
+  if (ronda.kind === "zunga") {
+    // Only the passers-by who came while it was played: one who would have come later did not walk on unserved.
+    const played = Math.min(ronda.lengthMs, playedMs + AHEAD_SLACK_MS);
+    const round = zungaRound(ronda.seed, ronda.lengthMs);
+    const zunga = scoreZunga(round, ronda.inputs, ronda.lengthMs);
+    const came = round.filter((client) => client.from < played).length;
+    return { score: zunga.score, done: zunga.sold, failed: Math.max(0, came - zunga.sold), most: zunga.clients };
   }
   const pratos = scorePratos(pratosRound(ronda.seed, ronda.lengthMs), ronda.inputs, ronda.lengthMs);
   return { score: pratos.score, done: pratos.clean, failed: pratos.dirty, most: pratos.plates };

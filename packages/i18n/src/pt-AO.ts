@@ -162,6 +162,7 @@ export const ptAO = {
   "action.buy": "Comprar",
   "action.pratos": "Lavar pratos",
   "action.carga": "Levar carga",
+  "action.zunga": "Zungar",
   "action.xadrez": "Jogar xadrez",
   "action.damas": "Jogar damas",
   "action.ludo": "Não te irrites",

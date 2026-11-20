@@ -450,12 +450,23 @@ for _k, (_kind, _yaw) in enumerate((("ludo", 0.0), ("xadrez", 0.0), ("xadrez", m
 # the bacia beside it, the tables and every bench, so that its button never stands in for another's.
 _bacia = (places["cantina"][0] + 5.0, places["cantina"][2])
 _cands = [(_cx + dx * 0.5, _cz + dz * 0.5) for dz in range(-24, 25) for dx in range(-80, 80)]
-_carga = next((x, z) for x, z in sorted(_cands, key=lambda p: math.hypot(p[0] - _cx, p[1] - _cz)) if _paved(x - 1.5, z - 1.5, x + 1.5, z + 1.5)
-              and math.hypot(x - _cx, z - _cz) > 6.0 and math.hypot(x - _cx - 2.4, z - _cz + 1.2) > 5.0
-              and math.hypot(x - _spot[0], z - _spot[1]) > 7.0 and math.hypot(x - _bacia[0], z - _bacia[1]) > 6.0
-              and all(math.hypot(x - (_row[0] + k * 5.0), z - _row[1]) > 5.0 for k in range(4))
-              and all(math.hypot(x - sx, z - sz) > 4.5 for sx, _sy, sz, _yaw in b.seats))
+
+
+def _clear_spot(away):
+    """The nearest open pavement to where people arrive that is clear of every button's place, and of `away`."""
+    return next((x, z) for x, z in sorted(_cands, key=lambda p: math.hypot(p[0] - _cx, p[1] - _cz)) if _paved(x - 1.5, z - 1.5, x + 1.5, z + 1.5)
+                and math.hypot(x - _cx, z - _cz) > 6.0 and math.hypot(x - _cx - 2.4, z - _cz + 1.2) > 5.0
+                and math.hypot(x - _spot[0], z - _spot[1]) > 7.0 and math.hypot(x - _bacia[0], z - _bacia[1]) > 6.0
+                and all(math.hypot(x - (_row[0] + k * 5.0), z - _row[1]) > 5.0 for k in range(4))
+                and all(math.hypot(x - sx, z - sz) > 4.5 for sx, _sy, sz, _yaw in b.seats)
+                and all(math.hypot(x - ax, z - az) > 7.0 for ax, az in away))
+
+
+_carga = _clear_spot([])
 places["carga"] = [round(_carga[0], 2), KERB, round(_carga[1], 2)]
+# And a bacia to sell from (zunga), as clear of the carrinhos as of the rest.
+_zunga = _clear_spot([_carga])
+places["zunga"] = [round(_zunga[0], 2), KERB, round(_zunga[1], 2)]
 
 # Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
 # a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
@@ -516,6 +527,7 @@ layout = {
     "caixa": places["caixa"],
     "cantina": places["cantina"],
     "carga": places["carga"],
+    "zunga": places["zunga"],
     "seats": [{"pos": [round(x, 2), round(y, 2), round(z, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for x, y, z, yaw in b.seats],
     "tables": [{"game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for t in tables],
     # The bay: from the foot of the sea wall out past the edge of what is modelled.

@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./pratos": "./src/minigame/pratos.ts",
-    "./carga": "./src/minigame/carga.ts"
+    "./carga": "./src/minigame/carga.ts",
+    "./zunga": "./src/minigame/zunga.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
