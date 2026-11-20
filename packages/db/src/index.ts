@@ -16,3 +16,4 @@ export * from "./partidas.ts";
 export * from "./kambas.ts";
 export * from "./necessidades.ts";
 export * from "./hospital.ts";
+export * from "./biscatos.ts";

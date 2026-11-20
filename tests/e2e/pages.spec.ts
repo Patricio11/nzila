@@ -1696,6 +1696,59 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("a biscato (Task 4.5): at the bacia the gold button says Lavar pratos; plates rubbed clean and put up on the escorredor; Sair; the pay on a receipt and in the Carteira", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The biscato was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(120_000);
+    const seen = watch(page);
+    await comeIn(page, 97);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const manifest = (await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] };
+    const bacia = manifest.pois.find((one) => one.id === "biscato-pratos-ensaio")!.pos;
+    await walkTo(page, bacia[0], bacia[2], 1.2);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "pratos", undefined, { timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Lavar pratos" })).toBeVisible();
+    await page.keyboard.press("e");
+    const work = page.getByRole("dialog", { name: "Lavar pratos" });
+    await expect(work.locator(".bp-prato")).toBeVisible({ timeout: 10_000 });
+    // Two plates, each rubbed with a steady hand until it shines, then put up on the escorredor.
+    for (let plate = 0; plate < 2; plate++) {
+      await expect(work.locator(".bp-prato")).toBeVisible({ timeout: 8000 });
+      for (let n = 0; n < 12 && (await work.locator(".bp-brilha").count()) === 0; n++) {
+        await page.keyboard.press(" ");
+        await page.waitForTimeout(150);
+        // Half-way through the second plate: stains still on it, foam where it was rubbed.
+        if (plate === 1 && n === 1) await page.screenshot({ path: info.outputPath("biscato-pratos-a-esfregar.png") });
+      }
+      if (plate === 1) await page.screenshot({ path: info.outputPath("biscato-pratos.png") });
+      await page.keyboard.press("Enter");
+    }
+    await expect(work.locator(".bc-done")).toContainText("Limpos: 2");
+    // The body did not jump or walk while the hands worked.
+    expect(Math.hypot((await page.evaluate(() => window.__andar!.x)) - bacia[0], (await page.evaluate(() => window.__andar!.z)) - bacia[2])).toBeLessThan(1.5);
+    // Done early: what was done is scored against the whole round, and paid.
+    await work.getByRole("button", { name: "Sair" }).click();
+    const fim = page.getByRole("dialog", { name: "Pronto, já está." });
+    await expect(fim).toContainText("Lavaste 2 dos");
+    await expect(fim.locator(".n-receipt")).toBeVisible({ timeout: 10_000 });
+    await expect(fim.locator(".n-receipt")).toContainText("Bacia de Ensaio");
+    await page.screenshot({ path: info.outputPath("biscato-pratos-fim.png") });
+    const wallet = await page.evaluate(async () => {
+      const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+      return (await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cashLines: { amount: number; reason: string }[] };
+    });
+    expect(wallet.cashLines[0]).toMatchObject({ reason: "wage" });
+    expect(wallet.cashLines[0]!.amount).toBeGreaterThanOrEqual(150);
+    await fim.getByRole("button", { name: "Voltar à rua" }).click();
+    await expect(page.getByRole("dialog", { name: "Pronto, já está." })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Lavar pratos" })).toBeVisible();
+    expect(seen.errors).toEqual([]);
+  });
+
   test("os recados do dia: the neighbours' messages in Mensagens, the family's money for the taxi, and an errand walked and done in the street, paid at once", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The errands were not checked here." });

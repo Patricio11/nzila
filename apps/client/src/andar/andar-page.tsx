@@ -109,7 +109,11 @@ function LazyLoja({ show }: { show: (module: Loja) => preact.JSX.Element }) {
   return fetchedLoja ? show(fetchedLoja) : null;
 }
 
-type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy" | "entregar" | "procurar" | "xadrez" | "damas" | "ludo";
+// Each biscato's screen, by its kind: fetched when its button is pressed (Task 4.5).
+const pratos = () => import("../biscatos/pratos.tsx");
+const BISCATOS: Record<string, typeof pratos | undefined> = { pratos };
+// A biscato's button is named by its kind ("pratos": "Lavar pratos").
+type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy" | "entregar" | "procurar" | "xadrez" | "damas" | "ludo" | "pratos";
 type Errands = import("../recados/rua.ts").StreetErrands;
 /** The tables of the bairro (Task 4B.1), fetched when the district has any. */
 type Tables = import("../mesas/mesas.ts").Mesas;
@@ -154,6 +158,11 @@ export function Andar() {
   const [Needs, setNeeds] = useState<typeof import("../necessidades/barras.tsx").Necessidades | null>(null);
   // The ride's chip and band, fetched when a van stands near or the player rides (carrinha.tsx).
   const [Viagem, setViagem] = useState<typeof import("./carrinha.tsx").Viagem | null>(null);
+  // A biscato being worked (Task 4.5): its kind and its place's name, and its screen once fetched. The body stands still.
+  const [biscato, setBiscato] = useState<{ kind: string; name: string } | null>(null);
+  const [Trabalho, setTrabalho] = useState<typeof import("../biscatos/pratos.tsx").Biscato | null>(null);
+  const working = useRef(false);
+  working.current = biscato !== null;
   // Kambas (Task 4B.2): what waits in Mensagens, and a kamba's conversation to open it on.
   const [novas, setNovas] = useState(0);
   const [abrirKamba, setAbrirKamba] = useState<string | null>(null);
@@ -186,6 +195,7 @@ export function Andar() {
   markedNow.current = marked;
   const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, said: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
   useEffect(() => void (!Viagem && (hud.ride || hud.action === "board") && import("./carrinha.tsx").then((module) => setViagem(() => module.Viagem))), [hud.ride !== null || hud.action === "board"]);
+  useEffect(() => void (biscato && BISCATOS[biscato.kind]?.().then((module) => setTrabalho(() => module.Biscato))), [biscato?.kind]);
   const [missing, setMissing] = useState(false);
   /** The line being typed is open; and someone met, whose card is up. */
   const [composing, setComposing] = useState(false);
@@ -358,6 +368,7 @@ export function Andar() {
 
     /** What the stick or the keys ask for, as the simulation wants it: each axis -127 to 127, in the world's directions. */
     const wanted = (seconds: number): { dx: number; dz: number; run: boolean } => {
+      if (working.current) return { dx: 0, dz: 0, run: false };
       let sx = stick.x;
       let sy = stick.y;
       const run = asks.current.run || keys.has("shift");
@@ -570,6 +581,12 @@ export function Andar() {
           // At a cantina's grille the button opens it.
           asks.current.act = false;
           setShop(atShop);
+        }
+        // At a biscato's place, standing still, the button offers the work.
+        const biscatoHere = !seat && !ride && !moving ? world.atBiscato() : null;
+        if (asks.current.act && biscatoHere) {
+          asks.current.act = false;
+          setBiscato(biscatoHere);
         }
         if (asks.current.act) {
           asks.current.act = false;
@@ -837,7 +854,7 @@ export function Andar() {
           }
         }
 
-        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : atTable ? null : seat ? "stand" : waiting ? "board" : tableNear ? tableNear.jogo : errand ? (errand.kind === "traz" ? "entregar" : "procurar") : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : !moving && nearest() ? "sit" : null;
+        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : atTable ? null : seat ? "stand" : waiting ? "board" : tableNear ? tableNear.jogo : errand ? (errand.kind === "traz" ? "entregar" : "procurar") : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : biscatoHere ? (biscatoHere.kind as Action) : !moving && nearest() ? "sit" : null;
         // Where each other player's chest is on the screen, in CSS pixels: for the tests that tap someone. Only those in
         // front of the camera: one behind it would project, mirrored, onto an empty part of the screen.
         const box = canvas.current?.getBoundingClientRect();
@@ -934,6 +951,8 @@ export function Andar() {
     };
     const keyDown = (event: KeyboardEvent): void => {
       sound?.wake();
+      // At a biscato the keys are the work's: Space rubs, it does not jump.
+      if (working.current) return;
       const key = event.key.toLowerCase();
       keys.add(key);
       // On a keyboard: E is the gold button, 1 to 4 the gestures.
@@ -987,7 +1006,7 @@ export function Andar() {
   }, []);
 
   return (
-    <main class={`andar${leftHanded ? " andar-left" : ""}`}>
+    <main class={`andar${leftHanded ? " andar-left" : ""}${biscato ? " andar-working" : ""}`}>
       <canvas ref={canvas} class="andar-canvas" />
       <div ref={overBox} class="cv-over" aria-hidden="true" />
       {(!hud.ready && !missing) || params.has("chegar") ? <Arriving poupanca={settings.poupanca} /> : null}
@@ -1053,6 +1072,7 @@ export function Andar() {
             </span>
             {hud.action ? <ContextAction label={tr.t(`action.${hud.action}`)} disabled={hud.action === "stopAsked"} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>
+          {biscato && Trabalho ? <Trabalho net={net} place={biscato.name} onClose={() => (setBiscato(null), setTrabalho(null))} /> : null}
           <Telemovel world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} abrir={abrirKamba} onClose={() => (setPhone(false), setPhoneApp(null), setAbrirKamba(null))} />
           {/* The Telemóvel covers the foot of the screen: the chat bar steps aside while it is open, or it would lie over the sheet's last key. */}
           {phone || met || shop || bag ? null : <ChatLog lines={hud.lines} refused={hud.refused} raised={composing && hud.talk} />}

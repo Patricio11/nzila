@@ -64,7 +64,7 @@ export class StreetErrands {
 
   private take(now: Today): void {
     this.day = now;
-    const pois = this.district.manifest.pois;
+    const pois = this.district.manifest.pois.filter((one) => !one.id.startsWith("biscato-"));
     const open = now.recados.filter((one) => !one.done && (one.kind === "traz" || one.kind === "vaiver"));
     // Those done leave the street; those new come into it.
     for (const gone of this.waiting.filter((one) => !open.some((each) => each.n === one.recado.n))) {
@@ -117,7 +117,7 @@ export class StreetErrands {
   /** The errand whose place the player stands at, if any: what the gold button offers. */
   near(x: number, z: number): { n: number; kind: "traz" | "vaiver"; who: string } | null {
     if (this.busy) return null;
-    const pois = this.district.manifest.pois;
+    const pois = this.district.manifest.pois.filter((one) => !one.id.startsWith("biscato-"));
     for (const one of this.waiting) {
       const poi = placeIn(pois, one.recado.place);
       // Nothing to hand over yet: the place's own button (the cantina's, the caixa's) stays, so the thing can be bought.

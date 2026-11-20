@@ -5,9 +5,10 @@
 import { randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId } from "@nzila/economy";
+import { BASE_BISCATOS, BISCATO_KINDS, isBiscatoKind, taperPercent } from "@nzila/economy/biscatos";
 import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
-import { payHospital } from "@nzila/db";
+import { biscatosPaidToday, payBiscato, payHospital } from "@nzila/db";
 import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
 import { carriesAddress, tidyLine } from "@nzila/i18n";
 import { classificacaoDe, lastGift, lugarNaClassificacao, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
@@ -686,6 +687,38 @@ export function buildApp(deps: Deps): FastifyInstance {
       if (!stay) throw new Refusal(409, "not_there");
       const receipt = await payHospital(deps.sql, { playerId: caller.player.id, stay, bill: BASE_TUNABLES.needs.hospitalBill, districtId: null });
       return { receipt, ...(await walletOf(deps.sql, caller.player.id)) };
+    },
+  });
+
+  // Biscatos (Task 4.5, D-4.22): what each pays and how long it lasts, and how far the day's taper has come.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/biscatos",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async (_body, caller) => {
+      const paidToday = await biscatosPaidToday(deps.sql, caller.player.id);
+      const kinds = Object.fromEntries(BISCATO_KINDS.map((kind) => [kind, { leastMk: BASE_BISCATOS.kinds[kind].leastMk, mostMk: BASE_BISCATOS.kinds[kind].mostMk, seconds: BASE_BISCATOS.kinds[kind].seconds }]));
+      return { paidToday, percent: taperPercent(BASE_BISCATOS, paidToday), kinds };
+    },
+  });
+
+  // A biscato's pay: on the zone's note of a round it scored (for ten minutes), once a round, from the wage faucet.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/biscatos/pagar",
+    guard: "player",
+    body: nothing,
+    perMinute: 20,
+    handler: async (_body, caller) => {
+      const [note, kind, scored] = ((await presence.marked(caller.player.id, "biscato")) ?? "").split(":");
+      const score = Number(scored);
+      if (!note || !kind || !isBiscatoKind(kind) || !Number.isInteger(score)) throw new Refusal(409, "not_there");
+      const districtId = (await presence.standing(caller.player.id))?.districtId ?? null;
+      const receipt = await payBiscato(deps.sql, { playerId: caller.player.id, note, kind, score, districtId });
+      const paidToday = await biscatosPaidToday(deps.sql, caller.player.id);
+      return { receipt, paidToday, percent: taperPercent(BASE_BISCATOS, paidToday), ...(await walletOf(deps.sql, caller.player.id)) };
     },
   });
 

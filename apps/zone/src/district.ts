@@ -47,6 +47,8 @@ export interface District {
   readonly benches?: readonly Place[];
   /** Where a player whose Energia runs out wakes (Task 4.4): the district's hospital or centro médico, from its places. */
   readonly hospital?: Place;
+  /** Where biscatos are taken on the spot (Task 4.5): each place named `biscato-<kind>-<where>`, by its kind. Millimetres. */
+  readonly biscatos?: readonly { readonly kind: string; readonly x: number; readonly z: number }[];
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -97,7 +99,8 @@ export async function loadDistrict(packDir: URL): Promise<District> {
   const caixas = (manifest.pois ?? []).filter((one) => one.glyph === CAIXA_GLYPH).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   // A place whose sign is a shop's is one: a player standing at it may buy what it sells.
   const shops = (manifest.pois ?? []).filter((one) => SHOP_GLYPHS.includes(one.glyph ?? "")).map((one) => ({ id: one.id, x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
-  const places = (manifest.pois ?? []).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
+  // A biscato's place is no errand's: adding work to a street does not move the errands.
+  const places = (manifest.pois ?? []).filter((one) => !one.id.startsWith("biscato-")).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   // A seat at a table is where the body sits: its height is the seat's, and the sitter faces the table.
   const mm = (metres: number): number => Math.round(metres * 1000);
   const tables = (manifest.tables ?? []).map((one): TablePlace => ({
@@ -110,7 +113,11 @@ export async function loadDistrict(packDir: URL): Promise<District> {
   // The hospital or the centro médico, by its name among the district's places (WORLD_ATLAS.md §5.1, step 7).
   const clinic = (manifest.pois ?? []).find((one) => /^(hospital|centro-medico)/.test(one.id));
   const hospital = clinic ? { x: mm(clinic.pos[0]), y: mm(clinic.pos[1]), z: mm(clinic.pos[2]), yaw: 0 } : undefined;
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, tables, benches, ...(hospital ? { hospital } : {}), ...(await trafficOf(manifest, packDir)) };
+  const biscatos = (manifest.pois ?? []).flatMap((one) => {
+    const kind = /^biscato-([a-z]+)-/.exec(one.id)?.[1];
+    return kind ? [{ kind, x: mm(one.pos[0]), z: mm(one.pos[2]) }] : [];
+  });
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

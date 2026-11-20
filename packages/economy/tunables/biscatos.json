@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "kinds": {
+    "pratos": { "leastMk": 150, "mostMk": 450, "seconds": 75, "energia": 500, "fome": 300 }
+  },
+  "taper": [
+    { "fromMk": 0, "percent": 100 },
+    { "fromMk": 2000, "percent": 50 },
+    { "fromMk": 4000, "percent": 25 }
+  ],
+  "roundTo": 10
+}

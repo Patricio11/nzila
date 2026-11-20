@@ -1125,6 +1125,41 @@ describe("the bank: into the Banco and out of it, at a caixa (Task 4.1)", () => 
   });
 });
 
+describe("a biscato's pay (Task 4.5, D-4.22)", () => {
+  const pagar = (token: string) => app.inject({ method: "POST", url: "/v1/biscatos/pagar", headers: as(token) });
+
+  test("paid on the zone's note only, once a round, by the score, from the wage faucet; the day's taper; nothing for nothing", async () => {
+    const one = await newGuest(820);
+    // No round the zone has scored: nothing to pay.
+    expect((await pagar(one.token)).json()).toEqual({ error: "not_there" });
+    // A full score: the most it pays, onto a receipt from the place.
+    await presence.mark(one.playerId, "biscato", "ronda-um:pratos:1000", 600);
+    const paid = await pagar(one.token);
+    expect(paid.statusCode).toBe(200);
+    expect(paid.json()).toMatchObject({ cash: 450, paidToday: 450, percent: 100, receipt: { shop: "biscato-pratos", total: 450, lines: [{ item: "pratos", quantity: 1, amount: 450 }] } });
+    // Asked again for the same round (a dropped line): the same receipt, nothing more paid.
+    expect((await pagar(one.token)).json()).toEqual(paid.json());
+    // Half a score pays half the way from the least to the most.
+    await presence.mark(one.playerId, "biscato", "ronda-dois:pratos:500", 600);
+    expect((await pagar(one.token)).json()).toMatchObject({ cash: 750, receipt: { total: 300 } });
+    // Past 2 000 in a day, half (the sixth round, with 2 100 paid before it); and the app hears where the day has got to.
+    for (let n = 3; n <= 6; n++) {
+      await presence.mark(one.playerId, "biscato", `ronda-${n}:pratos:1000`, 600);
+      await pagar(one.token);
+    }
+    expect((await app.inject({ method: "GET", url: "/v1/biscatos", headers: as(one.token) })).json()).toEqual({ paidToday: 2320, percent: 50, kinds: { pratos: { leastMk: 150, mostMk: 450, seconds: 75 } } });
+    await presence.mark(one.playerId, "biscato", "ronda-sete:pratos:1000", 600);
+    expect((await pagar(one.token)).json()).toMatchObject({ receipt: { total: 220 }, paidToday: 2540, percent: 50 });
+    // A round of nothing pays nothing and writes nothing.
+    await presence.mark(one.playerId, "biscato", "ronda-nada:pratos:0", 600);
+    expect((await pagar(one.token)).json()).toMatchObject({ receipt: { id: 0, total: 0 }, paidToday: 2540 });
+    // A note that is not the zone's kind of note is no round.
+    await presence.mark(one.playerId, "biscato", "x:assalto:1000", 600);
+    expect((await pagar(one.token)).statusCode).toBe(409);
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+});
+
 describe("the hospital's bill (Task 4.4)", () => {
   const conta = (token: string) => app.inject({ method: "POST", url: "/v1/hospital/conta", headers: as(token) });
 

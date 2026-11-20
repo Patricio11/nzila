@@ -190,7 +190,7 @@ def riser(xa, xb, d, y0, y1, colour):
 
 # What kind of place each point of interest is: the house glyph on the sign that floats over it.
 POI_GLYPHS = {"miradouro": "vista", "musicos": "musica", "gelados": "gelado", "por-do-sol": "sol", "palmeiras": "palmeira", "pontao": "pontao", "livreiro": "livro",
-              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura"}
+              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos"}
 
 
 def poi(key, x, z, name, line, y=G):
@@ -389,6 +389,8 @@ for i in range(6):
     block(kx, shore(kx) + 26.5, kb.quiosque(b, kx, shore(kx) + 26.5, rng, G + 0.03))
 caixa("caixa-marginal", 186.0, shore(186) + 15.5, "Caixa da Marginal")
 poi("gelados", 201.0, shore(201) + 23.0, "A esquina dos gelados", "O gelado de múcua acaba cedo. Vem antes das cinco.")
+# A biscato (Task 4.5): the kiosk in the middle of the row washes its plates in a bacia in front of it, for a few coins.
+poi("biscato-pratos-quiosque", 211.6, shore(211.6) + 23.6, "O quiosque da Tia Bela", "Ao almoço há sempre pratos para lavar. A tia paga na hora.")
 kb.campo(b, 290.0, shore(290) + 21.0, 24.0, 13.0, "basquete", G + 0.03)
 kb.campo(b, 322.0, shore(322) + 21.5, 26.0, 14.0, "futebol", G + 0.03)
 rect = kb.posto(b, 384.0, shore(384) + 26.0, G + 0.03)

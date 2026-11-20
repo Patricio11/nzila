@@ -33,6 +33,8 @@ export const MSG = {
   COMER: 18,
   /** Client to zone: sit on a bench's seat, or get up from it (F-205, Task 4.4). */
   BANCO: 19,
+  /** Client to zone: begin a biscato here, what the thumb has done in it, or that it is over (Task 4.5). */
+  BISCATO: 20,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -235,6 +237,12 @@ export const EVENT = {
   COMER_RECUSADO: 13,
   /** This player's Energia ran out: they woke at the hospital (Task 4.4). text: the stay, by which the API is asked for its bill. */
   HOSPITAL: 14,
+  /** A biscato begun (Task 4.5): text is its kind; args: the round's seed and its length in milliseconds. */
+  BISCATO: 15,
+  /** A biscato scored by the zone: text is the note by which the API is asked to pay; args: score (0 to 1 000), plates clean, plates put up dirty, plates in the round. */
+  BISCATO_FIM: 16,
+  /** A biscato not begun: text is why ("longe", "cansado", "ocupado"). */
+  BISCATO_RECUSADO: 17,
 } as const;
 
 /**
@@ -464,6 +472,58 @@ function readBanco(r: Reader): Banco {
   return { seat, sim: sim === 1 };
 }
 
+// ---------------------------------------------------------------- Biscato
+
+/** The most of a thumb's inputs one message carries: the phone sends a round's in batches as it goes. */
+export const BISCATO_BATCH_MAX = 256;
+/** A biscato's kind, as a place's id names it. */
+const BISCATO_KIND = /^[a-z]{2,16}$/;
+
+/**
+ * Client to zone, about a biscato (Task 4.5): begin the one of this kind where the player stands; what the thumb
+ * has done since the last batch, each at a time from the round's start in milliseconds (`what`: 0 a rub, 1 a
+ * flick; the zone keeps the order); or that the player is done, early or at the end.
+ */
+export type BiscatoPedido =
+  | { readonly op: "comecar"; readonly kind: string }
+  | { readonly op: "mais"; readonly inputs: readonly { readonly t: number; readonly what: number }[] }
+  | { readonly op: "acabar" };
+
+export function encodeBiscato(m: BiscatoPedido): Uint8Array {
+  const w = new Writer().u8(MSG.BISCATO);
+  if (m.op === "comecar") return w.u8(1).text(m.kind).finish();
+  if (m.op === "acabar") return w.u8(3).finish();
+  if (m.inputs.length > BISCATO_BATCH_MAX) throw new RangeError("too many inputs for one batch");
+  w.u8(2).uint(m.inputs.length);
+  let was = 0;
+  // Each as the time since the one before, doubled, and what it was in the lowest bit.
+  for (const input of m.inputs) {
+    w.uint((input.t - was) * 2 + input.what);
+    was = input.t;
+  }
+  return w.finish();
+}
+
+function readBiscato(r: Reader): BiscatoPedido {
+  const op = r.u8();
+  if (op === 1) {
+    const kind = r.text(16);
+    if (!BISCATO_KIND.test(kind)) throw new ProtocolError("malformed", "biscato");
+    return { op: "comecar", kind };
+  }
+  if (op === 3) return { op: "acabar" };
+  if (op !== 2) throw new ProtocolError("malformed", "biscato");
+  const count = r.bounded(BISCATO_BATCH_MAX, "biscato inputs");
+  const inputs: { t: number; what: number }[] = [];
+  let t = 0;
+  for (let i = 0; i < count; i++) {
+    const packed = r.uint();
+    t += Math.floor(packed / 2);
+    inputs.push({ t, what: packed % 2 });
+  }
+  return { op: "mais", inputs };
+}
+
 // ---------------------------------------------------------------- Mesa
 
 /** What a player asks of a table. Numbers are never reused. */
@@ -623,7 +683,8 @@ export type ClientMessage =
   | ({ readonly type: "nudge" } & Nudge)
   | ({ readonly type: "mesa" } & MesaPedido)
   | ({ readonly type: "comer" } & Comer)
-  | ({ readonly type: "banco" } & Banco);
+  | ({ readonly type: "banco" } & Banco)
+  | ({ readonly type: "biscato" } & { readonly pedido: BiscatoPedido });
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -643,6 +704,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.MESA_PEDIDO) return { type: "mesa", ...readMesaPedido(r) };
   if (type === MSG.COMER) return { type: "comer", ...readComer(r) };
   if (type === MSG.BANCO) return { type: "banco", ...readBanco(r) };
+  if (type === MSG.BISCATO) return { type: "biscato", pedido: readBiscato(r) };
   throw new ProtocolError("unknown_type", String(type));
 }
 

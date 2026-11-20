@@ -8,3 +8,4 @@ export * from "./base.ts";
 export * from "./origins.ts";
 export * from "./items.ts";
 export * from "./recados.ts";
+// Biscatos are their own entry, "@nzila/economy/biscatos": the phone's way in never needs their rules (F-226).

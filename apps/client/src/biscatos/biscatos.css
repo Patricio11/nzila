@@ -1,0 +1,75 @@
+/* Biscatos (Task 4.5, UX_UI_SPEC.md §5.3): the frame every one is drawn in, its end card, and lavar pratos. Tokens only. */
+
+/* The frame: over the street, which shows faintly through. */
+.bc { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; pointer-events: auto; color: var(--n-luz); touch-action: none; user-select: none; }
+.bc::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--n-noite-fundo); opacity: 0.95; }
+.bc-head { position: relative; display: flex; flex-direction: column; gap: var(--s-2); padding: max(var(--s-3), env(safe-area-inset-top)) var(--s-4) var(--s-3); background: var(--n-noite); box-shadow: 0 1.5px 0 var(--n-linha), 0 6px 0 var(--n-noite-fundo); }
+.bc-head h2 { margin: 0; font: var(--type-title); color: var(--n-dourado); }
+.bc-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.bc-goal { margin: 0; font: var(--type-small); color: var(--n-luz-suave); }
+.bc-sair { min-height: 36px; padding: 0 var(--s-3); border: 0; border-radius: var(--r-chip); background: var(--n-noite-2); color: var(--n-luz); font: var(--type-label); box-shadow: inset 0 0 0 1.5px var(--n-linha); cursor: pointer; }
+/* The time left: a bar that empties, and the minutes. */
+.bc-clock { position: relative; flex: 1; height: 26px; border-radius: 13px; background: var(--n-noite-fundo); overflow: hidden; }
+.bc-clock i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--n-dourado-fundo), var(--n-dourado)); transition: width 120ms linear; }
+.bc-clock b { position: relative; display: block; padding: 0 var(--s-3); font: var(--type-label); line-height: 26px; color: var(--n-luz); text-shadow: 0 1px 0 var(--n-noite-fundo); }
+.bc-done { font: var(--type-label); color: var(--n-dourado); white-space: nowrap; }
+.bc-work { position: relative; flex: 1; min-height: 0; }
+
+/* The end card, and the waiting and refused cards. */
+.bc-fim { align-items: center; justify-content: center; padding: var(--s-4); }
+.bc-fim-in { position: relative; width: min(100%, 360px); display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4); border-radius: var(--r-paper); background: var(--n-noite); overflow: hidden;
+  box-shadow: 0 0 0 1.5px var(--n-linha), 0 6px 0 var(--n-noite-fundo); animation: bc-up 600ms var(--ease-mola) both; }
+.bc-fim-in h2 { margin: var(--s-2) 0 0; font: var(--type-title); color: var(--n-dourado); }
+.bc-fim-in > p { margin: 0; font: var(--type-body); }
+.bc-fim-in > .bc-nota, .bc-fim-in > .bc-dica { font: var(--type-small); color: var(--n-luz-suave); }
+.bc-fim-in > .bc-dica { padding-left: var(--s-3); box-shadow: inset 3px 0 0 var(--n-dourado); }
+.bc-fim-buttons { display: flex; gap: var(--s-3); }
+.bc-fim-buttons .n-button { flex: 1; margin: 0; }
+.bc-espera { margin: 0; font: var(--type-body); color: var(--n-luz-suave); animation: bc-breathe 1.4s ease-in-out infinite alternate; }
+
+/* Lavar pratos: the pile on the left, the bacia in the middle, the escorredor on the right; the tia's word above. */
+.bp { position: absolute; inset: 0; display: grid; grid-template-columns: 22% 1fr 24%; align-items: center; gap: var(--s-2); padding: var(--s-4) var(--s-3) calc(var(--s-6) + env(safe-area-inset-bottom)); }
+.bp-pilha, .bp-escorredor { position: relative; height: 150px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.bp-pilha small, .bp-escorredor small { position: absolute; bottom: -26px; left: 0; right: 0; text-align: center; font: var(--type-small); color: var(--n-luz-suave); }
+/* The pile: plates seen edge-on, one on another. */
+.bp-pilha i { position: absolute; left: 6%; right: 6%; height: 12px; border-radius: 50%; background: var(--n-luz); box-shadow: inset 0 -3px 0 var(--n-azul), 0 2px 0 var(--n-noite-fundo); animation: bp-land 380ms var(--ease-mola) both; }
+/* The escorredor: wire, and the clean plates standing in it. */
+.bp-escorredor { width: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+.bp-escorredor::before { content: ""; position: absolute; left: 4%; right: 4%; bottom: 0; height: 46px; border-radius: 6px; background: repeating-linear-gradient(90deg, var(--n-luz-suave) 0 2px, transparent 2px 9%); box-shadow: inset 0 -4px 0 var(--n-luz-suave); opacity: 0.8; }
+.bp-escorredor i { position: absolute; bottom: 6px; width: 10px; height: 64px; border-radius: 5px; background: var(--n-luz); box-shadow: inset -3px 0 0 var(--n-azul); animation: bp-stand 300ms var(--ease-mola) both; }
+
+/* The bacia: red plastic, a darker rim, the water in it, and the plate floating. Rubbed here. */
+.bp-bacia { position: relative; aspect-ratio: 1; width: 100%; max-width: 280px; justify-self: center; border-radius: 50%; touch-action: none; cursor: grab;
+  background: radial-gradient(circle at 50% 42%, var(--n-vermelho) 58%, var(--n-vermelho-fundo) 59%, var(--n-vermelho) 66%, var(--n-vermelho-fundo) 100%); box-shadow: 0 10px 0 var(--n-noite-fundo), 0 18px 26px var(--n-sombra); }
+.bp-agua { position: absolute; inset: 11%; border-radius: 50%; background: radial-gradient(circle at 40% 35%, var(--n-azul-claro), var(--n-mar) 70%); opacity: 0.75; animation: bp-ripple 3s ease-in-out infinite alternate; }
+.bp-prato { position: absolute; inset: 15%; width: 70%; height: 70%; filter: drop-shadow(0 4px 0 var(--n-noite-fundo)); animation: bp-in 420ms var(--ease-mola) both; }
+.bp-aba { fill: var(--n-azul); }
+.bp-esmalte { fill: var(--n-luz); }
+.bp-fundo { fill: none; stroke: var(--n-luz-suave); stroke-width: 1.5; }
+.bp-lasca { fill: var(--n-noite-2); }
+.bp-nodoa { fill: var(--n-terra); opacity: 0.9; transition: opacity 220ms, transform 220ms; transform-origin: center; transform-box: fill-box; }
+.bp-saiu { opacity: 0; transform: scale(1.6); }
+.bp-brilha { animation: bp-in 420ms var(--ease-mola) both, bp-shine 900ms ease-in-out infinite alternate; }
+.bp-luz { fill: none; stroke: var(--n-luz); stroke-width: 4; stroke-linecap: round; opacity: 0.9; }
+/* Foam: a few bubbles where the thumb rubs, there and gone. */
+.bp-espuma { position: absolute; left: 50%; top: 45%; width: 46px; height: 30px; margin: -15px 0 0 -23px; pointer-events: none;
+  background: radial-gradient(circle at 25% 60%, var(--n-luz) 0 7px, transparent 8px), radial-gradient(circle at 60% 35%, var(--n-luz) 0 9px, transparent 10px), radial-gradient(circle at 80% 70%, var(--n-luz) 0 5px, transparent 6px);
+  opacity: 0; animation: bp-foam 700ms ease-out both; }
+.bp-espuma-1 { left: 36%; top: 58%; }
+.bp-espuma-2 { left: 62%; top: 38%; }
+.bp-vazia { position: absolute; inset: 30% 10%; margin: 0; display: grid; place-items: center; text-align: center; font: var(--type-small); color: var(--n-luz); }
+.bp-dica { position: absolute; left: 50%; bottom: -36px; transform: translateX(-50%); padding: 4px var(--s-3); border-radius: var(--r-chip); background: var(--n-noite); color: var(--n-dourado); font: var(--type-label); white-space: nowrap; box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.bp-tia { position: absolute; top: var(--s-3); left: 50%; transform: translateX(-50%); margin: 0; max-width: 80%; padding: 6px var(--s-3); border-radius: 18px 18px 18px 5px; background: var(--n-luz); color: var(--n-tinta); font: var(--type-body); box-shadow: 0 3px 0 var(--n-luz-fundo); animation: bc-up 300ms var(--ease-mola) both; }
+
+@keyframes bp-foam { 0% { opacity: 0; transform: scale(0.4); } 25% { opacity: 0.95; } 100% { opacity: 0; transform: translateY(-22px) scale(1.15); } }
+@keyframes bc-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes bc-breathe { from { opacity: 0.55; } to { opacity: 1; } }
+@keyframes bp-land { from { transform: translateY(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bp-stand { from { transform: translateX(-30px) rotate(-30deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bp-in { from { transform: translateX(-40%) scale(0.7); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bp-ripple { from { transform: scale(0.98); } to { transform: scale(1.02); } }
+@keyframes bp-shine { from { filter: drop-shadow(0 4px 0 var(--n-noite-fundo)); } to { filter: drop-shadow(0 4px 0 var(--n-noite-fundo)) drop-shadow(0 0 10px var(--n-brilho-dourado)); } }
+@media (prefers-reduced-motion: reduce) {
+  .bc-fim-in, .bc-espera, .bp-pilha i, .bp-escorredor i, .bp-agua, .bp-prato, .bp-brilha, .bp-tia, .bp-espuma { animation: none !important; }
+  .bp-nodoa, .bc-clock i { transition: none !important; }
+}

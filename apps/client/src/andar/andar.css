@@ -16,6 +16,8 @@
 .andar-action-space { height: calc(var(--target-action) + 6px); }
 .andar-chat { position: absolute; left: max(var(--s-3), env(safe-area-inset-left)); right: max(var(--s-3), env(safe-area-inset-right)); bottom: max(var(--s-3), env(safe-area-inset-bottom)); display: flex; }
 .andar-chat .n-chatbar { flex: 1; max-width: 420px; }
+/* At a biscato the hands are busy: the street's buttons and the chat bar step out of the way. */
+.andar-working .andar-buttons, .andar-working .andar-chat { visibility: hidden; }
 /* Left-handed: the buttons change sides, and so does the thumb's zone. */
 .andar-left .andar-buttons { right: auto; left: max(var(--s-3), env(safe-area-inset-left)); align-items: flex-start; }
 .andar-left .andar-chat { justify-content: flex-end; }

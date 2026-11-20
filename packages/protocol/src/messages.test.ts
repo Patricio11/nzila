@@ -16,6 +16,8 @@ import {
   encodeNudge,
   encodeComer,
   encodeBanco,
+  encodeBiscato,
+  BISCATO_BATCH_MAX,
   TRAFFIC_VEHICLES_AT_MOST,
   encodeEmote,
   EMOTE_NAMES,
@@ -140,6 +142,20 @@ describe("a nudge", () => {
     expect(decodeClientMessage(encodeBanco({ seat: 0, sim: false }))).toEqual({ type: "banco", seat: 0, sim: false });
     expect(() => decodeClientMessage(encodeBanco({ seat: 5000, sim: true }))).toThrow(ProtocolError);
     expect(() => decodeClientMessage(new Writer().u8(MSG.BANCO).uint(3).u8(2).finish())).toThrow(ProtocolError);
+  });
+
+  test("Biscato (Task 4.5): begun by its kind, the thumb's inputs in batches of a few bytes each, and done", () => {
+    expect(decodeClientMessage(encodeBiscato({ op: "comecar", kind: "pratos" }))).toEqual({ type: "biscato", pedido: { op: "comecar", kind: "pratos" } });
+    expect(() => decodeClientMessage(encodeBiscato({ op: "comecar", kind: "Pratos!" }))).toThrow(ProtocolError);
+    expect(decodeClientMessage(encodeBiscato({ op: "acabar" }))).toEqual({ type: "biscato", pedido: { op: "acabar" } });
+    const inputs = [{ t: 0, what: 0 }, { t: 130, what: 0 }, { t: 260, what: 1 }, { t: 9000, what: 0 }];
+    expect(decodeClientMessage(encodeBiscato({ op: "mais", inputs }))).toEqual({ type: "biscato", pedido: { op: "mais", inputs } });
+    // A full batch of a steady hand fits well inside what a zone takes in one message (1 KB).
+    const full = Array.from({ length: BISCATO_BATCH_MAX }, (_, i) => ({ t: 60_000 + i * 125, what: i % 9 === 8 ? 1 : 0 }));
+    expect(encodeBiscato({ op: "mais", inputs: full }).length).toBeLessThan(1024);
+    expect(() => encodeBiscato({ op: "mais", inputs: [...full, { t: 99_999, what: 0 }] })).toThrow(RangeError);
+    expect(() => decodeClientMessage(new Writer().u8(MSG.BISCATO).u8(2).uint(BISCATO_BATCH_MAX + 1).finish())).toThrow(ProtocolError);
+    expect(() => decodeClientMessage(new Writer().u8(MSG.BISCATO).u8(9).finish())).toThrow(ProtocolError);
   });
 });
 

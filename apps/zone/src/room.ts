@@ -11,14 +11,18 @@ import { isGreeting } from "@nzila/i18n";
 import { TrafficRules, actorAt } from "@nzila/world";
 import { eatOne, faceOf, keepChatLines, keepNeeds, needsOf, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_TUNABLES } from "@nzila/economy";
+import { BASE_BISCATOS, isBiscatoKind } from "@nzila/economy/biscatos";
+import { randomInt } from "node:crypto";
 import { decayNeeds, eatNeeds, restNeeds, spendEffort, tooTired, type NeedsState } from "@nzila/sim";
 import { type ChatFilter } from "@nzila/i18n";
 import {
   type EntityState,
   type RideAsked,
+  type BiscatoPedido,
   encodeTraffic, EVENT, MESA_RECUSAS, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, settleLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, type MesaPedido, CHAT_REFUSAL } from "@nzila/protocol";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
+import { BISCATO_GRACE_MS, BISCATO_NOTE_S, scoreRonda, spotNear, takeInputs, type Ronda } from "./biscatos.ts";
 import { Channel, type Place } from "./channel.ts";
 import { CAIXA_REACH_MM, MET_TTL_S, PLACE_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
 import { MESA_SEEN_MM, Mesas, type Terminada } from "./mesas.ts";
@@ -122,6 +126,8 @@ interface Held {
   /** Their Fome and Energia, and whether something they asked to eat is being written. */
   needs: NeedsKept;
   eating: boolean;
+  /** The biscato they are playing, if they are (Task 4.5). */
+  ronda: Ronda | null;
 }
 
 /**
@@ -340,7 +346,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false, ronda: null });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -365,7 +371,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = settleLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, NEEDS.tiredBelow) }, eating: false });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, NEEDS.tiredBelow) }, eating: false, ronda: null });
     this.lineOfEntity.set(entityId, line);
     this.channel.setTired(entityId, tooTired(needs, NEEDS.tiredBelow));
     // Noted at once where they came in, not at the next five-second round: a kamba going to them finds them (Task 4B.2).
@@ -432,6 +438,7 @@ export class ChannelRoom {
       else if (message.type === "mesa") this.atTable(line, held, message);
       else if (message.type === "comer") this.eats(line, held, message.item);
       else if (message.type === "banco") this.onBench(held, message.seat, message.sim);
+      else if (message.type === "biscato") this.biscato(line, held, message.pedido);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -463,6 +470,8 @@ export class ChannelRoom {
    * they are told them.
    */
   private tendNeeds(line: Line, held: Held, lasting: boolean): void {
+    const ronda = held.ronda;
+    if (ronda && performance.now() > ronda.startedAt + ronda.lengthMs + BISCATO_GRACE_MS) this.endRonda(line, held);
     this.takeEffort(held);
     const now = this.needsNow(held);
     const tired = tooTired(now, NEEDS.tiredBelow);
@@ -489,11 +498,64 @@ export class ChannelRoom {
     held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
     this.channel.setTired(held.entityId, held.needs.tired);
     const stay = `${Date.now().toString(36)}${held.entityId.toString(36)}`;
-    void this.presence?.mark(held.playerId, "hospital", stay, HOSPITAL_NOTE_S).catch(() => {});
     void keepNeeds(this.sql, held.playerId, after).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
-    line.send(encodeEvent({ kind: EVENT.HOSPITAL, tick: this.channel.world.tick, subject: 0, args: [], text: stay }));
+    // The phone is told once the note for the API is written: asked for the bill before it, the API would not know.
+    void (this.presence?.mark(held.playerId, "hospital", stay, HOSPITAL_NOTE_S) ?? Promise.resolve())
+      .catch(() => {})
+      .then(() => line.send(encodeEvent({ kind: EVENT.HOSPITAL, tick: this.channel.world.tick, subject: 0, args: [], text: stay })));
     this.tellNeeds(line, held, "");
     return true;
+  }
+
+  /**
+   * A biscato (Task 4.5, D-4.22). Begun only by someone on foot standing at a place of its kind, with the Energia it
+   * takes; then what the thumb does comes in batches, and the round is scored when they say they are done, or by
+   * itself when its time is well over.
+   */
+  private biscato(line: Line, held: Held, pedido: BiscatoPedido): void {
+    if (pedido.op === "comecar") {
+      const refuse = (why: string): void => line.send(encodeEvent({ kind: EVENT.BISCATO_RECUSADO, tick: this.channel.world.tick, subject: 0, args: [], text: why }));
+      if (held.ronda) return refuse("ocupado");
+      const here = this.channel.placeOf(held.entityId);
+      const busy = this.channel.ridingOf(held.entityId) || this.channel.sittingOf(held.entityId);
+      if (!isBiscatoKind(pedido.kind) || !here || busy || !spotNear(this.district.biscatos, pedido.kind, here)) return refuse("longe");
+      const rules = BASE_BISCATOS.kinds[pedido.kind];
+      this.takeEffort(held);
+      const needs = this.needsNow(held);
+      if (needs.energia < rules.energia || tooTired(needs, NEEDS.tiredBelow)) return refuse("cansado");
+      held.ronda = { kind: pedido.kind, seed: randomInt(2 ** 31), startedAt: performance.now(), lengthMs: rules.seconds * 1000, inputs: [] };
+      line.send(encodeEvent({ kind: EVENT.BISCATO, tick: this.channel.world.tick, subject: 0, args: [held.ronda.seed, held.ronda.lengthMs], text: pedido.kind }));
+      return;
+    }
+    if (!held.ronda) return;
+    if (pedido.op === "mais") takeInputs(held.ronda, pedido.inputs, performance.now());
+    else this.endRonda(line, held);
+  }
+
+  /**
+   * A round over: scored, the Energia and the Fome the work took (as much of it as was played), and a note for the
+   * API to pay it. The phone is told once the note is written.
+   */
+  private endRonda(line: Line, held: Held): void {
+    const ronda = held.ronda;
+    if (!ronda) return;
+    held.ronda = null;
+    const result = scoreRonda(ronda);
+    const rules = BASE_BISCATOS.kinds[ronda.kind];
+    const share = Math.min(1, (performance.now() - ronda.startedAt) / ronda.lengthMs);
+    this.takeEffort(held);
+    const was = this.needsNow(held);
+    const after = { fome: Math.max(0, was.fome - Math.round(rules.fome * share)), energia: Math.max(0, was.energia - Math.round(rules.energia * share)) };
+    held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
+    this.channel.setTired(held.entityId, held.needs.tired);
+    void keepNeeds(this.sql, held.playerId, after).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
+    const note = `${Date.now().toString(36)}${held.entityId.toString(36)}`;
+    const said = (): void => {
+      line.send(encodeEvent({ kind: EVENT.BISCATO_FIM, tick: this.channel.world.tick, subject: 0, args: [result.score, result.clean, result.dirty, result.plates], text: note }));
+      this.tellNeeds(line, held, "");
+    };
+    if (result.score === 0) return said();
+    void (this.presence?.mark(held.playerId, "biscato", `${note}:${ronda.kind}:${result.score}`, BISCATO_NOTE_S) ?? Promise.resolve()).catch(() => {}).then(said);
   }
 
   /**

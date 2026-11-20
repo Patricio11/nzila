@@ -79,6 +79,8 @@ export interface WorldProvider {
   atCaixa(): boolean;
   /** The shop the player stands at, as this phone sees it: its place in the pack and its painted name. The zone decides for itself. */
   atShop(): { id: string; name: string } | null;
+  /** The biscato whose place the player stands at (Task 4.5): its kind and the place's name. */
+  atBiscato(): { kind: string; name: string } | null;
   /** The other players in the street, as far as this phone is told of them. */
   people(): { x: number; z: number }[];
   /** The vans on the road now. */
@@ -202,6 +204,12 @@ export class LocalWorld implements WorldProvider {
     const at = this.player;
     const shop = at === null ? undefined : (this.scene?.manifest.pois ?? []).find((place) => SHOP_GLYPHS.includes(place.glyph ?? "") && Math.hypot(place.pos[0] - at.x, place.pos[2] - at.z) < SHOP_REACH_M);
     return shop ? { id: shop.id, name: this.word(shop.nameKey) } : null;
+  }
+
+  atBiscato(): { kind: string; name: string } | null {
+    const at = this.player;
+    const spot = at === null ? undefined : (this.scene?.manifest.pois ?? []).find((place) => place.id.startsWith("biscato-") && Math.hypot(place.pos[0] - at.x, place.pos[2] - at.z) < SHOP_REACH_M);
+    return spot ? { kind: spot.id.split("-")[1]!, name: this.word(spot.nameKey) } : null;
   }
 
   people(): { x: number; z: number }[] {

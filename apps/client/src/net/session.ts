@@ -100,6 +100,8 @@ export class Session {
   mesaRefused: number | null = null;
   /** Invitations to play, and answers to the player's own, until the code that draws tables has read them. */
   convites: WorldEvent[] = [];
+  /** What the zone says of a biscato (begun, scored, refused), until the biscato's screen has read it (Task 4.5). */
+  biscatos: WorldEvent[] = [];
   /** Fome and Energia as the zone last said them (Task 4.4), and who is waiting to hear what came of eating something. */
   needs: { fome: number; energia: number; tired: boolean } | null = null;
   /** A stay at the hospital the zone has just taken the player to, until it has been shown (its bill asked of the API). */
@@ -322,6 +324,7 @@ export class Session {
     else if (event.kind === EVENT.GIVEN) this.given = true;
     else if (event.kind === EVENT.MESA_REFUSED) this.mesaRefused = event.args[0] ?? 0;
     else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA || event.kind === EVENT.PONTOS) this.convites.push(event);
+    else if (event.kind >= EVENT.BISCATO && event.kind <= EVENT.BISCATO_RECUSADO) this.biscatos.push(event);
     else if (event.kind === EVENT.NECESSIDADES) {
       this.needs = { fome: event.args[0] ?? 0, energia: event.args[1] ?? 0, tired: event.args[2] === 1 };
       if (event.text) this.onAte?.(event.text, null);

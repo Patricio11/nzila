@@ -160,6 +160,7 @@ export const ptAO = {
   "action.askStop": "Paragem",
   "action.stopAsked": "Vai parar",
   "action.buy": "Comprar",
+  "action.pratos": "Lavar pratos",
   "action.xadrez": "Jogar xadrez",
   "action.damas": "Jogar damas",
   "action.ludo": "Não te irrites",

@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Pure TS, zero runtime deps, deterministic. Client prediction and server truth.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./pratos": "./src/minigame/pratos.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
