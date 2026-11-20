@@ -367,7 +367,7 @@ flowchart LR
 
 ---
 
-## PHASE 4: ECONOMY CORE
+## PHASE 4: ECONOMY CORE ✅ (complete 2026-11-20, `docs/completed/PHASE_4_COMPLETE.md`)
 *Goal: a player can earn, hold, bank and spend Makuta, and the books always balance.*
 
 **Dependency gate:** Phase 3 complete.
@@ -427,9 +427,9 @@ flowchart LR
 - Depends on: 4.1, 4.2, 4.3 · Unblocks: 4B (the alpha measures what brings people back).
 
 ### Task 4.7: Wiring, verification, doc convention
-- [ ] Invariants: the ledger sums to zero after a 10 000-transfer fuzz; a replayed purchase charges once; no Makuta literal in code.
-- [ ] A new player's first hour is written out with its expected earnings and costs and checked against a played session.
-- [ ] `PHASE_4_COMPLETE.md`, tick, Current State, plans for Phases 5 and 6 (both open), commit.
+- [x] Invariants: the ledger sums to zero after a 10 000-transfer fuzz; a replayed purchase charges once; no Makuta literal in code. *(2026-11-20: the fuzz and the replays in the gate's integration tests; `packages/ui/src/money-rules.test.ts` reads the game's code for amounts written in it.)*
+- [x] A new player's first hour is written out with its expected earnings and costs and checked against a played session. *(2026-11-20: `primeiraHora` from the rules files, `docs/ECONOMY.md` §6; played through the API's routes as a phone plays it, ending exactly there. An hour on a real phone is the founder's, with the alpha.)*
+- [x] `PHASE_4_COMPLETE.md`, tick, Current State, plans for Phases 5 and 6 (both open), commit. *(2026-11-20.)*
 - Depends on: 4.1 to 4.6 · Unblocks: Phases 4B, 5, 6, 8, 9, 10.
 
 ---

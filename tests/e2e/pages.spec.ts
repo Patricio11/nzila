@@ -1972,7 +1972,12 @@ test.describe("two phones in the same street", () => {
         await walkTo(page, door[0], door[2], 2);
         await page.waitForFunction(() => window.__andar!.speed < 0.05, undefined, { timeout: 5_000 });
       }
-      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 10_000 });
+      // Another of the day's errands may be at the cantina itself: its button comes first; done, the cantina's comes back.
+      await page.waitForFunction(() => ["buy", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 10_000 });
+      if (await page.evaluate(() => window.__andar!.action !== "buy")) {
+        await page.keyboard.press("e");
+        await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 15_000 });
+      }
       await page.keyboard.press("e");
       const cantina = page.getByRole("dialog", { name: "Cantina de Ensaio" });
       await cantina.locator(`.ct-pick[data-item="${first.item}"]`).click();

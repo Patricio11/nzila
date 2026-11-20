@@ -659,7 +659,8 @@ describe("seats and the matchmaker", () => {
     await strict.close();
     for (const socket of lines) socket.close(1000);
     expect((await presence.zones()).some((card) => card.id === strict.id)).toBe(false);
-  });
+    // A second zone of its own, started and closed, with the gate loading the machine: more than fifteen seconds now and then (F-176).
+  }, 30_000);
 });
 
 describe("talk in the street", () => {

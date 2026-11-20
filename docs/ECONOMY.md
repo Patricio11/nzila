@@ -53,4 +53,17 @@ For the `economy` and `live_ops` roles. Looking is written to the audit log, bec
 
 ## 6. What a first hour earns and costs
 
-A guide to every number above (Q4 of `PHASE_4_PLAN.md`, the founder's to change). Someone new arrives with their family's card (1 500 to 25 000 Mk), takes the taxi money (200 to 3 000 Mk), does two or three errands (300, 250, 200 Mk), a few biscatos (150 to 600 Mk each), and spends at the cantina (a pão is 50 Mk, a gasosa 250, a bag of rice 900). Fome falls by 4 000 an hour of play and Energia by 2 500: an hour of play wants a meal and a rest, and a player who forgets wakes at the hospital with a 1 500 Mk bill.
+Written out by `primeiraHora` (`packages/economy/src/primeira-hora.ts`, from the rules files, so these numbers move when the rules do) and **checked against a session played through the API's routes** as a phone plays it (`apps/api/src/api.integration.test.ts`, "a new player's first hour"): the card, the taxi money, the day's three errands done as the street does them, a round of each biscato, a meal; the Carteira and the Banco together end exactly where the written hour says. Q4 of `PHASE_4_PLAN.md`: the founder's to change.
+
+The hour: the family's card; the money for the taxi; the three errands (300, 250 and 200 Mk; one that asks for a pão costs 50 Mk at the cantina); one round of each biscato at a middling score (lavar pratos and zunga at 600 points, levar carga and lavar carros at 500); two pães, a gasosa and a water (450 Mk).
+
+| The family | The card | Taxi money | Errands | Biscatos | Spent | **Holds after an hour** |
+|---|---|---|---|---|---|---|
+| Aperto (a card of 1 500 to 4 000; say 2 500) | 2 500 | 200 | 750 | 1 460 | 500 | **4 410** |
+| Remediado (4 500 to 10 000; say 7 000) | 7 000 | 400 | 750 | 1 460 | 500 | **9 110** |
+| Bem (15 000 to 50 000; say 15 000) | 15 000 | 1 000 | 750 | 1 460 | 500 | **17 710** |
+| Ouro (250 000) | 250 000 | 3 000 | 750 | 1 460 | 500 | **254 710** |
+
+**What it says.** An hour of play earns about 2 400 Mk beyond the card and the taxi money, the same for everyone, and costs 500: **money piles up**, because the sinks that matter (rent, Phase 5; fares through the ledger, Phase 6; fuel, fines) are not built yet. When they are, an hour's rent and fares should take roughly what an hour's work brings, so that a player who works keeps a little, and one who does not falls behind. The day's taper on biscatos (§2) is what stops a long session from printing money meanwhile. The cards set the gap between families, and a family of means keeps it: that is intended (D-0.44), and Phase 7 is where it can be lost.
+
+**A played session by a person** (the founder's phone, a real hour) is the check that matters most, and is to be done with Phase 4B's alpha: it says whether an hour feels like this one.

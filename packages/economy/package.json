@@ -6,7 +6,8 @@
   "description": "Pure TS, zero runtime deps. Ledger rules, prices, wages, taxes.",
   "exports": {
     ".": "./src/index.ts",
-    "./biscatos": "./src/biscatos.ts"
+    "./biscatos": "./src/biscatos.ts",
+    "./primeira-hora": "./src/primeira-hora.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

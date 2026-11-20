@@ -72,14 +72,15 @@ export function scoreRonda(ronda: Ronda, playedMs: number): Feito {
   }
   if (ronda.kind === "carros") {
     const carros = scoreCarros(carrosRound(ronda.seed, ronda.lengthMs), ronda.inputs, ronda.lengthMs);
-    // What went wrong: the cars that came while it was played and were left unwashed.
-    const played = Math.min(ronda.lengthMs, playedMs + AHEAD_SLACK_MS);
+    // What went wrong: the cars that came while it was played and were left unwashed (by the zone's clock: the slack
+    // given the phone's times is for taking its inputs, not for saying who had come).
+    const played = Math.min(ronda.lengthMs, playedMs);
     const came = carrosRound(ronda.seed, ronda.lengthMs).filter((car) => car.arrives < played).length;
     return { score: carros.score, done: carros.washed, failed: Math.max(0, came - carros.washed), most: carros.cars };
   }
   if (ronda.kind === "zunga") {
     // Only the passers-by who came while it was played: one who would have come later did not walk on unserved.
-    const played = Math.min(ronda.lengthMs, playedMs + AHEAD_SLACK_MS);
+    const played = Math.min(ronda.lengthMs, playedMs);
     const round = zungaRound(ronda.seed, ronda.lengthMs);
     const zunga = scoreZunga(round, ronda.inputs, ronda.lengthMs);
     const came = round.filter((client) => client.from < played).length;

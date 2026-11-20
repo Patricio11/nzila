@@ -4,6 +4,8 @@
 
 Opened 2026-11-17, with Phase 3 built and not yet proven on real phones (`docs/completed/PHASE_3_COMPLETE.md`). Nothing in Phase 4 waits on that proof; it waits on the founder's phones.
 
+**Complete 2026-11-20** (`docs/completed/PHASE_4_COMPLETE.md`). Phases 5 and 6 open: `docs/PHASE_5_PLAN.md`, `docs/PHASE_6_PLAN.md`.
+
 ## The recheck: what each task depends on
 
 | Task | Depends on | State |

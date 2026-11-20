@@ -2,7 +2,8 @@
 // makes its own database and drops it afterwards.
 
 import { auditLedger, classificacaoDoJogador, connect, liveTunables, recordPartida, databaseUrl, decryptField, keepChatLines, putStaff, shutOutOf, standingAgainst, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
-import { BASE_ORIGINS, BASE_TUNABLES, type Tunables } from "@nzila/economy";
+import { BASE_ORIGINS, BASE_TUNABLES, type OriginTier, type Recado, type Tunables } from "@nzila/economy";
+import { PRIMEIRA_HORA, primeiraHora } from "@nzila/economy/primeira-hora";
 import { ZONE_TTL_S, memoryPresence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
 import postgres, { type Sql } from "postgres";
@@ -1121,6 +1122,49 @@ describe("the bank: into the Banco and out of it, at a caixa (Task 4.1)", () => 
     const two = await born(801);
     await presence.mark(two.playerId, "caixa");
     expect((await bank(two.token, "withdraw", { amount: 100, key: "alheio-0001" })).json()).toEqual({ error: "insufficient" });
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+});
+
+describe("a new player's first hour (Task 4.7)", () => {
+  const post = (token: string, url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: as(token), payload });
+  const get = (token: string, url: string) => app.inject({ method: "GET", url, headers: as(token) });
+
+  test("played through the routes as a phone would, it ends where the written hour says: card, taxi money, three errands, four biscatos, a meal", async () => {
+    const one = await newGuest(1450);
+    const card = ((await post(one.token, "/v1/me/origin")).json() as { origin: { makuta: number; tier: OriginTier } }).origin;
+    await presence.stand(one.playerId, { districtId: "lda/primeira-hora", x: 0, y: 0, z: 0, yaw: 0 });
+    expect((await post(one.token, "/v1/familia")).statusCode).toBe(200);
+    // The day's errands, each done as the street does it: the zone's word on where the player stands, whom they met.
+    const day = (await get(one.token, "/v1/recados")).json() as { recados: (Recado & { done: boolean })[] };
+    for (const each of day.recados) {
+      if (each.kind === "traz" || each.kind === "vaiver") {
+        if (each.kind === "traz") {
+          await presence.mark(one.playerId, "loja", "cantina-largo");
+          expect((await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: each.item, quantity: 1 }], key: `hora-coisa-${each.n}` })).statusCode).toBe(200);
+        }
+        await presence.mark(one.playerId, "lugar", `${each.place! % 10}/10`);
+      } else if (each.kind === "guarda") {
+        await presence.mark(one.playerId, "caixa");
+        expect((await post(one.token, "/v1/bank/deposit", { amount: each.amount, key: `hora-guarda-${each.n}` })).statusCode).toBe(200);
+      } else {
+        const newcomer = await newGuest(1451 + each.n);
+        await presence.mark(one.playerId, "conheceu", `${one.playerId},${newcomer.playerId}`, 600);
+      }
+      const done = await post(one.token, "/v1/recados/feito", { n: each.n });
+      expect(done.statusCode, `${each.kind}: ${done.body}`).toBe(200);
+    }
+    // A round of each biscato at the written scores, as the zone scores them and the API pays them.
+    for (const [n, round] of PRIMEIRA_HORA.biscatos.entries()) {
+      await presence.mark(one.playerId, "biscato", `hora${n}:${round.kind}:${round.score}`, 600);
+      expect((await post(one.token, "/v1/biscatos/pagar")).statusCode).toBe(200);
+    }
+    // Something to eat and drink.
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    expect((await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [...PRIMEIRA_HORA.comida], key: "hora-comida-01" })).statusCode).toBe(200);
+    const wallet = (await get(one.token, "/v1/me/wallet")).json() as { cash: number; bank: number };
+    const written = primeiraHora({ card: card.makuta, tier: card.tier, recados: day.recados });
+    expect(wallet.cash + wallet.bank).toBe(written.fica);
     expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
   });
 });
