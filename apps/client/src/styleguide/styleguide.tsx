@@ -169,10 +169,10 @@ export function Styleguide() {
           <Case name="needs: hidden above half" on="world"><NeedsBars fome={8000} energia={9000} /><small class="sg-ghost">nothing shown</small></Case>
           <Case name="needs: getting low" on="world"><NeedsBars fome={4200} energia={7000} /></Case>
           <Case name="needs: very low" on="night"><NeedsBars fome={1200} energia={900} /></Case>
-          <Case name="needs in the street: too tired to run" on="world"><NeedsInStreet net={{ current: { needs: { fome: 1500, energia: 600, tired: true }, hospital: null } }} /></Case>
+          <Case name="needs in the street: too tired to run" on="world"><NeedsInStreet net={{ current: { needs: { fome: 4000, energia: 600, tired: true }, hospital: null } }} /></Case>
           <Case name="hospital: the bill" on="night"><HospitalSample total={1500} /></Case>
           <Case name="hospital: nothing to pay with" on="night"><HospitalSample total={0} /></Case>
-          <Case name="needs in the street: hungry" on="night"><NeedsInStreet net={{ current: { needs: { fome: 1500, energia: 4000, tired: false }, hospital: null } }} /></Case>
+          <Case name="needs in the street: hungry" on="night"><NeedsInStreet net={{ current: { needs: { fome: 1500, energia: 4000, tired: false }, hospital: null } }} world={{ player: { x: 0, z: 0 }, district: () => ({ pois: [{ id: "cantina-largo", glyph: "cantina", nameKey: "cantina-largo", pos: [38, 0, 12] }] }), word: () => "Cantina do Largo" }} /></Case>
           <Case name="heat: warm" on="world"><HeatLine band={1} /></Case>
           <Case name="heat: hot" on="night"><HeatLine band={2} /></Case>
           <Case name="heat: very hot" on="night"><HeatLine band={3} /></Case>

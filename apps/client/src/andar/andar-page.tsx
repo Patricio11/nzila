@@ -997,7 +997,7 @@ export function Andar() {
           <div class="andar-top">
             <span>
               <WalletChip amount={hud.cash} />
-              {Needs ? <Needs net={net} /> : null}
+              {Needs ? <Needs net={net} world={world} onMark={setMarked} /> : null}
             </span>
             <span class="andar-top-right">
               <Compass heading={hud.heading} marks={hud.marks} />

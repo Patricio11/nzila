@@ -1741,6 +1741,13 @@ test.describe("two phones in the same street", () => {
     if (first.kind === "traz") {
       // To the cantina first, for the thing asked for: with nothing to hand over yet, its button is the cantina's.
       await walkAlong(58.3);
+      // Pushed off the pavement's line on the way (a person of the street, F-233), the body can end beside the cantina
+      // and out of its reach: then straight to its door, stepping round whoever is there.
+      if (await page.evaluate(() => window.__andar!.shop === null)) {
+        const door = ((await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { glyph?: string; pos: [number, number, number] }[] }).pois.find((one) => one.glyph === "cantina")!.pos;
+        await walkTo(page, door[0], door[2], 2);
+        await page.waitForFunction(() => window.__andar!.speed < 0.05, undefined, { timeout: 5_000 });
+      }
       await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 10_000 });
       await page.keyboard.press("e");
       const cantina = page.getByRole("dialog", { name: "Cantina de Ensaio" });

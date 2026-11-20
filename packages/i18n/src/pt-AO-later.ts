@@ -334,7 +334,8 @@ export const ptAOLater = {
   "needs.hospital.semRede": "Sem rede agora: a conta do hospital fica para depois.",
   "needs.hospital.voltar": "Voltar à rua",
   "needs.cansado": "Estás sem forças para correr ou saltar. Come alguma coisa ou descansa um bocado.",
-  "needs.fome": "Estás com fome. A cantina do Largo tem pão e gasosa.",
+  "needs.fome": "Estás com fome. Há uma cantina a {metros} m.",
+  "needs.fome.semCantina": "Estás com fome. Come alguma coisa da Mochila.",
   "mochila.nao_tens": "Já não tens disso na mochila.",
   "mochila.nao_se_come": "Isso não se come na rua: é para cozinhar em casa.",
   // Kambas (Task 4B.2): asking, the list, a conversation, going to them.

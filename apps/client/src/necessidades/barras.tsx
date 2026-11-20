@@ -3,13 +3,16 @@
 // first falls under half, so that a player who eats in time never downloads it (the way in is full: F-226).
 //
 // Two thin bars under the wallet chip, hidden while both are above half. A line, said once each time it becomes
-// true: too tired to go fast or to jump, and hungry under a fifth. And at zero, the hospital: a fade, what happened,
+// true: too tired to go fast or to jump, and hungry under a fifth, with the nearest cantina and how far it is; and the
+// compass points to it (the gold mark, when the player has not marked a place of their own). And at zero, the hospital: a fade, what happened,
 // the bill as a receipt, and back to the street (UX_UI_SPEC.md: "never a death screen").
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
 import { Button, NeedsBars, Receipt } from "@nzila/ui";
+import type { Marked } from "../telemovel/telemovel.tsx";
 import { askAsPlayer } from "../world/account.ts";
+import { nearestFood, type Arredores } from "./comida.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 import "./barras.css";
 
@@ -56,22 +59,32 @@ export function Hospital({ conta, onBack }: { conta: Conta | null | "sem-rede"; 
   );
 }
 
-/** The bars, and the line when there is one: what the session last heard, read twice a second. */
-export function Necessidades({ net }: { net: { readonly current: { readonly needs: NeedsSaid; hospital: string | null } | null } }) {
+/**
+ * The bars, and the line when there is one: what the session last heard, read twice a second. `onMark` sets the
+ * compass's gold mark (the Mapa's): to the nearest cantina as hunger comes, unless the player has marked a place of
+ * their own, and away again once they have eaten.
+ */
+export function Necessidades({ net, world, onMark }: { net: { readonly current: { readonly needs: NeedsSaid; hospital: string | null } | null }; world?: Arredores; onMark?: (next: (was: Marked | null) => Marked | null) => void }) {
   const read = (): NeedsSaid => net.current?.needs ?? null;
   const [now, setNow] = useState<NeedsSaid>(read());
   const [line, setLine] = useState<string | null>(null);
   const was = useRef({ tired: false, hungry: false });
   const stayRef = useRef<string | null>(null);
+  // The cantina this put on the compass, to take it off again (and only it).
+  const food = useRef<Marked | null>(null);
   // A stay at the hospital the zone just told of, and its bill once asked.
   const [stay, setStay] = useState<string | null>(null);
   const [conta, setConta] = useState<Conta | null | "sem-rede">(null);
   useEffect(() => {
     let hide: ReturnType<typeof setTimeout> | undefined;
-    const say = (text: string): void => {
+    let then: ReturnType<typeof setTimeout> | undefined;
+    // One line, or two one after the other when both became true at once: hunger first, then tiredness.
+    const say = (text: string, after?: string): void => {
       setLine(text);
       clearTimeout(hide);
+      clearTimeout(then);
       hide = setTimeout(() => setLine(null), LINE_MS);
+      if (after) then = setTimeout(() => say(after), LINE_MS);
     };
     const look = (): void => {
       const there = net.current?.hospital ?? null;
@@ -86,8 +99,21 @@ export function Necessidades({ net }: { net: { readonly current: { readonly need
       if (!needs) return;
       const hungry = needs.fome < HUNGRY_BELOW;
       // Each said once as it becomes true: not again until it has stopped being so.
-      if (needs.tired && !was.current.tired) say(tr.t("needs.cansado"));
-      else if (hungry && !was.current.hungry) say(tr.t("needs.fome"));
+      const tiredNow = needs.tired && !was.current.tired;
+      if (hungry && !was.current.hungry) {
+        const near = world ? nearestFood(world) : null;
+        say(near ? tr.t("needs.fome", { metros: near.metres }) : tr.t("needs.fome.semCantina"), tiredNow ? tr.t("needs.cansado") : undefined);
+        if (near && onMark) {
+          const mark = { x: near.x, z: near.z, name: near.name };
+          food.current = mark;
+          onMark((marked) => marked ?? mark);
+        }
+      } else if (tiredNow) say(tr.t("needs.cansado"));
+      if (!hungry && was.current.hungry && food.current && onMark) {
+        const mine = food.current;
+        food.current = null;
+        onMark((marked) => (marked === mine ? null : marked));
+      }
       was.current = { tired: needs.tired, hungry };
     };
     look();
@@ -95,8 +121,9 @@ export function Necessidades({ net }: { net: { readonly current: { readonly need
     return () => {
       clearInterval(every);
       clearTimeout(hide);
+      clearTimeout(then);
     };
-  }, [net]);
+  }, [net, world, onMark]);
   if (stay) {
     return (
       <Hospital

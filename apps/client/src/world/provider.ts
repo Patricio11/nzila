@@ -131,7 +131,8 @@ export class LocalWorld implements WorldProvider {
   private readonly listeners = new Set<() => void>();
   private scene: DistrictScene | null = null;
   private base = "";
-  private player: { x: number; z: number; heading: number } | null = null;
+  /** Where the player stands, as the page last said (metres): read by the hunger line and the compass's food mark. */
+  player: { x: number; z: number; heading: number } | null = null;
   private among: number | null = null;
   private named: number | null = null;
   private company: { heads(): { x: number; z: number }[] } | null = null;
