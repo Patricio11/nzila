@@ -227,8 +227,7 @@ export function Andar() {
     let person: Person | null = null;
     // The zone, when there is one: it says where the player is and who else is in the street (Task 3.3).
     let session: Session | null = null;
-    let needsAsked = false;
-    let stopKambas = (): void => {};
+    let stopWatch = (): void => {};
     // What hangs over heads: words, dots, empty balloons. And when the player's last line was refused, until when to say so.
     let over: Over | null = null;
     let said: { kind: "met" | "waved" | "greeted" | "got" | "recado" | "recadoNo"; name: string; amount?: number; until: number } | null = null;
@@ -256,7 +255,12 @@ export function Andar() {
     let speed = 0;
     let carried = 0;
     let emote: { kind: Emote; began: number } | null = null;
-    let seat: { x: number; y: number; z: number; facing: number } | null = null;
+    let seat: { x: number; y: number; z: number; facing: number; n: number } | null = null;
+    // Sitting on a bench, or getting up, said to the zone too (F-205): everyone sees it, and the player rests.
+    const sitOn = (next: typeof seat): void => {
+      session?.bench(seat?.n ?? -1, next?.n ?? -1);
+      seat = next;
+    };
     let sit = 0;
     // Riding a van: which one, and whether the cobrador has been asked for the next paragem.
     let ride: { route: string; index: number; last: VanSeen; asked: boolean; left: boolean; camYaw: number; boardedAt: number; askedAt: number; arrivedAt: number; riders: { who: string; person: Person; seat: number }[] } | null = null;
@@ -328,7 +332,8 @@ export function Andar() {
           // `&paragem=<id>` comes in beside a paragem, as someone off a van does: for the tests of riding together.
           session.join(params.get("paragem") ?? undefined);
           // The kambas (Task 4B.2): what waits in Mensagens is watched from now, fetched after the way in.
-          void import("../telemovel/rede-kambas.ts").then((module) => !closed && (stopKambas = module.vigiar(setNovas, setMarked)));
+          // What the street watches once it is open: the kambas' count, and Fome and Energia's bars (fetched after the way in).
+          void import("./vigia.ts").then((module) => !closed && (stopWatch = module.vigiar(() => session?.needs ?? null, setNovas, setMarked, (bars) => setNeeds(() => bars))));
           void import("../recados/rua.ts").then((module) => {
             if (closed) return;
             errands = new module.StreetErrands(opened, renderer);
@@ -403,14 +408,14 @@ export function Andar() {
       if (district && person && ground) {
         const ask = wanted(seconds);
         const moving = ask.dx !== 0 || ask.dz !== 0;
-        const nearest = (reach = SEAT_REACH_M): { x: number; y: number; z: number; facing: number } | null => {
+        const nearest = (reach = SEAT_REACH_M): { x: number; y: number; z: number; facing: number; n: number } | null => {
           let best = null;
           let bestD = reach;
-          for (const s of district!.manifest.seats) {
+          for (const [n, s] of district!.manifest.seats.entries()) {
             const d = Math.hypot(s.pos[0] - state.x / 1000, s.pos[2] - state.z / 1000);
             if (d < bestD) {
               bestD = d;
-              best = { x: s.pos[0], y: s.pos[1], z: s.pos[2], facing: (s.facing * Math.PI) / 180 };
+              best = { x: s.pos[0], y: s.pos[1], z: s.pos[2], facing: (s.facing * Math.PI) / 180, n };
             }
           }
           return best;
@@ -522,7 +527,7 @@ export function Andar() {
         const played = tables && !ride ? tables.frame(seconds, state.x / 1000, state.z / 1000) : null;
         if (played?.mine && atTable?.mesa !== played.mine.mesa) {
           atTable = played.mine;
-          seat = played.mine.seat;
+          seat = { ...played.mine.seat, n: -1 };
           setTable(played.mine.mesa);
           // Over the player's right shoulder and close, at the table and whoever sits across it.
           camera.yaw = seat.facing + Math.PI - 0.32;
@@ -565,21 +570,21 @@ export function Andar() {
         }
         if (asks.current.act) {
           asks.current.act = false;
-          seat = seat ? null : nearest();
+          sitOn(seat ? null : nearest());
         }
-        if (seat && moving && !atTable) seat = null;
+        if (seat && moving && !atTable) sitOn(null);
         if (jumpsAlways && seconds - air.last > 1.7) {
           air.last = seconds;
           asks.current.jump = true;
         }
         // A jump gets a seated person up and ends a gesture; it is not made from the bench.
         if (asks.current.jump && seat) {
-          seat = null;
+          sitOn(null);
           asks.current.jump = false;
         }
         if (asks.current.jump) emote = null;
         if (held.sit && !seat && seconds > 0.2) {
-          seat = nearest(Infinity);
+          sitOn(nearest(Infinity));
           held.sit = false;
         }
         if (held.emote && !emote) asks.current.emote = held.emote;
@@ -872,11 +877,6 @@ export function Andar() {
             else if (ride.last.dwelling && ride.left && seconds - ride.arrivedAt < 5) band.said = tr.t("ride.cobrador.arrived", { paragem: band.stops[band.next] ?? "" });
             else if (ride.last.dwelling && !ride.left) band.said = tr.t("ride.cobrador.call", { proxima: ahead });
           }
-          const needs = session?.needs;
-          if (needs && !needsAsked && (needs.fome < 5000 || needs.energia < 5000)) {
-            needsAsked = true;
-            void import("../necessidades/barras.tsx").then((module) => setNeeds(() => module.Necessidades));
-          }
           // `&semrede` shows what a minute without a network looks like, for a still.
           setHud({ talk: session?.canTalk ?? false, lines: session?.talk.lines(performance.now()) ?? [], refused: performance.now() < refusedUntil ? refusedWhy : null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, net: params.has("semrede") ? "lost" : (session?.state ?? "alone"), out: session?.out ?? null, said: said && performance.now() < said.until ? { kind: said.kind, name: said.name, amount: said.amount ?? 0 } : null, ready: true, place: district.word(district.manifest.nameKey), second, heading, marks, action, ride: band, stick: { x: stick.originX - rect.left, y: stick.originY - rect.top, dx: stick.x / 1.5 / length, dy: stick.y / 1.5 / length, active: stick.active } });
         }
@@ -958,7 +958,7 @@ export function Andar() {
     window.addEventListener("resize", onResize);
     return () => {
       closed = true;
-      stopKambas();
+      stopWatch();
       cancelAnimationFrame(frame);
       element.removeEventListener("pointerdown", down);
       element.removeEventListener("pointermove", move);
@@ -991,7 +991,7 @@ export function Andar() {
       {install && Oferta ? (
         <Oferta onYes={() => (setInstall(false), sessionStorage.setItem("nzila.install", "1"), void offer.current?.prompt?.())} onLater={() => (setInstall(false), sessionStorage.setItem("nzila.install", "1"))} />
       ) : null}
-      {missing ? <p class="andar-note">The district and the people have not been built on this machine: run `pnpm pack:dev` (it needs Blender).</p> : null}
+      {missing ? <p class="andar-note">pnpm pack:dev (Blender)</p> : null}
       {hud.ready ? (
         <div class="andar-hud n-on-dark">
           <div class="andar-top">

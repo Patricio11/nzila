@@ -24,6 +24,7 @@ import {
   encodeChatTyping,
   encodeEmote,
   encodeComer,
+  encodeBanco,
 } from "@nzila/protocol";
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
@@ -46,7 +47,11 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
     ["conversa", { x: -60_000, y: 0, z: -60_000, yaw: 0 }],
     ["conversa-10", { x: -50_000, y: 0, z: -60_000, yaw: 0 }],
     ["conversa-30", { x: -30_000, y: 0, z: -60_000, yaw: 0 }],
+    // Beside a bench, for sitting on it.
+    ["banco", { x: -80_000, y: 0, z: 79_000, yaw: 0 }],
   ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 },
+  // One bench's seat, facing +Z (F-205).
+  benches: [{ x: -80_000, y: 450, z: 80_000, yaw: 0 }],
   // A caixa two metres from where people arrive.
   caixas: [{ x: 2000, z: 0 }],
   // The district's places, in the pack's order: one beside where people arrive, one where people talk.
@@ -350,7 +355,41 @@ describe("where a player was", () => {
     }
     expect(kept!.fome).toBeGreaterThan(3000 + 900 - 60);
     expect(kept!.energia).toBeGreaterThan(1100);
-  });
+    // Two walks, meals and the database: more than an integration test's fifteen seconds when the gate is loaded (F-176).
+  }, 30_000);
+
+  test("a bench (F-205, Task 4.4): sat on from beside it and seen sitting by another; nobody else's to take; got up in front of it; rested on", async () => {
+    const one = await player();
+    await sql`UPDATE players SET energia = 2000 WHERE id = ${one.id}`;
+    const a = await phone(one.token, PROTOCOL_VERSION, "banco");
+    const b = await phone((await player()).token, PROTOCOL_VERSION, "banco");
+    const aId = a.state.accepted!.entityId;
+    a.socket.send(encodeBanco({ seat: 0, sim: true }));
+    await until(() => a.me().anim === DOING.sit);
+    expect(a.me()).toMatchObject({ x: -80_000, z: 80_000 });
+    // Everyone else sees them sitting there.
+    await until(() => b.seen(aId)?.anim === DOING.sit);
+    // Taken: the other is not seated on it; and a seat the district has not is nothing.
+    b.socket.send(encodeBanco({ seat: 0, sim: true }));
+    b.socket.send(encodeBanco({ seat: 9, sim: true }));
+    await pause(400);
+    expect(b.me().anim).not.toBe(DOING.sit);
+    // Rested a while, then up, a step in front of the bench.
+    await pause(3000);
+    a.socket.send(encodeBanco({ seat: 0, sim: false }));
+    await until(() => a.me().anim !== DOING.sit);
+    expect(Math.hypot(a.me().x - -80_000, a.me().z - 80_600)).toBeLessThan(700);
+    await b.leave();
+    await a.leave();
+    // Sitting gave back more Energia than the time took: 6 000 an hour against 2 500.
+    let kept: { energia: number } | undefined;
+    for (let n = 0; n < 40 && !(kept && kept.energia !== 2000); n++) {
+      [kept] = await sql<{ energia: number }[]>`SELECT energia FROM players WHERE id = ${one.id}`;
+      await pause(50);
+    }
+    expect(kept!.energia).toBeGreaterThan(2000);
+    // Two walks, meals and the database: more than an integration test's fifteen seconds when the gate is loaded (F-176).
+  }, 30_000);
 
   test("a rehearsal town is played in like any district, and nothing of where anyone stood there is kept", async () => {
     const one = await player();

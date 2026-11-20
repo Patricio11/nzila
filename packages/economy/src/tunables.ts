@@ -54,6 +54,8 @@ const SPEC = {
     energiaPerJump: range(0, 1000),
     /** More Energia lost per real hour spent with Fome empty. */
     energiaPerHungryHour: range(0, 100_000),
+    /** Energia won back per real hour sitting (a bench, a stool) or riding a van (Task 4.4). */
+    energiaPerRestHour: range(0, 100_000),
     /** Under this much Energia a player can neither go fast nor jump (D-0.46, Task 4.4). */
     tiredBelow: range(0, 10_000),
   },

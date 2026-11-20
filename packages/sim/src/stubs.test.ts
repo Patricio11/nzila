@@ -4,7 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { HEAT_MAX, heatBand, heatValue, type HeatWeights } from "./heat.ts";
 import { SCORE_MAX, scoreTiming } from "./minigame/index.ts";
-import { NEED_FULL, decayNeeds, eatNeeds, spendEffort, tooTired } from "./needs.ts";
+import { NEED_FULL, decayNeeds, eatNeeds, restNeeds, spendEffort, tooTired } from "./needs.ts";
 import { assaltoLossCap, isShielded, type OffenceKind } from "./offence.ts";
 
 describe("needs", () => {
@@ -47,6 +47,13 @@ describe("needs", () => {
     expect(eatNeeds({ fome: 3000, energia: 9000 }, { fome: 2500, energia: 400 })).toEqual({ fome: 5500, energia: 9400 });
     expect(eatNeeds({ fome: 9000, energia: 9900 }, { fome: 2500, energia: 400 })).toEqual({ fome: NEED_FULL, energia: NEED_FULL });
     expect(eatNeeds({ fome: 3000, energia: 2000 }, { fome: -100, energia: -100 })).toEqual({ fome: 3000, energia: 2000 });
+  });
+
+  test("golden: sitting or riding gives Energia back, never past full, and Fome is untouched", () => {
+    const rest = { energiaPerRestHour: 6000 };
+    expect(restNeeds({ fome: 4000, energia: 1000 }, 20 * 60 * 10, rest)).toEqual({ fome: 4000, energia: 2000 });
+    expect(restNeeds({ fome: 4000, energia: 9500 }, 72_000, rest)).toEqual({ fome: 4000, energia: NEED_FULL });
+    expect(restNeeds({ fome: 4000, energia: 1000 }, -50, rest)).toEqual({ fome: 4000, energia: 1000 });
   });
 
   test("too tired to run or jump under the line, and not at it", () => {

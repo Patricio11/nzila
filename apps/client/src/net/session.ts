@@ -14,7 +14,7 @@
 
 import { isGreeting } from "@nzila/i18n";
 import { type Object3D } from "three";
-import { encodeComer, type TrafficSaid, CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
+import { encodeBanco, encodeComer, type TrafficSaid, CHAT_REFUSAL, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
 import { Players } from "../render/players.ts";
@@ -392,6 +392,16 @@ export class Session {
   nudge(bi: string): void {
     const entity = this.players.entityOf(bi);
     if (this.walking && entity !== null) this.link!.nudge(entity);
+  }
+
+  /**
+   * From one bench's seat to another (by their numbers in the pack's list; -1 for none, and for a table's stool,
+   * which the tables tell the zone of themselves): the zone seats the body for everyone to see (F-205).
+   */
+  bench(from: number, to: number): void {
+    if (from === to || !this.walking) return;
+    if (from >= 0) this.link!.post(encodeBanco({ seat: from, sim: false }));
+    if (to >= 0) this.link!.post(encodeBanco({ seat: to, sim: true }));
   }
 
   /** Asks the zone to eat or drink one of a thing carried (Task 4.4); the answer comes to `onAte`. False when not in the street. */

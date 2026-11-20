@@ -31,6 +31,8 @@ export const MSG = {
   MESA_PEDIDO: 17,
   /** Client to zone: eat or drink one of a thing the player carries (Task 4.4). */
   COMER: 18,
+  /** Client to zone: sit on a bench's seat, or get up from it (F-205, Task 4.4). */
+  BANCO: 19,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -440,6 +442,26 @@ function readComer(r: Reader): Comer {
   return { item };
 }
 
+/** Client to zone: sit on a seat of the district's benches (by its place in the pack's list of seats), or get up. */
+export interface Banco {
+  readonly seat: number;
+  readonly sim: boolean;
+}
+
+/** The most seats a district's benches have, as a number on the wire. */
+const BENCH_SEATS_MAX = 4096;
+
+export function encodeBanco(m: Banco): Uint8Array {
+  return new Writer().u8(MSG.BANCO).uint(m.seat).u8(m.sim ? 1 : 0).finish();
+}
+
+function readBanco(r: Reader): Banco {
+  const seat = r.uint();
+  const sim = r.u8();
+  if (seat >= BENCH_SEATS_MAX || sim > 1) throw new ProtocolError("malformed", "banco");
+  return { seat, sim: sim === 1 };
+}
+
 // ---------------------------------------------------------------- Mesa
 
 /** What a player asks of a table. Numbers are never reused. */
@@ -598,7 +620,8 @@ export type ClientMessage =
   | ({ readonly type: "ride" } & { readonly ride: RideAsked })
   | ({ readonly type: "nudge" } & Nudge)
   | ({ readonly type: "mesa" } & MesaPedido)
-  | ({ readonly type: "comer" } & Comer);
+  | ({ readonly type: "comer" } & Comer)
+  | ({ readonly type: "banco" } & Banco);
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -617,6 +640,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.NUDGE) return { type: "nudge", entity: r.uint() };
   if (type === MSG.MESA_PEDIDO) return { type: "mesa", ...readMesaPedido(r) };
   if (type === MSG.COMER) return { type: "comer", ...readComer(r) };
+  if (type === MSG.BANCO) return { type: "banco", ...readBanco(r) };
   throw new ProtocolError("unknown_type", String(type));
 }
 

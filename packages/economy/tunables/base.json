@@ -22,7 +22,8 @@
     "energiaPerRunHour": 6000,
     "energiaPerJump": 15,
     "energiaPerHungryHour": 3000,
-    "tiredBelow": 800
+    "tiredBelow": 800,
+    "energiaPerRestHour": 6000
   },
   "crime": {
     "shieldPlayHours": 5,

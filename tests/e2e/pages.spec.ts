@@ -998,6 +998,35 @@ test.describe("two phones in the same street", () => {
     return false;
   };
   /** A guest made by the API, kept on the phone as the door would have kept it. */
+  /**
+   * Walks a player to a point with the keys, as a thumb would: straight at it, and when something stands in the way (a
+   * person of the street on their timetable, a bench, a kiosk) a step aside and on. Returns when within `within` metres.
+   */
+  const walkTo = async (page: Page, x: number, z: number, within: number): Promise<void> => {
+    let stuck = 0;
+    let was = { x: Number.NaN, z: Number.NaN };
+    for (let n = 0; n < 300; n++) {
+      const at = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+      const dx = x - at.x;
+      const dz = z - at.z;
+      if (Math.hypot(dx, dz) < within) return;
+      stuck = Math.hypot(at.x - was.x, at.z - was.z) < 0.03 ? stuck + 1 : 0;
+      was = at;
+      if (stuck >= 4) {
+        // Blocked: a step to one side, across the way to the point, then on.
+        const side = Math.abs(dx) > Math.abs(dz) ? (n % 2 === 0 ? "w" : "s") : n % 2 === 0 ? "a" : "d";
+        await page.keyboard.down(side);
+        await page.waitForTimeout(400);
+        await page.keyboard.up(side);
+        stuck = 0;
+        continue;
+      }
+      const keys = [...(dx > 0.2 ? ["d"] : dx < -0.2 ? ["a"] : []), ...(dz > 0.2 ? ["s"] : dz < -0.2 ? ["w"] : [])];
+      for (const key of keys) await page.keyboard.down(key);
+      await page.waitForTimeout(Math.min(350, 50 + Math.hypot(dx, dz) * 110));
+      for (const key of keys) await page.keyboard.up(key);
+    }
+  };
   const comeIn = async (page: Page, n: number): Promise<string> => {
     const deviceId = `two-phones-${n}-${Date.now()}-abcdefgh`;
     const made = await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } });
@@ -1431,21 +1460,9 @@ test.describe("two phones in the same street", () => {
     await page.goto("/andar?tier=poupanca&hour=10");
     await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
     // Walked there by the keys, first along the town's east-west line and then to the place: the camera looks north.
-    const walkTo = async (x: number, z: number, within: number): Promise<void> => {
-      for (let n = 0; n < 300; n++) {
-        const at = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
-        const dx = x - at.x;
-        const dz = z - at.z;
-        if (Math.hypot(dx, dz) < within) return;
-        const keys = [...(dx > 0.2 ? ["d"] : dx < -0.2 ? ["a"] : []), ...(dz > 0.2 ? ["s"] : dz < -0.2 ? ["w"] : [])];
-        for (const key of keys) await page.keyboard.down(key);
-        await page.waitForTimeout(Math.min(350, 50 + Math.hypot(dx, dz) * 110));
-        for (const key of keys) await page.keyboard.up(key);
-      }
-    };
     const start = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
-    await walkTo(stand.x, start.z, 0.4);
-    await walkTo(stand.x, stand.z, 0.3);
+    await walkTo(page, stand.x, start.z, 0.4);
+    await walkTo(page, stand.x, stand.z, 0.3);
     await page.waitForFunction(() => window.__andar!.action === "xadrez", undefined, { timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Jogar xadrez" })).toBeVisible();
     await page.screenshot({ path: info.outputPath("mesa-rua.png") });
@@ -1456,7 +1473,7 @@ test.describe("two phones in the same street", () => {
     await expect(watched.locator(".ms-seat-me")).toHaveCount(0);
     await expect(watched.locator(".ms-piece.ms-can")).toHaveCount(0);
     await expect(watched.getByRole("button", { name: "Levantar" })).toHaveCount(0);
-    await expect(watched.locator(".ms-line")).toHaveText(/^Vez de Kota|^Estás a ver|ganhou|^Empate/);
+    await expect(watched.locator(".ms-line")).toHaveText(/^Vez de (Kota|Mamã)|^Estás a ver|ganhou|^Empate/);
     // A cheer is the player's body clapping in the street, for everyone round the table to see.
     await watched.getByRole("button", { name: "Aplaudir" }).click();
     await page.waitForFunction(() => window.__andar!.emote === "aplaudir", undefined, { timeout: 5_000 });
@@ -1490,7 +1507,7 @@ test.describe("two phones in the same street", () => {
     await expect(board.locator(".ms-target")).toHaveCount(2);
     await board.locator(".ms-target").last().click({ force: true });
     // The zone takes the move, the kota thinks, and it is the player's turn again: two moves on, the last one marked.
-    await expect(board.locator(".ms-line")).toHaveText(/^Vez de Kota/, { timeout: 5_000 });
+    await expect(board.locator(".ms-line")).toHaveText(/^Vez de (Kota|Mamã)/, { timeout: 5_000 });
     await expect(board.locator(".ms-line")).toHaveText("É a tua vez.", { timeout: 15_000 });
     await expect(board.locator(".ms-last")).toHaveCount(2);
     await page.screenshot({ path: info.outputPath("mesa-kota.png") });
@@ -1522,21 +1539,9 @@ test.describe("two phones in the same street", () => {
     const stand = { x: seat[0] + ((seat[0] - table.pos[0]) / away) * 0.75, z: seat[2] + ((seat[2] - table.pos[2]) / away) * 0.75 };
     await page.goto("/andar?tier=poupanca&hour=10");
     await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
-    const walkTo = async (x: number, z: number, within: number): Promise<void> => {
-      for (let n = 0; n < 300; n++) {
-        const at = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
-        const dx = x - at.x;
-        const dz = z - at.z;
-        if (Math.hypot(dx, dz) < within) return;
-        const keys = [...(dx > 0.2 ? ["d"] : dx < -0.2 ? ["a"] : []), ...(dz > 0.2 ? ["s"] : dz < -0.2 ? ["w"] : [])];
-        for (const key of keys) await page.keyboard.down(key);
-        await page.waitForTimeout(Math.min(350, 50 + Math.hypot(dx, dz) * 110));
-        for (const key of keys) await page.keyboard.up(key);
-      }
-    };
     const start = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
-    await walkTo(stand.x, start.z, 0.4);
-    await walkTo(stand.x, stand.z, 0.3);
+    await walkTo(page, stand.x, start.z, 0.4);
+    await walkTo(page, stand.x, stand.z, 0.3);
     await page.waitForFunction((wanted) => window.__andar!.action === wanted, jogo, { timeout: 15_000 });
     await page.getByRole("button", { name: `Jogar ${jogo}` }).click();
     await page.waitForFunction(() => window.__andar!.mesa !== null && window.__andar!.seated, undefined, { timeout: 10_000 });
@@ -1726,7 +1731,7 @@ test.describe("two phones in the same street", () => {
     await page.screenshot({ path: info.outputPath("recados-marcado.png") });
     await page.getByRole("button", { name: "Fechar" }).first().click();
     const target = ((await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { pos: [number, number, number] }[] }).pois[first.place! % 7]!.pos;
-    const walkTo = async (x: number): Promise<void> => {
+    const walkAlong = async (x: number): Promise<void> => {
       const key = (await page.evaluate(() => window.__andar!.x)) < x ? "d" : "a";
       await page.keyboard.down(key);
       await page.waitForFunction((tx) => Math.abs(window.__andar!.x - tx) < 0.7, x, { timeout: 20_000 });
@@ -1735,7 +1740,7 @@ test.describe("two phones in the same street", () => {
     };
     if (first.kind === "traz") {
       // To the cantina first, for the thing asked for: with nothing to hand over yet, its button is the cantina's.
-      await walkTo(58.3);
+      await walkAlong(58.3);
       await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 10_000 });
       await page.keyboard.press("e");
       const cantina = page.getByRole("dialog", { name: "Cantina de Ensaio" });
@@ -1743,7 +1748,7 @@ test.describe("two phones in the same street", () => {
       await cantina.getByRole("button", { name: /^Pagar/ }).click();
       await cantina.getByRole("button", { name: "Já está" }).click();
     }
-    await walkTo(target[0]);
+    await walkAlong(target[0]);
     // At the place: the neighbour (or the nephew) is there, and the gold button offers the errand.
     await page.waitForFunction(() => window.__andar!.action === "entregar" || window.__andar!.action === "procurar", undefined, { timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("recados-no-sitio.png") });
@@ -1842,6 +1847,56 @@ test.describe("two phones in the same street", () => {
     await other.close();
     expect(seen.errors).toEqual([]);
     expect(otherSeen.errors).toEqual([]);
+  });
+
+  test("on a bench (F-205, Task 4.4): sat on with the gold button, and the other phone sees them on the seat, not beside it; up again, they stand in front of it", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Benches were not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    await comeIn(page, 95);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    await comeIn(other, 96);
+    await page.goto("/andar?tier=poupanca&hour=10");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    await other.goto("/andar?tier=poupanca&hour=10");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    // A bench's seat near where people arrive: one for each phone's run, as they share the zone of the tests.
+    const manifest = (await (await request.get("/packs/dev/manifest.json")).json()) as { seats: { pos: [number, number, number]; facing: number }[] };
+    const start = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    // Of those facing the way the street runs (their fronts are reached straight along it), the nearest two.
+    const byNear = manifest.seats.filter((one) => one.facing === 0).sort((a, b) => Math.hypot(a.pos[0] - start.x, a.pos[2] - start.z) - Math.hypot(b.pos[0] - start.x, b.pos[2] - start.z));
+    const seat = byNear[info.project.name === "phone" ? 0 : 1]!;
+    const facing = (seat.facing * Math.PI) / 180;
+    const front = { x: seat.pos[0] + Math.sin(facing) * 0.7, z: seat.pos[2] + Math.cos(facing) * 0.7 };
+    // Round the bench's end and in from its front (from behind, the bench is in the way; east of the door, a kiosk).
+    await walkTo(page, start.x, front.z - 3, 0.4);
+    await walkTo(page, front.x + 2.2, front.z - 3, 0.4);
+    await walkTo(page, front.x + 2.2, front.z, 0.4);
+    // Close enough to sit is all it takes (the bench's own ground keeps a body a step off it).
+    await walkTo(page, seat.pos[0], seat.pos[2], 1.75);
+    await page.waitForFunction(() => window.__andar!.action === "sit", undefined, { timeout: 15_000 });
+    await page.getByRole("button", { name: "Sentar" }).click();
+    await page.waitForFunction(() => window.__andar!.seated, undefined, { timeout: 5_000 });
+    // The other phone sees them on the seat itself (standing, nobody is ever there: the bench is in the way).
+    await other.waitForFunction(
+      (at) => window.__andar!.others.some((one) => Math.hypot(one.x - at[0], one.z - at[2]) < 0.15),
+      seat.pos,
+      { timeout: 10_000 },
+    );
+    await other.screenshot({ path: info.outputPath("banco-visto.png") });
+    // Up again: in front of the bench, on the other phone too.
+    await page.getByRole("button", { name: "Levantar" }).click();
+    await page.waitForFunction(() => !window.__andar!.seated, undefined, { timeout: 5_000 });
+    await other.waitForFunction(
+      (at) => window.__andar!.others.some((one) => Math.hypot(one.x - at[0], one.z - at[2]) > 0.3 && Math.hypot(one.x - at[0], one.z - at[2]) < 1.5),
+      seat.pos,
+      { timeout: 10_000 },
+    );
+    expect(seen.errors).toEqual([]);
   });
 
   test("kambas (Task 4B.2): asked from the card, a yes in Mensagens; they write to each other; an invitation to play, and the compass points at the one who sent it", async ({ page, browser, request }, info) => {
@@ -1953,21 +2008,9 @@ test.describe("two phones in the same street", () => {
     const stool = table.seats[0]!.pos;
     const away = Math.hypot(stool[0] - table.pos[0], stool[2] - table.pos[2]);
     const stand = { x: stool[0] + ((stool[0] - table.pos[0]) / away) * 0.75, z: stool[2] + ((stool[2] - table.pos[2]) / away) * 0.75 };
-    const walkTo = async (x: number, z: number, within: number): Promise<void> => {
-      for (let n = 0; n < 300; n++) {
-        const at = await other.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
-        const dx = x - at.x;
-        const dz = z - at.z;
-        if (Math.hypot(dx, dz) < within) return;
-        const keys = [...(dx > 0.2 ? ["d"] : dx < -0.2 ? ["a"] : []), ...(dz > 0.2 ? ["s"] : dz < -0.2 ? ["w"] : [])];
-        for (const key of keys) await other.keyboard.down(key);
-        await other.waitForTimeout(Math.min(350, 50 + Math.hypot(dx, dz) * 110));
-        for (const key of keys) await other.keyboard.up(key);
-      }
-    };
     const start = await other.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
-    await walkTo(stand.x, start.z, 0.4);
-    await walkTo(stand.x, stand.z, 0.3);
+    await walkTo(other, stand.x, start.z, 0.4);
+    await walkTo(other, stand.x, stand.z, 0.3);
     await other.waitForFunction(() => window.__andar!.action === "xadrez", undefined, { timeout: 15_000 });
     await other.getByRole("button", { name: "Jogar xadrez" }).click();
     await other.waitForFunction(() => window.__andar!.mesa !== null && window.__andar!.seated, undefined, { timeout: 10_000 });

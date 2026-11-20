@@ -11,7 +11,7 @@ import { isGreeting } from "@nzila/i18n";
 import { TrafficRules, actorAt } from "@nzila/world";
 import { eatOne, faceOf, keepChatLines, keepNeeds, needsOf, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_TUNABLES } from "@nzila/economy";
-import { decayNeeds, eatNeeds, spendEffort, tooTired, type NeedsState } from "@nzila/sim";
+import { decayNeeds, eatNeeds, restNeeds, spendEffort, tooTired, type NeedsState } from "@nzila/sim";
 import { type ChatFilter } from "@nzila/i18n";
 import {
   type EntityState,
@@ -132,6 +132,8 @@ interface Held {
 interface NeedsKept {
   base: NeedsState;
   steps: number;
+  /** Of those steps, the ones spent sitting (a bench, a stool) or riding a van: Energia comes back in them. */
+  rest: number;
   fast: number;
   jumps: number;
   tired: boolean;
@@ -139,6 +141,9 @@ interface NeedsKept {
 
 /** The rates of the needs: tunables (Rule 14). */
 const NEEDS = BASE_TUNABLES.needs;
+/** How near a bench's seat a player must stand to sit on it, and how far in front of it they stand up. Millimetres. */
+const BENCH_REACH_MM = 2500;
+const BENCH_STEP_MM = 600;
 
 /** How long the world's steps have been taking: what the load test reads (3.7). */
 export interface Pace {
@@ -358,7 +363,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = settleLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, fast: 0, jumps: 0, tired: tooTired(needs, NEEDS.tiredBelow) }, eating: false });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, NEEDS.tiredBelow) }, eating: false });
     this.lineOfEntity.set(entityId, line);
     this.channel.setTired(entityId, tooTired(needs, NEEDS.tiredBelow));
     // Noted at once where they came in, not at the next five-second round: a kamba going to them finds them (Task 4B.2).
@@ -424,6 +429,7 @@ export class ChannelRoom {
       else if (message.type === "nudge") this.nudges(held, message.entity);
       else if (message.type === "mesa") this.atTable(line, held, message);
       else if (message.type === "comer") this.eats(line, held, message.item);
+      else if (message.type === "banco") this.onBench(held, message.seat, message.sim);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -433,7 +439,7 @@ export class ChannelRoom {
   /** Fome and Energia as they are now: what was last set, worn by the steps since, the fast steps and the jumps (Task 4.4). */
   private needsNow(held: Held): NeedsState {
     const kept = held.needs;
-    return spendEffort(decayNeeds(kept.base, kept.steps, NEEDS), kept.fast, kept.jumps, NEEDS);
+    return spendEffort(restNeeds(decayNeeds(kept.base, kept.steps, NEEDS), kept.rest, NEEDS), kept.fast, kept.jumps, NEEDS);
   }
 
   /** The effort the channel counted for them since last asked, added to what their needs carry. */
@@ -482,7 +488,7 @@ export class ChannelRoom {
     void eatOne(this.sql, held.playerId, item, after)
       .then((ate) => {
         if (!ate) return refuse("nao_tens");
-        held.needs = { base: after, steps: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
+        held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
         this.channel.setTired(held.entityId, held.needs.tired);
         this.tellNeeds(line, held, item);
       })
@@ -491,6 +497,29 @@ export class ChannelRoom {
         refuse("nao_tens");
       })
       .finally(() => (held.eating = false));
+  }
+
+  /**
+   * Sitting on a bench, and getting up (F-205): the zone seats the body, so that everyone sees them sitting, and they
+   * rest there (Task 4.4). Only a seat within reach, that nobody else is on, by someone on foot and at no table.
+   */
+  private onBench(held: Held, seat: number, sim: boolean): void {
+    const sat = this.channel.sittingOf(held.entityId);
+    const atTable = this.mesas?.seatOf(held.playerId) !== null && this.mesas?.seatOf(held.playerId) !== undefined;
+    if (!sim) {
+      // Up, a step in front of the bench, or as near it as there is room.
+      if (sat && !atTable) this.channel.standUp(held.entityId, { ...sat, x: sat.x + Math.round(Math.sin((sat.yaw / 18_000) * Math.PI) * BENCH_STEP_MM), z: sat.z + Math.round(Math.cos((sat.yaw / 18_000) * Math.PI) * BENCH_STEP_MM) });
+      return;
+    }
+    const place = this.district.benches?.[seat];
+    const here = this.channel.placeOf(held.entityId);
+    if (!place || !here || sat || atTable || this.channel.ridingOf(held.entityId)) return;
+    if (Math.hypot(place.x - here.x, place.z - here.z) > BENCH_REACH_MM) return;
+    for (const other of this.held.values()) {
+      const theirs = other === held ? null : this.channel.sittingOf(other.entityId);
+      if (theirs && theirs.x === place.x && theirs.z === place.z) return;
+    }
+    this.channel.sit(held.entityId, place);
   }
 
   /** Whether two bodies have shut each other out: either blocked the other. */
@@ -773,8 +802,11 @@ export class ChannelRoom {
     const began = performance.now();
     this.channel.tick();
     const tick = this.channel.world.tick;
-    // A step of play for everyone here: their needs wear with it (Task 4.4).
-    for (const held of this.held.values()) held.needs.steps++;
+    // A step of play for everyone here: their needs wear with it, and whoever sits or rides rests (Task 4.4).
+    for (const held of this.held.values()) {
+      held.needs.steps++;
+      if (this.channel.sittingOf(held.entityId) || this.channel.ridingOf(held.entityId)) held.needs.rest++;
+    }
     if (tick % STEPS_A_SNAPSHOT === 0) {
       const everyone = this.channel.entities();
       for (const [line, held] of this.held) {

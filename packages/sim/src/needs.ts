@@ -34,6 +34,17 @@ export function decayNeeds(state: NeedsState, steps: number, rates: NeedsRates):
   };
 }
 
+/** Energia won back by resting: points per real hour sitting (a bench, a stool at a table) or riding a van. */
+export interface RestRates {
+  readonly energiaPerRestHour: number;
+}
+
+/** The needs after `restSteps` steps (20 a second) spent sitting or riding (Task 4.4): Energia comes back, never past full. */
+export function restNeeds(state: NeedsState, restSteps: number, rates: RestRates): NeedsState {
+  const stepsPerHour = 72000;
+  return { fome: state.fome, energia: clamp(state.energia + idiv(rates.energiaPerRestHour * Math.max(0, restSteps), stepsPerHour), 0, NEED_FULL) };
+}
+
 /** What eating or drinking something gives back (Task 4.4): its points added to each bar, never past full. */
 export function eatNeeds(state: NeedsState, gives: { readonly fome: number; readonly energia: number }): NeedsState {
   return { fome: clamp(state.fome + Math.max(0, gives.fome), 0, NEED_FULL), energia: clamp(state.energia + Math.max(0, gives.energia), 0, NEED_FULL) };

@@ -15,6 +15,7 @@ import {
   encodeRide,
   encodeNudge,
   encodeComer,
+  encodeBanco,
   TRAFFIC_VEHICLES_AT_MOST,
   encodeEmote,
   EMOTE_NAMES,
@@ -134,6 +135,11 @@ describe("a nudge", () => {
     expect(() => decodeClientMessage(encodeComer({ item: "Pão" }))).toThrow(ProtocolError);
     expect(() => decodeClientMessage(encodeComer({ item: "" }))).toThrow(ProtocolError);
     expect(() => decodeClientMessage(encodeComer({ item: "x".repeat(40) }))).toThrow(ProtocolError);
+    // Sitting on a bench's seat, by its number, and getting up; a seat no district has is refused.
+    expect(decodeClientMessage(encodeBanco({ seat: 7, sim: true }))).toEqual({ type: "banco", seat: 7, sim: true });
+    expect(decodeClientMessage(encodeBanco({ seat: 0, sim: false }))).toEqual({ type: "banco", seat: 0, sim: false });
+    expect(() => decodeClientMessage(encodeBanco({ seat: 5000, sim: true }))).toThrow(ProtocolError);
+    expect(() => decodeClientMessage(new Writer().u8(MSG.BANCO).uint(3).u8(2).finish())).toThrow(ProtocolError);
   });
 });
 

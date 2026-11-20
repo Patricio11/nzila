@@ -43,6 +43,8 @@ export interface District {
   readonly places?: readonly { readonly x: number; readonly z: number }[];
   /** The tables where the bairro plays, in the pack's order: a phone names one by its number. Millimetres. */
   readonly tables?: readonly TablePlace[];
+  /** The benches' seats, in the pack's order: a phone names one by its number to sit on it (F-205). Millimetres. */
+  readonly benches?: readonly Place[];
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -102,7 +104,8 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     z: mm(one.pos[2]),
     seats: one.seats.map((seat) => ({ x: mm(seat.pos[0]), y: mm(seat.pos[1]), z: mm(seat.pos[2]), yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) })),
   }));
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, tables, ...(await trafficOf(manifest, packDir)) };
+  const benches = (manifest.seats ?? []).map((seat): Place => ({ x: mm(seat.pos[0]), y: mm(seat.pos[1]), z: mm(seat.pos[2]), yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) }));
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, tables, benches, ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */
