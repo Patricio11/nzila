@@ -6,7 +6,7 @@ import biscatosFile from "../tunables/biscatos.json" with { type: "json" };
 import { type Mk } from "./ledger.ts";
 
 /** The biscatos there are, by their name in a place's id (`biscato-<kind>-<where>`). */
-export const BISCATO_KINDS = ["pratos"] as const;
+export const BISCATO_KINDS = ["pratos", "carga"] as const;
 export type BiscatoKind = (typeof BISCATO_KINDS)[number];
 
 /** The best score of a round, as the zone gives it. */

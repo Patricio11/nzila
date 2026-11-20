@@ -190,7 +190,7 @@ def riser(xa, xb, d, y0, y1, colour):
 
 # What kind of place each point of interest is: the house glyph on the sign that floats over it.
 POI_GLYPHS = {"miradouro": "vista", "musicos": "musica", "gelados": "gelado", "por-do-sol": "sol", "palmeiras": "palmeira", "pontao": "pontao", "livreiro": "livro",
-              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos"}
+              "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos", "biscato-carga-mutamba": "biscatos"}
 
 
 def poi(key, x, z, name, line, y=G):
@@ -543,6 +543,8 @@ poi("xadrez", lx0 + 15.5, z0 + 14.5, "As mesas do Largo", "Xadrez, damas e Não 
 paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutamba")
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down
 poi("cobrador", lx0 + 44.0, z0 + 4.5, "A paragem da Mutamba", "Diz-se que o cobrador daqui se ouve na Ilha.")
+# A biscato (Task 4.5): the roboteiros wait with their carrinhos a little along from the paragem, for what the vans set down.
+poi("biscato-carga-mutamba", lx0 + 53.5, z0 + 4.5, "Os carrinhos da Mutamba", "O que sai das carrinhas vai para as bancas. Leva-se a carrinho, paga-se por carga.")
 # The iron palace, and beside it the old cinema.
 fx0, fx1 = BLOCKS[2]
 keep = kb.palacio_de_ferro(b, fx0 + 16.0, (z0 + z1) / 2, rng, G)

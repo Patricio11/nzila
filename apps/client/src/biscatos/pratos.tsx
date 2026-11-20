@@ -6,7 +6,7 @@
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { PRATOS_FLICK, PRATOS_RUB, RUB_GAP_MS, pratosRound, type Prato } from "@nzila/sim/pratos";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { Fim, Moldura, Recusado, useRonda, type Linha } from "./ronda.tsx";
+import { Moldura, Rondas, useRonda, type Linha, type Trabalho } from "./ronda.tsx";
 
 /** How far a thumb travels one way before turning back for that to be a rub, in pixels. */
 const RUB_TRAVEL_PX = 14;
@@ -172,27 +172,16 @@ function Jogo({ seed, lengthMs, ronda }: { seed: number; lengthMs: number; ronda
   );
 }
 
-/** One round: asked of the zone, played, scored, paid. */
-function Ronda({ net, place, onAgain, onClose }: { net: Linha; place: string; onAgain: () => void; onClose: () => void }) {
-  const ronda = useRonda(net, "pratos");
-  const fase = ronda.fase;
-  const title = tr.t("action.pratos");
-  if (fase.is === "recusado") return <Recusado title={title} why={fase.why} onBack={onClose} />;
-  if (fase.is === "fim") {
-    const said = fase.dirty > 0 ? tr.t("biscato.pratos.fim.sujos", { limpos: fase.clean, pratos: fase.plates, sujos: fase.dirty }) : tr.t("biscato.pratos.fim", { limpos: fase.clean, pratos: fase.plates });
-    const hint = tr.t(fase.dirty > 0 ? "biscato.pratos.dica.sujo" : "biscato.pratos.dica.rapido");
-    return <Fim title={tr.t("biscato.fim.titulo")} place={place} line={title} said={said} hint={hint} score={fase.score} paga={ronda.paga} onAgain={onAgain} onBack={onClose} />;
-  }
-  if (fase.is === "jogo") return <Jogo seed={fase.seed} lengthMs={fase.lengthMs} ronda={ronda} />;
-  return (
-    <div class="bc bc-fim" role="dialog" aria-label={title}>
-      <p class="bc-espera">{tr.t(fase.is === "pedido" ? "biscato.pedido" : "biscato.contas")}</p>
-    </div>
-  );
-}
+/** Lavar pratos: its work and its words. */
+const PRATOS: Trabalho = {
+  kind: "pratos",
+  title: tr.t("action.pratos"),
+  play: ({ seed, lengthMs, ronda }) => <Jogo seed={seed} lengthMs={lengthMs} ronda={ronda} />,
+  said: ({ done, failed, most }) => (failed > 0 ? tr.t("biscato.pratos.fim.sujos", { limpos: done, pratos: most, sujos: failed }) : tr.t("biscato.pratos.fim", { limpos: done, pratos: most })),
+  hint: ({ failed }) => tr.t(failed > 0 ? "biscato.pratos.dica.sujo" : "biscato.pratos.dica.rapido"),
+};
 
-/** Lavar pratos, as the street opens it: round after round until the player goes back to the street. */
+/** Lavar pratos, as the street opens it. */
 export function Biscato({ net, place, onClose }: { net: Linha; place: string; onClose: () => void }) {
-  const [n, setN] = useState(0);
-  return <Ronda key={n} net={net} place={place} onAgain={() => setN((was) => was + 1)} onClose={onClose} />;
+  return <Rondas net={net} place={place} work={PRATOS} onClose={onClose} />;
 }

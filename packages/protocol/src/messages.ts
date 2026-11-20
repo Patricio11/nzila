@@ -239,7 +239,7 @@ export const EVENT = {
   HOSPITAL: 14,
   /** A biscato begun (Task 4.5): text is its kind; args: the round's seed and its length in milliseconds. */
   BISCATO: 15,
-  /** A biscato scored by the zone: text is the note by which the API is asked to pay; args: score (0 to 1 000), plates clean, plates put up dirty, plates in the round. */
+  /** A biscato scored by the zone: text is the note by which the API is asked to pay; args: score (0 to 1 000), what was done (plates clean, loads delivered), what went wrong (plates put up dirty, stacks fallen), the most there was to do. */
   BISCATO_FIM: 16,
   /** A biscato not begun: text is why ("longe", "cansado", "ocupado"). */
   BISCATO_RECUSADO: 17,

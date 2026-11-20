@@ -1749,6 +1749,51 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("levar carga (Task 4.5): at the carrinhos the gold button says Levar carga; the stack sways and is steadied by taps; a load delivered; paid", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Levar carga was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(120_000);
+    const seen = watch(page);
+    await comeIn(page, 98);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const manifest = (await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] };
+    const spot = manifest.pois.find((one) => one.id === "biscato-carga-ensaio")!.pos;
+    await walkTo(page, spot[0], spot[2], 1.2);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "carga", undefined, { timeout: 10_000 });
+    await page.keyboard.press("e");
+    const work = page.getByRole("dialog", { name: "Levar carga" });
+    await expect(work.locator(".bg-pilha")).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("biscato-carga.png") });
+    // A steady hand, in the page: it reads the stack's lean and taps against it, a few times a second, until a load is in.
+    await page.evaluate(async () => {
+      const end = performance.now() + 16_000;
+      const left = document.querySelector(".bg-esquerda")!;
+      const right = document.querySelector(".bg-direita")!;
+      let last = 0;
+      while (performance.now() < end && !/Entregues: [1-9]/.test(document.querySelector(".bc-done")?.textContent ?? "")) {
+        const lean = Number(/rotate\((-?[\d.]+)deg/.exec((document.querySelector(".bg-pilha") as HTMLElement).style.transform)?.[1] ?? 0);
+        if (performance.now() - last > 120 && Math.abs(lean) > 2.5) {
+          (lean > 0 ? left : right).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+          last = performance.now();
+        }
+        await new Promise((done) => setTimeout(done, 40));
+      }
+    });
+    await expect(work.locator(".bc-done")).toContainText("Entregues: 1");
+    await work.getByRole("button", { name: "Sair" }).click();
+    const fim = page.getByRole("dialog", { name: "Pronto, já está." });
+    await expect(fim).toContainText("Levaste 1 de 7 cargas");
+    await expect(fim.locator(".n-receipt")).toContainText("Carrinhos de Ensaio", { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("biscato-carga-fim.png") });
+    await fim.getByRole("button", { name: "Voltar à rua" }).click();
+    await expect(page.getByRole("button", { name: "Levar carga" })).toBeVisible();
+    expect(seen.errors).toEqual([]);
+  });
+
   test("os recados do dia: the neighbours' messages in Mensagens, the family's money for the taxi, and an errand walked and done in the street, paid at once", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The errands were not checked here." });

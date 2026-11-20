@@ -1,7 +1,8 @@
 {
   "version": 1,
   "kinds": {
-    "pratos": { "leastMk": 150, "mostMk": 450, "seconds": 75, "energia": 500, "fome": 300 }
+    "pratos": { "leastMk": 150, "mostMk": 450, "seconds": 75, "energia": 500, "fome": 300 },
+    "carga": { "leastMk": 200, "mostMk": 550, "seconds": 90, "energia": 800, "fome": 400 }
   },
   "taper": [
     { "fromMk": 0, "percent": 100 },

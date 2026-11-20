@@ -86,7 +86,13 @@ export function useRonda(net: Linha, kind: string) {
     fase,
     paga,
     now: (): number => performance.now() - began.current,
-    add: (what: number): void => void (!ended.current && pending.current.push({ t: Math.round(performance.now() - began.current), what })),
+    /** Tells the zone what the thumb did, now; gives back the time it was told at (the round's own time), or -1 once over. */
+    add: (what: number): number => {
+      if (ended.current) return -1;
+      const t = Math.round(performance.now() - began.current);
+      pending.current.push({ t, what });
+      return t;
+    },
     end,
   };
 }
@@ -150,6 +156,40 @@ export function Fim({ title, place, line, said, hint, score, paga, onAgain, onBa
       </div>
     </div>
   );
+}
+
+/** What a biscato's screen gives the round: its title, its work, and what its end card says. */
+export interface Trabalho {
+  readonly kind: string;
+  readonly title: string;
+  /** The work itself, once the zone has given the round's seed and length. */
+  play(round: { seed: number; lengthMs: number; ronda: ReturnType<typeof useRonda> }): ComponentChildren;
+  /** What was done, and what would have earned more, from the zone's account of the round. */
+  said(done: { done: number; failed: number; most: number }): string;
+  hint(done: { done: number; failed: number; most: number }): string;
+}
+
+/** One round of a biscato: asked of the zone, played, scored, paid. */
+function Ronda({ net, place, work, onAgain, onClose }: { net: Linha; place: string; work: Trabalho; onAgain: () => void; onClose: () => void }) {
+  const ronda = useRonda(net, work.kind);
+  const fase = ronda.fase;
+  if (fase.is === "recusado") return <Recusado title={work.title} why={fase.why} onBack={onClose} />;
+  if (fase.is === "fim") {
+    const done = { done: fase.clean, failed: fase.dirty, most: fase.plates };
+    return <Fim title={tr.t("biscato.fim.titulo")} place={place} line={work.title} said={work.said(done)} hint={work.hint(done)} score={fase.score} paga={ronda.paga} onAgain={onAgain} onBack={onClose} />;
+  }
+  if (fase.is === "jogo") return <>{work.play({ seed: fase.seed, lengthMs: fase.lengthMs, ronda })}</>;
+  return (
+    <div class="bc bc-fim" role="dialog" aria-label={work.title}>
+      <p class="bc-espera">{tr.t(fase.is === "pedido" ? "biscato.pedido" : "biscato.contas")}</p>
+    </div>
+  );
+}
+
+/** A biscato as the street opens it: round after round until the player goes back to the street. */
+export function Rondas({ net, place, work, onClose }: { net: Linha; place: string; work: Trabalho; onClose: () => void }) {
+  const [n, setN] = useState(0);
+  return <Ronda key={n} net={net} place={place} work={work} onAgain={() => setN((was) => was + 1)} onClose={onClose} />;
 }
 
 /** A round the zone would not begin: why, and the way back. */

@@ -30,6 +30,7 @@ import {
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
+import { scoreCarga } from "@nzila/sim/carga";
 import { PRATOS_FLICK, PRATOS_RUB, pratosRound, scorePratos, type PratosInput } from "@nzila/sim/pratos";
 import postgres, { type Sql } from "postgres";
 import { WebSocket as Cuttable } from "ws";
@@ -53,11 +54,13 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
     ["banco", { x: -80_000, y: 0, z: 79_000, yaw: 0 }],
     // Beside the bacia of a kiosk, for washing plates (Task 4.5).
     ["pratos", { x: 60_000, y: 0, z: 59_000, yaw: 0 }],
+    // And beside the carrinhos at a paragem, for carrying loads.
+    ["carga", { x: 70_000, y: 0, z: 59_000, yaw: 0 }],
   ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 },
   // One bench's seat, facing +Z (F-205).
   benches: [{ x: -80_000, y: 450, z: 80_000, yaw: 0 }],
   // A kiosk's bacia, where plates are washed for pay.
-  biscatos: [{ kind: "pratos", x: 60_000, z: 60_000 }],
+  biscatos: [{ kind: "pratos", x: 60_000, z: 60_000 }, { kind: "carga", x: 70_000, z: 60_000 }],
   // A caixa two metres from where people arrive.
   caixas: [{ x: 2000, z: 0 }],
   // The district's places, in the pack's order: one beside where people arrive, one where people talk.
@@ -448,6 +451,30 @@ describe("where a player was", () => {
     expect(r.state.events.find((event) => event.kind === EVENT.BISCATO_RECUSADO)!.text).toBe("cansado");
     expect(r.state.events.some((event) => event.kind === EVENT.BISCATO)).toBe(false);
     await r.leave();
+  }, 30_000);
+
+  test("levar carga (Task 4.5): a biscato of its own place and length, scored by its own rules; the bacia's place is not the carrinho's", async () => {
+    const one = await player();
+    const p = await phone(one.token, PROTOCOL_VERSION, "carga");
+    const heard = (kind: number): WorldEvent[] => p.state.events.filter((event) => event.kind === kind);
+    // Plates are not washed at the carrinhos.
+    p.socket.send(encodeBiscato({ op: "comecar", kind: "pratos" }));
+    await until(() => heard(EVENT.BISCATO_RECUSADO).length === 1);
+    expect(heard(EVENT.BISCATO_RECUSADO)[0]!.text).toBe("longe");
+    p.socket.send(encodeBiscato({ op: "comecar", kind: "carga" }));
+    await until(() => heard(EVENT.BISCATO).length === 1);
+    const [seed, lengthMs] = heard(EVENT.BISCATO)[0]!.args as [number, number];
+    expect(lengthMs).toBe(90_000);
+    const taps = [{ t: 100, what: 0 }, { t: 400, what: 1 }] as const;
+    await pause(600);
+    p.socket.send(encodeBiscato({ op: "mais", inputs: [...taps] }));
+    p.socket.send(encodeBiscato({ op: "acabar" }));
+    await until(() => heard(EVENT.BISCATO_FIM).length === 1);
+    const expected = scoreCarga(seed, lengthMs, [...taps], 3000);
+    expect(heard(EVENT.BISCATO_FIM)[0]!.args).toEqual([expected.score, expected.delivered, expected.fallen, expected.most]);
+    // Nothing delivered, nothing to pay: no note is left.
+    expect(await presence.marked(one.id, "biscato")).toBeNull();
+    await p.leave();
   }, 30_000);
 
   test("Energia at zero (Task 4.4): taken to the hospital (the door, in a district without one), back on their feet with Energia and some Fome, and a note left for the bill", async () => {

@@ -68,6 +68,7 @@ interface DevLayout {
   paragens: [number, number, number][];
   caixa: [number, number, number];
   cantina: [number, number, number];
+  carga: [number, number, number];
   seats: { pos: [number, number, number]; facing: number }[];
   tables: { game: "xadrez" | "damas" | "ludo"; pos: [number, number, number]; facing: number; size: number; seats: { pos: [number, number, number]; facing: number }[] }[];
   water: { rect: [number, number, number, number]; level: number };
@@ -87,7 +88,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
   const chunks = await exportChunks(join(src, "district.blend"), src, join(scripts, "export_chunks.py"));
 
   const layout = JSON.parse(await readFile(join(src, "layout.json"), "utf8")) as DevLayout;
-  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares.", "dev.cantina.name": "Cantina de Ensaio", "dev.biscato.pratos.name": "Bacia de Ensaio", "dev.biscato.pratos.line": "Lavam-se pratos aqui. A tia paga na hora.", "dev.cantina.line": "Pão, gasosa, arroz, sabão, velas. Tudo pela grade." };
+  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares.", "dev.cantina.name": "Cantina de Ensaio", "dev.biscato.pratos.name": "Bacia de Ensaio", "dev.biscato.pratos.line": "Lavam-se pratos aqui. A tia paga na hora.", "dev.biscato.carga.name": "Carrinhos de Ensaio", "dev.biscato.carga.line": "Há sempre carga para levar à banca. Paga-se por cada uma.", "dev.cantina.line": "Pão, gasosa, arroz, sabão, velas. Tudo pela grade." };
   const manifest: SourceManifest = {
     id: "zz-dev/d1",
     province: "zz-dev",
@@ -110,6 +111,8 @@ export async function buildDevPack(workDir: string, outDir: string) {
       { id: "cantina-ensaio", pos: layout.cantina, nameKey: "dev.cantina.name", lineKey: "dev.cantina.line", positive: true, stamp: false, glyph: "cantina" },
       // Plates washed for pay (Task 4.5): five metres east of the cantina's grille, on the pavement kept open for it.
       { id: "biscato-pratos-ensaio", pos: [layout.cantina[0] + 5, layout.cantina[1], layout.cantina[2]], nameKey: "dev.biscato.pratos.name", lineKey: "dev.biscato.pratos.line", positive: true, stamp: false, glyph: "biscatos" },
+      // Loads to carry (Task 4.5): on open pavement near where people arrive, clear of every other button's place.
+      { id: "biscato-carga-ensaio", pos: layout.carga, nameKey: "dev.biscato.carga.name", lineKey: "dev.biscato.carga.line", positive: true, stamp: false, glyph: "biscatos" },
     ],
     routes: [],
     paragens: layout.paragens.map((pos, n) => {

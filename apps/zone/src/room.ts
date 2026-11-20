@@ -540,7 +540,7 @@ export class ChannelRoom {
     const ronda = held.ronda;
     if (!ronda) return;
     held.ronda = null;
-    const result = scoreRonda(ronda);
+    const result = scoreRonda(ronda, performance.now() - ronda.startedAt);
     const rules = BASE_BISCATOS.kinds[ronda.kind];
     const share = Math.min(1, (performance.now() - ronda.startedAt) / ronda.lengthMs);
     this.takeEffort(held);
@@ -551,7 +551,7 @@ export class ChannelRoom {
     void keepNeeds(this.sql, held.playerId, after).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
     const note = `${Date.now().toString(36)}${held.entityId.toString(36)}`;
     const said = (): void => {
-      line.send(encodeEvent({ kind: EVENT.BISCATO_FIM, tick: this.channel.world.tick, subject: 0, args: [result.score, result.clean, result.dirty, result.plates], text: note }));
+      line.send(encodeEvent({ kind: EVENT.BISCATO_FIM, tick: this.channel.world.tick, subject: 0, args: [result.score, result.done, result.failed, result.most], text: note }));
       this.tellNeeds(line, held, "");
     };
     if (result.score === 0) return said();

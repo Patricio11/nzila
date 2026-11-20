@@ -61,6 +61,37 @@
 .bp-dica { position: absolute; left: 50%; bottom: -36px; transform: translateX(-50%); padding: 4px var(--s-3); border-radius: var(--r-chip); background: var(--n-noite); color: var(--n-dourado); font: var(--type-label); white-space: nowrap; box-shadow: inset 0 0 0 1.5px var(--n-linha); }
 .bp-tia { position: absolute; top: var(--s-3); left: 50%; transform: translateX(-50%); margin: 0; max-width: 80%; padding: 6px var(--s-3); border-radius: 18px 18px 18px 5px; background: var(--n-luz); color: var(--n-tinta); font: var(--type-body); box-shadow: 0 3px 0 var(--n-luz-fundo); animation: bc-up 300ms var(--ease-mola) both; }
 
+/* Levar carga: the road to the stall along the top, the carrinho in the middle, the two halves of the screen to tap. */
+.bg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); padding: var(--s-4) var(--s-3) calc(var(--s-6) + env(safe-area-inset-bottom)); }
+.bg-caminho { display: flex; align-items: center; gap: var(--s-2); width: 100%; max-width: 420px; font: var(--type-small); color: var(--n-luz-suave); }
+.bg-ponta { display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
+.bg-banca b { color: var(--n-dourado); letter-spacing: 1px; min-height: 1em; }
+.bg-linha { position: relative; flex: 1; height: 8px; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--n-luz-suave) 0 8px, transparent 8px 16px), var(--n-noite-2); opacity: 0.9; }
+.bg-onde { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--n-dourado); box-shadow: 0 0 0 3px var(--n-noite); transition: left 120ms linear; }
+/* The carrinho: a bed on one wheel, the handles up to the right, and the stack on it. */
+.bg-carrinho { position: relative; flex: 1; width: 220px; max-height: 360px; margin-top: auto; }
+.bg-pilha { position: absolute; left: 30px; bottom: 66px; width: 150px; display: flex; flex-direction: column-reverse; align-items: center; transform-origin: 50% 100%; transition: transform 50ms linear; }
+.bg-pilha i { display: block; margin-top: -2px; box-shadow: inset 0 -3px 0 var(--n-noite-fundo), 0 2px 0 var(--n-sombra); }
+.bg-saco { width: 92%; height: 36px; border-radius: 14px 14px 9px 9px; background: repeating-linear-gradient(90deg, var(--n-papel-2) 0 10px, var(--n-papel) 10px 13px); }
+.bg-grade { width: 84%; height: 30px; border-radius: 3px; background: repeating-linear-gradient(90deg, var(--n-vermelho) 0 12px, var(--n-vermelho-fundo) 12px 15px); }
+.bg-bidao { position: relative; width: 44%; height: 40px; border-radius: 7px; background: linear-gradient(90deg, var(--n-dourado-fundo), var(--n-dourado) 40%, var(--n-dourado-claro)); }
+.bg-bidao::before { content: ""; position: absolute; top: -8px; left: 18%; width: 14px; height: 9px; border-radius: 2px; background: var(--n-noite-2); }
+.bg-cama { position: absolute; left: 22px; bottom: 54px; width: 166px; height: 14px; border-radius: 3px; background: var(--n-terra); box-shadow: inset 0 -4px 0 var(--n-noite-fundo); }
+.bg-roda { position: absolute; left: 82px; bottom: 6px; width: 48px; height: 48px; box-sizing: border-box; border-radius: 50%; border: 7px solid var(--n-noite-fundo);
+  background: repeating-conic-gradient(var(--n-luz-suave) 0 8deg, var(--n-noite-2) 8deg 45deg); }
+.bg-pega { position: absolute; right: -34px; bottom: 74px; width: 78px; height: 7px; border-radius: 4px; background: var(--n-luz-suave); transform: rotate(-24deg); transform-origin: 0 50%; }
+/* Near the edge the stack glows red; fallen, it lies beside the carrinho while it is gathered up. */
+.bg-perigo .bg-pilha { filter: drop-shadow(0 0 10px var(--n-calor-3)); }
+.bg-caiu .bg-pilha { transform: translate(70px, 50px) rotate(84deg) !important; opacity: 0.85; transition: transform 380ms var(--ease-mola), opacity 380ms; }
+/* The two halves: tapped anywhere; an arrow at the foot of each says which way it pushes. */
+.bg-toque { position: absolute; top: 56px; bottom: 0; width: 50%; padding: 0 0 calc(var(--s-4) + env(safe-area-inset-bottom)); border: 0; background: none; display: flex; align-items: flex-end; touch-action: manipulation; cursor: pointer; }
+.bg-esquerda { left: 0; justify-content: flex-start; padding-left: var(--s-4); }
+.bg-direita { right: 0; justify-content: flex-end; padding-right: var(--s-4); }
+.bg-toque i { position: relative; width: 64px; height: 64px; border-radius: 50%; background: var(--n-noite); box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 4px 0 var(--n-noite-fundo); }
+.bg-toque i::before { content: ""; position: absolute; top: 50%; left: 50%; width: 16px; height: 16px; margin: -8px 0 0 -5px; border-left: 5px solid var(--n-dourado); border-bottom: 5px solid var(--n-dourado); transform: rotate(45deg); }
+.bg-direita i::before { margin-left: -11px; transform: rotate(-135deg); }
+.bg-toque:active i { transform: translateY(3px); box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 1px 0 var(--n-noite-fundo); }
+
 @keyframes bp-foam { 0% { opacity: 0; transform: scale(0.4); } 25% { opacity: 0.95; } 100% { opacity: 0; transform: translateY(-22px) scale(1.15); } }
 @keyframes bc-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes bc-breathe { from { opacity: 0.55; } to { opacity: 1; } }
@@ -71,5 +102,6 @@
 @keyframes bp-shine { from { filter: drop-shadow(0 4px 0 var(--n-noite-fundo)); } to { filter: drop-shadow(0 4px 0 var(--n-noite-fundo)) drop-shadow(0 0 10px var(--n-brilho-dourado)); } }
 @media (prefers-reduced-motion: reduce) {
   .bc-fim-in, .bc-espera, .bp-pilha i, .bp-escorredor i, .bp-agua, .bp-prato, .bp-brilha, .bp-tia, .bp-espuma { animation: none !important; }
+  .bg-pilha, .bg-onde, .bg-caiu .bg-pilha { transition: none !important; }
   .bp-nodoa, .bc-clock i { transition: none !important; }
 }
