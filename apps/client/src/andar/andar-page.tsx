@@ -41,7 +41,7 @@ import { STILL, Session, type Refused } from "../net/session.ts";
 import { type SaidLine } from "../net/talking.ts";
 import { ChatLog, Composer, type Met } from "../conversa/conversa.tsx";
 import { Over, touched, type Speaking } from "../conversa/over.ts";
-import { toMoveInput, type InputFrame } from "@nzila/protocol";
+import { HIRED_VEHICLE_BASE, toMoveInput, type InputFrame } from "@nzila/protocol";
 import { WorldRenderer } from "../render/world-renderer.ts";
 import "../shell.css";
 import "./andar.css";
@@ -53,7 +53,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { tap?: string; mesa: number | null; rideRefusals: number; shop: string | null; othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { tap?: string; mesa: number | null; rideRefusals: number; shop: string | null; othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; hired: { fase: string; fim: string | null; x: number; z: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -162,6 +162,11 @@ export function Andar() {
   const [biscato, setBiscato] = useState<{ kind: string; name: string } | null>(null);
   const [Trabalho, setTrabalho] = useState<typeof import("../biscatos/pratos.tsx").Biscato | null>(null);
   const working = useRef(false);
+  // Rides asked for (Task 6.2): their module, fetched the first time one is on the road or asked for; and its drawing.
+  const [Corrida, setCorrida] = useState<typeof import("./corrida.tsx") | null>(null);
+  const corridas = useRef<import("./corrida.tsx").Corridas | null>(null);
+  const rendererRef = useRef<WorldRenderer | null>(null);
+  const districtRef = useRef<DistrictScene | null>(null);
   working.current = biscato !== null;
   // Kambas (Task 4B.2): what waits in Mensagens, and a kamba's conversation to open it on.
   const [novas, setNovas] = useState(0);
@@ -194,6 +199,13 @@ export function Andar() {
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
   const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, said: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
+  /** The ride module: fetched once, and its drawing made in the street's world. */
+  const loadCorrida = async (): Promise<typeof import("./corrida.tsx")> => {
+    const module = await import("./corrida.tsx");
+    if (!corridas.current && rendererRef.current) corridas.current = new module.Corridas(rendererRef.current, districtRef.current?.people ?? null);
+    setCorrida(() => module);
+    return module;
+  };
   useEffect(() => void (!Viagem && (hud.ride || hud.action === "board") && import("./carrinha.tsx").then((module) => setViagem(() => module.Viagem))), [hud.ride !== null || hud.action === "board"]);
   useEffect(() => void (biscato && BISCATOS[biscato.kind]?.().then((module) => setTrabalho(() => module.Biscato))), [biscato?.kind]);
   const [missing, setMissing] = useState(false);
@@ -219,6 +231,7 @@ export function Andar() {
     const tierNow = (): TierName => (world.settings.poupanca ? "poupanca" : world.settings.tier);
     let tier = tierNow();
     const renderer = new WorldRenderer(element, tier);
+    rendererRef.current = renderer;
     // A change of quality in Definições is a change of the picture at once.
     // Sound: on unless Definições or Modo Poupança says otherwise; it wakes at the first touch or key. Fetched as the
     // street opens, after the way in (F-202): a step or two in silence is all it costs.
@@ -317,6 +330,7 @@ export function Andar() {
         if (closed) return opened.close();
         renderer.scene.add(loaded.root);
         district = opened;
+        districtRef.current = opened;
         world.enter(opened, params.get("pack") ? `/packs/${params.get("pack")}/` : DEV_PACK);
         // `&festa`: the bairro's festa on the Largo, for stills (in the street with others, os recados decide it).
         if (params.has("festa") && opened.crowd) opened.crowd.festa = true;
@@ -337,8 +351,8 @@ export function Andar() {
           const canal = Number(params.get("canal"));
           session = new Session(renderer, opened.manifest.id, Number.isInteger(canal) && canal > 0 ? canal : undefined);
           session.seatOthers(
-            (vehicle) => opened.traffic?.bodyAt(vehicle) ?? null,
-            (seat) => opened.traffic?.seats[seat]?.pos ?? null,
+            (vehicle) => (vehicle >= HIRED_VEHICLE_BASE ? (corridas.current?.bodyAt(vehicle) ?? null) : (opened.traffic?.bodyAt(vehicle) ?? null)),
+            (seat, vehicle) => (vehicle >= HIRED_VEHICLE_BASE ? (corridas.current?.seatAt(vehicle) ?? null) : (opened.traffic?.seats[seat]?.pos ?? null)),
           );
           net.current = session;
           if (overBox.current) over = new Over(overBox.current);
@@ -368,7 +382,7 @@ export function Andar() {
 
     /** What the stick or the keys ask for, as the simulation wants it: each axis -127 to 127, in the world's directions. */
     const wanted = (seconds: number): { dx: number; dz: number; run: boolean } => {
-      if (working.current) return { dx: 0, dz: 0, run: false };
+      if (working.current || (session?.myRide?.vehicle ?? 0) >= HIRED_VEHICLE_BASE) return { dx: 0, dz: 0, run: false };
       let sx = stick.x;
       let sy = stick.y;
       const run = asks.current.run || keys.has("shift");
@@ -563,6 +577,11 @@ export function Andar() {
           asks.current.act = false;
           tables!.ask({ mesa: tableNear.mesa, pedido: "sentar", lugar: tableNear.lugar });
         }
+        const hired = !seat && !ride ? (corridas.current?.action(session?.myRide ?? null, state.x / 1000, state.z / 1000) ?? null) : null;
+        if (asks.current.act && hired) {
+          asks.current.act = false;
+          corridas.current!.act(net, hired);
+        }
         const errand = !seat && !ride && !moving ? (errands?.near(state.x / 1000, state.z / 1000) ?? null) : null;
         if (asks.current.act && errand) {
           asks.current.act = false;
@@ -744,11 +763,21 @@ export function Andar() {
           }
         }
         person.pose({ speed, phase, time: seconds }, { sit, jump, land: flying ? 0 : air.land, ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
+        if (session && !Corrida && (session.corridas || session.pedidos.length)) void loadCorrida();
+        corridas.current?.update(session?.corridas ?? null, session?.pedidos ?? [], ground, Date.now() + (session?.zoneClockAhead ?? 0), elapsed, seconds);
+        const hiredBody = corridas.current?.carry(person, session?.myRide ?? null, seconds) ? corridas.current.bodyAt(session!.myRide!.vehicle) : null;
+        if (hiredBody) {
+          // On a ride one asked for, the view keeps to the ride as it is drawn, and comes round behind it as it turns.
+          x = hiredBody.position.x;
+          y = hiredBody.position.y;
+          z = hiredBody.position.z;
+          camera.yaw += Math.atan2(Math.sin(hiredBody.rotation.y + Math.PI - camera.yaw), Math.cos(hiredBody.rotation.y + Math.PI - camera.yaw)) * Math.min(1, elapsed / 1800);
+        }
 
         // The camera: behind and above the head, pulled in before it would pass into a building.
         const upright = renderer.camera.aspect < 1;
-        // On foot the camera is at the shoulder; riding, it stands off far enough to see the van and its street.
-        const reach = (ride ? 8.5 : camera.distance) * (upright ? 1.25 : 1);
+        // On foot the camera is at the shoulder; riding, it stands off far enough to see the van and its street, or the moto and its driver.
+        const reach = (ride ? 8.5 : hiredBody ? 5.6 : camera.distance) * (upright ? 1.25 : 1);
         const eyeY = y + (ride ? 1.9 : person.height * (0.86 - 0.22 * sit));
         let allowed = reach;
         // Everything built is solid now (D-0.53), posts and trunks too. A wall must pull the camera in; a post must
@@ -854,7 +883,7 @@ export function Andar() {
           }
         }
 
-        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : atTable ? null : seat ? "stand" : waiting ? "board" : tableNear ? tableNear.jogo : errand ? (errand.kind === "traz" ? "entregar" : "procurar") : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : biscatoHere ? (biscatoHere.kind as Action) : !moving && nearest() ? "sit" : null;
+        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : hired ?? (atTable ? null : seat ? "stand" : waiting ? "board" : tableNear ? tableNear.jogo : errand ? (errand.kind === "traz" ? "entregar" : "procurar") : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : biscatoHere ? (biscatoHere.kind as Action) : !moving && nearest() ? "sit" : null);
         // Where each other player's chest is on the screen, in CSS pixels: for the tests that tap someone. Only those in
         // front of the camera: one behind it would project, mirrored, onto an empty part of the screen.
         const box = canvas.current?.getBoundingClientRect();
@@ -862,7 +891,7 @@ export function Andar() {
           const point = new Vector3(one.x, one.y - 0.6, one.z).project(renderer.camera);
           return point.z > 1 ? [] : [{ x: box.left + ((point.x + 1) / 2) * box.width, y: box.top + ((1 - point.y) / 2) * box.height }];
         }) : [];
-        window.__andar = { ...(window.__andar?.tap ? { tap: window.__andar.tap } : {}), mesa: atTable?.mesa ?? null, rideRefusals, shop: shopHere?.id ?? null, othersOnScreen: onScreen, shoulder, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound?.played ?? 0, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { ...(window.__andar?.tap ? { tap: window.__andar.tap } : {}), mesa: atTable?.mesa ?? null, rideRefusals, shop: shopHere?.id ?? null, othersOnScreen: onScreen, shoulder, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound?.played ?? 0, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, hired: corridas.current?.probe() ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -1021,6 +1050,7 @@ export function Andar() {
               <WalletChip amount={hud.cash} />
               {Needs ? <Needs net={net} world={world} onMark={setMarked} /> : null}
               {hud.ride && Viagem ? <Viagem ride={hud.ride} /> : null}
+              {Corrida && corridas.current ? <Corrida.Chip net={net} corridas={corridas.current} /> : null}
             </span>
             <span class="andar-top-right">
               <Compass heading={hud.heading} marks={hud.marks} />
@@ -1073,7 +1103,11 @@ export function Andar() {
             {hud.action ? <ContextAction label={tr.t(`action.${hud.action}`)} disabled={hud.action === "stopAsked"} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>
           {biscato && Trabalho ? <Trabalho net={net} place={biscato.name} onClose={() => (setBiscato(null), setTrabalho(null))} /> : null}
-          <Telemovel world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} abrir={abrirKamba} onClose={() => (setPhone(false), setPhoneApp(null), setAbrirKamba(null))} />
+          <Telemovel world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} abrir={abrirKamba} onClose={() => (setPhone(false), setPhoneApp(null), setAbrirKamba(null))} ir={async (kind, to) => {
+            const why = await (await loadCorrida()).pedir(net, kind, to);
+            if (why === null) setPhone(false);
+            return why;
+          }} />
           {/* The Telemóvel covers the foot of the screen: the chat bar steps aside while it is open, or it would lie over the sheet's last key. */}
           {phone || met || shop || bag ? null : <ChatLog lines={hud.lines} refused={hud.refused} raised={composing && hud.talk} />}
           {phone || met || shop || bag ? null : (

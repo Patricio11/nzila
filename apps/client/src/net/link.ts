@@ -34,6 +34,9 @@ export interface LinkEvents {
   event(event: WorldEvent): void;
   /** How the street's traffic is waiting, as the zone decided it for everyone in the channel. */
   traffic?(said: TrafficSaid): void;
+  /** The channel's rides asked for (Task 6.2). */
+  /** The channel's rides, as bytes: read by the ride module (Task 6.2). */
+  corridas?(bytes: Uint8Array): void;
   /** How a table stands (Task 4B.1): its bytes, for the code that draws tables to read. */
   mesa?(bytes: Uint8Array): void;
   /** The line is gone. `elsewhere` when the same player came in on another phone; `put_out` when staff put them out. */
@@ -158,6 +161,8 @@ export function openLink(seat: PlaySeat, paragem: string | undefined, events: Li
           });
         } else if (message.type === "traffic") {
           events.traffic?.(message);
+        } else if (message.type === "corridas") {
+          events.corridas?.(message.bytes);
         } else if (message.type === "mesa") {
           events.mesa?.(message.bytes);
         } else if (message.type === "who") {

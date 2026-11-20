@@ -21,6 +21,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { clearTimeout, setTimeout } from "node:timers";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
@@ -312,34 +313,71 @@ async function waitForServer() {
 }
 
 // A run that has stopped moving is stopped, not waited for: it has hung before, and held its port (finding F-135).
-const watchdog = setTimeout(() => {
-  console.error("shots: nothing finished in forty minutes; stopping. What was taken is in the folder.");
-  if (process.platform === "win32") spawn("taskkill", ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore" });
-  else server.kill();
-  process.exit(1);
-}, 40 * 60 * 1000);
-watchdog.unref();
+// The clock starts again at every picture: a long list of pages is not a hung run (F-228), ten minutes without one is.
+let watchdog;
+const moving = () => {
+  clearTimeout(watchdog);
+  watchdog = setTimeout(() => {
+    console.error("shots: nothing finished in ten minutes; stopping. What was taken is in the folder.");
+    if (process.platform === "win32") spawn("taskkill", ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore" });
+    else server.kill();
+    process.exit(1);
+  }, 10 * 60 * 1000);
+  watchdog.unref();
+};
+moving();
 
 const report = [`${label}, taken ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`, ""];
 let problems = 0;
 const taken = [];
-let browser;
+// The world is drawn on the machine's graphics card, not in software: the software renderer drew the
+// world at 8 to 13 frames a second, so each page took long to settle and lowered its own picture to
+// keep up, and the full run took over two hours (F-253). Chromium falls back to software by itself
+// where there is no card it can use.
+const launch = () => chromium.launch({ args: ["--use-angle=default", "--enable-gpu", "--ignore-gpu-blocklist", "--enable-unsafe-swiftshader"] });
+// Two pages at once: most of a page's time is waiting for the world to arrive and settle. More than
+// two fight over the one graphics card and are slower (24 pages: 142 s alone, 84 s two at once, 92 s three, 141 s four).
+const WORKERS = Math.max(1, Number(process.env.SHOTS_WORKERS ?? 2));
+const browsers = [];
+/** Runs `job` over `items` with `count` workers, each with its own browser, renewed every forty pages (F-212). */
+async function inParallel(items, count, job) {
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(count, items.length) }, async () => {
+      let browser = await launch();
+      browsers.push(browser);
+      let opened = 0;
+      while (next < items.length) {
+        const item = items[next++];
+        if (++opened % 40 === 0) {
+          await browser.close();
+          browser = await launch();
+          browsers.push(browser);
+        }
+        await job(browser, item);
+        moving();
+      }
+      await browser.close();
+    }),
+  );
+}
 try {
   await waitForServer();
-  browser = await chromium.launch();
   const only = process.argv[3];
-  let opened = 0;
+  // `pnpm shots <label> corpo` takes only the pages whose name begins that way; `corpo,rua` takes both.
+  const wanted = (name) => !only || only.split(",").some((prefix) => name.startsWith(prefix));
+  const stills = [];
   for (const [pageName, path] of PAGES) {
-    // `pnpm shots <label> corpo` takes only the pages whose name begins that way.
-    if (only && !pageName.startsWith(only)) continue;
+    if (!wanted(pageName)) continue;
     for (const [sizeName, width, height] of SIZES) {
       // A face fills either screen the same way: once is enough.
       if (pageName.endsWith("-rosto") && sizeName === "phone") continue;
-      // A fresh browser every forty pages: one browser drawing the world a hundred and fifty times ran out and crashed (F-212).
-      if (++opened % 40 === 0) {
-        await browser.close();
-        browser = await chromium.launch();
-      }
+      stills.push({ pageName, path, sizeName, width, height, order: stills.length });
+    }
+  }
+  const lines = [];
+  await inParallel(stills, WORKERS, async (browser, { pageName, path, sizeName, width, height, order }) => {
+      const started = Date.now();
       const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2 });
       page.setDefaultTimeout(60_000);
       const errors = [];
@@ -365,13 +403,18 @@ try {
       await page.close();
       const faults = [...(sideways > 0 ? [`scrolls sideways by ${sideways} px`] : []), ...errors.map((e) => `error: ${e}`)];
       problems += faults.length;
-      report.push(`${file}  ${width}x${height}  ${faults.length ? faults.join("; ") : "ok"}`);
-      taken.push(file);
-    }
+      const seconds = ((Date.now() - started) / 1000).toFixed(1);
+      lines[order] = { file, line: `${file}  ${width}x${height}  ${seconds} s  ${faults.length ? faults.join("; ") : "ok"}` };
+  });
+  // In the order of the list, whichever worker finished first.
+  for (const done of lines.filter(Boolean)) {
+    report.push(done.line);
+    taken.push(done.file);
   }
   // Movement cannot be seen in a still: one slow scroll down each long page, as a video.
-  for (const [pageName, path] of FILMS) {
-    if (only && !pageName.startsWith(only)) continue;
+  const films = FILMS.filter(([pageName]) => wanted(pageName));
+  const filmLines = [];
+  await inParallel(films, Math.min(WORKERS, 3), async (browser, [pageName, path]) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 780 }, recordVideo: { dir: out, size: { width: 390, height: 780 } } });
     const page = await context.newPage();
     await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: "networkidle" });
@@ -396,8 +439,11 @@ try {
     const file = `${pageName}_motion.webm`;
     await video.saveAs(join(out, file));
     await video.delete();
-    report.push(`${file}  390x780  a slow scroll, to see what moves`);
-  }
+    filmLines[FILMS.findIndex(([name]) => name === pageName)] = `${file}  390x780  a slow scroll, to see what moves`;
+  });
+  report.push(...filmLines.filter(Boolean));
+  const browser = await launch();
+  browsers.push(browser);
   // Every picture on one page (index.html), and that page as pictures (todas_N.png): nothing is
   // judged from three screenshots out of thirty.
   const cell = (file) => `<figure><img src="${file}" loading="lazy"><figcaption>${file.replace(".png", "")}</figcaption></figure>`;
@@ -418,11 +464,12 @@ try {
       await page.waitForLoadState("networkidle");
       await page.screenshot({ path: join(out, `todas_${n}.png`), fullPage: true });
       await page.close();
+      moving();
       rmSync(join(out, name));
     }
   }
 } finally {
-  await browser?.close();
+  await Promise.all(browsers.map((open) => open.close().catch(() => {})));
   // On Windows the server is a tree of processes; taskkill takes the whole tree.
   if (process.platform === "win32") spawn("taskkill", ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore" });
   else server.kill();

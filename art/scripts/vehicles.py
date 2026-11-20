@@ -435,8 +435,22 @@ def _painted(draw, paint):
     return lambda b, x, z, yaw, ground=0.0: draw(b, x, z, yaw, ground, paint)
 
 
-VEHICLE_SEATS["mota"] = [{"who": "condutor", "pos": [0.0, 0.83, -0.12]}]
-VEHICLE_SEATS["kupapata"] = [{"who": "condutor", "pos": [0.0, 0.83, 0.36]}]
+# A moto-táxi carries one behind the rider, on the long seat; a kupapata carries them on the bench along the side of
+# its bed (Task 6.2). The táxi is driven from the left, as Angola drives on the right; whoever hires it sits behind on
+# the right.
+VEHICLE_SEATS["mota"] = [{"who": "condutor", "pos": [0.0, 0.83, -0.12]}, {"who": "passageiro", "pos": [0.0, 0.84, -0.55]}]
+VEHICLE_SEATS["kupapata"] = [{"who": "condutor", "pos": [0.0, 0.83, 0.36]}, {"who": "passageiro", "pos": [0.44, 0.83, -0.5]}]
+VEHICLE_SEATS["taxi"] = [{"who": "condutor", "pos": [0.38, 0.52, 0.15]}, {"who": "passageiro", "pos": [-0.38, 0.52, -0.7]}]
+
+
+def taxi(b, x, z, yaw, ground=0.0):
+    """
+    A táxi asked for from the Telemóvel (Task 6.2): a white car like any other, with a yellow sign on its roof so that
+    whoever called it knows it when it comes.
+    """
+    carro(b, x, z, yaw, ground, "carWhite")
+    at = _place(x, ground, z, yaw)
+    _box(b, at, 0.0, 1.5, -0.3, 0.5, 0.12, 0.22, "muralYellow")
 
 VEHICLES = {
     # name: (what draws it, half its width, half its length), in metres
@@ -447,6 +461,7 @@ VEHICLES = {
     "carro-vermelho": (_painted(carro, "carRed"), 0.84, 2.03),
     "mota": (_painted(mota, "awningRed"), 0.3, 0.95),
     "kupapata": (_painted(kupapata, "zincBlue"), 0.65, 1.6),
+    "taxi": (taxi, 0.84, 2.03),
 }
 
 __all__ = ["VEHICLES", "carrinha", "BOTH", "FULL", "LIGHT"]

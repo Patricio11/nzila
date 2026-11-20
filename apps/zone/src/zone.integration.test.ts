@@ -26,7 +26,9 @@ import {
   encodeComer,
   encodeBanco,
   encodeBiscato,
+  HIRED_VEHICLE_BASE,
 } from "@nzila/protocol";
+import { decodeCorridas, encodeCorrida, type CorridasSaid } from "@nzila/protocol/corridas";
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
@@ -44,8 +46,10 @@ import { startZone, type Zone } from "./server.ts";
 
 const name = `nzila_zone_test_${process.pid}_${Date.now()}`;
 const port = 21_000 + (process.pid % 20_000);
-// A square of open ground 200 m across, with a wall along z = 30 m.
-const ground: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz === 60 || Math.abs(cx) > 200 || Math.abs(cz) > 200 ? 0 : 1), heightAt: () => 0 };
+// A square of open ground 200 m across, with a wall along z = 30 m; a road across it from z = 50 to 55 m, and one up
+// from it at x = 50 to 55 m (Task 6.2: rides go by road).
+const onRoad = (cx: number, cz: number): boolean => (cz >= 100 && cz < 110) || (cx >= 100 && cx < 110 && cz > 60);
+const ground: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz === 60 || Math.abs(cx) > 200 || Math.abs(cz) > 200 ? 0 : onRoad(cx, cz) ? 3 : 1), heightAt: () => 0 };
 const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obstacles: [], paragens: new Map([
     ["mutamba", { x: 40_000, y: 0, z: -20_000, yaw: 0 }],
     // Three places along a line, for talk: together, ten metres off (seen to speak, not read), and thirty (out of hearing).
@@ -62,6 +66,8 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
     ["zunga", { x: 80_000, y: 0, z: 59_000, yaw: 0 }],
     // And beside the lavadores' buckets, by the road.
     ["carros", { x: 90_000, y: 0, z: 59_000, yaw: 0 }],
+    // On the pavement beside the road, to call a ride from.
+    ["moto", { x: 20_000, y: 0, z: 57_000, yaw: 0 }],
   ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 },
   // One bench's seat, facing +Z (F-205).
   benches: [{ x: -80_000, y: 450, z: 80_000, yaw: 0 }],
@@ -143,7 +149,7 @@ async function phone(token: string, protocolVersion = PROTOCOL_VERSION, paragem?
   const socket = new WebSocket(`ws://127.0.0.1:${port}/${roomName}${paragem ? `?paragem=${paragem}` : ""}`);
   socket.binaryType = "arraybuffer";
   const had = new Map<number, Snapshot>();
-  const state = { accepted: null as JoinAccepted | null, refused: null as number | null, latest: null as Snapshot | null, snapshots: 0, bytes: 0, closed: null as number | null, seq: 0, who: [] as Who[], heard: [] as { from: number; text: string }[], typing: [] as { from: number; typing: boolean }[], events: [] as WorldEvent[] };
+  const state = { accepted: null as JoinAccepted | null, refused: null as number | null, latest: null as Snapshot | null, snapshots: 0, bytes: 0, closed: null as number | null, seq: 0, who: [] as Who[], heard: [] as { from: number; text: string }[], typing: [] as { from: number; typing: boolean }[], events: [] as WorldEvent[], corridas: null as CorridasSaid | null };
   socket.onopen = () => socket.send(encodeJoin({ protocolVersion, token }));
   socket.onmessage = (event: MessageEvent) => {
     const bytes = new Uint8Array(event.data as ArrayBuffer);
@@ -154,6 +160,7 @@ async function phone(token: string, protocolVersion = PROTOCOL_VERSION, paragem?
     if (message.type === "chat_heard") state.heard.push({ from: message.from, text: message.text });
     if (message.type === "chat_typing") state.typing.push({ from: message.from, typing: message.typing });
     if (message.type === "event") state.events.push(message);
+    if (message.type === "corridas") state.corridas = decodeCorridas(message.bytes);
     if (message.type === "who") state.who.push({ entityId: message.entityId, name: message.name, bi: message.bi, look: message.look });
     if (message.type === "snapshot") {
       const snapshot = decodeSnapshot(bytes, (tick) => had.get(tick));
@@ -524,6 +531,64 @@ describe("where a player was", () => {
     expect(score).toBe(Math.trunc(1000 / most!));
     await p.leave();
   }, 30_000);
+
+  test("a ride asked for (Task 6.2): sent only on a paid note; seen coming along the road by everyone; waits at the kerb; got on; carried by road; set down near where asked", async () => {
+    const one = await player();
+    const p = await phone(one.token, PROTOCOL_VERSION, "moto");
+    const watcher = await phone((await player()).token, PROTOCOL_VERSION, "moto");
+    const heard = (kind: number): WorldEvent[] => p.state.events.filter((event) => event.kind === kind);
+    // Nothing paid: nothing sent.
+    p.socket.send(encodeCorrida({ op: "pedir", id: "nao-paga-0001" }));
+    await until(() => heard(EVENT.CORRIDA_RECUSADA).length === 1);
+    expect(heard(EVENT.CORRIDA_RECUSADA)[0]!.text).toBe("nao_paga");
+    // Paid (the API's note): to the road up the second street.
+    await presence.mark(one.id, "corrida", "corrida-teste-01:mota:52000:90000", 120);
+    p.socket.send(encodeCorrida({ op: "pedir", id: "corrida-teste-01" }));
+    await until(() => heard(EVENT.CORRIDA).length === 1);
+    const [vehicle, fase] = heard(EVENT.CORRIDA)[0]!.args;
+    expect(vehicle).toBeGreaterThanOrEqual(HIRED_VEHICLE_BASE);
+    expect([fase, heard(EVENT.CORRIDA)[0]!.text]).toEqual([0, "mota"]);
+    // Everyone in the channel sees it: coming along the road, ending at the kerb beside the player.
+    await until(() => watcher.state.corridas?.rides.some((ride) => ride.vehicle === vehicle) === true);
+    const coming = watcher.state.corridas!.rides.find((ride) => ride.vehicle === vehicle)!;
+    const kerb = coming.path.at(-1)!;
+    expect(Math.hypot(kerb.x - p.me().x, kerb.z - p.me().z)).toBeLessThan(3500);
+    for (const point of coming.path) expect(ground.flagsAt(Math.floor(point.x / 500), Math.floor(point.z / 500)) & 2, JSON.stringify(coming.path)).toBe(2);
+    // The same note is good for one ride.
+    p.socket.send(encodeCorrida({ op: "pedir", id: "corrida-teste-01" }));
+    await until(() => heard(EVENT.CORRIDA_RECUSADA).length === 2);
+    expect(heard(EVENT.CORRIDA_RECUSADA)[1]!.text).toBe("ocupado");
+    // At the kerb, waiting; got on.
+    await until(() => heard(EVENT.CORRIDA).some((event) => event.args[1] === 1), 20_000);
+    p.socket.send(encodeCorrida({ op: "subir" }));
+    await until(() => heard(EVENT.CORRIDA).some((event) => event.args[1] === 2));
+    await until(() => p.me().vehicleId === vehicle);
+    // Carried along the road, and set down beside it near where they asked.
+    await until(() => heard(EVENT.CORRIDA).some((event) => event.text === "chegou"), 25_000);
+    await until(() => p.me().vehicleId === null);
+    expect(Math.hypot(p.me().x - 52_000, p.me().z - 90_000)).toBeLessThan(6000);
+    await watcher.leave();
+    await p.leave();
+  }, 60_000);
+
+  test("a ride that cannot be given (no road near where it was asked to go), and one called off before getting on: the fare is given back on the zone's note", async () => {
+    const one = await player();
+    const p = await phone(one.token, PROTOCOL_VERSION, "moto");
+    const refused = (): WorldEvent[] => p.state.events.filter((event) => event.kind === EVENT.CORRIDA_RECUSADA);
+    await presence.mark(one.id, "corrida", "corrida-teste-02:taxi:-90000:-90000", 120);
+    p.socket.send(encodeCorrida({ op: "pedir", id: "corrida-teste-02" }));
+    await until(() => refused().length === 1);
+    expect(refused()[0]!.text).toBe("sem_estrada");
+    expect(await presence.marked(one.id, "corrida-devolver")).toBe("corrida-teste-02");
+    await presence.mark(one.id, "corrida", "corrida-teste-03:kupapata:52000:90000", 120);
+    p.socket.send(encodeCorrida({ op: "pedir", id: "corrida-teste-03" }));
+    await until(() => p.state.events.some((event) => event.kind === EVENT.CORRIDA));
+    p.socket.send(encodeCorrida({ op: "descer" }));
+    await until(() => refused().length === 2);
+    expect(refused()[1]!.text).toBe("cancelada");
+    expect(await presence.marked(one.id, "corrida-devolver")).toBe("corrida-teste-03");
+    await p.leave();
+  });
 
   test("Energia at zero (Task 4.4): taken to the hospital (the door, in a district without one), back on their feet with Energia and some Fome, and a note left for the bill", async () => {
     const one = await player();

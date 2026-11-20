@@ -8,7 +8,8 @@ import {
   DESCANSO_MS, ESPERA_MS, LUGARES, RAPIDA_MS, comecar, resultados, escolherRapida, resta, vezMs, kotaDe, jogar, lanceDe, lancar, levantar, lugarDe, lugarGuardado, novaMesa, passo, recusou, reservar, sentar, vezDe,
   type Jogo, type Mesa, type Recusa, type Resultado,
 } from "@nzila/games";
-import { encodeMesa, type MesaPedido } from "@nzila/protocol";
+import { type MesaPedido } from "@nzila/protocol";
+import { encodeMesa } from "@nzila/protocol/mesa";
 import { type Place } from "./channel.ts";
 
 /** How near a seat a player must stand to sit in it; and how near a table a phone is told how it stands. Millimetres. */

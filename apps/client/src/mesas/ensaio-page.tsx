@@ -9,7 +9,8 @@
 //   &kota                                  a kota answers each move, as at a table in the street
 
 import { KOTA_MS, escolherRapida, fromFen, jogar, lancar, lanceDe, newDamas, newLudo, newXadrez, novaMesa, passo, recusou, vezDe, type Mesa, type Partida, type Square } from "@nzila/games";
-import { MESA_RECUSAS, type MesaDita, type MesaPedido } from "@nzila/protocol";
+import { MESA_RECUSAS, type MesaPedido } from "@nzila/protocol";
+import { type MesaDita } from "@nzila/protocol/mesa";
 import { useEffect, useState } from "preact/hooks";
 import type { Table } from "./mesas.ts";
 import { Tabuleiro, type MesasVista } from "./tabuleiro.tsx";

@@ -2,20 +2,21 @@
 // declared through `declare` (routes.ts), which guards it, limits it and
 // checks what it is given.
 
-import { randomInt } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
-import { MAX_TRANSFER, accountId } from "@nzila/economy";
+import { MAX_TRANSFER, accountId, sink } from "@nzila/economy";
 import { BASE_BISCATOS, BISCATO_KINDS, isBiscatoKind, taperPercent } from "@nzila/economy/biscatos";
 import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
 import { biscatosPaidToday, payBiscato, payHospital } from "@nzila/db";
 import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
 import { carriesAddress, tidyLine } from "@nzila/i18n";
-import { classificacaoDe, lastGift, lugarNaClassificacao, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
+import { classificacaoDe, lastGift, lugarNaClassificacao, recordTransfer, reverseTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
 import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable, type Tunables } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
 import { checkLook, settleLook, zoneRoomOf } from "@nzila/protocol";
+import { CORRIDA_KINDS } from "@nzila/protocol/corridas";
 import Fastify, { type FastifyInstance } from "fastify";
 import { type Sql } from "postgres";
 import { z } from "zod";
@@ -723,6 +724,56 @@ export function buildApp(deps: Deps): FastifyInstance {
       const receipt = await payBiscato(deps.sql, { playerId: caller.player.id, note, kind, score, districtId });
       const paidToday = await biscatosPaidToday(deps.sql, caller.player.id);
       return { receipt, paidToday, percent: taperPercent(BASE_BISCATOS, paidToday), ...(await walletOf(deps.sql, caller.player.id)) };
+    },
+  });
+
+  // A ride asked for (Task 6.2, D-6.5): a moto-táxi, a kupapata or a táxi, to a place in the district the player
+  // stands in. The fare is the tunables' (live), paid now through the ledger to the fare sink; the zone is left a note
+  // of the ride (two minutes), by which it sends one. A ride the zone cannot give is given back on its note.
+  const FARE_OF = { mota: "motoTaxi", kupapata: "kupapata", taxi: "taxi" } as const;
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/corridas",
+    guard: "player",
+    body: z.strictObject({ kind: z.enum(CORRIDA_KINDS), to: z.strictObject({ x: z.number().int().min(-10_000_000).max(10_000_000), z: z.number().int().min(-10_000_000).max(10_000_000) }) }),
+    perMinute: 20,
+    handler: async (body, caller) => {
+      if (!(await presence.standing(caller.player.id))) throw new Refusal(409, "not_there");
+      const price = tunables.now().fares[FARE_OF[body.kind]];
+      const id = randomBytes(12).toString("base64url");
+      const paid = await recordTransfer(deps.sql, { debitAccount: accountId("player_cash", caller.player.id), creditAccount: sink("fare"), amount: price, reason: "fare", ref: "corrida", actionId: `corrida:${id}` });
+      if (!paid.ok) throw new Refusal(409, paid.error === "insufficient_funds" ? "insufficient" : "failed");
+      await presence.mark(caller.player.id, "corrida", `${id}:${body.kind}:${body.to.x}:${body.to.z}`, 120);
+      return { id, price, ...(await walletOf(deps.sql, caller.player.id)) };
+    },
+  });
+
+  // What each ride costs now, for the Mapa to show before anything is asked.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/corridas/precos",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async () => {
+      const fares = tunables.now().fares;
+      return { mota: fares[FARE_OF.mota], kupapata: fares[FARE_OF.kupapata], taxi: fares[FARE_OF.taxi] };
+    },
+  });
+
+  // The fare of a ride the zone could not give, back: on the zone's note only, once.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/corridas/devolver",
+    guard: "player",
+    body: nothing,
+    perMinute: 20,
+    handler: async (_body, caller) => {
+      const id = await presence.marked(caller.player.id, "corrida-devolver");
+      if (!id) throw new Refusal(409, "not_there");
+      const back = await reverseTransfer(deps.sql, `corrida:${id}`, `corrida-devolvida:${id}`);
+      if (!back.ok) throw new Refusal(409, "none");
+      return { back: back.transfer.amount, ...(await walletOf(deps.sql, caller.player.id)) };
     },
   });
 

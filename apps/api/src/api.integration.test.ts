@@ -1126,6 +1126,36 @@ describe("the bank: into the Banco and out of it, at a caixa (Task 4.1)", () => 
   });
 });
 
+describe("a ride asked for (Task 6.2, D-6.5)", () => {
+  const post = (token: string, url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: as(token), payload });
+
+  test("paid at the tunables' fare from the Carteira, with a note for the zone; refused out of a district or without the money; given back once on the zone's note", async () => {
+    const one = await newGuest(1460);
+    const card = ((await post(one.token, "/v1/me/origin")).json() as { wallet: { cash: number } }).wallet.cash;
+    // Nowhere a zone has said: no ride.
+    expect((await post(one.token, "/v1/corridas", { kind: "mota", to: { x: 10_000, z: 20_000 } })).json()).toEqual({ error: "not_there" });
+    await presence.stand(one.playerId, { districtId: "lda/corridas", x: 0, y: 0, z: 0, yaw: 0 });
+    const asked = await post(one.token, "/v1/corridas", { kind: "mota", to: { x: 10_000, z: 20_000 } });
+    expect(asked.statusCode).toBe(200);
+    const ride = asked.json() as { id: string; price: number; cash: number };
+    expect(ride.price).toBe(BASE_TUNABLES.fares.motoTaxi);
+    expect(ride.cash).toBe(card - BASE_TUNABLES.fares.motoTaxi);
+    expect(await presence.marked(one.playerId, "corrida")).toBe(`${ride.id}:mota:10000:20000`);
+    // Not a kind there is, and no back without the zone's word.
+    expect((await post(one.token, "/v1/corridas", { kind: "aviao", to: { x: 0, z: 0 } })).statusCode).toBe(400);
+    expect((await post(one.token, "/v1/corridas/devolver")).json()).toEqual({ error: "not_there" });
+    // The zone could not give it: the fare comes back, once.
+    await presence.mark(one.playerId, "corrida-devolver", ride.id, 600);
+    expect((await post(one.token, "/v1/corridas/devolver")).json()).toEqual({ back: BASE_TUNABLES.fares.motoTaxi, cash: card, bank: 0 });
+    expect((await post(one.token, "/v1/corridas/devolver")).json()).toEqual({ back: BASE_TUNABLES.fares.motoTaxi, cash: card, bank: 0 });
+    // A táxi a player cannot pay for is not called.
+    const broke = await newGuest(1461);
+    await presence.stand(broke.playerId, { districtId: "lda/corridas", x: 0, y: 0, z: 0, yaw: 0 });
+    expect((await post(broke.token, "/v1/corridas", { kind: "taxi", to: { x: 0, z: 0 } })).json()).toEqual({ error: "insufficient" });
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+});
+
 describe("a new player's first hour (Task 4.7)", () => {
   const post = (token: string, url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: as(token), payload });
   const get = (token: string, url: string) => app.inject({ method: "GET", url, headers: as(token) });

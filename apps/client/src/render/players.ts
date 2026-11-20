@@ -41,7 +41,7 @@ export class Players {
   private closed = false;
   /** Where a van is drawn, and where in it each seat is: for whoever rides one. Given by the page, which has the traffic. */
   vanAt: (vehicle: number) => Object3D | null = () => null;
-  seatAt: (seat: number) => readonly [number, number, number] | null = () => null;
+  seatAt: (seat: number, vehicle: number) => readonly [number, number, number] | null = () => null;
   /** Whether the player has met whoever carries this BI: said by the session, which remembers. */
   knows: (bi: string) => boolean = () => false;
 
@@ -139,7 +139,7 @@ export class Players {
       Object.assign(body, { x: one.x, y: one.y, z: one.z });
       // Riding: seated in the van, wherever the van is drawn on this phone, and in the seat the zone gave them.
       const van = one.vehicleId === null ? null : this.vanAt(one.vehicleId);
-      const seatPos = one.seat === null ? null : this.seatAt(one.seat);
+      const seatPos = one.seat === null || one.vehicleId === null ? null : this.seatAt(one.seat, one.vehicleId);
       if (van && seatPos) {
         if (person.root.parent !== van) van.add(person.root);
         person.root.position.set(seatPos[0], seatPos[1] - 0.46 * (person.height / 1.7), seatPos[2]);

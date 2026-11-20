@@ -6,7 +6,7 @@
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
 import { KOTAS, PONTOS_KOTA, damasMoves, escura, kotaDe, ludoMoves, xadrezMoves, type DamasMove, type Partida } from "@nzila/games";
-import type { MesaDita } from "@nzila/protocol";
+import type { MesaDita } from "@nzila/protocol/mesa";
 import { Button } from "@nzila/ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { CORES, LUDO_CORES, LUDO_FUNDOS, ludoCell, paintLudo, squareSeen, squareUnder } from "./casas.ts";

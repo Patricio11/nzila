@@ -71,6 +71,9 @@ export const SECTIONS: Readonly<Record<string, string>> = {
 export const TUNABLES: Readonly<Record<string, string>> = {
   "player.startingFloor": "O mínimo com que alguém chega (Mk)",
   "fares.candongueiroLocal": "Uma corrida de candongueiro no bairro (Mk)",
+  "fares.motoTaxi": "Uma corrida de moto-táxi no bairro (Mk)",
+  "fares.kupapata": "Uma corrida de kupapata no bairro (Mk)",
+  "fares.taxi": "Uma corrida de táxi no bairro (Mk)",
   "transfers.noSendDays": "Dias em que uma conta nova não pode dar dinheiro",
   "transfers.newAccountDays": "Dias em que uma conta é nova",
   "transfers.newAccountDailyCap": "O máximo que uma conta nova dá por dia (Mk)",

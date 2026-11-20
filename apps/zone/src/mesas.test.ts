@@ -1,7 +1,7 @@
 // The tables of a channel without a network: who may sit, what a move named by its squares is, what the phones are told.
 
 import { DESCANSO_MS, ESPERA_MS, FALTAS, KOTAS_MS, RAPIDA_MS, VEZ_MS, VEZ_RAPIDA_MS, newDamas, squareAt } from "@nzila/games";
-import { decodeMesa } from "@nzila/protocol";
+import { decodeMesa } from "@nzila/protocol/mesa";
 import { describe, expect, test } from "vitest";
 import { CONVITES_HORA, CONVITE_MS, MESA_REACH_MM, Mesas, lanceOf, type TablePlace } from "./mesas.ts";
 

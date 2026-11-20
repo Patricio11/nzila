@@ -7,7 +7,7 @@
 // Only the API calls this (D-4.2): the zone decides that something happened
 // and asks the API to record it; a phone never names an amount.
 
-import { accountId, faucet, replayOf, validateTransfer, type AccountId, type Mk, type Transfer, type TransferError, type TransferReason, type TransferRequest } from "@nzila/economy";
+import { accountId, faucet, replayOf, reversalOf, validateTransfer, type AccountId, type Mk, type Transfer, type TransferError, type TransferReason, type TransferRequest } from "@nzila/economy";
 import { type Sql } from "postgres";
 
 interface Row {
@@ -41,7 +41,7 @@ const read = (row: Row): Transfer => ({
 export type Recorded = { readonly ok: true; readonly transfer: Transfer; /** True when this very transfer had been recorded before: nothing moved now. */ readonly replay: boolean } | { readonly ok: false; readonly error: TransferError };
 
 /** What a transfer may leave out: most are about nothing in particular, nowhere in particular, and reverse nothing. */
-export type NewTransfer = Pick<TransferRequest, "debitAccount" | "creditAccount" | "amount" | "reason" | "actionId"> & Partial<Pick<TransferRequest, "ref" | "provinceId" | "districtId">>;
+export type NewTransfer = Pick<TransferRequest, "debitAccount" | "creditAccount" | "amount" | "reason" | "actionId"> & Partial<Pick<TransferRequest, "ref" | "provinceId" | "districtId" | "reverses">>;
 
 const POSTGRES = { unique: "23505", check: "23514" } as const;
 const codeOf = (error: unknown): string | undefined => (error as { code?: string }).code;
@@ -53,10 +53,10 @@ const codeOf = (error: unknown): string | undefined => (error as { code?: string
  * refused. An account that would be overdrawn is refused, by the rule and, if
  * two arrive at the same instant, by the database.
  *
- * A reversal is not recorded here yet: it arrives with support's tools (12.x).
+ * A reversal is made by `reverseTransfer`, which checks it against its original.
  */
 export async function recordTransfer(sql: Sql, asked: NewTransfer): Promise<Recorded> {
-  const request: TransferRequest = { ref: null, provinceId: null, districtId: null, ...asked, reverses: null };
+  const request: TransferRequest = { ref: null, provinceId: null, districtId: null, reverses: null, ...asked };
   const existing = async (): Promise<Transfer | undefined> => {
     const [row] = await sql<Row[]>`SELECT * FROM ledger_transfers WHERE action_id = ${request.actionId}`;
     return row ? read(row) : undefined;
@@ -78,8 +78,8 @@ export async function recordTransfer(sql: Sql, asked: NewTransfer): Promise<Reco
         await tx`INSERT INTO ledger_accounts (id, kind, ref) VALUES (${id}, ${id.slice(0, colon)}, ${id.slice(colon + 1)}) ON CONFLICT (id) DO NOTHING`;
       }
       const [made] = await tx<Row[]>`
-        INSERT INTO ledger_transfers (debit_account, credit_account, amount, reason, ref, action_id, province_id, district_id)
-        VALUES (${request.debitAccount}, ${request.creditAccount}, ${request.amount}, ${request.reason}, ${request.ref}, ${request.actionId}, ${request.provinceId}, ${request.districtId})
+        INSERT INTO ledger_transfers (debit_account, credit_account, amount, reason, ref, action_id, province_id, district_id, reverses)
+        VALUES (${request.debitAccount}, ${request.creditAccount}, ${request.amount}, ${request.reason}, ${request.ref}, ${request.actionId}, ${request.provinceId}, ${request.districtId}, ${request.reverses})
         RETURNING *`;
       return made!;
     });
@@ -94,6 +94,21 @@ export async function recordTransfer(sql: Sql, asked: NewTransfer): Promise<Reco
     if (codeOf(error) === POSTGRES.check) return { ok: false, error: "insufficient_funds" };
     throw error;
   }
+}
+
+/**
+ * Undoes a recorded transfer (the one with `originalActionId`): the same Makuta back the way it came, once. Asked
+ * again with the same key, it answers with the reversal recorded and moves nothing; a transfer reversed already, or
+ * itself a reversal, is refused.
+ */
+export async function reverseTransfer(sql: Sql, originalActionId: string, actionId: string): Promise<Recorded> {
+  const [row] = await sql<Row[]>`SELECT * FROM ledger_transfers WHERE action_id = ${originalActionId}`;
+  if (!row) return { ok: false, error: "reverses_unknown" };
+  const original = read(row);
+  if (original.reverses !== null) return { ok: false, error: "reverses_a_reversal" };
+  const [done] = await sql<Row[]>`SELECT * FROM ledger_transfers WHERE reverses = ${original.id}`;
+  if (done && done.action_id !== actionId) return { ok: false, error: "already_reversed" };
+  return recordTransfer(sql, { ...reversalOf(original, actionId), reverses: original.id });
 }
 
 export async function balanceOf(sql: Sql, account: AccountId): Promise<Mk> {

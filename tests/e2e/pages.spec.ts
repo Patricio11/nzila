@@ -1285,7 +1285,7 @@ test.describe("two phones in the same street", () => {
       test.skip();
       return;
     }
-    test.setTimeout(480_000);
+    test.setTimeout(720_000);
     const seen = watch(page);
     await comeIn(page, 61);
     const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
@@ -1304,7 +1304,8 @@ test.describe("two phones in the same street", () => {
       for (let tries = 0; tries < 3 && !on; tries++) {
         await one.keyboard.press("e");
         on = await one.waitForFunction(() => window.__andar!.riding !== null && window.__andar!.myRide !== null, undefined, { timeout: 10_000 }).then(() => true, () => false);
-        if (!on) await one.waitForFunction(() => window.__andar!.action === "board", undefined, { timeout: 30_000 }).catch(() => {});
+        // Pressed as the van pulled away, nothing is proposed: wait for the next one as long as for the first (F-254).
+        if (!on) await one.waitForFunction(() => window.__andar!.action === "board", undefined, { timeout: 260_000, polling: 200 }).catch(() => {});
       }
       expect(on, `on the van (the zone said no ${await one.evaluate(() => window.__andar!.rideRefusals)} times)`).toBe(true);
     }
@@ -1905,6 +1906,81 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("a moto-táxi asked for from the Mapa (Task 6.2): it comes up the road, waits at the kerb, is got on with the gold button, carries the player to the paragem and sets them down there; the fare is in the Carteira's lines", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/dev-vehicles/veiculos.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people or the vehicles are not built (pnpm pack:dev needs Blender). The ride was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(180_000);
+    const seen = watch(page);
+    await comeIn(page, 96);
+    await page.goto("/andar?tier=poupanca&hour=12");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    // Dealt a family, and with it the Makuta one starts with.
+    await page.evaluate(async () => {
+      const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+      await fetch("/api/v1/me/origin", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: "{}" });
+    });
+    const manifest = (await (await page.request.get("/packs/dev/manifest.json")).json()) as { bounds: { maxX: number; maxZ: number }; paragens: { id: string; pos: [number, number, number] }[] };
+    const paragem = manifest.paragens.find((one) => one.id === "p-1")!.pos;
+    // The Mapa: the paragem touched, and under Marcar the three rides with what each costs.
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    const phone = page.getByRole("dialog", { name: "Telemóvel" });
+    await phone.getByRole("button", { name: "Mapa" }).click();
+    const map = phone.locator(".tm-map-canvas");
+    await expect.poll(() => map.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBeGreaterThan(400);
+    const box = (await map.boundingBox())!;
+    await map.click({ position: { x: (paragem[0] / manifest.bounds.maxX) * box.width, y: (paragem[2] / manifest.bounds.maxZ) * box.height } });
+    await expect(phone.locator(".tm-place")).toBeVisible();
+    await expect(phone.locator(".tm-ir")).toContainText("Ir até lá");
+    await expect(phone.getByRole("button", { name: /^De moto-táxi · 200\sMk$/ })).toBeVisible();
+    await expect(phone.getByRole("button", { name: /^De kupapata · 250\sMk$/ })).toBeVisible();
+    await expect(phone.getByRole("button", { name: /^De táxi · 300\sMk$/ })).toBeVisible();
+    await phone.locator(".tm-ir").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath("corrida-mapa.png") });
+    await phone.getByRole("button", { name: /^De moto-táxi · 200\sMk$/ }).click();
+    // Asked: the phone goes down, and the chip under the wallet says it is coming.
+    await expect(page.getByRole("dialog", { name: "Telemóvel" })).toHaveCount(0);
+    await expect(page.locator(".cd-chip")).toContainText("A moto vem a caminho.", { timeout: 10_000 });
+    await expect(page.locator(".cd-chip").getByRole("button", { name: "Cancelar" })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("corrida-vem.png") });
+    // It stops on the road by the player; walked up to, the gold button gets on.
+    await page.waitForFunction(() => window.__andar?.hired?.fase === "espera", undefined, { timeout: 45_000 });
+    await expect(page.locator(".cd-chip")).toContainText("A moto está à tua espera na estrada.");
+    const waiting = (await page.evaluate(() => window.__andar!.hired))!;
+    await walkTo(page, waiting.x, waiting.z, 2.2);
+    await page.waitForFunction(() => window.__andar!.action === "board", undefined, { timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Apanhar" })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("corrida-espera.png") });
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => (window.__andar!.myRide?.vehicle ?? 0) >= 4096 && window.__andar!.hired?.fase === "leva", undefined, { timeout: 10_000 });
+    await expect(page.locator(".cd-chip")).toContainText("A caminho.");
+    await expect(page.locator(".cd-chip").getByRole("button", { name: "Descer aqui" })).toBeVisible();
+    // On the way the stick does nothing: the moto takes the player, not their thumb.
+    await page.waitForTimeout(2500);
+    await page.keyboard.down("a");
+    await page.waitForTimeout(600);
+    await page.keyboard.up("a");
+    await page.screenshot({ path: info.outputPath("corrida-a-andar.png") });
+    // At the paragem the player is set down at the kerb, and told.
+    await page.waitForFunction(() => window.__andar!.hired?.fim === "chegou" && window.__andar!.myRide === null, undefined, { timeout: 90_000 });
+    await expect(page.locator(".cd-chip")).toContainText("Chegaste.");
+    await page.waitForTimeout(1500);
+    const there = await page.evaluate(() => window.__andar!);
+    expect(Math.hypot(there.x - paragem[0], there.z - paragem[2])).toBeLessThan(15);
+    await page.screenshot({ path: info.outputPath("corrida-chegou.png") });
+    // The fare went out of the Carteira through the books.
+    const wallet = await page.evaluate(async () => {
+      const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
+      return (await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cashLines: { amount: number; reason: string }[] };
+    });
+    expect(wallet.cashLines[0]).toMatchObject({ reason: "fare", amount: -200 });
+    // The chip goes a little after the end.
+    await expect(page.locator(".cd-chip")).toHaveCount(0, { timeout: 10_000 });
+    expect(seen.errors).toEqual([]);
+  });
+
   test("os recados do dia: the neighbours' messages in Mensagens, the family's money for the taxi, and an errand walked and done in the street, paid at once", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The errands were not checked here." });
@@ -2000,8 +2076,11 @@ test.describe("two phones in the same street", () => {
     await page.screenshot({ path: info.outputPath("recados-quem-espera.png") });
     // A moment at the place, as anyone takes, before handing over.
     await page.waitForTimeout(1500);
+    // What it pays is what the next errand of the day pays: 300 Mk for the first, less after, and another errand may
+    // have been done at the cantina on the way (F-255).
+    const pays = ((await (await page.request.get("/api/v1/recados", { headers })).json()) as { next: number }).next;
     await page.keyboard.press("e");
-    await expect(page.getByText(/agradece\. Recebeste 300\s*Mk\./)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(new RegExp(`agradece\\. Recebeste ${pays}\\s*Mk\\.`))).toBeVisible({ timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("recados-feito.png") });
     const after = (await (await page.request.get("/api/v1/recados", { headers })).json()) as Day;
     expect(after.recados[0]!.done).toBe(true);

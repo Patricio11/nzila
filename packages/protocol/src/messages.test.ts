@@ -17,6 +17,7 @@ import {
   encodeComer,
   encodeBanco,
   encodeBiscato,
+  HIRED_VEHICLE_BASE,
   BISCATO_BATCH_MAX,
   TRAFFIC_VEHICLES_AT_MOST,
   encodeEmote,
@@ -33,6 +34,7 @@ import {
   toMoveInput,
   type InputFrame,
 } from "./messages.ts";
+import { decodeCorridas, encodeCorrida, encodeCorridas } from "./corridas.ts";
 import { MIN_CLIENT_VERSION, PROTOCOL_VERSION, negotiate } from "./version.ts";
 import { arrivalLook, checkLook } from "./look.ts";
 import { ProtocolError, Writer } from "./wire.ts";
@@ -142,6 +144,21 @@ describe("a nudge", () => {
     expect(decodeClientMessage(encodeBanco({ seat: 0, sim: false }))).toEqual({ type: "banco", seat: 0, sim: false });
     expect(() => decodeClientMessage(encodeBanco({ seat: 5000, sim: true }))).toThrow(ProtocolError);
     expect(() => decodeClientMessage(new Writer().u8(MSG.BANCO).uint(3).u8(2).finish())).toThrow(ProtocolError);
+  });
+
+  test("Corrida (Task 6.2): asked by its paid id, got on, got off; the channel's rides said with their ways, in centimetres", () => {
+    expect(decodeClientMessage(encodeCorrida({ op: "pedir", id: "corrida-abc12345" }))).toEqual({ type: "corrida", pedido: { op: "pedir", id: "corrida-abc12345" } });
+    expect(decodeClientMessage(encodeCorrida({ op: "subir" }))).toEqual({ type: "corrida", pedido: { op: "subir" } });
+    expect(decodeClientMessage(encodeCorrida({ op: "descer" }))).toEqual({ type: "corrida", pedido: { op: "descer" } });
+    expect(() => decodeClientMessage(encodeCorrida({ op: "pedir", id: "curta" }))).toThrow(ProtocolError);
+    expect(() => decodeClientMessage(new Writer().u8(MSG.CORRIDA).u8(7).finish())).toThrow(ProtocolError);
+    const said = { nowMs: 1_800_000_000_000, rides: [{ vehicle: HIRED_VEHICLE_BASE + 3, kind: 1, fase: 2, fromMs: 1_799_999_990_000, speed: 9000, path: [{ x: 120_000, z: -4_560 }, { x: 180_000, z: 60_000 }] }] };
+    expect(decodeZoneMessage(encodeCorridas(said))).toEqual({ type: "corridas", bytes: encodeCorridas(said) });
+    expect(decodeCorridas(encodeCorridas(said))).toEqual(said);
+    expect(decodeCorridas(encodeCorridas({ nowMs: 5, rides: [] }))).toEqual({ nowMs: 5, rides: [] });
+    expect(() => decodeCorridas(encodeCorrida({ op: "subir" }))).toThrow(ProtocolError);
+    expect(() => encodeCorridas({ nowMs: 0, rides: Array.from({ length: 65 }, () => said.rides[0]!) })).toThrow(RangeError);
+    expect(() => encodeCorridas({ nowMs: 0, rides: [{ ...said.rides[0]!, path: Array.from({ length: 129 }, () => ({ x: 0, z: 0 })) }] })).toThrow(RangeError);
   });
 
   test("Biscato (Task 4.5): begun by its kind, the thumb's inputs in batches of a few bytes each, and done", () => {

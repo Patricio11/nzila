@@ -28,6 +28,10 @@ const SPEC = {
   fares: {
     /** One corrida on a candongueiro inside a district. */
     candongueiroLocal: MK,
+    /** A ride asked for inside a district, door to the road nearest the door (Task 6.2): quick for one; slower, for two or a load; dear and restful. */
+    motoTaxi: MK,
+    kupapata: MK,
+    taxi: MK,
   },
   transfers: {
     /** An account younger than this many days may send nothing to another player (the founder, 2026-11-18, D-4.11). */

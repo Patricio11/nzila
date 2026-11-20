@@ -8,7 +8,7 @@
 // make them from nothing). Every byte is ours (packages/protocol).
 
 import { isGreeting } from "@nzila/i18n";
-import { TrafficRules, actorAt } from "@nzila/world";
+import { TrafficRules, actorAt, nearestPavement } from "@nzila/world";
 import { eatOne, faceOf, keepChatLines, keepNeeds, needsOf, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_TUNABLES, type Tunables } from "@nzila/economy";
 import { BASE_BISCATOS, isBiscatoKind } from "@nzila/economy/biscatos";
@@ -19,11 +19,31 @@ import {
   type EntityState,
   type RideAsked,
   type BiscatoPedido,
-  encodeTraffic, EVENT, MESA_RECUSAS, PROTOCOL_VERSION, ZONE_CLOSE, arrivalLook, settleLook, decodeClientMessage, encodeChatHeard, encodeChatTyping, encodeEvent, encodeJoinAccepted, encodeWho, type ChatSend, type MesaPedido, CHAT_REFUSAL } from "@nzila/protocol";
+  type CorridaPedido,
+  HIRED_VEHICLE_BASE,
+  encodeTraffic,
+  EVENT,
+  MESA_RECUSAS,
+  PROTOCOL_VERSION,
+  ZONE_CLOSE,
+  arrivalLook,
+  settleLook,
+  decodeClientMessage,
+  encodeChatHeard,
+  encodeChatTyping,
+  encodeEvent,
+  encodeJoinAccepted,
+  encodeWho,
+  type ChatSend,
+  type MesaPedido,
+  CHAT_REFUSAL,
+} from "@nzila/protocol";
+import { CORRIDA_FASES, CORRIDA_KINDS, encodeCorridas } from "@nzila/protocol/corridas";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { BISCATO_GRACE_MS, BISCATO_NOTE_S, scoreRonda, spotNear, takeInputs, type Ronda } from "./biscatos.ts";
 import { Channel, type Place } from "./channel.ts";
+import { BOARD_REACH_MM as RIDE_REACH_MM, Corridas, poseOf, type Corrida } from "./corridas.ts";
 import { CAIXA_REACH_MM, MET_TTL_S, PLACE_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
 import { MESA_SEEN_MM, Mesas, type Terminada } from "./mesas.ts";
 import { Talk, reached } from "./talk.ts";
@@ -211,6 +231,8 @@ export class ChannelRoom {
   private arriving = 0;
 
   private readonly tunables: () => Tunables;
+  /** Rides asked for in this channel (Task 6.2). */
+  private readonly corridas: Corridas;
 
   constructor(deps: ZoneDeps, number: number, changed: () => void = () => {}) {
     this.changed = changed;
@@ -222,6 +244,7 @@ export class ChannelRoom {
     this.presence = deps.presence ?? null;
     this.holds = deps.holds ?? CHANNEL_HOLDS;
     this.tunables = deps.tunables ?? (() => BASE_TUNABLES);
+    this.corridas = new Corridas(deps.district.ground);
     this.log = deps.log ?? ((line: string) => console.error(line));
     this.number = number;
     this.channel = new Channel(deps.district.ground, deps.district.obstacles);
@@ -389,6 +412,8 @@ export class ChannelRoom {
   /** What a newcomer is told beyond where they are: that talk is open here, when it is. */
   private welcome(line: Line): void {
     if (this.talk) line.send(encodeEvent({ kind: EVENT.CHAT_OPEN, tick: this.channel.world.tick, subject: 0, args: [], text: "" }));
+    const rides = this.corridas.said(Date.now());
+    if (rides.rides.length > 0) line.send(encodeCorridas(rides));
   }
 
   /** A line has gone, or is being put out: its player leaves the street, and where they stood is given back and written down. */
@@ -404,6 +429,12 @@ export class ChannelRoom {
   private async depart(held: Held): Promise<Place | null> {
     // Whoever saw them typing is told they have stopped: nobody is left with three dots over an empty place.
     if (held.typing) this.saysTyping(held, false);
+    // A ride they called drives off.
+    const called = this.corridas.of(held.entityId);
+    if (called) {
+      this.corridas.leave(called, Date.now());
+      this.tellCorridas();
+    }
     // A seat at a table is given to a kota, who plays on; and they leave the street standing beside it.
     if (this.mesas?.seatOf(held.playerId)) {
       this.mesas.leave(held.playerId, Date.now());
@@ -443,6 +474,7 @@ export class ChannelRoom {
       else if (message.type === "comer") this.eats(line, held, message.item);
       else if (message.type === "banco") this.onBench(held, message.seat, message.sim);
       else if (message.type === "biscato") this.biscato(line, held, message.pedido);
+      else if (message.type === "corrida") this.corrida(line, held, message.pedido);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -493,6 +525,104 @@ export class ChannelRoom {
     if (now.energia <= 0 && this.toHospital(line, held, now)) return;
     if (changed || lasting) this.tellNeeds(line, held, "");
     if (lasting) void keepNeeds(this.sql, held.playerId, now).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
+  }
+
+  /** Everyone in the channel is told of the rides on its roads, as they are now. */
+  private tellCorridas(): void {
+    const bytes = encodeCorridas(this.corridas.said(Date.now()));
+    for (const line of this.held.keys()) line.send(bytes);
+  }
+
+  /** The player who called a ride is told where it is in its corrida (and why, when it ends or is not given). */
+  private tellRide(ride: Corrida, text = ""): void {
+    const line = this.lineOfEntity.get(ride.entity);
+    if (line) line.send(encodeEvent({ kind: EVENT.CORRIDA, tick: this.channel.world.tick, subject: 0, args: [ride.vehicle, CORRIDA_FASES.indexOf(ride.fase)], text: text || ride.kind }));
+  }
+
+  /**
+   * Puts a rider down off a ride: on the pavement nearest the side they get off on, out of the road; where there is
+   * none near, beside the ride; failing that, where people arrive.
+   */
+  private setDown(entity: number, at: { x: number; z: number; heading: number }): void {
+    const side = { x: Math.round(at.x + Math.cos(at.heading) * 1800), z: Math.round(at.z - Math.sin(at.heading) * 1800) };
+    const kerb = nearestPavement(this.corridas.ground, side, 10_000);
+    const pose = { ...(kerb ?? side), y: this.channel.placeOf(entity)?.y ?? 0, yaw: Math.round(((at.heading * 18_000) / Math.PI + 36_000) % 36_000) };
+    if (!this.channel.alight(entity, pose)) this.channel.alight(entity, this.district.arrival);
+  }
+
+  /**
+   * A ride (Task 6.2, D-6.5). "pedir": the API's note says it is paid; the zone sends it from along the road, or says
+   * why not and leaves a note for the fare to be given back. "subir": on, at the kerb, within reach. "descer": off
+   * now, beside it; called off before getting on, the fare comes back.
+   */
+  private corrida(line: Line, held: Held, pedido: CorridaPedido): void {
+    const refuse = (why: string): void => line.send(encodeEvent({ kind: EVENT.CORRIDA_RECUSADA, tick: this.channel.world.tick, subject: 0, args: [], text: why }));
+    const giveBack = async (id: string, why: string): Promise<void> => {
+      await (this.presence?.mark(held.playerId, "corrida-devolver", id, 600) ?? Promise.resolve()).catch(() => {});
+      refuse(why);
+    };
+    const now = Date.now();
+    const ride = this.corridas.of(held.entityId);
+    if (pedido.op === "pedir") {
+      if (ride || this.channel.ridingOf(held.entityId) || this.channel.sittingOf(held.entityId)) return refuse("ocupado");
+      const at = this.channel.placeOf(held.entityId);
+      if (!at || !this.presence) return refuse("nao_paga");
+      void this.presence.marked(held.playerId, "corrida").then((note) => {
+        const [id, kind, x, z] = (note ?? "").split(":");
+        const which = CORRIDA_KINDS.find((one) => one === kind);
+        if (id !== pedido.id || !which || !Number.isFinite(Number(x)) || !Number.isFinite(Number(z))) return refuse("nao_paga");
+        const made = this.corridas.ask({ id, kind: which, playerId: held.playerId, entity: held.entityId }, at, { x: Number(x), z: Number(z) }, Date.now());
+        if (made === "usada") return refuse("nao_paga");
+        if (made === "sem_estrada") return void giveBack(id, "sem_estrada");
+        this.tellCorridas();
+        this.tellRide(made);
+      });
+      return;
+    }
+    if (!ride) return;
+    if (pedido.op === "subir") {
+      const at = this.channel.placeOf(held.entityId);
+      const there = poseOf(ride, now);
+      if (ride.fase !== "espera" || !at || Math.hypot(there.x - at.x, there.z - at.z) > RIDE_REACH_MM) return;
+      this.channel.ride(held.entityId, ride.vehicle, 1);
+      this.corridas.board(ride, now);
+      this.tellCorridas();
+      this.tellRide(ride);
+      return;
+    }
+    if (ride.fase === "leva") {
+      this.setDown(held.entityId, poseOf(ride, now));
+      this.corridas.leave(ride, now);
+      this.tellCorridas();
+      this.tellRide(ride, "desceu");
+      return;
+    }
+    // Called off before getting on: it goes, and the fare comes back.
+    this.corridas.leave(ride, now);
+    this.tellCorridas();
+    void giveBack(ride.id, "cancelada");
+  }
+
+  /** The rides go on: each rider is carried where their ride is; arrivals are set down; whoever is told is told. */
+  private stepCorridas(): void {
+    const now = Date.now();
+    const changes = this.corridas.step(now);
+    for (const ride of changes.waiting) this.tellRide(ride);
+    for (const ride of changes.gaveUp) this.tellRide(ride, "foi_embora");
+    for (const ride of changes.arrived) {
+      this.setDown(ride.entity, { ...ride.drop, heading: poseOf(ride, now).heading });
+      this.tellRide(ride, "chegou");
+    }
+    for (const rider of this.channel.riders()) {
+      if (rider.vehicle < HIRED_VEHICLE_BASE) continue;
+      const ride = this.corridas.byVehicle(rider.vehicle);
+      const at = this.channel.placeOf(rider.id);
+      if (ride?.fase === "leva") {
+        const pose = poseOf(ride, now);
+        this.channel.carry(rider.id, { x: Math.round(pose.x), y: at?.y ?? 0, z: Math.round(pose.z), yaw: Math.round(((pose.heading * 18_000) / Math.PI + 36_000) % 36_000) });
+      } else if (at) this.channel.alight(rider.id, at);
+    }
+    if (changes.changed) this.tellCorridas();
   }
 
   /**
@@ -935,10 +1065,12 @@ export class ChannelRoom {
         for (const line of this.held.keys()) line.send(bytes);
       }
     }
+    this.stepCorridas();
     // Whoever rides a van is carried with it: where the zone's traffic has the van, they are. A van gone from the
     // road (its day is over) puts its riders down where it was.
     if (this.traffic) {
       for (const rider of this.channel.riders()) {
+        if (rider.vehicle >= HIRED_VEHICLE_BASE) continue;
         const key = this.traffic.keys[rider.vehicle];
         const van = this.traffic.poses.find((pose) => pose.key === key);
         const at = this.channel.placeOf(rider.id);

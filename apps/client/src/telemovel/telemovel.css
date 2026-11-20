@@ -83,3 +83,8 @@
 .tm-bank-in { color: var(--n-mar); }
 .tm-bank-out { color: var(--n-vermelho-fundo); }
 
+/* Going to a chosen place by a ride (Task 6.2): the three ways, each with its fare. */
+.tm-ir { display: flex; flex-direction: column; align-items: stretch; gap: var(--s-2); align-self: stretch; }
+.tm-ir small { font: var(--type-small); color: var(--n-luz-suave); }
+.tm-ir .n-button { margin: 0; }
+.tm-ir p { margin: 0; font: var(--type-small); color: var(--n-dourado); }

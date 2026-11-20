@@ -22,10 +22,16 @@ export interface Marked {
   readonly name: string;
 }
 
+/** A ride asked for to a place (Task 6.2): what went wrong, or null when it is coming. */
+export interface Ir {
+  (kind: "mota" | "kupapata" | "taxi", to: { x: number; z: number }): Promise<string | null>;
+}
+
 interface AppProps {
   world: WorldProvider;
   marked: Marked | null;
   onMark: (place: Marked | null) => void;
+  ir?: Ir;
   /** A kamba's conversation to open Mensagens on, by BI number (from their sheet's "Escrever"). */
   abrir?: string | null;
 }
@@ -67,7 +73,7 @@ function App({ id, ...props }: AppProps & { id: AppId }) {
 }
 
 /** The Telemóvel over the world. `onMark` gives the compass a place to point to, or takes it away. */
-export function Telemovel({ world, open, first, marked, onMark, onClose, abrir = null }: { world: WorldProvider; open: boolean; first?: string | null; marked: Marked | null; onMark: (place: Marked | null) => void; onClose: () => void; abrir?: string | null }) {
+export function Telemovel({ world, open, first, marked, onMark, onClose, abrir = null, ir }: { world: WorldProvider; open: boolean; first?: string | null; marked: Marked | null; onMark: (place: Marked | null) => void; onClose: () => void; abrir?: string | null; ir?: Ir }) {
   const [app, setApp] = useState<AppId | null>(APP_GLYPHS.find((id) => id === first) ?? null);
   useEffect(() => {
     // Shut, it forgets where it was; opened by something that asks for an app (the caixa asks for the Banco), it opens there.
@@ -77,7 +83,7 @@ export function Telemovel({ world, open, first, marked, onMark, onClose, abrir =
   return (
     <PhoneSheet open={open} apps={APPS} app={app} onOpen={setApp} onBack={() => setApp(null)} onClose={onClose}>
       {app && BUILT[app] ? (
-        <App id={app} world={world} marked={marked} onMark={onMark} abrir={abrir} />
+        <App id={app} world={world} marked={marked} onMark={onMark} abrir={abrir} {...(ir ? { ir } : {})} />
       ) : app ? (
         <EmptyState glyph={app} title={tr.t("state.soon")}>
           {tr.t(`app.${app}.soon`)}

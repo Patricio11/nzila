@@ -35,6 +35,10 @@ export const MSG = {
   BANCO: 19,
   /** Client to zone: begin a biscato here, what the thumb has done in it, or that it is over (Task 4.5). */
   BISCATO: 20,
+  /** Client to zone: a ride asked for and paid (by its id), getting on it, getting off it (Task 6.2). */
+  CORRIDA: 21,
+  /** Zone to client: every ride asked for in the channel, where it is going and from when (Task 6.2). */
+  CORRIDAS: 22,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -243,6 +247,10 @@ export const EVENT = {
   BISCATO_FIM: 16,
   /** A biscato not begun: text is why ("longe", "cansado", "ocupado"). */
   BISCATO_RECUSADO: 17,
+  /** This player's ride (Task 6.2): args are its vehicle number and where it is in its corrida (CORRIDA_FASES); text its kind. */
+  CORRIDA: 18,
+  /** A ride not given: text is why ("sem_estrada", "ocupado", "nao_paga"); the API gives the fare back on the zone's note. */
+  CORRIDA_RECUSADA: 19,
 } as const;
 
 /**
@@ -528,6 +536,28 @@ function readBiscato(r: Reader): BiscatoPedido {
   return { op: "mais", inputs };
 }
 
+// ---------------------------------------------------------------- Corrida (Task 6.2)
+
+/** A ride's vehicle number: past every vehicle of a district's traffic (TRAFFIC_VEHICLES_AT_MOST), so the two never meet. */
+export const HIRED_VEHICLE_BASE = 4096;
+/** A ride's id, as the API makes it. */
+const CORRIDA_ID = /^[A-Za-z0-9_-]{8,40}$/;
+
+/** Client to zone: the ride paid for (its id), getting on it where it waits, or getting off it now. Written in corridas.ts. */
+export type CorridaPedido = { readonly op: "pedir"; readonly id: string } | { readonly op: "subir" } | { readonly op: "descer" };
+
+function readCorrida(r: Reader): CorridaPedido {
+  const op = r.u8();
+  if (op === 1) {
+    const id = r.text(40);
+    if (!CORRIDA_ID.test(id)) throw new ProtocolError("malformed", "corrida");
+    return { op: "pedir", id };
+  }
+  if (op === 2) return { op: "subir" };
+  if (op === 3) return { op: "descer" };
+  throw new ProtocolError("malformed", "corrida");
+}
+
 // ---------------------------------------------------------------- Mesa
 
 /** What a player asks of a table. Numbers are never reused. */
@@ -688,7 +718,8 @@ export type ClientMessage =
   | ({ readonly type: "mesa" } & MesaPedido)
   | ({ readonly type: "comer" } & Comer)
   | ({ readonly type: "banco" } & Banco)
-  | ({ readonly type: "biscato" } & { readonly pedido: BiscatoPedido });
+  | ({ readonly type: "biscato" } & { readonly pedido: BiscatoPedido })
+  | ({ readonly type: "corrida" } & { readonly pedido: CorridaPedido });
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -709,6 +740,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.COMER) return { type: "comer", ...readComer(r) };
   if (type === MSG.BANCO) return { type: "banco", ...readBanco(r) };
   if (type === MSG.BISCATO) return { type: "biscato", pedido: readBiscato(r) };
+  if (type === MSG.CORRIDA) return { type: "corrida", pedido: readCorrida(r) };
   throw new ProtocolError("unknown_type", String(type));
 }
 
@@ -722,6 +754,8 @@ export type ZoneMessage =
   | ({ readonly type: "handoff" } & Handoff)
   | ({ readonly type: "who" } & Who)
   | ({ readonly type: "traffic" } & TrafficSaid)
+  /** The channel's rides: read with decodeCorridas (corridas.ts), by the code that draws them, fetched when there is one. */
+  | { readonly type: "corridas"; readonly bytes: Uint8Array }
   /** A table game: read with decodeMesa (mesa.ts), by the code that draws tables, fetched when there is one to draw. */
   | { readonly type: "mesa"; readonly bytes: Uint8Array }
   | { readonly type: "snapshot" }
@@ -745,6 +779,7 @@ export function decodeZoneMessage(bytes: Uint8Array): ZoneMessage {
   if (type === MSG.HANDOFF) return { type: "handoff", ...readHandoff(r) };
   if (type === MSG.WHO) return { type: "who", ...readWho(r) };
   if (type === MSG.TRAFFIC) return { type: "traffic", ...readTraffic(r) };
+  if (type === MSG.CORRIDAS) return { type: "corridas", bytes };
   if (type === MSG.MESA) return { type: "mesa", bytes };
   return { type: "unknown", code: type };
 }

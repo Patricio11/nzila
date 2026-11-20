@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Versioned binary message schemas shared by client and zone.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./corridas": "./src/corridas.ts",
+    "./mesa": "./src/mesa.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

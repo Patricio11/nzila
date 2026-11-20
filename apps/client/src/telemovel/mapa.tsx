@@ -1,13 +1,14 @@
 // The Mapa: the district, its paragens, its places, the lines, the vans, the people near, and you.
 // Fetched when it is first opened, not before (the megabytes rule: finding F-188).
 
+import { askAsPlayer } from "../world/account.ts";
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { Button, EmptyState } from "@nzila/ui";
 import { WORLD } from "@nzila/world/client";
 import { type ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { type DistrictMap, type MapLine, type WorldProvider } from "../world/provider.ts";
-import { type Marked } from "./telemovel.tsx";
+import { type Ir, type Marked } from "./telemovel.tsx";
 import { ptAOLater } from "@nzila/i18n/later";
 
 // The words of this app came with it (F-195).
@@ -37,7 +38,16 @@ function Key({ word, children }: { word: string; children: ComponentChildren }) 
   );
 }
 
-export function Mapa({ world, marked, onMark }: { world: WorldProvider; marked: Marked | null; onMark: (place: Marked | null) => void }) {
+/** The rides a place can be gone to by, in the order the card shows them. */
+const RIDES = ["mota", "kupapata", "taxi"] as const;
+
+export function Mapa({ world, marked, onMark, ir }: { world: WorldProvider; marked: Marked | null; onMark: (place: Marked | null) => void; ir?: Ir }) {
+  // What each ride costs now, asked once; and what came of asking for one.
+  const [fares, setFares] = useState<Record<(typeof RIDES)[number], number> | null>(null);
+  const [asked, setAsked] = useState<{ busy: boolean; said: string | null }>({ busy: false, said: null });
+  useEffect(() => {
+    if (ir) void askAsPlayer<Record<(typeof RIDES)[number], number>>("GET", "/v1/corridas/precos").then(({ answer }) => setFares(answer));
+  }, []);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [drawn, setDrawn] = useState<{ map: DistrictMap | null; lines: MapLine[] } | null>(null);
   const [chosen, setChosen] = useState<Place | null>(null);
@@ -209,6 +219,24 @@ export function Mapa({ world, marked, onMark }: { world: WorldProvider; marked: 
           <Button kind={isMarked ? "quiet" : "solid"} onPress={() => onMark(isMarked ? null : { x: chosen.x, z: chosen.z, name: chosen.name })}>
             {tr.t(isMarked ? "map.unmark" : "map.mark")}
           </Button>
+          {ir && fares ? (
+            <div class="tm-ir">
+              <small>{tr.t("map.ir")}</small>
+              {RIDES.map((kind) => (
+                <Button
+                  kind="quiet"
+                  busy={asked.busy}
+                  onPress={() => {
+                    setAsked({ busy: true, said: null });
+                    void ir(kind, { x: chosen.x, z: chosen.z }).then((why) => setAsked({ busy: false, said: why === null ? "map.ir.pedido" : why === "insufficient" ? "map.ir.semDinheiro" : "map.ir.falhou" }));
+                  }}
+                >
+                  {`${tr.t(`map.ir.${kind}` as "map.ir.mota")} · ${tr.makuta(fares[kind])}`}
+                </Button>
+              ))}
+              {asked.said ? <p role="status">{tr.t(asked.said as "map.ir.pedido")}</p> : null}
+            </div>
+          ) : null}
         </div>
       ) : (
         <p class="tm-hint">{tr.t("map.hint")}</p>

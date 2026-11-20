@@ -7,7 +7,8 @@
 // player asks of a table goes from here.
 
 import { type Partida, newDamas, newLudo, newXadrez } from "@nzila/games";
-import { decodeMesa, encodeMesaPedido, EVENT, MESA_RECUSAS, type MesaDita, type MesaPedido } from "@nzila/protocol";
+import { encodeMesaPedido, EVENT, MESA_RECUSAS, type MesaPedido } from "@nzila/protocol";
+import { decodeMesa, type MesaDita } from "@nzila/protocol/mesa";
 import { tableObstacles, type Manifest } from "@nzila/world/client";
 import { BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Quaternion, SRGBColorSpace, Vector3 } from "three";
 import type { Session } from "../net/session.ts";

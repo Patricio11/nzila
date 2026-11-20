@@ -102,6 +102,9 @@ export class Session {
   convites: WorldEvent[] = [];
   /** What the zone says of a biscato (begun, scored, refused), until the biscato's screen has read it (Task 4.5). */
   biscatos: WorldEvent[] = [];
+  /** The channel's rides as the zone last said them, and what it says of one's own (Task 6.2): for the ride module. */
+  corridas: Uint8Array | null = null;
+  pedidos: WorldEvent[] = [];
   /** Fome and Energia as the zone last said them (Task 4.4), and who is waiting to hear what came of eating something. */
   needs: { fome: number; energia: number; tired: boolean } | null = null;
   /** A stay at the hospital the zone has just taken the player to, until it has been shown (its bill asked of the API). */
@@ -199,6 +202,7 @@ export class Session {
         if (this.offsets.length > 20) this.offsets.shift();
       },
       mesa: (bytes) => attempt === this.attempt && this.mesas.length < 64 && this.mesas.push(bytes),
+      corridas: (bytes) => void (attempt === this.attempt && (this.corridas = bytes)),
       who: (who) => {
         if (attempt !== this.attempt) return;
         this.players.know(who);
@@ -325,6 +329,7 @@ export class Session {
     else if (event.kind === EVENT.MESA_REFUSED) this.mesaRefused = event.args[0] ?? 0;
     else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA || event.kind === EVENT.PONTOS) this.convites.push(event);
     else if (event.kind >= EVENT.BISCATO && event.kind <= EVENT.BISCATO_RECUSADO) this.biscatos.push(event);
+    else if (event.kind === EVENT.CORRIDA || event.kind === EVENT.CORRIDA_RECUSADA) this.pedidos.push(event);
     else if (event.kind === EVENT.NECESSIDADES) {
       this.needs = { fome: event.args[0] ?? 0, energia: event.args[1] ?? 0, tired: event.args[2] === 1 };
       if (event.text) this.onAte?.(event.text, null);
@@ -390,7 +395,7 @@ export class Session {
   rideRefused = false;
 
   /** How other players who ride are seated: where their van is drawn, and where its seats are. */
-  seatOthers(vanAt: (vehicle: number) => Object3D | null, seatAt: (seat: number) => readonly [number, number, number] | null): void {
+  seatOthers(vanAt: (vehicle: number) => Object3D | null, seatAt: (seat: number, vehicle: number) => readonly [number, number, number] | null): void {
     this.players.vanAt = vanAt;
     this.players.seatAt = seatAt;
   }
