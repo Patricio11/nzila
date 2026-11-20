@@ -19,6 +19,7 @@
 // zone that players reach must have it off: a session should never leave the
 // API's own address.
 
+import { type Tunables } from "@nzila/economy";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { playerOfSession } from "@nzila/db";
@@ -57,6 +58,8 @@ export interface ZoneOptions {
   readonly sessions?: boolean;
   /** How many people a channel holds (the tunable `channels.cap`). */
   readonly holds?: number;
+  /** The game's numbers in play (Task 4.6): the newest version, kept fresh by the caller; the file's when not given. */
+  readonly tunables?: () => Tunables;
   /** How long a dropped line's place is kept, and how often lines are asked whether they are there: the defaults unless a test brings shorter ones. */
   readonly holdMs?: number;
   /** How long a quick game at a table lasts (three minutes; the browser tests' zone shortens it). */
@@ -90,7 +93,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
   const running = new Map<string, Running>();
   for (const { district, remember } of options.districts) {
     running.set(roomNameOf(district.id), {
-      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.holdMs ? { holdMs: options.holdMs } : {}), ...(options.rapidaMs ? { rapidaMs: options.rapidaMs } : {}), ...(options.filter ? { filter: options.filter } : {}), ...(options.log ? { log: options.log } : {}) },
+      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.tunables ? { tunables: options.tunables } : {}), ...(options.holdMs ? { holdMs: options.holdMs } : {}), ...(options.rapidaMs ? { rapidaMs: options.rapidaMs } : {}), ...(options.filter ? { filter: options.filter } : {}), ...(options.log ? { log: options.log } : {}) },
       channels: [],
     });
   }

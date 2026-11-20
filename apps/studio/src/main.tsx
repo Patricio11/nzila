@@ -11,7 +11,7 @@ import { render, type ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { ask, token, type Entry, type Me, type Player, type Report, type Zone } from "./api.ts";
 import "./studio.css";
-import { DEEDS, ERRORS, KINDS, REASONS, ROLES, ago, roomName, when } from "./words.ts";
+import { DEEDS, ERRORS, FLOWS, KINDS, REASONS, ROLES, SECTIONS, TUNABLES, ago, roomName, when } from "./words.ts";
 
 const say = (error: string | null): string => ERRORS[error ?? "failed"] ?? ERRORS.failed!;
 const can = (me: Me, ...roles: string[]): boolean => me.roles.includes("platform_admin") || roles.some((role) => me.roles.includes(role));
@@ -25,7 +25,7 @@ interface Ledger {
   overdrawn: number;
 }
 
-type Tab = "moderacao" | "jogadores" | "canais" | "registo";
+type Tab = "moderacao" | "jogadores" | "canais" | "economia" | "afinar" | "registo";
 
 /** How long a mute or a suspension lasts: what a moderator picks from. */
 const SPANS = {
@@ -504,11 +504,242 @@ function Registo() {
   );
 }
 
+// ------------------------------------------------------------ Economia (Task 4.6)
+interface Economy {
+  days: { day: string; faucets: Record<string, number>; sinks: Record<string, number> }[];
+  supply: { cash: number; bank: number; players: number };
+  medianWealth: number;
+  topGainers: { biNumber: string | null; name: string | null; gained: number }[];
+}
+
+/** A number as the game writes it: 10.000, 1.000.000. */
+const num = (n: number): string => `${n < 0 ? "−" : ""}${String(Math.abs(n)).replace(/\B(?=(\d{3})+$)/g, ".")}`;
+const mk = (n: number): string => `${num(n)} Mk`;
+const sum = (values: Record<string, number>): number => Object.values(values).reduce((a, b) => a + b, 0);
+
+function Economia({ onOpen }: { onOpen: ((bi: string) => void) | null }) {
+  const [data, setData] = useState<Economy | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    void ask<Economy>("GET", "/v1/staff/economy").then((answer) => (answer.data ? setData(answer.data) : setError(say(answer.error))));
+  }, []);
+  if (error) return <Banner state="stopped">{error}</Banner>;
+  if (!data) return <p class="es-soft">A somar o dinheiro do jogo…</p>;
+  const most = Math.max(1, ...data.days.map((day) => Math.max(sum(day.faucets), sum(day.sinks))));
+  const today = data.days.at(-1);
+  return (
+    <section class="es-eco">
+      <div class="es-cards">
+        <div class="es-card">
+          <small>Dinheiro dos jogadores</small>
+          <strong>{mk(data.supply.cash + data.supply.bank)}</strong>
+          <span>{`${mk(data.supply.cash)} na Carteira, ${mk(data.supply.bank)} no Banco, de ${data.supply.players === 1 ? "um jogador" : `${num(data.supply.players)} jogadores`}`}</span>
+        </div>
+        <div class="es-card">
+          <small>O que tem o jogador do meio</small>
+          <strong>{mk(data.medianWealth)}</strong>
+          <span>A mediana: metade tem menos, metade tem mais.</span>
+        </div>
+      </div>
+      <h3>Entrou e saiu, dia a dia</h3>
+      <p class="es-soft">O que as torneiras puseram no jogo (dourado) e o que os sumidouros tiraram (vermelho), nos últimos 14 dias, pelo dia de Luanda.</p>
+      {data.days.length === 0 ? <p class="es-soft">Ainda não entrou nem saiu dinheiro nestes 14 dias.</p> : null}
+      <ul class="es-days">
+        {data.days.map((day) => (
+          <li>
+            <span class="es-day">{day.day.slice(5).split("-").reverse().join("/")}</span>
+            <span class="es-bars">
+              <i class="es-in" style={{ width: `${(sum(day.faucets) / most) * 100}%` }} />
+              <i class="es-out" style={{ width: `${(sum(day.sinks) / most) * 100}%` }} />
+            </span>
+            <span class="es-num">{`+${mk(sum(day.faucets))} −${mk(sum(day.sinks))}`}</span>
+          </li>
+        ))}
+      </ul>
+      {today ? (
+        <div class="es-flows">
+          {[
+            { title: "Entrou hoje, por torneira", values: today.faucets },
+            { title: "Saiu hoje, por sumidouro", values: today.sinks },
+          ].map((side) => (
+            <table>
+              <caption>{side.title}</caption>
+              <tbody>
+                {Object.entries(side.values)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([name, total]) => (
+                    <tr>
+                      <td>{FLOWS[name] ?? name}</td>
+                      <td class="es-num">{mk(total)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          ))}
+        </div>
+      ) : null}
+      <h3>Quem ganhou mais nas últimas 24 horas</h3>
+      <p class="es-soft">O primeiro sinal de uma coisa que paga o que não devia. Mexer no próprio Banco não conta como ganho.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>BI</th>
+            <th>Nome</th>
+            <th class="es-num">Ganhou</th>
+            {onOpen ? <th /> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {data.topGainers.map((one) => (
+            <tr>
+              <td class="es-bi">{one.biNumber ?? ""}</td>
+              <td>{one.name ?? ""}</td>
+              <td class="es-num">{mk(one.gained)}</td>
+              {onOpen ? <td>{one.biNumber ? <Button kind="quiet" onPress={() => onOpen(one.biNumber!)}>Ver</Button> : null}</td> : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+// ------------------------------------------------------------ Afinar (Task 4.6, D-4.24)
+interface TunablesPage {
+  current: { version: number; tunables: Record<string, number | Record<string, number>> };
+  playing: number;
+  spec: { path: string; min: number; max: number }[];
+  history: { version: number; at: string; by: string | null; reason: string }[];
+}
+
+const valueAt = (values: Record<string, number | Record<string, number>>, path: string): number | undefined => {
+  const [section, key] = path.split(".");
+  const node = values[section!];
+  return typeof node === "object" ? node[key!] : undefined;
+};
+
+function Afinar() {
+  const [page, setPage] = useState<TunablesPage | null>(null);
+  const [draft, setDraft] = useState<Record<string, number | Record<string, number>> | null>(null);
+  const [preview, setPreview] = useState<{ changes: { path: string; from: number; to: number }[]; errors: string[] } | null>(null);
+  const [reason, setReason] = useState("");
+  const [said, setSaid] = useState<{ done: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = async (): Promise<void> => {
+    const answer = await ask<TunablesPage>("GET", "/v1/staff/tunables");
+    if (!answer.data) return setSaid({ done: false, text: say(answer.error) });
+    setPage(answer.data);
+    setDraft(JSON.parse(JSON.stringify(answer.data.current.tunables)) as Record<string, Record<string, number>>);
+    setPreview(null);
+  };
+  useEffect(() => void load(), []);
+  if (!page || !draft) return said ? <Banner state="stopped">{said.text}</Banner> : <p class="es-soft">A ler os números do jogo…</p>;
+  const set = (path: string, value: number): void => {
+    const [section, key] = path.split(".");
+    setDraft({ ...draft, [section!]: { ...(draft[section!] as Record<string, number>), [key!]: value } });
+    setPreview(null);
+  };
+  const look = async (): Promise<void> => {
+    setBusy(true);
+    const answer = await ask<{ changes: { path: string; from: number; to: number }[]; errors: string[] }>("POST", "/v1/staff/tunables/preview", { tunables: draft });
+    setBusy(false);
+    if (answer.data) setPreview(answer.data);
+    else setSaid({ done: false, text: say(answer.error) });
+  };
+  const keep = async (): Promise<void> => {
+    setBusy(true);
+    const answer = await ask<{ version: number }>("POST", "/v1/staff/tunables", { tunables: draft, reason });
+    setBusy(false);
+    if (!answer.data) return setSaid({ done: false, text: say(answer.error) });
+    setSaid({ done: true, text: `Guardado como versão ${answer.data.version}. Entra em jogo em todas as zonas em menos de meio minuto.` });
+    setReason("");
+    await load();
+  };
+  const sections = [...new Set(page.spec.filter((one) => one.path !== "version").map((one) => one.path.split(".")[0]!))];
+  return (
+    <section class="es-afinar">
+      <p class="es-soft">
+        {`Em jogo: versão ${page.playing}. A mais recente guardada: versão ${page.current.version}. Cada mudança é uma versão nova, inteira, com quem a fez e porquê; nenhuma se apaga.`}
+      </p>
+      {said ? <Banner state={said.done ? "done" : "stopped"}>{said.text}</Banner> : null}
+      {sections.map((section) => (
+        <fieldset class="es-numbers">
+          <legend>{SECTIONS[section] ?? section}</legend>
+          {page.spec
+            .filter((one) => one.path.startsWith(`${section}.`))
+            .map((one) => {
+              const now = valueAt(page.current.tunables, one.path);
+              const mine = valueAt(draft, one.path);
+              return (
+                <label class={`es-number${mine !== now ? " es-number-changed" : ""}`}>
+                  <span>{TUNABLES[one.path] ?? one.path}</span>
+                  <input type="number" min={one.min} max={one.max} step={1} value={mine ?? ""} onInput={(event) => set(one.path, Math.round(Number((event.target as HTMLInputElement).value)))} />
+                  <small>{`${num(one.min)} a ${num(one.max)}`}</small>
+                </label>
+              );
+            })}
+        </fieldset>
+      ))}
+      <div class="es-keep">
+        <Button kind="quiet" busy={busy} onPress={() => void look()}>
+          Ver o que muda
+        </Button>
+        {preview ? (
+          <div class="es-preview">
+            {preview.errors.length > 0 ? (
+              <Banner state="stopped">{`Não pode ser: ${preview.errors.join("; ")}`}</Banner>
+            ) : preview.changes.length === 0 ? (
+              <p class="es-soft">Nenhum número mudou.</p>
+            ) : (
+              <>
+                <ul>
+                  {preview.changes.map((change) => (
+                    <li>{`${TUNABLES[change.path] ?? change.path}: de ${num(change.from)} para ${num(change.to)}`}</li>
+                  ))}
+                </ul>
+                <Field label="Porquê">
+                  <input value={reason} onInput={(event) => setReason((event.target as HTMLInputElement).value)} />
+                </Field>
+                <Button busy={busy} disabled={reason.trim().length < 4} onPress={() => void keep()}>
+                  {`Guardar como versão ${page.current.version + 1}`}
+                </Button>
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+      <h3>As versões</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Versão</th>
+            <th>Quando</th>
+            <th>Quem</th>
+            <th>Porquê</th>
+          </tr>
+        </thead>
+        <tbody>
+          {page.history.map((one) => (
+            <tr>
+              <td class="es-num">{one.version}</td>
+              <td>{when(one.at)}</td>
+              <td>{one.by ?? "O ficheiro do código"}</td>
+              <td>{one.reason}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 function Studio({ me, onOut }: { me: Me; onOut: () => void }) {
   const tabs: { id: Tab; label: string; on: boolean }[] = [
     { id: "moderacao", label: "Moderação", on: can(me, "moderador") },
     { id: "jogadores", label: "Jogadores", on: can(me, "support", "moderador") },
     { id: "canais", label: "Canais", on: can(me, "live_ops", "moderador", "support") },
+    { id: "economia", label: "Economia", on: can(me, "economy", "live_ops") },
+    { id: "afinar", label: "Afinar", on: can(me, "economy") },
     { id: "registo", label: "Registo", on: true },
   ];
   const [tab, setTab] = useState<Tab>(tabs.find((one) => one.on)!.id);
@@ -546,6 +777,9 @@ function Studio({ me, onOut }: { me: Me; onOut: () => void }) {
         {tab === "moderacao" ? <Moderacao onCount={setWaiting} onOpen={open} /> : null}
         {tab === "jogadores" ? <Jogadores me={me} first={asked} /> : null}
         {tab === "canais" ? <Canais onOpen={open} /> : null}
+        {/* A gainer is opened in Jogadores, by whoever may look players up: there, with a reason. */}
+        {tab === "economia" ? <Economia onOpen={can(me, "support", "moderador") ? open : null} /> : null}
+        {tab === "afinar" ? <Afinar /> : null}
         {tab === "registo" ? <Registo /> : null}
       </main>
     </div>

@@ -1,8 +1,8 @@
 // The API against a real PostgreSQL (`pnpm services` starts it). Each run
 // makes its own database and drops it afterwards.
 
-import { auditLedger, classificacaoDoJogador, connect, recordPartida, databaseUrl, decryptField, keepChatLines, putStaff, shutOutOf, standingAgainst, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
-import { BASE_ORIGINS, BASE_TUNABLES } from "@nzila/economy";
+import { auditLedger, classificacaoDoJogador, connect, liveTunables, recordPartida, databaseUrl, decryptField, keepChatLines, putStaff, shutOutOf, standingAgainst, loadMigrations, loadWorldSeed, migrate, normalizePhone, parseKeyring, parsePepper, seed } from "@nzila/db";
+import { BASE_ORIGINS, BASE_TUNABLES, type Tunables } from "@nzila/economy";
 import { ZONE_TTL_S, memoryPresence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
 import postgres, { type Sql } from "postgres";
@@ -1122,6 +1122,65 @@ describe("the bank: into the Banco and out of it, at a caixa (Task 4.1)", () => 
     await presence.mark(two.playerId, "caixa");
     expect((await bank(two.token, "withdraw", { amount: 100, key: "alheio-0001" })).json()).toEqual({ error: "insufficient" });
     expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+  });
+});
+
+describe("the Estúdio's Afinar and Economia (Task 4.6, D-4.24)", () => {
+  const staffPost = (token: string | null, url: string, payload: unknown = {}) => app.inject({ method: "POST", url, ...(token ? { headers: as(token) } : {}), payload: payload as Record<string, unknown> });
+  const staffGet = (token: string | null, url: string) => app.inject({ method: "GET", url, ...(token ? { headers: as(token) } : {}) });
+  const signIn = async (email: string, password: string): Promise<string> => ((await staffPost(null, "/v1/staff/login", { email, password })).json() as { token: string }).token;
+
+  test("the numbers: read with their ranges; a change previewed, refused when it breaks a rule, kept as the next version with who and why, and taken up live", async () => {
+    await putStaff(sql, { email: "economia@nzila.test", name: "Economista", passwordHash: await hashPassword("palavra-passe-eco"), roles: ["economy"] });
+    await putStaff(sql, { email: "so-mod@nzila.test", name: "Só Moderação", passwordHash: await hashPassword("palavra-passe-mod"), roles: ["moderador"] });
+    const eco = await signIn("economia@nzila.test", "palavra-passe-eco");
+    const mod = await signIn("so-mod@nzila.test", "palavra-passe-mod");
+    expect((await staffGet(mod, "/v1/staff/tunables")).statusCode).toBe(403);
+    const live = await liveTunables(sql, { everyMs: 3_600_000 });
+    const read = (await staffGet(eco, "/v1/staff/tunables")).json() as { current: { version: number; tunables: Tunables }; spec: { path: string; min: number; max: number }[]; history: { version: number; by: string | null; reason: string }[] };
+    expect(read.current.version).toBe(BASE_TUNABLES.version);
+    expect(read.spec).toContainEqual({ path: "needs.fomePerHour", min: 0, max: 100_000 });
+    expect(read.history[0]).toMatchObject({ version: BASE_TUNABLES.version, by: null });
+    // Hungrier sooner: what it changes, and nothing else.
+    const hungrier = { ...read.current.tunables, needs: { ...read.current.tunables.needs, fomePerHour: read.current.tunables.needs.fomePerHour + 500 } };
+    expect((await staffPost(eco, "/v1/staff/tunables/preview", { tunables: hungrier })).json()).toEqual({ changes: [{ path: "needs.fomePerHour", from: read.current.tunables.needs.fomePerHour, to: read.current.tunables.needs.fomePerHour + 500 }], errors: [] });
+    // A channel filled past what it holds breaks a rule: said, and not kept.
+    const broken = { ...read.current.tunables, channels: { ...read.current.tunables.channels, fillTo: read.current.tunables.channels.cap + 1 } };
+    expect(((await staffPost(eco, "/v1/staff/tunables/preview", { tunables: broken })).json() as { errors: string[] }).errors).toContainEqual(expect.stringContaining("channels.fillTo"));
+    const refused = await staffPost(eco, "/v1/staff/tunables", { tunables: broken, reason: "encher mais os canais" });
+    expect(refused.statusCode).toBe(400);
+    // Kept with a reason: the next version, in the record and in the log.
+    expect((await staffPost(eco, "/v1/staff/tunables", { tunables: hungrier })).statusCode).toBe(400);
+    const kept = await staffPost(eco, "/v1/staff/tunables", { tunables: hungrier, reason: "a fome vem mais depressa, para a cantina ter mais clientes" });
+    expect(kept.json()).toEqual({ version: BASE_TUNABLES.version + 1 });
+    expect((await staffPost(eco, "/v1/staff/tunables", { tunables: hungrier, reason: "outra vez o mesmo" })).json()).toEqual({ error: "nothing_changed" });
+    const after = (await staffGet(eco, "/v1/staff/tunables")).json() as typeof read;
+    expect(after.current.tunables.needs.fomePerHour).toBe(read.current.tunables.needs.fomePerHour + 500);
+    expect(after.history[0]).toMatchObject({ version: BASE_TUNABLES.version + 1, by: "Economista", reason: "a fome vem mais depressa, para a cantina ter mais clientes" });
+    expect(await sql`SELECT kind, subject_id FROM audit_log WHERE kind = 'tunables.set'`).toEqual([{ kind: "tunables.set", subject_id: String(BASE_TUNABLES.version + 1) }]);
+    // A server playing by the live numbers takes the new version up when it next looks.
+    expect(live.now().version).toBe(BASE_TUNABLES.version);
+    await live.refresh();
+    expect(live.now()).toMatchObject({ version: BASE_TUNABLES.version + 1, needs: { fomePerHour: read.current.tunables.needs.fomePerHour + 500 } });
+    live.stop();
+    // Back as it was, so that the rest of the tests play by the file's numbers.
+    await sql`DELETE FROM tunables_versions WHERE version > ${BASE_TUNABLES.version}`;
+  });
+
+  test("the economy at a glance: the faucets and sinks of the day, the money supply, the median, and who gained most (written down)", async () => {
+    const eco = await signIn("economia@nzila.test", "palavra-passe-eco");
+    const rich = await newGuest(830);
+    const [faucet] = await sql<{ id: string }[]>`SELECT id FROM ledger_accounts WHERE kind = 'system_faucet' LIMIT 1`;
+    await sql`INSERT INTO ledger_accounts (id, kind, ref) VALUES (${`player_cash:${rich.playerId}`}, 'player_cash', ${rich.playerId}) ON CONFLICT (id) DO NOTHING`;
+    await sql`INSERT INTO ledger_transfers (debit_account, credit_account, amount, reason, action_id) VALUES (${faucet!.id}, ${`player_cash:${rich.playerId}`}, 9_000_000, 'starting_grant', ${`economia-test-${rich.playerId}`})`;
+    const seen = (await staffGet(eco, "/v1/staff/economy")).json() as { days: { day: string; faucets: Record<string, number> }[]; supply: { cash: number; bank: number; players: number }; medianWealth: number; topGainers: { biNumber: string; gained: number }[] };
+    expect(seen.days.at(-1)!.faucets[faucet!.id.split(":")[1]!]).toBeGreaterThanOrEqual(9_000_000);
+    expect(seen.supply.cash).toBeGreaterThanOrEqual(9_000_000);
+    expect(seen.supply.players).toBeGreaterThanOrEqual(1);
+    expect(seen.medianWealth).toBeGreaterThan(0);
+    expect(seen.topGainers[0]).toEqual({ biNumber: rich.biNumber, name: rich.name, gained: 9_000_000 });
+    expect((await sql`SELECT count(*)::int AS n FROM audit_log WHERE kind = 'economy.read'`)[0]).toEqual({ n: 1 });
+    expect((await staffGet(await signIn("so-mod@nzila.test", "palavra-passe-mod"), "/v1/staff/economy")).statusCode).toBe(403);
   });
 });
 

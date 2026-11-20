@@ -17,3 +17,5 @@ export * from "./kambas.ts";
 export * from "./necessidades.ts";
 export * from "./hospital.ts";
 export * from "./biscatos.ts";
+export * from "./tunables.ts";
+export * from "./economia.ts";

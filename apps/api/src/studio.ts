@@ -8,7 +8,8 @@
 // opens nothing in the game.
 
 import { randomBytes } from "node:crypto";
-import { lastLedgerAudit } from "@nzila/db";
+import { economia, lastLedgerAudit, latestTunables, saveTunables, tunablesHistory } from "@nzila/db";
+import { BASE_TUNABLES, fillTunables, tunablesChanges, tunablesSpec, validateTunables, type Tunables } from "@nzila/economy";
 import { audit, closeReport, closeStaffSession, lastAudit, liftSanction, namesOf, openReports, openStaffSession, playerForStaff, sanction, staffToSignIn } from "@nzila/db";
 import { type Presence } from "@nzila/presence";
 import { type FastifyInstance } from "fastify";
@@ -26,7 +27,10 @@ const playerKey = z.string().trim().min(2).max(40);
 /** A hash nobody's password matches: a guess at an address with no account costs the same time as one at a real account. */
 let nobody: Promise<string> | null = null;
 
-export function studioRoutes(app: FastifyInstance, gate: Gate, deps: { sql: Sql; presence: Presence }): void {
+/** A set of tunables as the Estúdio sends it: sections of whole numbers, and the version. */
+const tunablesShape = z.record(z.string().max(40), z.union([z.number().int(), z.record(z.string().max(40), z.number().int())]));
+
+export function studioRoutes(app: FastifyInstance, gate: Gate, deps: { sql: Sql; presence: Presence; tunables: { now(): Tunables } }): void {
   const { sql, presence } = deps;
 
   /** The player a key belongs to, as staff see them; the read is written down with its reason first. */
@@ -194,6 +198,66 @@ export function studioRoutes(app: FastifyInstance, gate: Gate, deps: { sql: Sql;
     handler: async (body, caller) => {
       if (!(await liftSanction(sql, body.id, caller.staff.id, body.reason))) throw new Refusal(404, "not_found");
       return { ok: true };
+    },
+  });
+
+  // ------------------------------------------------------------ Economia (Task 4.6)
+  // The money at a glance. It names the players who gained most in the day by their BI: the reading is written down.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/staff/economy",
+    guard: "staff",
+    roles: ["economy", "live_ops"],
+    body: nothing,
+    perMinute: 30,
+    handler: async (_body, caller) => {
+      await audit.log(sql, { actorKind: "staff", actorId: caller.staff.id, kind: "economy.read", subjectKind: "economy", subjectId: "all", reason: "o painel da Economia" });
+      return await economia(sql);
+    },
+  });
+
+  // ------------------------------------------------------------ Afinar (Task 4.6, D-4.24)
+  // The numbers in play, every tunable with its range, and the record of versions.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/staff/tunables",
+    guard: "staff",
+    roles: ["economy"],
+    body: nothing,
+    perMinute: 60,
+    handler: async () => ({ current: await latestTunables(sql), playing: deps.tunables.now().version, spec: tunablesSpec(), history: await tunablesHistory(sql) }),
+  });
+
+  // What a change would change, and what the rules refuse of it: nothing is kept.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/staff/tunables/preview",
+    guard: "staff",
+    roles: ["economy"],
+    body: z.strictObject({ tunables: tunablesShape }),
+    perMinute: 120,
+    handler: async (body) => {
+      const current = (await latestTunables(sql)).tunables;
+      const asked = fillTunables(body.tunables, BASE_TUNABLES);
+      const checked = validateTunables({ ...(asked as object), version: current.version + 1 });
+      return { changes: tunablesChanges(current, asked), errors: checked.ok ? [] : checked.errors };
+    },
+  });
+
+  // A change kept: the next version, whole, with who and why; in play everywhere within half a minute.
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/staff/tunables",
+    guard: "staff",
+    roles: ["economy"],
+    body: z.strictObject({ tunables: tunablesShape, reason: reasonShape }),
+    perMinute: 20,
+    handler: async (body, caller) => {
+      const current = (await latestTunables(sql)).tunables;
+      if (tunablesChanges(current, fillTunables(body.tunables, BASE_TUNABLES)).length === 0) throw new Refusal(409, "nothing_changed");
+      const saved = await saveTunables(sql, { tunables: body.tunables, staffId: caller.staff.id, reason: body.reason });
+      if (!saved.ok) throw new Refusal(400, "invalid", { errors: saved.errors });
+      return { version: saved.version };
     },
   });
 

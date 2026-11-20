@@ -6,7 +6,7 @@
 //
 // It needs PostgreSQL (`pnpm services`), like the integration tests.
 
-import { connect, databaseUrl, loadMigrations, loadWorldSeed, migrate, parseKeyring, putStaff, seed } from "@nzila/db";
+import { connect, databaseUrl, liveTunables, loadMigrations, loadWorldSeed, migrate, parseKeyring, putStaff, seed } from "@nzila/db";
 import { redisPresence, redisUrl } from "@nzila/presence";
 import postgres from "postgres";
 import { buildApp } from "./app.ts";
@@ -29,12 +29,15 @@ await seed(sql, await loadWorldSeed());
 const keyring = parseKeyring(`1:${Buffer.alloc(32, 6).toString("base64")}`);
 // The zone of the tests (apps/zone/src/e2e-server.ts) says where it is under the same keys, and nobody else's.
 const presence = await redisPresence(redisUrl(), "nzila-e2e");
+// The game's numbers, live: looked for every second here, so that the Estúdio's test sees a change come into play (Task 4.6).
+const tunables = await liveTunables(sql, { everyMs: 1000 });
 // In the tests an account may hand Makuta over on its first day: nobody waits three days for a test.
-const app = buildApp({ transfers: { noSendDays: 0, newAccountDays: 7, newAccountDailyCap: 50_000, dailyCap: 500_000 }, guests: true, presence, sql, pepper: new Uint8Array(32).fill(5), keyring, limiter: { allow: () => true }, sender: { send: async () => {} }, mailer: { send: async () => {} }, phoneCodes: true, newCode: () => "246810" });
+const app = buildApp({ tunables, transfers: { noSendDays: 0, newAccountDays: 7, newAccountDailyCap: 50_000, dailyCap: 500_000 }, guests: true, presence, sql, pepper: new Uint8Array(32).fill(5), keyring, limiter: { allow: () => true }, sender: { send: async () => {} }, mailer: { send: async () => {} }, phoneCodes: true, newCode: () => "246810" });
 // The staff of the tests (tests/e2e/studio.spec.ts): a moderator and someone from support, in a database that lives one run.
 const staffPassword = await hashPassword("palavra-passe-dos-testes");
 await putStaff(sql, { email: "moderacao@nzila.test", name: "Moderadora dos Testes", passwordHash: staffPassword, roles: ["moderador"] });
 await putStaff(sql, { email: "apoio@nzila.test", name: "Apoio dos Testes", passwordHash: staffPassword, roles: ["support"] });
+await putStaff(sql, { email: "economia@nzila.test", name: "Economia dos Testes", passwordHash: staffPassword, roles: ["economy"] });
 const port = Number(process.env.API_PORT ?? 4010);
 await app.listen({ port, host: "127.0.0.1" });
 console.log(`api for the browser tests: listening on ${port}`);

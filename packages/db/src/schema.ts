@@ -222,6 +222,15 @@ export const receipts = pgTable("receipts", {
   key: text("key").notNull(),
 });
 
+/** The game's numbers, version after version (0015, Task 4.6): the file first, then each change made in the Estúdio. */
+export const tunablesVersions = pgTable("tunables_versions", {
+  version: integer("version").primaryKey(),
+  tunables: jsonb("tunables").notNull(),
+  at: at("at").notNull().defaultNow(),
+  staffId: uuid("staff_id"),
+  reason: text("reason").notNull(),
+});
+
 export const recadosFeitos = pgTable("recados_feitos", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   playerId: uuid("player_id").notNull(),
@@ -405,6 +414,7 @@ export const tables = {
   items,
   receipts,
   recadosFeitos,
+  tunablesVersions,
   cartoesCheios,
   partidas,
   partidaLugares,

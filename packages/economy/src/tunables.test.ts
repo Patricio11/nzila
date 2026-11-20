@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import base from "../tunables/base.json" with { type: "json" };
 import { BASE_TUNABLES } from "./base.ts";
-import { parseTunables, validateTunables } from "./tunables.ts";
+import { fillTunables, parseTunables, tunableAt, tunablesChanges, tunablesSpec, validateTunables } from "./tunables.ts";
 
 const copy = (): Record<string, Record<string, unknown>> => JSON.parse(JSON.stringify(base));
 const errorsOf = (input: unknown): string[] => {
@@ -88,5 +88,37 @@ describe("the validator", () => {
     t.player!.startingFloor = -1;
     t.fares!.candongueiroLocal = -1;
     expect(() => parseTunables(t)).toThrow(/player\.startingFloor[\s\S]*fares\.candongueiroLocal/);
+  });
+});
+
+describe("the Estúdio's view of them (Task 4.6)", () => {
+  test("every tunable is listed by its path, with its range", () => {
+    const spec = tunablesSpec();
+    expect(spec).toContainEqual({ path: "needs.fomePerHour", min: 0, max: 100_000 });
+    expect(spec).toContainEqual({ path: "version", min: 1, max: 1_000_000 });
+    expect(spec.every((one) => tunableAt(BASE_TUNABLES, one.path) !== undefined)).toBe(true);
+    expect(tunableAt(BASE_TUNABLES, "needs.nothing")).toBeUndefined();
+    expect(tunableAt(null, "needs.fomePerHour")).toBeUndefined();
+  });
+
+  test("a version recorded before the code gained a tunable is read with the file's number for it, and loses what the code dropped", () => {
+    const old = copy();
+    delete old.needs!.hospitalBill;
+    old.needs!.gone = 5;
+    old.needs!.fomePerHour = 1234;
+    const filled = fillTunables(old, BASE_TUNABLES);
+    expect(validateTunables(filled).ok).toBe(true);
+    expect(tunableAt(filled, "needs.hospitalBill")).toBe(BASE_TUNABLES.needs.hospitalBill);
+    expect(tunableAt(filled, "needs.fomePerHour")).toBe(1234);
+    expect(tunableAt(filled, "needs.gone")).toBeUndefined();
+    expect(validateTunables(fillTunables(null, BASE_TUNABLES))).toEqual({ ok: true, tunables: BASE_TUNABLES });
+  });
+
+  test("what a change changes, path by path, the version aside", () => {
+    const after = copy();
+    after.needs!.fomePerHour = 9;
+    after.version = 99 as never;
+    expect(tunablesChanges(BASE_TUNABLES, after)).toEqual([{ path: "needs.fomePerHour", from: BASE_TUNABLES.needs.fomePerHour, to: 9 }]);
+    expect(tunablesChanges(BASE_TUNABLES, BASE_TUNABLES)).toEqual([]);
   });
 });

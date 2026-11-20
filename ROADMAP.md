@@ -411,9 +411,9 @@ flowchart LR
 - Depends on: 4.1, 4.4 · Unblocks: 4.7, 6.6, 9.2.
 
 ### Task 4.6: Tunables and the economy dashboard
-- [ ] The tunables file loaded by zone, API and worker, versioned, hot-reloaded; edited in the Estúdio with a preview and a dated record.
-- [ ] Estúdio, Economia: faucets and sinks per day, money supply, median wealth, top gainers (the first sign of an exploit).
-- [ ] `docs/ECONOMY.md`.
+- [x] The tunables file loaded by zone, API and worker, versioned, hot-reloaded; edited in the Estúdio with a preview and a dated record. *(2026-11-20, D-4.24: every version kept whole in `tunables_versions` with who, when and why; the zone and the API play by the newest valid one and look again every 15 seconds; the Estúdio's Afinar shows every number with its range, what a change changes and what the rules refuse, and keeps it with a reason. `channels.cap` waits for a zone's restart; the other rules files are not live yet, F-245.)*
+- [x] Estúdio, Economia: faucets and sinks per day, money supply, median wealth, top gainers (the first sign of an exploit). *(2026-11-20: the money in Carteiras and the Banco, the median, 14 days of in and out by the day in Luanda, today by faucet and sink, the day's top gainers by BI; looking is written to the audit log.)*
+- [x] `docs/ECONOMY.md`. *(2026-11-20.)*
 - Depends on: 0.3, 3.8, 4.1 · Unblocks: 12.4.
 
 ### Task 4.6b: Os recados do dia (the founder, 2026-11-18: "I love it, build them all")

@@ -4,6 +4,8 @@
 
 import { getTableColumns, getTableName } from "drizzle-orm";
 import { expireTalk, keepChatLines, reportPlayer } from "./talk.ts";
+import { latestTunables, recordFile, saveTunables, tunablesHistory } from "./tunables.ts";
+import { BASE_TUNABLES } from "@nzila/economy";
 import { auditLedger, balanceOf, grantOrigin, lastLedgerAudit, nightlyLedgerAudit, recordTransfer, statementOf, walletOf } from "./ledger.ts";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -77,7 +79,7 @@ async function balance(id: string): Promise<number> {
 
 describe("migrations", () => {
   test("apply once, and a second run applies nothing", async () => {
-    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins", "0004_player_names", "0005_login_codes", "0006_player_email", "0007_email_verified", "0008_talk", "0009_studio", "0010_items", "0011_recados", "0012_partidas", "0013_kambas", "0014_necessidades"]);
+    expect(await migrate(sql)).toEqual(["0001_core", "0002_player_contact", "0003_player_origins", "0004_player_names", "0005_login_codes", "0006_player_email", "0007_email_verified", "0008_talk", "0009_studio", "0010_items", "0011_recados", "0012_partidas", "0013_kambas", "0014_necessidades", "0015_tunables"]);
     expect(await migrate(sql)).toEqual([]);
   });
 
@@ -442,3 +444,27 @@ describe("the ledger, live (Task 4.1)", () => {
   }, 180_000);
 });
 
+describe("the game's numbers, version after version (Task 4.6, D-4.24)", () => {
+  test("the file is the first; a version that cannot be read is passed over; a refused change keeps nothing; a newer file wins", async () => {
+    await sql`DELETE FROM tunables_versions`;
+    await recordFile(sql);
+    await recordFile(sql);
+    expect((await tunablesHistory(sql)).map((one) => one.version)).toEqual([BASE_TUNABLES.version]);
+    // A version written by hand that breaks a rule, and one with something the validator cannot read: neither is played.
+    await sql`INSERT INTO tunables_versions (version, tunables, reason) VALUES (${BASE_TUNABLES.version + 1}, ${sql.json({ ...BASE_TUNABLES, channels: { fillTo: 999, cap: 1 } } as never)}, 'à mão')`;
+    await sql`INSERT INTO tunables_versions (version, tunables, reason) VALUES (${BASE_TUNABLES.version + 2}, ${sql.json({ needs: { fomePerHour: "muito" } } as never)}, 'à mão')`;
+    expect((await latestTunables(sql)).version).toBe(BASE_TUNABLES.version);
+    // Refused: every fault said, nothing kept.
+    const [staff] = await sql<{ id: string }[]>`INSERT INTO staff (email, name) VALUES ('tunables@nzila.test', 'Quem Afina') RETURNING id`;
+    const refused = await saveTunables(sql, { tunables: { ...BASE_TUNABLES, stakes: { perGameCap: -1, houseCutPermille: 2000 } }, staffId: staff!.id, reason: "experiência" });
+    expect(refused.ok).toBe(false);
+    expect(await tunablesHistory(sql)).toHaveLength(3);
+    // A file shipped with a version newer than any is recorded and played.
+    await recordFile(sql, { ...BASE_TUNABLES, version: BASE_TUNABLES.version + 10, needs: { ...BASE_TUNABLES.needs, fomePerHour: 7 } });
+    expect(await latestTunables(sql)).toMatchObject({ version: BASE_TUNABLES.version + 10, by: null, tunables: { needs: { fomePerHour: 7 } } });
+    await sql`DELETE FROM tunables_versions`;
+    await sql`DELETE FROM staff WHERE id = ${staff!.id}`;
+    // With none at all, the file.
+    expect(await latestTunables(sql)).toMatchObject({ version: BASE_TUNABLES.version, tunables: BASE_TUNABLES });
+  });
+});

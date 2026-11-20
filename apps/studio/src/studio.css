@@ -124,3 +124,39 @@ h3 + .es-measures { margin-top: 0; padding-top: 0; border-top: 0; }
 @media (prefers-reduced-motion: reduce) {
   .es-dot, .es-report, .es-door-card, .es-tab b { animation: none; }
 }
+
+/* Economia (Task 4.6): the money at a glance; each day's in and out as two bars, gold in and red out. */
+.es-eco, .es-afinar { display: flex; flex-direction: column; gap: var(--s-4); }
+.es-eco h3, .es-afinar h3 { margin: var(--s-3) 0 0; font: var(--type-title); color: var(--n-dourado); }
+.es-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-3); }
+.es-card { display: flex; flex-direction: column; gap: 4px; padding: var(--s-4); border-radius: var(--r-paper); background: var(--n-noite-2); box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.es-card small { font: var(--type-small); color: var(--n-luz-suave); }
+.es-card strong { font: var(--type-number-l); color: var(--n-dourado); }
+.es-card span { font: var(--type-small); color: var(--n-luz-suave); }
+.es-days { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.es-days li { display: grid; grid-template-columns: 56px 1fr 220px; align-items: center; gap: var(--s-3); }
+.es-day { font: var(--type-label); color: var(--n-luz-suave); }
+.es-bars { display: flex; flex-direction: column; gap: 3px; }
+.es-bars i { display: block; height: 8px; min-width: 2px; border-radius: 4px; }
+.es-in { background: var(--n-dourado); }
+.es-out { background: var(--n-vermelho); }
+.es-num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.es-flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--s-4); }
+.es-eco th { text-align: left; }
+.es-eco th.es-num { text-align: right; }
+.es-flows caption { text-align: left; font: var(--type-label); color: var(--n-luz-suave); padding-bottom: var(--s-2); }
+
+/* Afinar (Task 4.6): the numbers by section, a changed one marked in gold; then what changes, why, and the versions. */
+.es-numbers { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s-3); margin: 0; padding: var(--s-4); border: 0; border-radius: var(--r-paper); background: var(--n-noite-2); box-shadow: inset 0 0 0 1.5px var(--n-linha); }
+.es-numbers legend { padding: 0 var(--s-2); font: var(--type-title); color: var(--n-dourado); }
+.es-number { display: grid; grid-template-columns: 1fr 120px; grid-template-rows: auto auto; gap: 2px var(--s-2); align-items: center; font: var(--type-small); }
+.es-number span { grid-row: span 2; }
+.es-number input { min-height: 36px; padding: 4px 8px; border: 0; border-radius: 8px; background: var(--n-papel); color: var(--n-tinta); font: var(--type-label); text-align: right; font-variant-numeric: tabular-nums; }
+.es-number input:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 2px; }
+.es-number small { color: var(--n-luz-suave); text-align: right; }
+.es-number-changed input { box-shadow: 0 0 0 3px var(--n-dourado); }
+.es-number-changed span { color: var(--n-dourado); }
+/* What changes, and keeping it: always in reach at the foot of the screen, however far down the numbers go. */
+.es-keep { position: sticky; bottom: 0; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) 0; background: var(--n-noite); box-shadow: 0 -1.5px 0 var(--n-linha); }
+.es-preview { display: flex; flex-direction: column; gap: var(--s-3); width: min(100%, 640px); }
+.es-preview ul { margin: 0; padding-left: var(--s-4); }

@@ -131,6 +131,60 @@ test.describe("the Estúdio", () => {
     expect(problems).toEqual([]);
   });
 
+  test("the economy's staff: the money at a glance, and a number of the game changed with a preview and a reason, in play within seconds, written down (Task 4.6)", async ({ page, request }, info) => {
+    test.skip(info.project.name !== "phone", "A desk's page: checked once, in Chromium.");
+    const problems: string[] = [];
+    page.on("pageerror", (error) => problems.push(String(error)));
+    page.on("console", (message) => {
+      if (message.type() === "error" && !/Failed to load resource/.test(message.text())) problems.push(message.text());
+    });
+    // Someone new is dealt their family's card: Makuta comes into the game from the families' faucet, today.
+    const made = (await (await request.post(`${API}/v1/guests`, { data: { deviceId: `estudio-eco-${Date.now()}-abcdefgh`, platform: "android", ageBand: "18_plus" } })).json()) as { token: string; biNumber: string };
+    expect((await request.post(`${API}/v1/me/origin`, { headers: { authorization: `Bearer ${made.token}` }, data: {} })).status()).toBe(200);
+    await page.goto(STUDIO);
+    await page.getByLabel("Endereço de email").fill("economia@nzila.test");
+    await page.getByLabel("Palavra-passe").fill("palavra-passe-dos-testes");
+    await page.getByRole("button", { name: "Entrar" }).click();
+    // Economia first: the money in the game, day by day, and who gained most.
+    await expect(page.getByRole("button", { name: "Economia" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Moderação/ })).toHaveCount(0);
+    await expect(page.locator(".es-card").first()).toContainText("Dinheiro dos jogadores");
+    await expect(page.locator(".es-days li").first()).toBeVisible();
+    await expect(page.locator(".es-flows")).toContainText("Famílias (cartão de origem)");
+    await expect(page.locator(".es-eco > table tbody")).toContainText(made.biNumber);
+    await page.screenshot({ path: info.outputPath("estudio-economia.png"), fullPage: true });
+    // Afinar: the most minutes in the cadeia, changed; what changes is shown before anything is kept.
+    await page.getByRole("button", { name: "Afinar" }).click();
+    const minutes = page.getByLabel("O máximo de minutos na cadeia");
+    const was = Number(await minutes.inputValue());
+    await minutes.fill(String(was - 5));
+    await expect(page.locator(".es-number-changed")).toHaveCount(1);
+    // However far down the number is, what to do next is at the foot of the screen.
+    await expect(page.getByRole("button", { name: "Ver o que muda" })).toBeInViewport();
+    await page.getByRole("button", { name: "Ver o que muda" }).click();
+    await page.screenshot({ path: info.outputPath("estudio-afinar-mudar.png") });
+    await expect(page.locator(".es-preview")).toContainText(`O máximo de minutos na cadeia: de ${was} para ${was - 5}`);
+    const save = page.getByRole("button", { name: /Guardar como versão/ });
+    await expect(save).toBeDisabled();
+    await page.getByLabel("Porquê").fill("penas mais curtas enquanto a cadeia não tem nada para fazer");
+    const version = Number(/versão (\d+)/.exec((await save.textContent()) ?? "")![1]);
+    await save.click();
+    await expect(page.getByRole("status").or(page.locator(".n-banner")).first()).toContainText(`Guardado como versão ${version}`);
+    await expect(page.locator(".es-afinar tbody tr").first()).toContainText("penas mais curtas");
+    await expect(page.locator(".es-afinar tbody tr").first()).toContainText("Economia dos Testes");
+    await page.screenshot({ path: info.outputPath("estudio-afinar.png"), fullPage: true });
+    // In play: the API looks for a new version every second here (every fifteen in the game).
+    await expect(async () => {
+      await page.getByRole("button", { name: "Registo" }).click();
+      await page.getByRole("button", { name: "Afinar" }).click();
+      await expect(page.locator(".es-afinar > .es-soft").first()).toContainText(`Em jogo: versão ${version}.`, { timeout: 1500 });
+    }).toPass({ timeout: 15_000 });
+    // And the log says who changed the numbers, and why.
+    await page.getByRole("button", { name: "Registo" }).click();
+    await expect(page.locator(".es-log tbody tr").filter({ hasText: "Mudou os números do jogo" }).first()).toContainText("penas mais curtas");
+    expect(problems).toEqual([]);
+  });
+
   test("on a phone's width the Estúdio still reads: nothing runs off the side", async ({ page }, info) => {
     test.skip(info.project.name !== "phone", "Checked once, in Chromium.");
     await page.setViewportSize({ width: 360, height: 740 });

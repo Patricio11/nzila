@@ -13,7 +13,7 @@ import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades
 import { carriesAddress, tidyLine } from "@nzila/i18n";
 import { classificacaoDe, lastGift, lugarNaClassificacao, recordTransfer, sentToday, shutOutOf, statementOf, walletOf } from "@nzila/db";
 import { REPORT_REASONS, blockPlayer, blockedBy, keptOut, playerOfBi, recordConsent, reportPlayer, staffOfSession, unblockPlayer } from "@nzila/db";
-import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable } from "@nzila/economy";
+import { BASE_ORIGINS, BASE_TUNABLES, type OriginTable, type Tunables } from "@nzila/economy";
 import { memoryPresence, pickChannel, type ChannelRules, type Presence } from "@nzila/presence";
 import { checkLook, settleLook, zoneRoomOf } from "@nzila/protocol";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -60,6 +60,8 @@ export interface Deps {
   readonly transfers?: { readonly noSendDays: number; readonly newAccountDays: number; readonly newAccountDailyCap: number; readonly dailyCap: number };
   /** How full a channel is filled and what it holds: the tunables unless a test brings others. */
   readonly channels?: ChannelRules;
+  /** The game's numbers as they are in play (Task 4.6): the newest version, kept fresh; the file's when none is given. */
+  readonly tunables?: { now(): Tunables };
 }
 
 const DICE = 2 ** 32;
@@ -76,7 +78,9 @@ export function buildApp(deps: Deps): FastifyInstance {
   const roll = deps.roll ?? (() => randomInt(DICE) / DICE);
   const names = loadNameFilter();
   const presence = deps.presence ?? memoryPresence();
-  const channels = deps.channels ?? BASE_TUNABLES.channels;
+  // The numbers in play, read at each request: a change made in the Estúdio is felt without a restart (D-4.24).
+  const tunables = deps.tunables ?? { now: () => BASE_TUNABLES };
+  const channels = (): ChannelRules => deps.channels ?? tunables.now().channels;
   const sender = deps.sender ?? consoleSender;
   const mailer = deps.mailer ?? consoleMailer;
   const byPhone = (): void => {
@@ -459,7 +463,7 @@ export function buildApp(deps: Deps): FastifyInstance {
         const best = [...count].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
         friends = best?.[0];
       }
-      const picked = kept && keeper ? { zoneId: keeper.id, address: keeper.address, channel: kept.channel } : ((friends !== undefined ? pickChannel(zones, room, channels, friends) : null) ?? pickChannel(zones, room, channels, body.channel));
+      const picked = kept && keeper ? { zoneId: keeper.id, address: keeper.address, channel: kept.channel } : ((friends !== undefined ? pickChannel(zones, room, channels(), friends) : null) ?? pickChannel(zones, room, channels(), body.channel));
       // Only an invitation can find its channel full: anyone else is given another.
       if (!picked) throw new Refusal(409, "full");
       const seat = await presence.reserve({ playerId: caller.player.id, zoneId: picked.zoneId, room, channel: picked.channel });
@@ -685,7 +689,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     handler: async (_body, caller) => {
       const stay = await presence.marked(caller.player.id, "hospital");
       if (!stay) throw new Refusal(409, "not_there");
-      const receipt = await payHospital(deps.sql, { playerId: caller.player.id, stay, bill: BASE_TUNABLES.needs.hospitalBill, districtId: null });
+      const receipt = await payHospital(deps.sql, { playerId: caller.player.id, stay, bill: tunables.now().needs.hospitalBill, districtId: null });
       return { receipt, ...(await walletOf(deps.sql, caller.player.id)) };
     },
   });
@@ -758,7 +762,7 @@ export function buildApp(deps: Deps): FastifyInstance {
   // Makuta handed to another player, in person (Task 4.1, D-4.11). The zone says the two stand together. The one
   // who gives has proved their address, is past the days in which a new account sends nothing, and is inside what
   // an account may send in a day. From Carteira to Carteira, recorded once whatever is sent twice.
-  const sending = deps.transfers ?? BASE_TUNABLES.transfers;
+  const sendingNow = (): NonNullable<Deps["transfers"]> => deps.transfers ?? tunables.now().transfers;
   declare(app, gate, {
     method: "POST",
     url: "/v1/pay",
@@ -774,6 +778,7 @@ export function buildApp(deps: Deps): FastifyInstance {
         SELECT email_verified_at IS NOT NULL AS proved, extract(epoch FROM now() - arrived_at) / 86400 AS days FROM players WHERE id = ${caller.player.id}`;
       if (!me!.proved) throw new Refusal(403, "unproved");
       const days = Number(me!.days);
+      const sending = sendingNow();
       if (sending.noSendDays > days) throw new Refusal(403, "too_new", { days: Math.ceil(sending.noSendDays - days) });
       const cap = sending.newAccountDays > days ? sending.newAccountDailyCap : sending.dailyCap;
       const left = cap - (await sentToday(deps.sql, caller.player.id));
@@ -981,7 +986,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     },
   });
 
-  studioRoutes(app, gate, { sql: deps.sql, presence });
+  studioRoutes(app, gate, { sql: deps.sql, presence, tunables });
 
   // Leaving on this device: the session ends; the player and their progress stay.
   declare(app, gate, {

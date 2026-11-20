@@ -150,3 +150,49 @@ export function parseTunables(input: unknown): Tunables {
   if (!result.ok) throw new Error(`invalid tunables:\n${result.errors.join("\n")}`);
   return result.tunables;
 }
+
+/** Every tunable, by its path ("needs.fomePerHour"), with the range it must stay in: for the Estúdio's form (Task 4.6). */
+export function tunablesSpec(): { readonly path: string; readonly min: number; readonly max: number }[] {
+  const out: { path: string; min: number; max: number }[] = [];
+  const walk = (spec: Spec, path: string): void => {
+    for (const [key, node] of Object.entries(spec)) {
+      const at = path ? `${path}.${key}` : key;
+      if (isRange(node)) out.push({ path: at, min: node.min, max: node.max });
+      else walk(node, at);
+    }
+  };
+  walk(SPEC, "");
+  return out;
+}
+
+/** The number at a path of a set of tunables, if there is one. */
+export function tunableAt(values: unknown, path: string): number | undefined {
+  let node: unknown = values;
+  for (const key of path.split(".")) node = typeof node === "object" && node !== null ? (node as Record<string, unknown>)[key] : undefined;
+  return typeof node === "number" ? node : undefined;
+}
+
+/**
+ * A recorded version as the code of today reads it: a tunable the code has gained since it was recorded is taken from
+ * `base` (the file), and one the code no longer has is left out. Not checked: validate it afterwards.
+ */
+export function fillTunables(values: unknown, base: Tunables): unknown {
+  const fill = (spec: Spec, from: unknown, fallback: unknown): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    for (const [key, node] of Object.entries(spec)) {
+      const mine = typeof from === "object" && from !== null ? (from as Record<string, unknown>)[key] : undefined;
+      const theirs = (fallback as Record<string, unknown>)[key];
+      out[key] = isRange(node) ? (mine === undefined ? theirs : mine) : fill(node, mine, theirs);
+    }
+    return out;
+  };
+  return fill(SPEC, values, base);
+}
+
+/** What differs between two sets of tunables, path by path, the version aside: for the preview before a change is kept. */
+export function tunablesChanges(before: unknown, after: unknown): { readonly path: string; readonly from: number | undefined; readonly to: number | undefined }[] {
+  return tunablesSpec()
+    .filter((one) => one.path !== "version")
+    .map((one) => ({ path: one.path, from: tunableAt(before, one.path), to: tunableAt(after, one.path) }))
+    .filter((one) => one.from !== one.to);
+}

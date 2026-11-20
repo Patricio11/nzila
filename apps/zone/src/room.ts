@@ -10,7 +10,7 @@
 import { isGreeting } from "@nzila/i18n";
 import { TrafficRules, actorAt } from "@nzila/world";
 import { eatOne, faceOf, keepChatLines, keepNeeds, needsOf, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
-import { BASE_CATALOGUE, BASE_TUNABLES } from "@nzila/economy";
+import { BASE_CATALOGUE, BASE_TUNABLES, type Tunables } from "@nzila/economy";
 import { BASE_BISCATOS, isBiscatoKind } from "@nzila/economy/biscatos";
 import { randomInt } from "node:crypto";
 import { decayNeeds, eatNeeds, restNeeds, spendEffort, tooTired, type NeedsState } from "@nzila/sim";
@@ -77,6 +77,8 @@ export interface ZoneDeps {
   readonly presence?: Presence;
   /** How many people a channel holds. */
   readonly holds?: number;
+  /** The game's numbers in play (Task 4.6): read as they are needed, so that a change reaches a running zone. The file's when not given. */
+  readonly tunables?: () => Tunables;
   /** How long a dropped line's place is kept (HOLD_MS; a test brings a shorter one). */
   readonly holdMs?: number;
   /** How long a quick game at a table lasts: three minutes; the browser tests' zone makes it short. */
@@ -146,7 +148,6 @@ interface NeedsKept {
 }
 
 /** The rates of the needs: tunables (Rule 14). */
-const NEEDS = BASE_TUNABLES.needs;
 /** How near a bench's seat a player must stand to sit on it, and how far in front of it they stand up. Millimetres. */
 const BENCH_REACH_MM = 2500;
 const BENCH_STEP_MM = 600;
@@ -209,6 +210,8 @@ export class ChannelRoom {
   /** People whose coming in is under way: they hold a place, and keep the channel from being closed as empty under them. */
   private arriving = 0;
 
+  private readonly tunables: () => Tunables;
+
   constructor(deps: ZoneDeps, number: number, changed: () => void = () => {}) {
     this.changed = changed;
     this.holdMs = deps.holdMs ?? HOLD_MS;
@@ -218,6 +221,7 @@ export class ChannelRoom {
     this.remember = deps.remember ?? true;
     this.presence = deps.presence ?? null;
     this.holds = deps.holds ?? CHANNEL_HOLDS;
+    this.tunables = deps.tunables ?? (() => BASE_TUNABLES);
     this.log = deps.log ?? ((line: string) => console.error(line));
     this.number = number;
     this.channel = new Channel(deps.district.ground, deps.district.obstacles);
@@ -371,9 +375,9 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = settleLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, NEEDS.tiredBelow) }, eating: false, ronda: null });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, this.rules.tiredBelow) }, eating: false, ronda: null });
     this.lineOfEntity.set(entityId, line);
-    this.channel.setTired(entityId, tooTired(needs, NEEDS.tiredBelow));
+    this.channel.setTired(entityId, tooTired(needs, this.rules.tiredBelow));
     // Noted at once where they came in, not at the next five-second round: a kamba going to them finds them (Task 4B.2).
     void this.keep(playerId, this.channel.placeOf(entityId) ?? at, false);
     line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
@@ -445,10 +449,15 @@ export class ChannelRoom {
     }
   }
 
+  /** The needs' rules in play now: the newest version of the tunables (D-4.24). */
+  private get rules(): Tunables["needs"] {
+    return this.tunables().needs;
+  }
+
   /** Fome and Energia as they are now: what was last set, worn by the steps since, the fast steps and the jumps (Task 4.4). */
   private needsNow(held: Held): NeedsState {
     const kept = held.needs;
-    return spendEffort(restNeeds(decayNeeds(kept.base, kept.steps, NEEDS), kept.rest, NEEDS), kept.fast, kept.jumps, NEEDS);
+    return spendEffort(restNeeds(decayNeeds(kept.base, kept.steps, this.rules), kept.rest, this.rules), kept.fast, kept.jumps, this.rules);
   }
 
   /** The effort the channel counted for them since last asked, added to what their needs carry. */
@@ -474,7 +483,7 @@ export class ChannelRoom {
     if (ronda && performance.now() > ronda.startedAt + ronda.lengthMs + BISCATO_GRACE_MS) this.endRonda(line, held);
     this.takeEffort(held);
     const now = this.needsNow(held);
-    const tired = tooTired(now, NEEDS.tiredBelow);
+    const tired = tooTired(now, this.rules.tiredBelow);
     const changed = tired !== held.needs.tired;
     if (changed) {
       held.needs.tired = tired;
@@ -494,8 +503,8 @@ export class ChannelRoom {
   private toHospital(line: Line, held: Held, now: NeedsState): boolean {
     if (this.channel.ridingOf(held.entityId) || this.channel.sittingOf(held.entityId)) return false;
     if (!this.channel.put(held.entityId, this.district.hospital ?? this.district.arrival)) return false;
-    const after = { fome: Math.max(now.fome, NEEDS.hospitalFome), energia: NEEDS.hospitalEnergia };
-    held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
+    const after = { fome: Math.max(now.fome, this.rules.hospitalFome), energia: this.rules.hospitalEnergia };
+    held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, this.rules.tiredBelow) };
     this.channel.setTired(held.entityId, held.needs.tired);
     const stay = `${Date.now().toString(36)}${held.entityId.toString(36)}`;
     void keepNeeds(this.sql, held.playerId, after).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
@@ -522,7 +531,7 @@ export class ChannelRoom {
       const rules = BASE_BISCATOS.kinds[pedido.kind];
       this.takeEffort(held);
       const needs = this.needsNow(held);
-      if (needs.energia < rules.energia || tooTired(needs, NEEDS.tiredBelow)) return refuse("cansado");
+      if (needs.energia < rules.energia || tooTired(needs, this.rules.tiredBelow)) return refuse("cansado");
       held.ronda = { kind: pedido.kind, seed: randomInt(2 ** 31), startedAt: performance.now(), lengthMs: rules.seconds * 1000, inputs: [] };
       line.send(encodeEvent({ kind: EVENT.BISCATO, tick: this.channel.world.tick, subject: 0, args: [held.ronda.seed, held.ronda.lengthMs], text: pedido.kind }));
       return;
@@ -546,7 +555,7 @@ export class ChannelRoom {
     this.takeEffort(held);
     const was = this.needsNow(held);
     const after = { fome: Math.max(0, was.fome - Math.round(rules.fome * share)), energia: Math.max(0, was.energia - Math.round(rules.energia * share)) };
-    held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
+    held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, this.rules.tiredBelow) };
     this.channel.setTired(held.entityId, held.needs.tired);
     void keepNeeds(this.sql, held.playerId, after).catch((error: unknown) => this.log(`zone: could not keep the needs of ${held.playerId}: ${String(error)}`));
     const note = `${Date.now().toString(36)}${held.entityId.toString(36)}`;
@@ -573,7 +582,7 @@ export class ChannelRoom {
     void eatOne(this.sql, held.playerId, item, after)
       .then((ate) => {
         if (!ate) return refuse("nao_tens");
-        held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, NEEDS.tiredBelow) };
+        held.needs = { base: after, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(after, this.rules.tiredBelow) };
         this.channel.setTired(held.entityId, held.needs.tired);
         this.tellNeeds(line, held, item);
       })

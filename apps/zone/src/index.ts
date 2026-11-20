@@ -12,7 +12,7 @@
 
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { connect, expireTalk } from "@nzila/db";
+import { connect, expireTalk, liveTunables } from "@nzila/db";
 import { BASE_TUNABLES } from "@nzila/economy";
 import { loadChatFilter } from "@nzila/i18n/server";
 import { memoryPresence, redisPresence, type Presence } from "@nzila/presence";
@@ -42,7 +42,9 @@ try {
 }
 const sessions = process.env.ZONE_SESSIONS === "on";
 const chat = process.env.CHAT !== "off";
-const zone = await startZone({ sql, districts, presence, address: process.env.ZONE_PUBLIC_URL ?? "", sessions, holds: BASE_TUNABLES.channels.cap, ...(chat ? { filter: loadChatFilter() } : {}) }, port);
+// The game's numbers: the newest version in the database, looked for again every quarter of a minute (Task 4.6).
+const tunables = await liveTunables(sql, { log: (line) => console.log(line) });
+const zone = await startZone({ sql, districts, presence, address: process.env.ZONE_PUBLIC_URL ?? "", sessions, holds: BASE_TUNABLES.channels.cap, tunables: tunables.now, ...(chat ? { filter: loadChatFilter() } : {}) }, port);
 console.log(`zone: ${zone.id}: ${zone.roomNames.join(", ")} on :${port}${sessions ? " (sessions let in without a seat)" : ""}${chat ? " (talk is open)" : ""}`);
 
 // What was said is kept thirty days and no longer (docs/legal/RETENTION.md): swept as the zone starts and every hour after.

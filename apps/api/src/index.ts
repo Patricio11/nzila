@@ -1,4 +1,4 @@
-import { connect, nightlyLedgerAudit, parseKeyring, parsePepper, platformAdmins } from "@nzila/db";
+import { connect, liveTunables, nightlyLedgerAudit, parseKeyring, parsePepper, platformAdmins } from "@nzila/db";
 import { memoryPresence, redisPresence, type Presence } from "@nzila/presence";
 import { buildApp } from "./app.ts";
 import { consoleMailer, resendMailer } from "./mail.ts";
@@ -15,7 +15,9 @@ try {
   console.error(`api: no Redis (${String(error)}): no zone can be found, and players walk alone`);
   presence = memoryPresence();
 }
-const app = buildApp({ sql: connect(), pepper: parsePepper(process.env.HASH_PEPPER), keyring: parseKeyring(process.env.FIELD_KEYS), mailer, phoneCodes: process.env.PHONE_CODES === "on", presence });
+// The game's numbers: the newest version in the database, looked for again every quarter of a minute (Task 4.6).
+const tunables = await liveTunables(connect(undefined, 1), { log: (line) => console.log(line) });
+const app = buildApp({ sql: connect(), pepper: parsePepper(process.env.HASH_PEPPER), keyring: parseKeyring(process.env.FIELD_KEYS), mailer, phoneCodes: process.env.PHONE_CODES === "on", presence, tunables });
 // The books are proved once a day (the ledger convention): asked every hour, done when due, and said loudly when wrong.
 const sql = connect(undefined, 1);
 const prove = (): void =>
