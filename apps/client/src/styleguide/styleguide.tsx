@@ -21,7 +21,6 @@ import {
   PriceTag,
   Receipt,
   RoadMark,
-  RouteBand,
   Skeleton,
   SpeechBalloon,
   Toggle,
@@ -47,6 +46,7 @@ function NeedsInStreet(props: Parameters<typeof import("../necessidades/barras.t
   if (!Necessidades) void import("../necessidades/barras.tsx").then((module) => ((Necessidades = module.Necessidades), redraw((n) => n + 1)));
   return Necessidades ? <Necessidades {...props} /> : null;
 }
+import { RouteBand, Viagem } from "../andar/carrinha.tsx";
 import "./styleguide.css";
 
 const TOKENS: readonly (readonly [string, readonly string[]])[] = [
@@ -186,6 +186,8 @@ export function Styleguide() {
         <div class="sg-grid sg-wide">
           <Case name="waiting at the first stop" on="world"><RouteBand line={sample.route.line} stops={sample.route.stops} stopsAt={sample.route.stopsAt} next={0} waiting /></Case>
           <Case name={`on the road (press Drive: ${Math.round(ride * 100)}%)`} on="world"><RouteBand line={sample.route.line} stops={sample.route.stops} next={Math.min(3, Math.floor(ride * 3) + 1)} progress={(ride * 3) % 1} /></Case>
+          <Case name="riding: between paragens, the band up and the chip under the wallet" on="world"><div class="sg-ride"><Viagem boarded={false} ride={{ line: sample.route.line, stops: sample.route.stops, stopsAt: sample.route.stopsAt, next: 2, progress: 0.35, waiting: false, said: null }} /></div></Case>
+          <Case name="riding: standing at a paragem, the band down" on="world"><div class="sg-ride"><Viagem boarded={false} ride={{ line: sample.route.line, stops: sample.route.stops, stopsAt: sample.route.stopsAt, next: 1, progress: 0, waiting: true, said: t("ride.cobrador.call", { proxima: sample.route.stops[2] ?? "" }) }} /></div></Case>
           <Case name="arriving at the last stop" on="night"><RouteBand line={sample.route.line} stops={sample.route.stops} next={3} progress={0.8} /></Case>
           <Case name="drive the van"><Button onPress={() => setRide((r) => (r >= 0.95 ? 0 : r + 0.12))}>{t("action.board")}</Button></Case>
         </div>

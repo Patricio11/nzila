@@ -727,6 +727,21 @@ test.describe("a ride", () => {
     await page.waitForFunction(() => window.__andar?.riding === "linha-marginal", undefined, { timeout: 45_000 });
     // Standing at the Marginal paragem the band says where, as it is said (founder, 2026-11-15).
     await expect(page.locator(".n-route")).toContainText("Estamos na Marginal");
+    // Standing at a paragem the band is down from the top (founder, 2026-11-20).
+    await expect(page.locator(".cr-band")).toHaveClass(/cr-band-down/);
+    await page.screenshot({ path: info.outputPath("carrinha-na-paragem.png") });
+    // Driving off, it goes back up out of the view, and the chip under the wallet says where the van goes next.
+    await expect(page.locator(".cr-band")).not.toHaveClass(/cr-band-down/, { timeout: 30_000 });
+    await expect(page.locator(".cr-chip")).toContainText("Próxima");
+    await page.screenshot({ path: info.outputPath("carrinha-a-andar.png") });
+    // A thumb slides it down from the chip, and it stays until slid up again.
+    const chip = (await page.locator(".cr-chip").boundingBox())!;
+    await page.mouse.move(chip.x + chip.width / 2, chip.y + chip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(chip.x + chip.width / 2, chip.y + chip.height / 2 + 70, { steps: 6 });
+    await page.mouse.up();
+    await expect(page.locator(".cr-band")).toHaveClass(/cr-band-down/);
+    await page.screenshot({ path: info.outputPath("carrinha-puxada.png") });
     await page.waitForFunction(() => window.__andar!.riding === null && window.__andar!.action === "board", undefined, { timeout: 60_000 });
     const after = await page.evaluate(() => window.__andar!);
     // Porto is a hundred metres east; she is beside the van, not in the road it stands on.

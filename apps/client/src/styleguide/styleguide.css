@@ -39,3 +39,5 @@
 
 /* The hospital is a screen of its own in the street: held inside its case here. */
 .sg-hospital { position: relative; width: 100%; height: 420px; overflow: hidden; transform: translateZ(0); }
+/* The ride as it is in the street: the chip in the corner, the band dropped from the top of the case. */
+.sg-ride { position: relative; width: 100%; align-self: stretch; text-align: left; height: 330px; padding: var(--s-3); box-sizing: border-box; overflow: hidden; }

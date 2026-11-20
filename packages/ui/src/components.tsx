@@ -231,48 +231,6 @@ export function IdCard({ name, number, bairro, arrived, shielded, photo }: { nam
   );
 }
 
-/**
- * Shown while riding: the linha on the van's own plate, the road with its
- * stops, and the van driving along it. `next` is the stop ahead and
- * `progress` (0 to 1) how far the van is from the stop behind toward it;
- * `waiting` means it is standing at `next` with the door open.
- * `stopsAt` gives each stop as one is said to be at it, with the preposition the
- * place takes ("na Marginal", "no Kilamba", "em Cazenga"): Portuguese has no one word for "at".
- */
-export function RouteBand({ line, stops, stopsAt, next, progress = 0, waiting }: { line: string; stops: readonly string[]; stopsAt?: readonly string[]; next: number; progress?: number; waiting?: boolean }) {
-  const last = Math.max(1, stops.length - 1);
-  const at = waiting ? next : Math.max(0, next - 1 + Math.max(0, Math.min(1, progress)));
-  return (
-    <div class={`n-route${waiting ? " n-route-waiting" : ""}`} role="status">
-      <div class="n-route-top">
-        <strong class="n-route-plate">{line}</strong>
-        <span class="n-route-next">
-          <small>{tr.t(waiting ? "route.atStop" : "route.next")}</small>{" "}
-          <b>{waiting ? (stopsAt?.[next] ?? stops[next]) : stops[next]}</b>
-        </span>
-      </div>
-      <div class="n-route-road">
-        <div class="n-route-lane">
-          <span class="n-route-dashes" aria-hidden="true" />
-          {stops.map((_, i) => (
-            <span class={`n-route-post${i < next ? " n-post-past" : i === next ? " n-post-next" : ""}`} style={{ left: `${(i / last) * 100}%` }} aria-hidden="true" />
-          ))}
-          <span class="n-route-van" style={{ left: `${(at / last) * 100}%` }}>
-            <Van />
-          </span>
-        </div>
-      </div>
-      <ol class="n-route-stops">
-        {stops.map((stop, i) => (
-          <li class={i < next ? "n-stop-past" : i === next ? "n-stop-next" : undefined} aria-current={i === next ? "step" : undefined}>
-            {stop}
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
 /** Words over a head. Too far away to read, it is a balloon with no words in it. */
 export function SpeechBalloon({ text, typing }: { text?: string; typing?: boolean }) {
   return (

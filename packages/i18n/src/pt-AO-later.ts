@@ -326,6 +326,8 @@ export const ptAOLater = {
   "install.yes": "Instalar",
   "install.later": "Agora não",
   // Fome and Energia (Task 4.4): the lines said once, and what the Mochila says when eating is refused.
+  "ride.band.show": "Mostrar a linha",
+  "ride.band.hide": "Esconder a linha",
   "needs.hospital.titulo": "Ficaste sem forças.",
   "needs.hospital.texto": "Trouxeram-te ao hospital. Já estás de pé: come qualquer coisa e descansa um bocado.",
   "needs.hospital.recibo": "Hospital",

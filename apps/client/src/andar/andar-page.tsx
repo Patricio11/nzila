@@ -23,7 +23,7 @@
 
 import { ptAO, ptAOTranslator as tr } from "@nzila/i18n";
 import { CELL_DRIVE, CELL_LOW, CELL_WALK, bodyFits, groundHeight, CELL_WATER, DEFAULT_CHARACTER, DEFAULT_CLOCK, SIM_STEP_MS, compileClock, gameTimeAt, jumpLiftMm, stepCharacter, type CharacterState, type Ground } from "@nzila/sim";
-import { Arrival, Banner, Button, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, RouteBand, SpeechBalloon, WalletChip, type CompassMark } from "@nzila/ui";
+import { Arrival, Banner, Button, ChatBar, ClockChip, Compass, ContextAction, EmoteWheel, HudButton, Joystick, WalletChip, type CompassMark } from "@nzila/ui";
 import { PointLight, Vector3 } from "three";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DistrictScene } from "../render/district-scene.ts";
@@ -152,6 +152,8 @@ export function Andar() {
   const [marked, setMarked] = useState<Marked | null>(null);
   // Fome and Energia (Task 4.4): their bars, fetched by the frame loop the first time a need is under half.
   const [Needs, setNeeds] = useState<typeof import("../necessidades/barras.tsx").Necessidades | null>(null);
+  // The ride's chip and band, fetched when a van stands near or the player rides (carrinha.tsx).
+  const [Viagem, setViagem] = useState<typeof import("./carrinha.tsx").Viagem | null>(null);
   // Kambas (Task 4B.2): what waits in Mensagens, and a kamba's conversation to open it on.
   const [novas, setNovas] = useState(0);
   const [abrirKamba, setAbrirKamba] = useState<string | null>(null);
@@ -183,6 +185,7 @@ export function Andar() {
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
   const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, said: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
+  useEffect(() => void (!Viagem && (hud.ride || hud.action === "board") && import("./carrinha.tsx").then((module) => setViagem(() => module.Viagem))), [hud.ride !== null || hud.action === "board"]);
   const [missing, setMissing] = useState(false);
   /** The line being typed is open; and someone met, whose card is up. */
   const [composing, setComposing] = useState(false);
@@ -998,6 +1001,7 @@ export function Andar() {
             <span>
               <WalletChip amount={hud.cash} />
               {Needs ? <Needs net={net} world={world} onMark={setMarked} /> : null}
+              {hud.ride && Viagem ? <Viagem ride={hud.ride} /> : null}
             </span>
             <span class="andar-top-right">
               <Compass heading={hud.heading} marks={hud.marks} />
@@ -1030,16 +1034,6 @@ export function Andar() {
             </div>
           ) : null}
           {arrived && !hud.ride ? <Arrival place={hud.place} /> : null}
-          {hud.ride ? (
-            <div class="andar-route">
-              <RouteBand line={hud.ride.line} stops={hud.ride.stops} stopsAt={hud.ride.stopsAt} next={hud.ride.next} progress={hud.ride.progress} waiting={hud.ride.waiting} />
-              {hud.ride.said ? (
-                <p class="andar-said">
-                  <SpeechBalloon text={hud.ride.said} />
-                </p>
-              ) : null}
-            </div>
-          ) : null}
           <Joystick {...hud.stick} />
           <div class="andar-buttons">
             <span class="andar-pair">

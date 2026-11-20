@@ -138,27 +138,7 @@
 .n-data .n-glyph { color: var(--n-mar); }
 .n-data-month { color: var(--n-luz-suave); font-weight: 400; }
 
-/* ------------------------------------------------------------ the route band */
-.n-route { width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-3); border-radius: var(--r-sheet); background: var(--n-luz); color: var(--n-tinta);
-  box-shadow: 0 5px 0 var(--n-azul-fundo), 0 14px 26px var(--n-sombra); animation: n-drop 380ms var(--ease-mola) both; }
-.n-route-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); }
-/* The plate: the linha's name as it is painted on the van, white on blue with the white stripe. */
-.n-route-plate { max-width: 100%; box-sizing: border-box; padding: 6px var(--s-3); border-radius: 10px; color: var(--n-luz); font: var(--type-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: linear-gradient(180deg, var(--n-azul-claro), var(--n-azul) 55%); box-shadow: inset 0 -3px 0 var(--n-azul-fundo), inset 0 2px 0 var(--n-brilho); transform: rotate(-1.5deg); }
-.n-route-next { flex: 1 0 auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
-.n-route-next small { font: var(--type-small); color: var(--n-tinta-suave); }
-.n-route-next b { font: var(--type-title); color: var(--n-azul); }
-
-.n-route-road { padding: 0 22px; border-radius: var(--r-button); background: var(--n-noite); box-shadow: inset 0 3px 0 var(--n-noite-fundo); }
-.n-route-lane { position: relative; height: 46px; }
-/* The centre line of the road runs backwards under the van while it drives. */
-.n-route-dashes { position: absolute; left: -22px; right: -22px; top: 31px; height: 3px; background: repeating-linear-gradient(90deg, var(--n-luz-suave) 0 12px, transparent 12px 26px); opacity: 0.5; animation: n-road-slide-wide 700ms linear infinite; }
-.n-route-waiting .n-route-dashes { animation-play-state: paused; }
-.n-route-post { position: absolute; top: 25px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--n-noite); box-shadow: inset 0 0 0 3px var(--n-luz-suave); }
-.n-post-past { box-shadow: inset 0 0 0 3px var(--n-azul-claro); background: var(--n-azul-claro); }
-.n-post-next { box-shadow: inset 0 0 0 3px var(--n-dourado); background: var(--n-dourado); animation: n-beacon 1.4s ease-out infinite; }
-.n-route-van { position: absolute; top: 4px; width: 44px; margin-left: -22px; transition: left 900ms cubic-bezier(0.4, 0, 0.2, 1); animation: n-bob 520ms ease-in-out infinite; }
-.n-route-waiting .n-route-van { animation: n-settle 500ms var(--ease-mola) both; }
+/* ------------------------------------------------------------ the van (the front door, the ride) */
 .n-van { display: block; filter: drop-shadow(0 3px 0 var(--n-noite-fundo)); }
 .n-van-body { fill: var(--n-luz); }
 .n-van-stripe { fill: var(--n-azul); }
@@ -166,12 +146,6 @@
 .n-van-wheel { fill: var(--n-noite-fundo); stroke: var(--n-luz-suave); stroke-width: 1; }
 .n-van-hub { fill: var(--n-luz-suave); }
 
-.n-route-stops { list-style: none; margin: 0; padding: 0 22px; display: flex; justify-content: space-between; font: var(--type-small); color: var(--n-tinta-suave); }
-.n-route-stops li { flex: 1 1 0; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.n-route-stops li:first-child { text-align: left; margin-left: -14px; }
-.n-route-stops li:last-child { text-align: right; margin-right: -14px; }
-.n-stop-past { color: var(--n-azul); }
-.n-stop-next { color: var(--n-tinta); font-weight: 700; }
 
 /* ------------------------------------------------------------ talk */
 .n-balloon { display: inline-block; max-width: 220px; min-width: 40px; min-height: 30px; box-sizing: border-box; padding: 6px var(--s-3); border-radius: 18px 18px 18px 5px; background: var(--n-luz); color: var(--n-tinta); font: var(--type-body); line-height: 1.25;
@@ -244,7 +218,6 @@
 @keyframes n-run { to { stroke-dashoffset: -23; } }
 @keyframes n-run-small { to { stroke-dashoffset: -6.6; } }
 @keyframes n-road-slide { to { background-position-x: -16px; } }
-@keyframes n-road-slide-wide { to { background-position-x: -26px; } }
 @keyframes n-sunrise { from { transform: translateY(14px) scale(0.2); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes n-glow { 50% { transform: scale(1.12); } }
 @keyframes n-breathe { 50% { transform: scale(1.035); } }
@@ -254,9 +227,6 @@
 @keyframes n-flip { 50% { transform: rotateY(180deg) scale(1.15); } }
 @keyframes n-nudge { 0%, 70%, 100% { transform: none; } 80% { transform: rotate(-12deg) scale(1.15); } 90% { transform: rotate(10deg) scale(1.15); } }
 @keyframes n-flicker { 0%, 100% { transform: scale(1) rotate(0); } 30% { transform: scale(1.12, 0.94) rotate(-4deg); } 60% { transform: scale(0.95, 1.1) rotate(3deg); } }
-@keyframes n-beacon { from { box-shadow: inset 0 0 0 3px var(--n-dourado), 0 0 0 0 var(--n-brilho-dourado); } to { box-shadow: inset 0 0 0 3px var(--n-dourado), 0 0 0 12px transparent; } }
-@keyframes n-bob { 50% { transform: translateY(-2px) rotate(-1deg); } }
-@keyframes n-settle { from { transform: translateX(-6px) rotate(-3deg); } to { transform: none; } }
 @keyframes n-hop { 0%, 60%, 100% { transform: none; } 30% { transform: translateY(-6px); } }
 @keyframes n-print { from { clip-path: inset(0 0 100% 0); transform: translateY(-18px) rotate(-1.2deg); } to { clip-path: inset(0 0 0 0); } }
 @keyframes n-stamp { from { transform: rotate(-14deg) scale(2.2); opacity: 0; } to { opacity: 0.75; } }
@@ -265,8 +235,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .n-wheel-item, .n-arrival, .n-wordmark-road, .n-wordmark-sun, .n-road-line, .n-road-sun, .n-action, .n-action::after, .n-button::after, .n-chip, .n-coin, .n-need-low .n-glyph, .n-banner, .n-heat, .n-heat .n-glyph,
-  .n-route, .n-route-dashes, .n-post-next, .n-route-van, .n-balloon, .n-dots i, .n-receipt, .n-bi, .n-bi::after, .n-bi-stamp, .n-empty > .n-glyph, .n-skeleton span { animation: none !important; }
-  .n-button, .n-action, .n-route-van, .n-need-fill, .n-toggle-track, .n-toggle-track::after { transition: none !important; }
+  .n-balloon, .n-dots i, .n-receipt, .n-bi, .n-bi::after, .n-bi-stamp, .n-empty > .n-glyph, .n-skeleton span { animation: none !important; }
+  .n-button, .n-action, .n-need-fill, .n-toggle-track, .n-toggle-track::after { transition: none !important; }
   .n-road-moving .n-road-sun { opacity: 0; }
 }
 

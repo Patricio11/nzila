@@ -1,0 +1,70 @@
+/* The ride (carrinha.tsx): the chip under the wallet, and the band as a drawer from the top. Tokens only. */
+
+/* The chip: the night of the wallet's chip, with the van's plate on it. Slid down, it brings the band. */
+.cr-chip { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: min(60vw, 228px); margin-top: var(--s-2); padding: var(--s-2) var(--s-3) 14px;
+  border: 0; border-radius: 16px; background: var(--n-noite); color: var(--n-luz); text-align: left; touch-action: none; cursor: grab;
+  box-shadow: inset 0 0 0 1.5px var(--n-linha), 0 3px 0 var(--n-noite-fundo), 0 8px 16px var(--n-sombra); animation: cr-in 420ms var(--ease-mola) both; transition: opacity 200ms; }
+.cr-chip-hidden { opacity: 0; }
+.cr-plate { max-width: 100%; box-sizing: border-box; padding: 2px var(--s-2); border-radius: 6px; color: var(--n-luz); font: var(--type-label); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(180deg, var(--n-azul-claro), var(--n-azul) 55%); box-shadow: inset 0 -2px 0 var(--n-azul-fundo), inset 0 1px 0 var(--n-brilho); transform: rotate(-1.5deg); }
+.cr-where { display: flex; align-items: baseline; gap: 6px; max-width: 100%; line-height: 1.2; }
+.cr-where small { font: var(--type-small); color: var(--n-luz-suave); }
+.cr-where b { font: var(--type-label); color: var(--n-luz); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The little road: the paragens as dots, the van along it. */
+.cr-road { position: relative; align-self: stretch; height: 18px; margin: 0 6px; }
+.cr-road::before { content: ""; position: absolute; left: -6px; right: -6px; top: 14px; height: 3px; border-radius: 2px; background: var(--n-noite-fundo); }
+.cr-road i { position: absolute; top: 12px; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: var(--n-noite-fundo); box-shadow: inset 0 0 0 2px var(--n-luz-suave); }
+.cr-road i.cr-past { background: var(--n-azul-claro); box-shadow: inset 0 0 0 2px var(--n-azul-claro); }
+.cr-road i.cr-next { background: var(--n-dourado); box-shadow: inset 0 0 0 2px var(--n-dourado); }
+.cr-van { position: absolute; top: 0; z-index: 1; width: 24px; margin-left: -12px; transition: left 900ms cubic-bezier(0.4, 0, 0.2, 1); }
+/* The grip: two short lines, saying that this slides. */
+.cr-grab { position: absolute; left: 50%; bottom: 5px; width: 26px; height: 3px; margin-left: -13px; border-radius: 2px; background: var(--n-luz-suave); opacity: 0.55; }
+.cr-said { margin: var(--s-2) 0 0; }
+
+/* The band: up out of sight, and down from the top of the screen over the wallet and the compass. */
+.cr-band { position: absolute; z-index: 3; top: max(var(--s-3), env(safe-area-inset-top)); left: max(var(--s-3), env(safe-area-inset-left)); right: max(var(--s-3), env(safe-area-inset-right));
+  max-width: 420px; margin: 0 auto; touch-action: none; transform: translateY(calc(-100% - 48px)); transition: transform 460ms var(--ease-mola); }
+.cr-band-down { transform: none; pointer-events: auto; }
+.cr-band .n-route { animation: none; padding-bottom: 22px; }
+.cr-paper { position: relative; }
+.cr-grab-band { bottom: 9px; background: var(--n-tinta-suave); }
+.cr-said-band { text-align: center; }
+
+@keyframes cr-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+
+/* The route band (UX_UI_SPEC.md §3.3): the linha on its plate, the road with its paragens, the van along it. Here and not
+   in ui.css: only a player who rides downloads it (F-226). */
+.n-route { width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-3); border-radius: var(--r-sheet); background: var(--n-luz); color: var(--n-tinta);
+  box-shadow: 0 5px 0 var(--n-azul-fundo), 0 14px 26px var(--n-sombra); animation: n-drop 380ms var(--ease-mola) both; }
+.n-route-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); }
+/* The plate: the linha's name as it is painted on the van, white on blue with the white stripe. */
+.n-route-plate { max-width: 100%; box-sizing: border-box; padding: 6px var(--s-3); border-radius: 10px; color: var(--n-luz); font: var(--type-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(180deg, var(--n-azul-claro), var(--n-azul) 55%); box-shadow: inset 0 -3px 0 var(--n-azul-fundo), inset 0 2px 0 var(--n-brilho); transform: rotate(-1.5deg); }
+.n-route-next { flex: 1 0 auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.n-route-next small { font: var(--type-small); color: var(--n-tinta-suave); }
+.n-route-next b { font: var(--type-title); color: var(--n-azul); }
+
+.n-route-road { padding: 0 22px; border-radius: var(--r-button); background: var(--n-noite); box-shadow: inset 0 3px 0 var(--n-noite-fundo); }
+.n-route-lane { position: relative; height: 46px; }
+/* The centre line of the road runs backwards under the van while it drives. */
+.n-route-dashes { position: absolute; left: -22px; right: -22px; top: 31px; height: 3px; background: repeating-linear-gradient(90deg, var(--n-luz-suave) 0 12px, transparent 12px 26px); opacity: 0.5; animation: n-road-slide-wide 700ms linear infinite; }
+.n-route-waiting .n-route-dashes { animation-play-state: paused; }
+.n-route-post { position: absolute; top: 25px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--n-noite); box-shadow: inset 0 0 0 3px var(--n-luz-suave); }
+.n-post-past { box-shadow: inset 0 0 0 3px var(--n-azul-claro); background: var(--n-azul-claro); }
+.n-post-next { box-shadow: inset 0 0 0 3px var(--n-dourado); background: var(--n-dourado); animation: n-beacon 1.4s ease-out infinite; }
+.n-route-van { position: absolute; top: 4px; width: 44px; margin-left: -22px; transition: left 900ms cubic-bezier(0.4, 0, 0.2, 1); animation: n-bob 520ms ease-in-out infinite; }
+.n-route-waiting .n-route-van { animation: n-settle 500ms var(--ease-mola) both; }
+.n-route-stops { list-style: none; margin: 0; padding: 0 22px; display: flex; justify-content: space-between; font: var(--type-small); color: var(--n-tinta-suave); }
+.n-route-stops li { flex: 1 1 0; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n-route-stops li:first-child { text-align: left; margin-left: -14px; }
+.n-route-stops li:last-child { text-align: right; margin-right: -14px; }
+.n-stop-past { color: var(--n-azul); }
+.n-stop-next { color: var(--n-tinta); font-weight: 700; }
+@keyframes n-road-slide-wide { to { background-position-x: -26px; } }
+@keyframes n-beacon { from { box-shadow: inset 0 0 0 3px var(--n-dourado), 0 0 0 0 var(--n-brilho-dourado); } to { box-shadow: inset 0 0 0 3px var(--n-dourado), 0 0 0 12px transparent; } }
+@keyframes n-bob { 50% { transform: translateY(-2px) rotate(-1deg); } }
+@keyframes n-settle { from { transform: translateX(-6px) rotate(-3deg); } to { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-chip, .cr-band, .cr-van, .n-route, .n-route-dashes, .n-post-next, .n-route-van { animation: none !important; transition: none !important; }
+}

@@ -261,19 +261,22 @@ It is the game's main verb. Its rules: it names exactly one action; it shows a c
 
 ### 3.3 Riding
 ```
-┌──────────────────────────────┐
-│▓▓ Mutamba · Ilha ▓▓▓▓▓▓▓▓▓▓▓│  route band, blue and white
-│ ● Mutamba  ○ Marginal  ○ Fortaleza  ○ Ilha │
-│ Próxima: Marginal · corrida paga 150 Mk            │
-│                              │
-│   (the world from a window   │
-│    seat; drag to look)       │
-│                              │
-│  ┌────────────────────────┐  │
-│  │   Sair na próxima      │  │
-│  └────────────────────────┘  │
-└──────────────────────────────┘
+Between paragens                    Coming into a paragem, or standing at one
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│ ◉ 1 240 Mk               ◎  │    │▓▓ Mutamba · Ilha ▓▓  Estamos │  the band, down from the top
+│ ┌───────────────────┐  17:42│    │                 na Marginal  │  over the wallet and the compass
+│ │▓Mutamba · Ilha▓   │       │    │ ●──●──◉──○  (the van on it)  │
+│ │Próxima Marginal   │       │    │ Mutamba Marginal Fortaleza … │
+│ │●──🚐─◉──────○     │       │    │            ═══               │  the grip: slide it up
+│ │       ═══         │       │    └──────────────────────────────┘
+│ └───────────────────┘       │    "Marginal, Marginal. Há lugar."  the cobrador, under it
+│   (the world from a window   │    │   (the world)                │
+│    seat; drag to look)       │    │                              │
+│                  ┌─────────┐ │    │                  ┌─────────┐ │
+│                  │Vai parar│ │    │                  │ Descer  │ │
+└──────────────────────────────┘    └──────────────────────────────┘
 ```
+The view out of the van is the ride, so the band keeps out of it (the founder, 2026-11-20). Between paragens a small chip sits under the wallet: the linha on its plate, "Próxima · Marginal" (or "Estamos na Marginal" at a stop), and a little road with the van along it. The whole band comes down from the top by itself just after boarding, as the van comes into a paragem (three quarters of the way there) and while it stands at one, and goes back up when the van drives off. A thumb slides it: down from the chip brings it and it stays until slid up; slid up while coming into a paragem, it stays up for that paragem. A tap does the same as a slide. The cobrador's call is under the chip, or under the band when it is down. With reduced motion it appears and goes without sliding.
 You see the other passengers in their seats and can turn to look at them and out of every window. The van is its own chat room: what is said inside is heard by everyone inside and nobody outside. The ride is a rest: chat works, the Telemóvel works, Energia recovers. A route that crosses to another district shows the download size on the band before the gateway.
 
 ### 3.4 Driving, landscape preferred
