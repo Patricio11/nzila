@@ -300,7 +300,7 @@ poi("banca-zango", banca_x, banca_z + 1.7, "Banca da Tia Minga", "Flores, perfum
 
 # ------------------------------------------------------------------ the igreja
 IGREJA = (204.0, 88.0)
-kb.igreja(b, IGREJA[0], IGREJA[1], rng, 0.0)
+kb.igreja_de_bairro(b, IGREJA[0], IGREJA[1], rng, 0.0)
 poi("igreja", IGREJA[0], IGREJA[1] + 9.8, "A igreja do bairro", "Ao domingo não cabe ninguém. Durante a semana é a sombra mais sossegada do Zango.")
 
 # ------------------------------------------------------------------ the campo de terra, and the chafariz

@@ -2820,6 +2820,20 @@ test.describe("two phones in the same street", () => {
     expect(((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash).toBe(before);
     await page.waitForTimeout(2500);
     await page.screenshot({ path: info.outputPath("viagem-zango.png") });
+    // The Mapa says where the candongueiro of the Mangueira goes (F-273).
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    const telemovel = page.getByRole("dialog", { name: "Telemóvel" });
+    await telemovel.getByRole("button", { name: "Mapa" }).click();
+    const map = telemovel.locator(".tm-map-canvas");
+    await expect.poll(() => map.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBeGreaterThan(400);
+    const bounds = ((await (await page.request.get("/packs/zango/manifest.json")).json()) as { bounds: { maxX: number; maxZ: number } }).bounds;
+    const box = (await map.boundingBox())!;
+    await map.click({ position: { x: (mangueira[0] / bounds.maxX) * box.width, y: (mangueira[2] / bounds.maxZ) * box.height } });
+    await expect(telemovel.locator(".tm-place")).toContainText("Daqui sai o candongueiro para a Marginal.", { timeout: 10_000 });
+    await telemovel.locator(".tm-place").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath("viagem-mapa.png") });
+    await telemovel.getByRole("button", { name: "Fechar" }).click();
+    await expect(page.getByRole("dialog", { name: "Telemóvel" })).toHaveCount(0);
     // And back: the fare this time.
     await atTheWayOut(page);
     // Read here, after any errand done at the paragem has paid (F-263).

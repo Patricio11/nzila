@@ -54,7 +54,11 @@ export function Mapa({ world, marked, onMark, ir }: { world: WorldProvider; mark
   const manifest = world.district();
   const places: Place[] = manifest
     ? [
-        ...manifest.paragens.map((p) => ({ x: p.pos[0], z: p.pos[2], name: world.word(p.nameKey), line: null, kind: "paragem" as const })),
+        // A paragem the candongueiro leaves another bairro from says where to (F-273).
+        ...manifest.paragens.map((p) => {
+          const ways = manifest.gateways.filter((g) => g.nameKey && Math.hypot(g.pos[0] - p.pos[0], g.pos[2] - p.pos[2]) < 7).map((g) => world.word(`${g.nameKey}.a`));
+          return { x: p.pos[0], z: p.pos[2], name: world.word(p.nameKey), line: ways.length > 0 ? tr.t("map.sai", { a: ways.join(tr.t("map.sai.e")) }) : null, kind: "paragem" as const };
+        }),
         ...manifest.pois.map((p) => ({ x: p.pos[0], z: p.pos[2], name: world.word(p.nameKey), line: world.word(p.lineKey), kind: "ponto" as const })),
       ]
     : [];

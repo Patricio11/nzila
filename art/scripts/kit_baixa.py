@@ -1095,7 +1095,7 @@ def frente_de_barbearia(b, x, z, rng, ground=0.14):
     b.at(x, z)
 
 
-def igreja(b, x, z, rng, ground=0.14):
+def igreja_de_bairro(b, x, z, rng, ground=0.14):
     """
     A small church of a bairro, its door to +Z: block painted white with a blue skirt, a roof of red sheet, a cross
     on its gable, a step before the door, a low white wall along the street, two trees in the yard and benches in
