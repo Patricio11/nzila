@@ -470,10 +470,14 @@ export function buildApp(deps: Deps): FastifyInstance {
   // The candongueiro from one bairro to another (D-11.2). The zone says which way out the player stands at
   // ("porta": the gateway, where it leads, where one arrives); the fare is the tunables', paid through the ledger,
   // and the first crossing of each day is on the house; the crossing is a ticket the matchmaker honours once.
-  const crossingOf = async (playerId: string): Promise<{ gateway: string; to: string; arrive: string; pack: string } | null> => {
-    const [gateway, to, arrive] = ((await presence.marked(playerId, "porta")) ?? "").split("|");
-    const there = (await world).districts.find((one) => one.id === to && one.pack);
-    return gateway && arrive && there ? { gateway, to: there.id, arrive, pack: there.pack! } : null;
+  // A paragem may lead to more than one bairro: the mark lists every way out within reach, and one is chosen by name.
+  const crossingsOf = async (playerId: string): Promise<{ gateway: string; to: string; arrive: string; pack: string }[]> => {
+    const districts = (await world).districts;
+    return ((await presence.marked(playerId, "porta")) ?? "").split(";").flatMap((one) => {
+      const [gateway, to, arrive] = one.split("|");
+      const there = districts.find((district) => district.id === to && district.pack);
+      return gateway && arrive && there ? [{ gateway, to: there.id, arrive, pack: there.pack! }] : [];
+    });
   };
   declare(app, gate, {
     method: "GET",
@@ -482,20 +486,20 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: nothing,
     perMinute: 60,
     handler: async (_body, caller) => {
-      const crossing = await crossingOf(caller.player.id);
-      if (!crossing) throw new Refusal(409, "not_there");
+      const ways = await crossingsOf(caller.player.id);
+      if (ways.length === 0) throw new Refusal(409, "not_there");
       const free = (await viagensHoje(deps.sql, caller.player.id)) === 0;
-      return { pack: crossing.pack, arrive: crossing.arrive, price: free ? 0 : tunables.now().fares.entreBairros, free };
+      return { ways: ways.map(({ gateway, pack, arrive }) => ({ gateway, pack, arrive })), price: free ? 0 : tunables.now().fares.entreBairros, free };
     },
   });
   declare(app, gate, {
     method: "POST",
     url: "/v1/viagens",
     guard: "player",
-    body: z.strictObject({ key: z.string().regex(/^[A-Za-z0-9_-]{8,40}$/) }),
+    body: z.strictObject({ gateway: z.string().regex(/^[a-z0-9-]{1,40}$/), key: z.string().regex(/^[A-Za-z0-9_-]{8,40}$/) }),
     perMinute: 20,
     handler: async (body, caller) => {
-      const crossing = await crossingOf(caller.player.id);
+      const crossing = (await crossingsOf(caller.player.id)).find((one) => one.gateway === body.gateway);
       const from = await bairroOf(caller.player.id);
       if (!crossing || !from) throw new Refusal(409, "not_there");
       const free = (await viagensHoje(deps.sql, caller.player.id)) === 0;

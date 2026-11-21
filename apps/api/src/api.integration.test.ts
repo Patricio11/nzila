@@ -1212,19 +1212,22 @@ describe("two bairros (Task 11.2, D-11.1 and D-11.2)", () => {
     await presence.stand(one.playerId, { districtId: "ao-lua/l1", x: 0, y: 0, z: 0, yaw: 0 });
     // Not at a way out: nothing is quoted and nothing sold.
     expect((await get(one.token, "/v1/viagens")).json()).toEqual({ error: "not_there" });
-    expect((await post(one.token, "/v1/viagens", { key: "viagem-0001" })).json()).toEqual({ error: "not_there" });
+    expect((await post(one.token, "/v1/viagens", { gateway: "para-zango", key: "viagem-0001" })).json()).toEqual({ error: "not_there" });
     expect((await post(one.token, "/v1/play/join", { districtId: "ao-lua/zango" })).json()).toEqual({ elsewhere: "l1" });
     // At the paragem, on the zone's word: quoted free, taken free, and the other bairro opens.
-    await presence.mark(one.playerId, "porta", "para-zango|ao-lua/zango|mangueira");
-    expect((await get(one.token, "/v1/viagens")).json()).toEqual({ pack: "zango", arrive: "mangueira", price: 0, free: true });
-    const first = await post(one.token, "/v1/viagens", { key: "viagem-0001" });
+    // A paragem that leads to two bairros (and to one the registry does not know, which is not offered).
+    await presence.mark(one.playerId, "porta", "para-zango|ao-lua/zango|mangueira;para-a-baixa|ao-lua/l1|mutamba;para-nenhures|ao-lua/nenhures|ali");
+    expect((await get(one.token, "/v1/viagens")).json()).toEqual({ ways: [{ gateway: "para-zango", pack: "zango", arrive: "mangueira" }, { gateway: "para-a-baixa", pack: "l1", arrive: "mutamba" }], price: 0, free: true });
+    // A way out the zone did not say they stand at is not sold.
+    expect((await post(one.token, "/v1/viagens", { gateway: "para-marginal", key: "viagem-0000" })).json()).toEqual({ error: "not_there" });
+    const first = await post(one.token, "/v1/viagens", { gateway: "para-zango", key: "viagem-0001" });
     expect(first.json()).toMatchObject({ pack: "zango", arrive: "mangueira", price: 0, cash });
     expect((await post(one.token, "/v1/play/join", { districtId: "ao-lua/zango" })).json()).toMatchObject({ room: "ao-lua.zango" });
     // Back the same day: the fare, once however many times it is asked with the same key.
     await presence.stand(one.playerId, { districtId: "ao-lua/zango", x: 0, y: 0, z: 0, yaw: 0 });
     await presence.mark(one.playerId, "porta", "para-marginal|ao-lua/l1|mutamba");
-    expect((await get(one.token, "/v1/viagens")).json()).toEqual({ pack: "l1", arrive: "mutamba", price: BASE_TUNABLES.fares.entreBairros, free: false });
-    for (let n = 0; n < 2; n++) expect((await post(one.token, "/v1/viagens", { key: "viagem-0002" })).json()).toMatchObject({ pack: "l1", price: BASE_TUNABLES.fares.entreBairros, cash: cash - BASE_TUNABLES.fares.entreBairros });
+    expect((await get(one.token, "/v1/viagens")).json()).toEqual({ ways: [{ gateway: "para-marginal", pack: "l1", arrive: "mutamba" }], price: BASE_TUNABLES.fares.entreBairros, free: false });
+    for (let n = 0; n < 2; n++) expect((await post(one.token, "/v1/viagens", { gateway: "para-marginal", key: "viagem-0002" })).json()).toMatchObject({ pack: "l1", price: BASE_TUNABLES.fares.entreBairros, cash: cash - BASE_TUNABLES.fares.entreBairros });
     const lines = ((await get(one.token, "/v1/me/wallet")).json() as { cashLines: { reason: string; amount: number }[] }).cashLines;
     expect(lines[0]).toMatchObject({ reason: "fare", amount: -BASE_TUNABLES.fares.entreBairros });
     expect((await sql`SELECT de, para, paid::int FROM viagens WHERE player_id = ${one.playerId} ORDER BY id`).map((row) => ({ ...row }))).toEqual([{ de: "ao-lua/l1", para: "ao-lua/zango", paid: 0 }, { de: "ao-lua/zango", para: "ao-lua/l1", paid: BASE_TUNABLES.fares.entreBairros }]);
@@ -1234,9 +1237,9 @@ describe("two bairros (Task 11.2, D-11.1 and D-11.2)", () => {
     const broke = await newGuest(1503);
     await presence.stand(broke.playerId, { districtId: "ao-lua/l1", x: 0, y: 0, z: 0, yaw: 0 });
     await presence.mark(broke.playerId, "porta", "para-zango|ao-lua/zango|mangueira");
-    expect((await post(broke.token, "/v1/viagens", { key: "viagem-0003" })).statusCode).toBe(200);
+    expect((await post(broke.token, "/v1/viagens", { gateway: "para-zango", key: "viagem-0003" })).statusCode).toBe(200);
     await presence.mark(broke.playerId, "porta", "para-marginal|ao-lua/l1|mutamba");
-    expect((await post(broke.token, "/v1/viagens", { key: "viagem-0004" })).json()).toEqual({ error: "insufficient" });
+    expect((await post(broke.token, "/v1/viagens", { gateway: "para-marginal", key: "viagem-0004" })).json()).toEqual({ error: "insufficient" });
     expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
     await presence.retire("zona-bairros");
   });

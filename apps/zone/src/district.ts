@@ -3,7 +3,7 @@
 // that the zone and every phone agree what is solid without a byte being sent
 // about it (D-0.53).
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { inflateRawSync } from "node:zlib";
 import { type Ground, type Obstacle } from "@nzila/sim";
@@ -76,6 +76,12 @@ interface ManifestRead {
 /** The sign over a caixa, as a pack's manifest names it; and how near one a player must stand to use it, in millimetres. */
 export const CAIXA_GLYPH = "banco";
 export const CAIXA_REACH_MM = 3500;
+/** The packs of the bairros the registry knows (content/registry.json), in its order: what a zone runs when it is not told otherwise. */
+export function registryPacks(): string[] {
+  const registry = JSON.parse(readFileSync(new URL("../../../content/registry.json", import.meta.url), "utf8")) as { districts: { pack?: string }[] };
+  return registry.districts.flatMap((one) => (one.pack ? [one.pack] : []));
+}
+
 /** The signs of shops; and how near a shop's place a player must stand to buy (at its grille or its counter). */
 export const SHOP_GLYPHS = ["cantina", "flores", "gelado"];
 export const SHOP_REACH_MM = 3500;

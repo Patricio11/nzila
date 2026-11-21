@@ -86,7 +86,8 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
   // The places two may go out to (Task 10.13): one beside the road up the second street, one where people talk.
   outings: [{ x: 50_000, z: 92_000 }, { x: -60_000, z: -60_000 }],
   // A way out to another bairro, at the paragem of the Mutamba (Task 11.2).
-  gateways: [{ id: "para-fora", x: 40_000, z: -20_000, to: "ao-lua/outro", arrive: "chegada" }],
+  // Two ways out at one paragem (a paragem may lead to more than one bairro), and one far from it.
+  gateways: [{ id: "para-fora", x: 40_000, z: -20_000, to: "ao-lua/outro", arrive: "chegada" }, { id: "para-longe", x: 41_000, z: -20_000, to: "ao-lua/longe", arrive: "largo" }, { id: "para-la", x: -90_000, z: 90_000, to: "ao-lua/la", arrive: "ali" }],
   // A campo of forty metres by twenty-six, far from everything else, with its ball.
   campos: [{ x0: 58_000, z0: -96_000, x1: 98_000, z1: -70_000, goal: 2600 }] };
 // A town the database has never heard of: played in, and nobody's place in it is kept.
@@ -766,7 +767,7 @@ describe("where a player was", () => {
       void presence.marked(one.id, "porta").then((value) => void (said = value));
       return said !== null;
     }, 5000);
-    expect(said).toBe("para-fora|ao-lua/outro|chegada");
+    expect(said).toBe("para-fora|ao-lua/outro|chegada;para-longe|ao-lua/longe|largo");
     expect(await presence.marked(other.id, "porta")).toBeNull();
     await p.leave();
     await far.leave();

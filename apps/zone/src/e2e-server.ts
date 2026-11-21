@@ -8,14 +8,14 @@ import { existsSync } from "node:fs";
 import { connect, databaseUrl } from "@nzila/db";
 import { loadChatFilter } from "@nzila/i18n/server";
 import { redisPresence, redisUrl } from "@nzila/presence";
-import { loadDistrict } from "./district.ts";
+import { loadDistrict, registryPacks } from "./district.ts";
 import { startZone } from "./server.ts";
 
 const url = new URL(databaseUrl());
 url.pathname = "/nzila_e2e";
 const sql = connect(url.toString(), 10);
 const districts = [];
-for (const pack of ["dev", "l1", "zango"]) {
+for (const pack of ["dev", ...registryPacks()]) {
   const folder = new URL(`../../client/public/packs/${pack}/`, import.meta.url);
   // A machine without Blender has no packs: the zone then runs nothing, and the tests that need it say so.
   if (!existsSync(new URL("manifest.json", folder))) continue;

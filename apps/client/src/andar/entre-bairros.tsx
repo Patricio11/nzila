@@ -36,9 +36,15 @@ export function portaAqui(portas: readonly Porta[], x: number, z: number): Porta
   return portas.find((one) => Math.hypot(one.x - x, one.z - z) < REACH_M) ?? null;
 }
 
-interface Quote {
+interface Way {
+  readonly gateway: string;
   readonly pack: string;
   readonly arrive: string;
+}
+
+/** What the API says of the paragem: the ways out the zone says the player stands at, and what a corrida costs now. */
+interface Quote {
+  readonly ways: readonly Way[];
   readonly price: number;
   readonly free: boolean;
 }
@@ -48,10 +54,12 @@ const newKey = (): string => `v${Date.now().toString(36)}${Math.random().toStrin
 
 /**
  * The sheet of a crossing. `leave` takes the player out of this street before the other is opened; `go` opens it
- * (the page for that pack, at the paragem one arrives at).
+ * (the page for that pack, at the paragem one arrives at). `portas` are all the ways out of this bairro: when the
+ * paragem leads to more than one bairro, the sheet first asks where to.
  */
-export function Viagem({ porta, onClose, leave, go }: { porta: Porta; onClose: () => void; leave: () => void; go: (pack: string, arrive: string) => void }) {
+export function Viagem({ porta: near, portas, onClose, leave, go }: { porta: Porta; portas: readonly Porta[]; onClose: () => void; leave: () => void; go: (pack: string, arrive: string) => void }) {
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [chosen, setChosen] = useState<Way | null>(null);
   const [megabytes, setMegabytes] = useState<number | null>(null);
   const [said, setSaid] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,19 +71,26 @@ export function Viagem({ porta, onClose, leave, go }: { porta: Porta; onClose: (
       if (!alive) return;
       if (!answer) return setSaid(tr.t("viagem.longe"));
       setQuote(answer);
-      // What the other bairro weighs, from its own manifest: a few kilobytes that the journey needs anyway.
-      void fetch(`/packs/${answer.pack}/manifest.json`)
-        .then((res) => (res.ok ? (res.json() as Promise<{ sizes?: { firstView?: number } }>) : null))
-        .then((manifest) => alive && manifest?.sizes?.firstView && setMegabytes(manifest.sizes.firstView / 1_000_000))
-        .catch(() => {});
+      if (answer.ways.length === 1) setChosen(answer.ways[0]!);
     });
     return () => void (alive = false);
   }, []);
+  useEffect(() => {
+    if (!chosen) return;
+    let alive = true;
+    // What the other bairro weighs, from its own manifest: a few kilobytes that the journey needs anyway.
+    void fetch(`/packs/${chosen.pack}/manifest.json`)
+      .then((res) => (res.ok ? (res.json() as Promise<{ sizes?: { firstView?: number } }>) : null))
+      .then((manifest) => alive && manifest?.sizes?.firstView && setMegabytes(manifest.sizes.firstView / 1_000_000))
+      .catch(() => {});
+    return () => void (alive = false);
+  }, [chosen]);
+  const porta = (chosen && portas.find((one) => one.id === chosen.gateway)) || near;
   const ride = async (): Promise<void> => {
-    if (!quote) return;
+    if (!chosen) return;
     setBusy(true);
     setSaid(null);
-    const { answer, error } = await askAsPlayer<Quote>("POST", "/v1/viagens", { key });
+    const { answer, error } = await askAsPlayer<Way>("POST", "/v1/viagens", { gateway: chosen.gateway, key });
     setBusy(false);
     if (!answer) return setSaid(tr.t(error === "insufficient" ? "viagem.falta" : error === "not_there" ? "viagem.longe" : "viagem.falhou"));
     // Paid: out of this street, a moment on the road, and into the other.
@@ -92,6 +107,31 @@ export function Viagem({ porta, onClose, leave, go }: { porta: Porta; onClose: (
           <span class="eb-van" />
         </div>
         <p>{tr.t("viagem.caminho", { a: porta.a })}</p>
+      </div>
+    );
+  }
+  if (quote && !chosen) {
+    // More than one candongueiro leaves from here: where to, before anything else.
+    return (
+      <div class="eb-back" onClick={(event) => event.target === event.currentTarget && onClose()}>
+        <section class="eb-sheet n-on-dark" role="dialog" aria-label={tr.t("viagem.onde")}>
+          <span class="n-pano-faixa n-pano-faixa-vermelha" aria-hidden="true" />
+          <div class="eb-in">
+            <span class="eb-van eb-van-parada" aria-hidden="true" />
+            <h3>{tr.t("viagem.onde")}</h3>
+            <p class="eb-preco">{quote.free ? tr.t("viagem.gratis") : tr.t("viagem.preco", { preco: tr.makuta(quote.price) })}</p>
+            <div class="eb-onde">
+              {quote.ways.map((way) => (
+                <Button key={way.gateway} onPress={() => setChosen(way)}>
+                  {portas.find((one) => one.id === way.gateway)?.nome ?? way.pack}
+                </Button>
+              ))}
+            </div>
+            <Button kind="quiet" onPress={onClose}>
+              {tr.t("viagem.ficar")}
+            </Button>
+          </div>
+        </section>
       </div>
     );
   }
@@ -113,7 +153,7 @@ export function Viagem({ porta, onClose, leave, go }: { porta: Porta; onClose: (
             <Button kind="quiet" onPress={onClose}>
               {tr.t("viagem.ficar")}
             </Button>
-            <Button disabled={!quote} busy={busy} onPress={() => void ride()}>
+            <Button disabled={!chosen} busy={busy} onPress={() => void ride()}>
               {tr.t("viagem.ir", { a: porta.a })}
             </Button>
           </div>

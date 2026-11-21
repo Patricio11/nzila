@@ -16,13 +16,13 @@ import { connect, expireTalk, liveTunables } from "@nzila/db";
 import { BASE_TUNABLES } from "@nzila/economy";
 import { loadChatFilter } from "@nzila/i18n/server";
 import { memoryPresence, redisPresence, type Presence } from "@nzila/presence";
-import { loadDistrict } from "./district.ts";
+import { loadDistrict, registryPacks } from "./district.ts";
 import { startZone } from "./server.ts";
 
 const port = Number(process.env.ZONE_PORT ?? 2567);
 const packs = process.env.ZONE_PACKS
   ? process.env.ZONE_PACKS.split(",").map((folder) => pathToFileURL(`${folder.trim()}/`))
-  : ["l1", "zango", "dev"].map((pack) => new URL(`../../client/public/packs/${pack}/`, import.meta.url)).filter((folder) => existsSync(new URL("manifest.json", folder)));
+  : [...registryPacks(), "dev"].map((pack) => new URL(`../../client/public/packs/${pack}/`, import.meta.url)).filter((folder) => existsSync(new URL("manifest.json", folder)));
 
 const sql = connect();
 const districts = [];

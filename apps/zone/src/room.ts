@@ -1363,16 +1363,17 @@ export class ChannelRoom {
       }
     }
     // And whoever stands at a way out to another bairro, which one, where it leads and where one arrives there: the
-    // API sells the crossing only on this word (Task 11.2). Never from a van or a seat.
+    // API sells the crossing only on this word (Task 11.2). Never from a van or a seat. A paragem may lead to more
+    // than one bairro: every way out within reach is said, "id|to|arrive" each, with ";" between.
     if (tick % STEPS_A_LOOK === 0 && this.presence && (this.district.gateways?.length ?? 0) > 0) {
       const now = Date.now();
       for (const held of this.held.values()) {
         if (now - held.portaAt < MARK_EVERY_MS) continue;
         const at = this.channel.placeOf(held.entityId);
-        const gateway = at && !this.channel.ridingOf(held.entityId) && !this.channel.sittingOf(held.entityId) ? this.district.gateways!.find((one) => Math.hypot(one.x - at.x, one.z - at.z) <= GATEWAY_REACH_MM) : undefined;
-        if (!gateway) continue;
+        const ways = at && !this.channel.ridingOf(held.entityId) && !this.channel.sittingOf(held.entityId) ? this.district.gateways!.filter((one) => Math.hypot(one.x - at.x, one.z - at.z) <= GATEWAY_REACH_MM) : [];
+        if (ways.length === 0) continue;
         held.portaAt = now;
-        void this.presence.mark(held.playerId, "porta", `${gateway.id}|${gateway.to}|${gateway.arrive}`).catch(() => {});
+        void this.presence.mark(held.playerId, "porta", ways.map((one) => `${one.id}|${one.to}|${one.arrive}`).join(";")).catch(() => {});
       }
     }
     // And which of the district's places a player stands at, as "<its number>/<how many there are>": an errand at a

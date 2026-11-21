@@ -131,6 +131,7 @@ export class DistrictScene {
   /** Opens the pack served at `base` (which ends with a slash). Rejects when there is no such pack. */
   static async open(renderer: WorldRenderer, base: string): Promise<DistrictScene> {
     const chunks = await ChunkStream.open(renderer, base);
+    renderer.lamps = chunks.manifest.ambient.lamps;
     const words = JSON.parse(new TextDecoder().decode(await meteredFetch(base + chunks.manifest.strings))) as Record<string, string>;
     // The people's bodies, when they are built on this machine: the crowd and a van's passengers come from them.
     const people = await People.open(renderer).catch(() => null);

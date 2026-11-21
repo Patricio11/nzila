@@ -429,7 +429,7 @@ for lo, hi in STREETS:
         if ROAD[0] - 4 < pz < ROAD[1] + 4:
             pz = ROAD[0] - 5
         px = hi + 0.9
-        tops = kit.poste(b, px, float(pz), rng, lamp=k % 3 == 1)
+        tops = kit.poste(b, px, float(pz), rng, lamp=k % 2 == 1)
         block(px, float(pz), 0.3)
         if previous:
             for a, c in zip(previous, tops):
@@ -629,7 +629,8 @@ partial = {
     "nameKey": "world.ao-lua.zango.name",
     "artPass": 1,
     "bounds": {"minX": 0, "minZ": 0, "maxX": WIDE, "maxZ": DEEP},
-    "ambient": {"set": "l1", "soundBeds": []},
+    # Its streets are lit orange after dark, as Zango's are (the founder's picture, D-11.6).
+    "ambient": {"set": "l1", "soundBeds": [], "lamps": "sodio"},
     "spawns": [{"id": "arrival", "pos": ARRIVAL, "facing": 180, "kind": "first_arrival"}, {"id": "mangueira", "pos": [round(PARAGEM[0], 2), G, round(PARAGEM[1] - 0.5, 2)], "facing": 180, "kind": "gateway"}],
     # The way to the Marginal: the vans at the Mangueira (D-11.2). One arrives at the Mutamba.
     "gateways": [{"id": "para-marginal", "pos": [round(PARAGEM[0], 2), G, round(PARAGEM[1], 2)], "to": "ao-lua/l1", "arrive": "mutamba", "mode": "ride", "openFlag": "world.open", "nameKey": "zango.gateway.marginal"}],

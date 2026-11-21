@@ -8,6 +8,7 @@
 
 import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { ATLAS_CELLS, ATLAS_CELL_PX, ATLAS_NAMES, atlasPixels, type Registry, type SourceManifest } from "@nzila/world";
@@ -235,7 +236,10 @@ export async function buildVehicles(workDir: string, outDir: string): Promise<{ 
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const command = process.argv[2];
+  const command = process.argv[2] ?? "";
+  // The bairros that can be built: those the registry gives a pack and a script (11.1: nothing of them is written here).
+  const bairros = (JSON.parse(await readFile(join(root, "content", "registry.json"), "utf8")) as { districts: { pack?: string; script?: string }[] }).districts.flatMap((one) => (one.pack && one.script ? [{ pack: one.pack, script: one.script }] : []));
+  const bairro = (pack: string): { pack: string; script: string } | undefined => bairros.find((one) => one.pack === pack);
   if (command === "palette") {
     const written = await writePalette(join(root, "art"));
     console.log(`pack palette: ${written.png} and ${written.json}`);
@@ -264,9 +268,18 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         process.exitCode = 1;
       }
     }
-  } else if (command === "l1" || command === "zango") {
-    // A real district: Marginal e Baixa, or Zango (docs/PHASE_11_PLAN.md). Each is drawn by its own script.
-    const place = command === "l1" ? { script: "make_l1.py", said: "Marginal e Baixa" } : { script: "make_zango.py", said: "Zango" };
+  } else if (command === "bairros") {
+    // Every bairro of the registry, one after another: what the full gate runs.
+    const all = (JSON.parse(await readFile(join(root, "content", "registry.json"), "utf8")) as Registry & { districts: { pack?: string }[] }).districts.flatMap((one) => (one.pack ? [one.pack] : []));
+    for (const pack of all) {
+      const { status } = spawnSync(process.execPath, [fileURLToPath(import.meta.url), pack], { stdio: "inherit" });
+      if (status !== 0) process.exitCode = status ?? 1;
+    }
+  } else if (bairro(command)) {
+    // A real district, by the name of its pack in the registry (content/registry.json): each is drawn by its own script.
+    const listed = bairro(command)!;
+    const place = { script: listed.script, said: listed.pack };
+    const first = bairros[0]?.pack === command;
     if (!findBlender() || !findKtx()) {
       console.warn(`pack ${command}: SKIPPED, Blender or KTX-Software not installed. ${place.said} was not built.`);
     } else {
@@ -288,9 +301,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         const company = (await extra("dev-people")) * 0.6 + (await extra("dev-vehicles"));
         const share = manifest.sizes.total.poupanca / manifest.sizes.total.normal;
         // The front door is the first district's.
-        if (command === "l1") await writeFile(
+        if (first) await writeFile(
           join(root, "apps", "client", "public", "packs", "front.json"),
-          `${JSON.stringify({ pack: "l1", nameKey: manifest.nameKey, firstView: { normal: Math.round(manifest.sizes.firstView + company), poupanca: Math.round(manifest.sizes.firstView * share + company) } })}\n`,
+          `${JSON.stringify({ pack: command, nameKey: manifest.nameKey, firstView: { normal: Math.round(manifest.sizes.firstView + company), poupanca: Math.round(manifest.sizes.firstView * share + company) } })}\n`,
         );
         console.log(`pack ${command}: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal (budget 8), the heaviest chunk ${heaviest} triangles, ${manifest.pois.length} points of interest. Served at /packs/${command}/.`);
       } catch (error) {
@@ -301,7 +314,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       }
     }
   } else {
-    console.error("usage: dev-pack.ts palette | dev | l1 | zango");
+    console.error(`usage: dev-pack.ts palette | dev | bairros | ${bairros.map((one) => one.pack).join(" | ")}`);
     process.exitCode = 1;
   }
 }

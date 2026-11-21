@@ -6,6 +6,8 @@
 .eb-in h3 { margin: 0; font: var(--type-title); text-align: center; text-wrap: balance; }
 .eb-preco { margin: 0; font: var(--type-label); color: var(--n-dourado); text-align: center; }
 .eb-dados, .eb-said { margin: 0; font: var(--type-small); color: var(--n-luz-suave); text-align: center; }
+.eb-onde { display: flex; flex-direction: column; gap: var(--s-2); align-self: stretch; }
+.eb-onde .n-button { margin: 0; }
 .eb-keys { display: flex; gap: var(--s-2); align-self: stretch; margin-top: var(--s-1); }
 .eb-keys .n-button { flex: 1; margin: 0; white-space: nowrap; }
 .eb-keys .n-button:first-child { flex: 0 0 auto; }

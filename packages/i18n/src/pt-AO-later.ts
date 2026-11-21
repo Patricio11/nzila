@@ -593,6 +593,7 @@ export const ptAOLater = {
   "viagem.gratis": "Hoje a primeira corrida é por conta da casa.",
   "viagem.preco": "A corrida custa {preco}.",
   "viagem.dados": "{mb} MB para carregar o bairro.",
+  "viagem.onde": "Para onde vais?",
   "viagem.ir": "Ir {a}",
   "viagem.ficar": "Ficar",
   "viagem.caminho": "A sair {a}.",

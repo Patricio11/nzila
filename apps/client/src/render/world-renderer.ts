@@ -244,6 +244,11 @@ export class WorldRenderer {
    * The one material of the world: every model coloured from the palette
    * atlas uses it, so they can be drawn together. Made once and shared.
    */
+  /** What lamps and lit windows glow after dark here: the orange of sodium lamps, or (null) the palette's own warm white. */
+  set lamps(kind: string | null | undefined) {
+    this.paletteMaterial.emissive.setRGB(1, kind === "sodio" ? 0.56 : 1, kind === "sodio" ? 0.2 : 1);
+  }
+
   get paletteMaterial(): MeshLambertMaterial {
     if (!this.palette) {
       const size = ATLAS_CELLS * ATLAS_CELL_PX;

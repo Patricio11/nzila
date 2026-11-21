@@ -111,7 +111,9 @@ export const manifestSchema = z.strictObject({
   /** 0 greybox, 1 kit, 2 final (stub S-2). */
   artPass: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   bounds: z.strictObject({ minX: z.number(), minZ: z.number(), maxX: z.number(), maxZ: z.number() }),
-  ambient: z.strictObject({ set: id, soundBeds: z.array(id) }),
+  // `lamps`: what its lamps and lit windows glow after dark: "sodio" is the orange of sodium street lamps (the
+  // founder's picture of Zango at night, 2026-11-21); left out, the warm white of the palette.
+  ambient: z.strictObject({ set: id, soundBeds: z.array(id), lamps: z.enum(["sodio"]).optional() }),
   chunks: z.array(chunk).min(1),
   spawns: z.array(spawn).min(1),
   gateways: z.array(gateway),
@@ -175,7 +177,8 @@ export type TierBytes = z.infer<typeof tierBytes>;
 export const registrySchema = z.strictObject({
   provinces: z.array(z.strictObject({ id: provinceIdSchema, nameKey: key, open: z.boolean() })),
   // `pack`: the folder its built pack is served from. `wakes`: the tiers of family that wake there (D-11.1).
-  districts: z.array(z.strictObject({ id: districtIdSchema, provinceId: provinceIdSchema, nameKey: key, open: z.boolean(), pack: id.optional(), wakes: z.array(id).optional() })),
+  // `script`: the file of art/scripts that draws it (`pnpm pack:bairro <pack>`).
+  districts: z.array(z.strictObject({ id: districtIdSchema, provinceId: provinceIdSchema, nameKey: key, open: z.boolean(), pack: id.optional(), wakes: z.array(id).optional(), script: z.string().regex(/^make_[a-z0-9_-]+\.py$/).optional() })),
 });
 export type Registry = z.infer<typeof registrySchema>;
 
