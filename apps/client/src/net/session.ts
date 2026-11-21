@@ -339,7 +339,7 @@ export class Session {
     else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA || event.kind === EVENT.PONTOS) this.convites.push(event);
     else if (event.kind >= EVENT.BISCATO && event.kind <= EVENT.BISCATO_RECUSADO) this.biscatos.push(event);
     else if (event.kind === EVENT.CORRIDA || event.kind === EVENT.CORRIDA_RECUSADA) this.pedidos.push(event);
-    else if (event.kind === EVENT.BOLA || event.kind === EVENT.GOLO) {
+    else if (event.kind === EVENT.BOLA || event.kind === EVENT.GOLO || event.kind === EVENT.LADO) {
       if (this.bolas.length < 64) this.bolas.push(event);
     } else if (event.kind === EVENT.A_DOIS) {
       // Made (a handshake, a hug): both bodies make it, turned to each other; the player's own is the page's.

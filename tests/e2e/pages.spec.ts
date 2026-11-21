@@ -2912,6 +2912,67 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("a match on Zango's campo (D-11.11): two walk onto the pitch and are on a side each, in bibs; one runs the ball into the far goal and both are told whose goal it is and the score", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. The match on the campo was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(360_000);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const seen = watch(page);
+    const otherSeen = watch(other);
+    // Two born to families of little money: both wake in Zango, in the same street.
+    const born = async (phone: Page, label: string): Promise<void> => {
+      let kept: Record<string, unknown> | null = null;
+      for (let n = 0; n < 12 && !kept; n++) {
+        const deviceId = `zango-jogo-${label}-${n}-${Date.now()}-abcdefgh`;
+        const guest = (await (await phone.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string };
+        const dealt = (await (await phone.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: { tier: string } };
+        if (dealt.origin.tier === "aperto") kept = { deviceId, ageBand: "18_plus", ...guest, origin: dealt.origin };
+      }
+      expect(kept, "a family of little money was dealt in twelve tries").not.toBeNull();
+      await phone.addInitScript((account) => localStorage.setItem("nzila.conta", JSON.stringify(account)), kept);
+      await phone.goto("/andar?pack=zango&tier=poupanca&hour=16");
+      await phone.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    };
+    await born(page, "a");
+    await born(other, "b");
+    const campo = ((await (await page.request.get("/packs/zango/manifest.json")).json()) as { campos: { rect: [number, number, number, number] }[] }).campos[0]!.rect;
+    const middle = { x: (campo[0] + campo[2]) / 2, z: (campo[1] + campo[3]) / 2 };
+    // The first onto the pitch, west of the ball: the amarelos, who attack the east goal.
+    await walkTo(page, middle.x - 6, campo[3] + 3, 1.5, 300);
+    // Said for a few seconds from the step onto the pitch: watched for while walking.
+    const amarelo = page.getByRole("status").filter({ hasText: "Jogas pelos amarelos. Defende a baliza amarela." }).waitFor({ timeout: 90_000 });
+    await walkTo(page, middle.x - 6, middle.z, 0.4, 120);
+    await page.waitForFunction(() => window.__bola?.lado === 1, undefined, { timeout: 20_000 });
+    await amarelo;
+    await page.screenshot({ path: info.outputPath("jogo-amarelos.png") });
+    // The second, out of the way of the ball: the vermelhos. Now it is a match, and each sees both bibs.
+    await walkTo(other, middle.x + 9, campo[3] + 3, 1.5, 300);
+    const vermelho = other.getByRole("status").filter({ hasText: "Jogas pelos vermelhos. Defende a baliza vermelha." }).waitFor({ timeout: 90_000 });
+    await walkTo(other, middle.x + 9, middle.z + 7, 1.0, 120);
+    await other.waitForFunction(() => window.__bola?.lado === 2 && window.__bola.coletes === 2, undefined, { timeout: 20_000 });
+    await page.waitForFunction(() => window.__bola!.coletes === 2, undefined, { timeout: 20_000 });
+    await vermelho;
+    await other.screenshot({ path: info.outputPath("jogo-vermelhos.png") });
+    // The amarelo runs the ball east, straight down the middle, into the vermelhos' goal.
+    await page.keyboard.down("Shift");
+    await page.keyboard.down("d");
+    await page.waitForFunction(() => window.__bola!.placar[0] === 1, undefined, { timeout: 60_000 });
+    await page.keyboard.up("d");
+    await page.keyboard.up("Shift");
+    await expect(page.getByRole("status").filter({ hasText: "Golo teu. Amarelos 1 · 0 Vermelhos" })).toBeVisible({ timeout: 10_000 });
+    await expect(other.getByRole("status").filter({ hasText: /Golo dos amarelos, de \S.*\. Amarelos 1 · 0 Vermelhos/ })).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("jogo-golo.png") });
+    await other.screenshot({ path: info.outputPath("jogo-golo-outro.png") });
+    // The goal said, the score stays over the street for whoever plays.
+    await expect(other.getByRole("status").filter({ hasText: /^Amarelos 1 · 0 Vermelhos$/ })).toBeVisible({ timeout: 15_000 });
+    expect(seen.errors).toEqual([]);
+    expect(otherSeen.errors).toEqual([]);
+  });
+
   test("Zango's kiosk bar and its barbearia (D-11.10): a hambúrguer off the chapa is 1.000 Mk and is in the Mochila; a cut is 500 Mk, the mirror offers the hair alone, and the hair is changed", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The packs are not built. Zango's bar and barbearia were not checked here." });

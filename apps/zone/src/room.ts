@@ -705,19 +705,27 @@ export class ChannelRoom {
         const was = this.wasAt.get(held.entityId);
         const m = ChannelRoom.BOLA_PLAYED_MM;
         if (was && at.x > x0 - m && at.x < x1 + m && at.z > z0 - m && at.z < z1 + m && !this.channel.ridingOf(held.entityId) && !this.channel.sittingOf(held.entityId)) {
-          near.push({ id: held.entityId, playerId: held.playerId, x: at.x, z: at.z, vx: ((at.x - was.x) * 1000) / STEP_MS, vz: ((at.z - was.z) * 1000) / STEP_MS });
+          near.push({ id: held.entityId, playerId: held.playerId, x: at.x, z: at.z, vx: ((at.x - was.x) * 1000) / STEP_MS, vz: ((at.z - was.z) * 1000) / STEP_MS, on: at.x >= x0 && at.x <= x1 && at.z >= z0 && at.z <= z1 });
         }
       }
-      const { moved, golo } = bola.step(now, near);
+      const { moved, golo, lados } = bola.step(now, near);
+      const side = (id: number, lado: number): Uint8Array => encodeEvent({ kind: EVENT.LADO, tick, subject: id, args: [n, lado, bola.placar[0], bola.placar[1]], text: "" });
       const said = (): Uint8Array => encodeEvent({ kind: EVENT.BOLA, tick, subject: n, args: [bola.state.x, bola.state.z, bola.state.vx, bola.state.vz, now - bola.state.atMs], text: "" });
       const bytes = moved ? said() : null;
       for (const { line, held } of watching) {
+        // Someone who has just come near is told where the ball lies and who is on which side.
+        const came = !held.bolas.has(n);
         if (bytes) line.send(bytes);
-        else if (!held.bolas.has(n)) line.send(said());
+        else if (came) line.send(said());
+        if (came) for (const one of bola.lados.values()) line.send(side(one.id, one.lado));
         held.bolas.add(n);
       }
+      for (const change of lados) {
+        const told = side(change.id, change.lado);
+        for (const { line } of watching) line.send(told);
+      }
       if (golo) {
-        const scored = encodeEvent({ kind: EVENT.GOLO, tick, subject: golo.id, args: [n, golo.total], text: "" });
+        const scored = encodeEvent({ kind: EVENT.GOLO, tick, subject: golo.id, args: [n, golo.total, golo.lado, golo.placar[0], golo.placar[1], golo.fim ? 1 : 0], text: "" });
         for (const { line } of watching) line.send(scored);
       }
     }

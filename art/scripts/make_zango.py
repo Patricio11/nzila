@@ -318,9 +318,11 @@ for (ax, az, bx_, bz_) in [(-1, -1, 1, -1), (-1, 1, 1, 1), (-1, -1, -1, 1), (1, 
 for side in (-1, 1):
     gx = CAMPO[0] + side * CW / 2
     b.at(gx, CAMPO[1])
+    # Each goal in the colour of the side that defends it (D-11.11): the amarelos the west, the vermelhos the east.
+    paint_ = "awningGold" if side < 0 else "awningRed"
     for gz in (CAMPO[1] - 2.6, CAMPO[1] + 2.6):
-        b.tube([(gx, 0.0, gz), (gx + rng.uniform(-0.08, 0.08), 2.1, gz)], [0.06, 0.05], 5, "pole", cap=False)
-    b.tube([(gx, 2.08, CAMPO[1] - 2.7), (gx, 2.08, CAMPO[1] + 2.7)], [0.05, 0.05], 5, "pole", cap=False)
+        b.tube([(gx, 0.0, gz), (gx + rng.uniform(-0.08, 0.08), 2.1, gz)], [0.07, 0.06], 5, paint_, cap=False)
+    b.tube([(gx, 2.08, CAMPO[1] - 2.7), (gx, 2.08, CAMPO[1] + 2.7)], [0.06, 0.06], 5, paint_, cap=False)
 # Those who watch sit on a log and on tyres half buried along one side.
 for k in range(5):
     tx = CAMPO[0] - 8.0 + k * 4.0

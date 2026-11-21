@@ -843,7 +843,7 @@ export function Andar() {
             () => void (campo.current = null),
           );
         }
-        if (campo.current && campo.current !== "loading") campo.current.update(net, performance.now());
+        if (campo.current && campo.current !== "loading") campo.current.update(net, performance.now(), state.x / 1000, state.z / 1000);
         sairRef.current?.hear(net, x, z);
         corridas.current?.update(session?.corridas ?? null, session?.pedidos ?? [], ground, Date.now() + (session?.zoneClockAhead ?? 0), elapsed, seconds);
         const hiredBody = corridas.current?.carry(person, session?.myRide ?? null, seconds) ? corridas.current.bodyAt(session!.myRide!.vehicle) : null;

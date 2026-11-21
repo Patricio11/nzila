@@ -267,8 +267,10 @@ export const EVENT = {
   A_DOIS: 22,
   /** The ball of a campo (subject: the campo's number in the pack): args are x, z, vx, vz (mm, mm/s) and how many milliseconds ago that was so. Read with bolaAt (bola.ts). */
   BOLA: 23,
-  /** A goal on a campo: subject scored it; args: the campo, and how many they have now. */
+  /** A goal on a campo: subject scored it; args: the campo, how many they have now, and in a match the side it counts for (1 amarelos, 2 vermelhos; 0 no match), the score of each side, and 1 when that side has just won. */
   GOLO: 24,
+  /** Subject is on a side of a campo's match, or has left it: args are the campo, the side (1, 2; 0 left), and the score of each side. */
+  LADO: 25,
 } as const;
 
 /**

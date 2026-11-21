@@ -755,6 +755,12 @@ describe("where a player was", () => {
     const kick = balls(p).find((event) => event.args[2]! > 0)!;
     expect(kick.args[2]).toBeGreaterThan(2600);
     expect(Math.abs(kick.args[3]!)).toBeLessThan(kick.args[2]!);
+    // Both stand on the pitch: each is on a side, one of each, and both are told of both (D-11.11).
+    const sides = (who: typeof p): Map<number, number> => new Map(who.state.events.filter((event) => event.kind === EVENT.LADO).map((event) => [event.subject, event.args[1]!]));
+    await until(() => sides(p).size === 2 && sides(watcher).size === 2);
+    expect([...sides(p).values()].sort()).toEqual([1, 2]);
+    expect(sides(watcher)).toEqual(sides(p));
+    expect(balls(far).length + sides(far).size).toBe(0);
     // Someone on the other side of the bairro never hears of this ball.
     expect(balls(far)).toEqual([]);
     await Promise.all([p.leave(), watcher.leave(), far.leave()]);
