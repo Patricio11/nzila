@@ -444,6 +444,8 @@ The phases below keep their numbers and their tasks. **The order they are built 
 4. **Phase 4B**, the alpha, with two bairros.
 5. Then the phases in their order, and **the bairros in the founder's order: Zango, Cazenga, Maianga, Ilha de Luanda, Mussulo**, then the rest of 15 as the players ask. The Ilha and Mussulo are where the water is: **the jet ski (mota de água) is a game there** (15.1's water vehicles, as a run against the clock and against another player).
 
+**The founder, 2026-11-22 (`docs/PHASE_5_PLAN.md` D-5.6): no new bairro for now.** The Marginal, the Miradouro and Zango are enough to build on; Cazenga and those after it wait until what a bairro is made of exists, beginning with being inside (Phase 5, then the insides of shops and of the church), because the next bairro is made of almost all of it. Whether the alpha (4B) opens before the rest of Phases 5 to 10 or after is the founder's, asked that day.
+
 **Nobody ages and nobody dies (D-4.9).** A player's body is theirs for as long as they play. Only those under 18 grow: the children of a household (10.17), and, by the calendar, a player of 15 to 17 who becomes 18.
 
 ## PHASE 4B: ALFA ABERTA (real players on the Marginal) *(4B.1 and 4B.2 built ahead of Phase 4's end at the founder's word, 2026-11-19, D-4.14)*
