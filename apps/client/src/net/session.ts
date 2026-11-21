@@ -105,6 +105,8 @@ export class Session {
   /** The channel's rides as the zone last said them, and what it says of one's own (Task 6.2): for the ride module. */
   corridas: Uint8Array | null = null;
   pedidos: WorldEvent[] = [];
+  /** What the zone says of going out with someone (Task 10.13), until the outing's own code has read it. */
+  saidas: WorldEvent[] = [];
   /** Fome and Energia as the zone last said them (Task 4.4), and who is waiting to hear what came of eating something. */
   needs: { fome: number; energia: number; tired: boolean } | null = null;
   /** A stay at the hospital the zone has just taken the player to, until it has been shown (its bill asked of the API). */
@@ -326,10 +328,20 @@ export class Session {
     else if (event.kind === EVENT.CHAT_REFUSED) this.refused = REFUSED[event.args[0] ?? 0] ?? "words";
     else if (event.kind === EVENT.RIDE_REFUSED) this.rideRefused = true;
     else if (event.kind === EVENT.GIVEN) this.given = true;
+    else if (event.kind === EVENT.PRESENTE) {
+      // Seen in the hand of whoever gives, then of whoever is given it; the player's own hands are the page's.
+      for (const [entity, mode] of [[event.subject, "dar"], [event.args[0] ?? -1, "tem"]] as const) {
+        if (entity === this.me) this.handed = { mode, item: event.text };
+        else this.players.hands(entity, mode, event.text);
+      }
+    }
     else if (event.kind === EVENT.MESA_REFUSED) this.mesaRefused = event.args[0] ?? 0;
     else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA || event.kind === EVENT.PONTOS) this.convites.push(event);
     else if (event.kind >= EVENT.BISCATO && event.kind <= EVENT.BISCATO_RECUSADO) this.biscatos.push(event);
     else if (event.kind === EVENT.CORRIDA || event.kind === EVENT.CORRIDA_RECUSADA) this.pedidos.push(event);
+    else if (event.kind === EVENT.SAIR) {
+      if (this.saidas.length < 32) this.saidas.push(event);
+    }
     else if (event.kind === EVENT.NECESSIDADES) {
       this.needs = { fome: event.args[0] ?? 0, energia: event.args[1] ?? 0, tired: event.args[2] === 1 };
       if (event.text) this.onAte?.(event.text, null);
@@ -399,6 +411,9 @@ export class Session {
     this.players.vanAt = vanAt;
     this.players.seatAt = seatAt;
   }
+
+  /** A thing the player has just handed over ("dar") or been handed ("tem"), until the page has put it in their hand. */
+  handed: { mode: "dar" | "tem"; item: string } | null = null;
 
   /** Someone beside the player says they have just handed them something, until the page has looked. */
   given = false;

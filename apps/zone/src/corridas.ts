@@ -32,6 +32,10 @@ export interface Corrida {
   readonly id: string;
   readonly playerId: string;
   readonly entity: number;
+  /** A táxi for two (D-10.5): the body of whoever the caller is out with, who rides beside them. */
+  readonly com: number | null;
+  /** Who has got in, while it waits and on the way. */
+  readonly aboard: Set<number>;
   fase: Fase;
   path: Ponto[];
   fromMs: number;
@@ -88,6 +92,12 @@ export class Corridas {
     return null;
   }
 
+  /** The ride a player is asked along on, by whoever called it for two. */
+  alongOn(entity: number): Corrida | null {
+    for (const ride of this.rides.values()) if (ride.com === entity && ride.fase !== "vai") return ride;
+    return null;
+  }
+
   byVehicle(vehicle: number): Corrida | null {
     return this.rides.get(vehicle) ?? null;
   }
@@ -96,7 +106,7 @@ export class Corridas {
    * A paid ride asked for: from the road beside `at` to the road nearest `to`. Why not, when it cannot be: the note
    * was used already, there is no road near either end, or the roads there do not join.
    */
-  ask(paid: { id: string; kind: CorridaKind; playerId: string; entity: number }, at: Ponto, to: Ponto, nowMs: number): Corrida | "usada" | "sem_estrada" {
+  ask(paid: { id: string; kind: CorridaKind; playerId: string; entity: number; com?: number | null }, at: Ponto, to: Ponto, nowMs: number): Corrida | "usada" | "sem_estrada" {
     if (this.used.has(paid.id)) return "usada";
     const pickup = nearestRoad(this.ground, at, ROAD_REACH_MM);
     const drop = nearestRoad(this.ground, to, ROAD_REACH_MM);
@@ -106,12 +116,23 @@ export class Corridas {
     const carrying = roadPath(this.ground, roadField(this.ground, drop), pickup);
     if (!coming || !carrying) return "sem_estrada";
     this.used.add(paid.id);
-    const ride: Corrida = { vehicle: HIRED_VEHICLE_BASE + (this.next++ % 1024), kind: paid.kind, id: paid.id, playerId: paid.playerId, entity: paid.entity, fase: "vem", path: coming, fromMs: nowMs, waitUntil: 0, pickup, drop, carrying };
+    const ride: Corrida = { vehicle: HIRED_VEHICLE_BASE + (this.next++ % 1024), kind: paid.kind, id: paid.id, playerId: paid.playerId, entity: paid.entity, com: paid.com ?? null, aboard: new Set(), fase: "vem", path: coming, fromMs: nowMs, waitUntil: 0, pickup, drop, carrying };
     this.rides.set(ride.vehicle, ride);
     return ride;
   }
 
-  /** Got on, at the kerb: the ride sets out with them along the way it worked out. */
+  /**
+   * Someone gets in at the kerb. The ride sets out when everyone it came for is in: at once for a ride for one; for
+   * two, when both are. True when it has set out.
+   */
+  getIn(ride: Corrida, entity: number, nowMs: number): boolean {
+    ride.aboard.add(entity);
+    if (!ride.aboard.has(ride.entity) || (ride.com !== null && !ride.aboard.has(ride.com))) return false;
+    this.board(ride, nowMs);
+    return true;
+  }
+
+  /** The ride sets out along the way it worked out, with whoever is in. */
   board(ride: Corrida, nowMs: number): void {
     ride.fase = "leva";
     ride.path = ride.carrying;
@@ -130,14 +151,20 @@ export class Corridas {
    * Time passes: a ride that has come waits at the kerb; one that waited too long goes; one that carried someone has
    * arrived; one that has gone out of sight is no more. What changed, for the room to act on and tell.
    */
-  step(nowMs: number): { arrived: Corrida[]; waiting: Corrida[]; gaveUp: Corrida[]; changed: boolean } {
-    const out = { arrived: [] as Corrida[], waiting: [] as Corrida[], gaveUp: [] as Corrida[], changed: false };
+  step(nowMs: number): { arrived: Corrida[]; waiting: Corrida[]; gaveUp: Corrida[]; setOut: Corrida[]; changed: boolean } {
+    const out = { arrived: [] as Corrida[], waiting: [] as Corrida[], gaveUp: [] as Corrida[], setOut: [] as Corrida[], changed: false };
     for (const ride of this.rides.values()) {
       if (ride.fase === "espera") {
         if (nowMs > ride.waitUntil) {
-          this.leave(ride, nowMs);
-          out.gaveUp.push(ride);
           out.changed = true;
+          // Whoever called it is in and the other never came: it goes with the one. Otherwise it goes empty.
+          if (ride.aboard.has(ride.entity)) {
+            this.board(ride, nowMs);
+            out.setOut.push(ride);
+          } else {
+            this.leave(ride, nowMs);
+            out.gaveUp.push(ride);
+          }
         }
         continue;
       }

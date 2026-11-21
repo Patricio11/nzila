@@ -10,7 +10,7 @@ import { Group } from "three";
 import { meteredFetch } from "../net/data-meter.ts";
 import { actorAt, type ActorMoment, type CrowdActor, type CrowdFile } from "./crowd-plan.ts";
 import { type Body, type Listed, type People } from "./people.ts";
-import { EMOTES, EMOTE_SECONDS, strideOf, type Emote } from "./person.ts";
+import { EMOTES, EMOTE_SECONDS, Person, strideOf, type Emote } from "./person.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
 /** Nobody further than this from the viewer is given a body, in metres. */
@@ -139,21 +139,29 @@ export class Crowd {
       walker.sit = walker.shown ? walker.sit + ((seated ? 1 : 0) - walker.sit) * Math.min(1, elapsedMs / 220) : seated ? 1 : 0;
       walker.shown = true;
       const y = walker.actor.y ?? (ground ? ground.heightAt(Math.floor((at.x * 1000) / ground.cellMm), Math.floor((at.z * 1000) / ground.cellMm)) / 1000 : 0);
-      person.root.visible = true;
-      person.shadow = n < SHADOWS && person === walker.whole;
-      person.root.position.set(at.x, y, at.z);
-      person.root.rotation.y = walker.yaw;
       const stride = strideOf(at.speed, person.height, person.skirt);
       const gesture: Emote | undefined = EMOTES.find((kind) => kind === at.pose || `baixo-${kind}` === at.pose);
-      person.pose(
-        { speed: at.speed, phase: (at.travelled / stride) * Math.PI * 2, time: seconds + walker.actor.offset },
-        {
-          sit: walker.sit,
-          ...(lowly ? { low: walker.sit } : {}),
-          ...(gesture ? { emote: { kind: gesture, seconds: at.since % EMOTE_SECONDS[gesture] } } : {}),
-          ...(at.pose === "fish" ? { hold: "cana" as const } : walker.actor.role === "zungueira" ? { hold: "bacia" as const } : {}),
-        },
-      );
+      // A whole body's shadow is cast by its light one, posed the same and not otherwise drawn: a shadow cannot
+      // tell 6.000 triangles from 900, and the picture is that much lighter (F-257).
+      const light = walker.person instanceof Person ? walker.person : null;
+      const shade = light && n < SHADOWS && person === walker.whole && this.renderer.tier.shadows === "sun" ? light : null;
+      // A dog is small enough to cast its own.
+      person.shadow = !light && n < SHADOWS && person === walker.whole;
+      if (light) light.shadowOnly = shade !== null;
+      for (const body of shade ? [person, shade] : [person]) {
+        body.root.visible = true;
+        body.root.position.set(at.x, y, at.z);
+        body.root.rotation.y = walker.yaw;
+        body.pose(
+          { speed: at.speed, phase: (at.travelled / stride) * Math.PI * 2, time: seconds + walker.actor.offset },
+          {
+            sit: walker.sit,
+            ...(lowly ? { low: walker.sit } : {}),
+            ...(gesture ? { emote: { kind: gesture, seconds: at.since % EMOTE_SECONDS[gesture] } } : {}),
+            ...(at.pose === "fish" ? { hold: "cana" as const } : walker.actor.role === "zungueira" ? { hold: "bacia" as const } : {}),
+          },
+        );
+      }
       seen.push({ id: walker.id, female: person.female, top: y + person.height * (1 - 0.3 * walker.sit), role: walker.actor.role, x: at.x, z: at.z, pose: at.pose, speed: at.speed });
     }
     this.seen = seen;

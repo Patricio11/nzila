@@ -193,10 +193,18 @@ POI_GLYPHS = {"miradouro": "vista", "musicos": "musica", "gelados-marginal": "ge
               "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos", "biscato-carga-mutamba": "biscatos", "biscato-zunga-marginal": "biscatos", "biscato-carros-baixa": "biscatos"}
 
 
+# The places two go out to (D-10.4, the founder's four): as the chooser names each, and as one goes to it.
+OUTINGS = {"pontao": ("O Pontão ao pôr do sol", "ao Pontão"), "miradouro": ("O Miradouro", "ao Miradouro"), "gelados-marginal": ("Os gelados", "aos gelados"), "xadrez": ("O Largo", "ao Largo")}
+
+
 def poi(key, x, z, name, line, y=G):
     words[f"l1.poi.{key}.name"] = name
     words[f"l1.poi.{key}.line"] = line
-    places["pois"].append({"id": key, "pos": [round(x, 2), y, round(z, 2)], "nameKey": f"l1.poi.{key}.name", "lineKey": f"l1.poi.{key}.line", "positive": True, "stamp": False, "glyph": POI_GLYPHS.get(key, "ponto")})
+    place = {"id": key, "pos": [round(x, 2), y, round(z, 2)], "nameKey": f"l1.poi.{key}.name", "lineKey": f"l1.poi.{key}.line", "positive": True, "stamp": False, "glyph": POI_GLYPHS.get(key, "ponto")}
+    if key in OUTINGS:
+        place["outing"] = True
+        words[f"l1.poi.{key}.sair"], words[f"l1.poi.{key}.a"] = OUTINGS[key]
+    places["pois"].append(place)
 
 
 def caixa(key, x, z, name):
@@ -393,7 +401,7 @@ caixa("caixa-marginal", 186.0, shore(186) + 15.5, "Caixa da Marginal")
 gel_x, gel_z = 189.0, shore(189) + 27.5
 rect = kb.geladaria(b, gel_x, gel_z, rng, G + 0.03)
 mark(rect[0], rect[1], rect[2], rect[3], "#")
-poi("gelados-marginal", gel_x - 0.5, gel_z - 2.9, "Geladaria da Marginal", "Gelado de múcua, de coco, de ginguba. Senta-te na esplanada e vê a baía.")
+poi("gelados-marginal", gel_x - 0.5, gel_z - 3.3, "Geladaria da Marginal", "Gelado de múcua, de coco, de ginguba. Senta-te na esplanada e vê a baía.")
 # A biscato (Task 4.5): the kiosk in the middle of the row washes its plates in a bacia in front of it, for a few coins.
 poi("biscato-pratos-quiosque", 211.6, shore(211.6) + 23.6, "O quiosque da Tia Bela", "Ao almoço há sempre pratos para lavar. A tia paga na hora.")
 kb.campo(b, 290.0, shore(290) + 21.0, 24.0, 13.0, "basquete", G + 0.03)

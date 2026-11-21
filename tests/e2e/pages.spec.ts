@@ -994,7 +994,7 @@ test.describe("two phones in the same street", () => {
    * tap) is waited for, since a second tap before it arrives would land on its backdrop and shut it. True when
    * their sheet opened.
    */
-  const tapSomeone = async (page: Page, name: string): Promise<boolean> => {
+  const tapSomeone = async (page: Page, name: string | RegExp): Promise<boolean> => {
     const size = page.viewportSize()!;
     const onStreet = (x: number, y: number): Promise<boolean> => page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName === "CANVAS", { x, y });
     for (let turn = 0; turn < 8; turn++) {
@@ -1021,11 +1021,13 @@ test.describe("two phones in the same street", () => {
    * Walks a player to a point with the keys, as a thumb would: straight at it, and when something stands in the way (a
    * person of the street on their timetable, a bench, a kiosk) a step aside and on. Returns when within `within` metres.
    */
-  const walkTo = async (page: Page, x: number, z: number, within: number): Promise<void> => {
+  const walkTo = async (page: Page, x: number, z: number, within: number, tries = 300): Promise<void> => {
     let stuck = 0;
     let was = { x: Number.NaN, z: Number.NaN };
-    for (let n = 0; n < 300; n++) {
+    for (let n = 0; n < tries; n++) {
       const at = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+      // Given a number of tries, not getting there is said, with where the walk ended.
+      if (tries !== 300 && n === tries - 1) throw new Error(`walked ${tries} times toward (${x.toFixed(1)}, ${z.toFixed(1)}) and stood at (${at.x.toFixed(1)}, ${at.z.toFixed(1)})`);
       const dx = x - at.x;
       const dz = z - at.z;
       if (Math.hypot(dx, dz) < within) return;
@@ -1046,12 +1048,12 @@ test.describe("two phones in the same street", () => {
       for (const key of keys) await page.keyboard.up(key);
     }
   };
-  const comeIn = async (page: Page, n: number): Promise<string> => {
+  const comeIn = async (page: Page, n: number, ageBand: "18_plus" | "15_17" = "18_plus"): Promise<string> => {
     const deviceId = `two-phones-${n}-${Date.now()}-abcdefgh`;
-    const made = await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } });
+    const made = await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand } });
     expect(made.status()).toBe(201);
     const guest = (await made.json()) as { playerId: string; token: string; name: string; biNumber: string; arrivedAt: string };
-    await page.addInitScript((kept) => localStorage.setItem("nzila.conta", JSON.stringify(kept)), { deviceId, ageBand: "18_plus", ...guest });
+    await page.addInitScript((kept) => localStorage.setItem("nzila.conta", JSON.stringify(kept)), { deviceId, ageBand, ...guest });
     return guest.name;
   };
 
@@ -1956,7 +1958,9 @@ test.describe("two phones in the same street", () => {
     await page.keyboard.press("e");
     await page.waitForFunction(() => (window.__andar!.myRide?.vehicle ?? 0) >= 4096 && window.__andar!.hired?.fase === "leva", undefined, { timeout: 10_000 });
     await expect(page.locator(".cd-chip")).toContainText("A caminho.");
-    await expect(page.locator(".cd-chip").getByRole("button", { name: "Descer aqui" })).toBeVisible();
+    // Getting off is said once, on the gold button where the thumb is; the chip only says where the ride is (F-256).
+    await expect(page.getByRole("button", { name: "Descer aqui" })).toHaveCount(1);
+    await expect(page.locator(".cd-chip").getByRole("button")).toHaveCount(0);
     // On the way the stick does nothing: the moto takes the player, not their thumb.
     await page.waitForTimeout(2500);
     await page.keyboard.down("a");
@@ -2462,12 +2466,217 @@ test.describe("two phones in the same street", () => {
     await sheet.locator('.cv-thing[data-item="flores"]').click();
     await expect(sheet.getByRole("status")).toHaveText(`Deste um ramo de flores a ${otherName}.`, { timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("presente-dado.png") });
+    // Seen in the street (F-257): the flowers are in the other's hand.
+    await expect.poll(() => other.evaluate(() => window.__andar!.hand), { timeout: 8_000 }).toBe("flores");
+    await page.getByRole("dialog", { name: otherName }).getByRole("button", { name: "Fechar" }).click().catch(() => {});
+    await page.screenshot({ path: info.outputPath("presente-na-mao.png") });
     // The other is told at once what, and by whom; and it is in their Mochila.
     await expect(other.getByText(/deu-te um ramo de flores\./)).toBeVisible({ timeout: 8_000 });
     await other.screenshot({ path: info.outputPath("presente-recebido.png") });
     await other.getByRole("button", { name: "Mochila" }).click();
     await expect(other.getByRole("dialog", { name: "Mochila" })).toContainText("Ramo de flores", { timeout: 10_000 });
     await other.screenshot({ path: info.outputPath("presente-na-mochila.png") });
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("a gelado at the geladaria (D-10.4): the moço greets, a gelado is 300 Mk, it is in the Mochila and is eaten", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Buying a gelado was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(240_000);
+    const seen = watch(page);
+    await comeIn(page, 99);
+    await page.goto("/andar?tier=poupanca&hour=16");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const token = await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token);
+    const headers = { authorization: `Bearer ${token}` };
+    await page.request.post("/api/v1/me/origin", { headers, data: {} });
+    const place = ((await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { id: string; glyph?: string; pos: [number, number, number] }[] }).pois.find((one) => one.id === "gelados-ensaio")!;
+    expect(place.glyph).toBe("gelado");
+    // Round the house to its counter, which faces the esplanada: east of it, then along its front.
+    await walkTo(page, place.pos[0] + 7.5, place.pos[2] + 7, 1.5, 120);
+    await walkTo(page, place.pos[0] + 7.5, place.pos[2] + 0.2, 1.2, 80);
+    await walkTo(page, place.pos[0], place.pos[2], 1.2, 80);
+    if (await page.evaluate(() => window.__andar!.shop === null)) await walkTo(page, place.pos[0], place.pos[2], 1.0);
+    // The geladaria is one of the places errands are done at: today's may be here, and its button comes first (F-263).
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && ["buy", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 });
+    if (await page.evaluate(() => window.__andar!.action !== "buy")) {
+      await page.waitForTimeout(1200);
+      await page.keyboard.press("e");
+      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 15_000 });
+    }
+    await page.screenshot({ path: info.outputPath("geladaria-rua.png") });
+    const shop = page.getByRole("dialog", { name: "Geladaria de Ensaio" });
+    for (let tries = 0; tries < 3 && !(await shop.isVisible()); tries++) {
+      await page.getByRole("button", { name: "Comprar" }).click();
+      await shop.waitFor({ timeout: 3000 }).catch(() => {});
+    }
+    await expect(shop.locator(".ct-grille")).toContainText("Boa tarde, chefe.", { timeout: 10_000 });
+    await expect(shop.locator('.ct-pick[data-item="gelado"]')).toContainText(/Gelado.*300\sMk/s);
+    await page.screenshot({ path: info.outputPath("geladaria-aberta.png") });
+    const before = ((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash;
+    await shop.locator('.ct-pick[data-item="gelado"]').click();
+    await shop.getByRole("button", { name: /^Pagar 300\sMk$/ }).click();
+    await expect(shop.locator(".n-receipt")).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("geladaria-recibo.png") });
+    await shop.getByRole("button", { name: "Já está" }).click();
+    expect(((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash).toBe(before - 300);
+    // No card of the house here: that is the cantina's.
+    // In the Mochila, and eaten: it is food.
+    await page.getByRole("button", { name: "Mochila" }).click();
+    const mochila = page.getByRole("dialog", { name: "Mochila" });
+    await expect(mochila.locator('.ct-held-row', { hasText: "Gelado" })).toBeVisible({ timeout: 10_000 });
+    await mochila.locator(".ct-held-row", { hasText: "Gelado" }).getByRole("button", { name: "Comer" }).click();
+    await expect(mochila.getByRole("status")).toHaveText("Hum. Soube bem.", { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("geladaria-comeu.png") });
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("Convidar para sair (Task 10.13): asked from the card, answered with another place, agreed; a táxi for two takes both; they arrive together; one ends it", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/dev-vehicles/veiculos.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people or the vehicles are not built (pnpm pack:dev needs Blender). Going out was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(360_000);
+    const seen = watch(page);
+    const myName = await comeIn(page, 111);
+    const context = (): Promise<Page> => browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" }).then((made) => made.newPage());
+    const other = await context();
+    seconds.push(other);
+    const otherSeen = watch(other);
+    const otherName = await comeIn(other, 112);
+    await page.goto("/andar?tier=poupanca&hour=17");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const token = await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token);
+    const headers = { authorization: `Bearer ${token}` };
+    await page.request.post("/api/v1/me/origin", { headers, data: {} });
+    await other.goto("/andar?tier=poupanca&hour=17");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1, undefined, { timeout: 20_000 });
+
+    // From the other's card: the places of the bairro, each with its sign.
+    expect(await tapSomeone(page, otherName), "a tap on the other player opened their card").toBe(true);
+    const sheet = page.getByRole("dialog", { name: otherName });
+    await sheet.getByRole("button", { name: "Convidar para sair" }).click();
+    await expect(sheet.getByRole("heading", { name: `Aonde vão, tu e ${otherName}?` })).toBeVisible();
+    await expect(sheet.locator(".cv-lugar")).toHaveText(["A banca das flores", "Os gelados"]);
+    await page.screenshot({ path: info.outputPath("sair-escolher.png") });
+    await sheet.locator('.cv-lugar[data-lugar="banca-ensaio"]').click();
+    await expect(sheet.getByRole("status")).toHaveText(`Convidaste ${otherName} para ir à banca das flores.`);
+    await page.screenshot({ path: info.outputPath("sair-convidou.png") });
+    await sheet.getByRole("button", { name: "Fechar" }).click();
+
+    // The other is asked, and would rather the gelados.
+    const ask = other.getByRole("dialog", { name: `${myName} quer sair contigo. Vamos à banca das flores?` });
+    await expect(ask).toBeVisible({ timeout: 10_000 });
+    await expect(ask.getByRole("button")).toHaveText(["Agora não", "Outro sítio", "Vamos"]);
+    await other.screenshot({ path: info.outputPath("sair-pergunta.png") });
+    await ask.getByRole("button", { name: "Outro sítio" }).click();
+    await expect(ask.locator(".sr-lugar")).toHaveText(["Os gelados"]);
+    await other.screenshot({ path: info.outputPath("sair-outro.png") });
+    await ask.locator('.sr-lugar[data-lugar="gelados-ensaio"]').click();
+
+    // The first is answered with the other place, and says yes: both are told, and each has the chip and the compass.
+    const back = page.getByRole("dialog", { name: `${otherName} prefere ir aos gelados.` });
+    await expect(back).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("sair-prefere.png") });
+    await back.getByRole("button", { name: "Vamos" }).click();
+    await expect(page.getByRole("status").filter({ hasText: `Combinado. Vais aos gelados com ${otherName}.` })).toBeVisible({ timeout: 10_000 });
+    await expect(other.getByRole("status").filter({ hasText: `Combinado. Vais aos gelados com ${myName}.` })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".sr-chip")).toContainText(`A sair com ${otherName}`);
+    await expect(page.locator(".sr-chip")).toContainText(/Os gelados · \d+ m/);
+    await expect(other.locator(".sr-chip")).toContainText(`A sair com ${myName}`);
+    await page.screenshot({ path: info.outputPath("sair-combinado.png") });
+
+    // A táxi for two, from the chip, at the táxi's fare, paid by whoever calls it.
+    const before = ((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash;
+    await page.locator(".sr-chip-face").click();
+    await expect(page.locator(".sr-menu").getByRole("button", { name: /^Táxi para dois · 300\sMk$/ })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".sr-menu").getByRole("button", { name: "Terminar a saída" })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("sair-menu.png") });
+    await page.locator(".sr-menu").getByRole("button", { name: /^Táxi para dois/ }).click();
+    await expect(page.locator(".cd-chip")).toContainText("O táxi vem a caminho.", { timeout: 10_000 });
+    await expect(other.locator(".cd-chip")).toContainText("O táxi vem a caminho.", { timeout: 10_000 });
+    expect(((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash).toBe(before - 300);
+    // It waits at the kerb; both walk up to it and get in; only then it goes.
+    for (const phone of [page, other]) {
+      await phone.waitForFunction(() => window.__andar?.hired?.fase === "espera", undefined, { timeout: 45_000 });
+      const waiting = (await phone.evaluate(() => window.__andar!.hired))!;
+      await walkTo(phone, waiting.x, waiting.z, 2.2);
+      await phone.waitForFunction(() => window.__andar!.action === "board", undefined, { timeout: 10_000 });
+      await phone.keyboard.press("e");
+      await phone.waitForFunction(() => (window.__andar!.myRide?.vehicle ?? 0) >= 4096, undefined, { timeout: 10_000 });
+      if (phone === page) {
+        // Alone in it, it waits for the other.
+        await page.waitForTimeout(1200);
+        expect(await page.evaluate(() => window.__andar!.hired?.fase)).toBe("espera");
+        await page.screenshot({ path: info.outputPath("sair-taxi-espera.png") });
+      }
+    }
+    expect(await page.evaluate(() => window.__andar!.myRide?.seat)).toBe(1);
+    expect(await other.evaluate(() => window.__andar!.myRide?.seat)).toBe(2);
+    await page.waitForFunction(() => window.__andar!.hired?.fase === "leva", undefined, { timeout: 10_000 });
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: info.outputPath("sair-taxi.png") });
+    await other.screenshot({ path: info.outputPath("sair-taxi-outro.png") });
+    for (const phone of [page, other]) await phone.waitForFunction(() => window.__andar!.hired?.fim === "chegou" && window.__andar!.myRide === null, undefined, { timeout: 90_000 });
+
+    // Set down together; a few steps to the counter if the kerb is not near enough, and they have arrived.
+    const place = ((await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] }).pois.find((one) => one.id === "gelados-ensaio")!;
+    for (const phone of [page, other]) {
+      const at = await phone.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+      if (Math.hypot(at.x - place.pos[0], at.z - place.pos[2]) > 9) await walkTo(phone, place.pos[0] + (phone === page ? 0 : 2.5), place.pos[2] - 4, 6);
+    }
+    await page.waitForFunction(() => window.__andar!.sair?.chegou === true, undefined, { timeout: 20_000 });
+    await other.waitForFunction(() => window.__andar!.sair?.chegou === true, undefined, { timeout: 20_000 });
+    await expect(page.getByRole("status").filter({ hasText: "Chegaram aos gelados." })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("sair-chegaram.png") });
+    await other.screenshot({ path: info.outputPath("sair-chegaram-outro.png") });
+
+    // The other ends it: both are told, and the chip goes.
+    await other.locator(".sr-chip-face").click();
+    await expect(other.locator(".sr-menu").getByRole("button", { name: /Táxi para dois/ })).toHaveCount(0);
+    await other.locator(".sr-menu").getByRole("button", { name: "Terminar a saída" }).click();
+    await expect(page.getByRole("status").filter({ hasText: `A saída com ${otherName} terminou.` })).toBeVisible({ timeout: 10_000 });
+    await expect(other.getByRole("status").filter({ hasText: `A saída com ${myName} terminou.` })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".sr-chip")).toHaveCount(0);
+    await expect(other.locator(".sr-chip")).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath("sair-fim.png") });
+
+    expect(seen.errors).toEqual([]);
+    expect(otherSeen.errors).toEqual([]);
+  });
+
+  test("someone under 18 is never asked out and never asks (D-10.3): on their card and on an adult's, everything else and no \"Convidar para sair\"", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The card of someone under 18 was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(120_000);
+    const seen = watch(page);
+    const adult = await comeIn(page, 114);
+    const young = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(young);
+    const youngName = await comeIn(young, 115, "15_17");
+    await page.goto("/andar?tier=poupanca&hour=17");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    await young.goto("/andar?tier=poupanca&hour=17");
+    await young.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1, undefined, { timeout: 20_000 });
+    for (const [phone, name] of [[page, youngName], [young, adult]] as const) {
+      expect(await tapSomeone(phone, name), "a tap on the other player opened their card").toBe(true);
+      const sheet = phone.getByRole("dialog", { name });
+      await expect(sheet.getByRole("button", { name: "Dar presente" })).toBeVisible({ timeout: 10_000 });
+      // The card has come from the server by now (the kamba's button says where the two stand): still no such button.
+      await expect(sheet.getByRole("button", { name: "Adicionar", exact: true })).toBeEnabled({ timeout: 10_000 });
+      await phone.waitForTimeout(1200);
+      await expect(sheet.getByRole("button", { name: "Convidar para sair" })).toHaveCount(0);
+      await phone.screenshot({ path: info.outputPath(phone === page ? "sair-menor-visto.png" : "sair-menor.png") });
+    }
     expect(seen.errors).toEqual([]);
   });
 

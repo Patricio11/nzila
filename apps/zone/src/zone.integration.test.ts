@@ -29,6 +29,7 @@ import {
   HIRED_VEHICLE_BASE,
 } from "@nzila/protocol";
 import { decodeCorridas, encodeCorrida, type CorridasSaid } from "@nzila/protocol/corridas";
+import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, encodeSair } from "@nzila/protocol/sair";
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
@@ -76,7 +77,9 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
   // A caixa two metres from where people arrive.
   caixas: [{ x: 2000, z: 0 }],
   // The district's places, in the pack's order: one beside where people arrive, one where people talk.
-  places: [{ x: 1500, z: 0 }, { x: -60_000, z: -60_000 }] };
+  places: [{ x: 1500, z: 0 }, { x: -60_000, z: -60_000 }],
+  // The places two may go out to (Task 10.13): one beside the road up the second street, one where people talk.
+  outings: [{ x: 50_000, z: 92_000 }, { x: -60_000, z: -60_000 }] };
 // A town the database has never heard of: played in, and nobody's place in it is kept.
 const rehearsal: District = { ...district, id: "zz-dev/d1", provinceId: "zz-dev" };
 const presence = memoryPresence();
@@ -570,6 +573,99 @@ describe("where a player was", () => {
     await watcher.leave();
     await p.leave();
   }, 60_000);
+
+  test("going out (Task 10.13): only two adults who have not shut each other out; a place asked, another answered, agreed; a táxi for two takes both and sets them down together; they arrive; it ends", async () => {
+    const [ana, rui, eva] = [await player(), await player(), await player()];
+    const [novo] = await sql<{ id: string }[]>`INSERT INTO players (age_band, name, name_key, bi_number) VALUES ('15_17', 'Novo Sair', 'novo sair', '98888888-LA') RETURNING id`;
+    const novoToken = randomBytes(32).toString("base64url");
+    await sql`INSERT INTO player_sessions (player_id, token_hash, expires_at) VALUES (${novo!.id}, ${hashToken(novoToken)}, now() + interval '1 day')`;
+    // Eva has shut Ana out, before either came in.
+    await sql`INSERT INTO player_blocks (player_id, blocked_id) VALUES (${eva.id}, ${ana.id})`;
+    const a = await phone(ana.token, PROTOCOL_VERSION, "moto");
+    const r = await phone(rui.token, PROTOCOL_VERSION, "moto");
+    const e = await phone(eva.token, PROTOCOL_VERSION, "moto");
+    const n = await phone(novoToken, PROTOCOL_VERSION, "moto");
+    const said = (who: typeof a, what: (typeof SAIR_DITOS)[number]): WorldEvent[] => who.state.events.filter((event) => event.kind === EVENT.SAIR && event.args[0] === SAIR_DITOS.indexOf(what));
+    const id = (who: typeof a): number => who.state.accepted!.entityId;
+    const refusals = (who: typeof a): string[] => said(who, "recusado").map((event) => SAIR_RECUSAS[event.args[1]!]!);
+
+    // Never across the age bands, whoever asks; never across a block, whoever shut whom out. Said the same each time.
+    a.socket.send(encodeSair({ op: "convidar", entidade: id(n), lugar: 0 }));
+    n.socket.send(encodeSair({ op: "convidar", entidade: id(a), lugar: 0 }));
+    a.socket.send(encodeSair({ op: "convidar", entidade: id(e), lugar: 0 }));
+    e.socket.send(encodeSair({ op: "convidar", entidade: id(a), lugar: 0 }));
+    await until(() => refusals(a).length === 2 && refusals(n).length === 1 && refusals(e).length === 1);
+    expect([...refusals(a), ...refusals(n), ...refusals(e)]).toEqual(["nao_pode", "nao_pode", "nao_pode", "nao_pode"]);
+    expect([said(n, "convite"), said(e, "convite"), said(a, "convite")].map((list) => list.length)).toEqual([0, 0, 0]);
+    // Nor a place the district does not have, nor oneself.
+    a.socket.send(encodeSair({ op: "convidar", entidade: id(r), lugar: 9 }));
+    a.socket.send(encodeSair({ op: "convidar", entidade: id(a), lugar: 0 }));
+    await until(() => refusals(a).length === 4);
+    expect(said(r, "convite")).toEqual([]);
+
+    // Ana asks Rui to the second place; Rui would rather the first; Ana says yes: both are told, and of the place.
+    a.socket.send(encodeSair({ op: "convidar", entidade: id(r), lugar: 1 }));
+    await until(() => said(r, "convite").length === 1);
+    expect(said(r, "convite")[0]).toMatchObject({ subject: id(a), args: [0, 1] });
+    r.socket.send(encodeSair({ op: "outro", entidade: id(a), lugar: 0 }));
+    await until(() => said(a, "convite").length === 1);
+    expect(said(a, "convite")[0]).toMatchObject({ subject: id(r), args: [0, 0, 1] });
+    a.socket.send(encodeSair({ op: "aceitar", entidade: id(r) }));
+    await until(() => said(a, "combinado").length === 1 && said(r, "combinado").length === 1);
+    expect([said(a, "combinado")[0], said(r, "combinado")[0]]).toMatchObject([{ subject: id(r), args: [2, 0] }, { subject: id(a), args: [2, 0] }]);
+    // Out with someone: neither is asked by anyone else meanwhile.
+    e.socket.send(encodeSair({ op: "convidar", entidade: id(r), lugar: 0 }));
+    await until(() => refusals(e).length === 2);
+    expect(refusals(e)[1]).toBe("ocupado");
+
+    // A táxi for two, paid by Ana (the API's note says "for two"): both are told of it, both get in, and only then it goes.
+    const rides = (who: typeof a): WorldEvent[] => who.state.events.filter((event) => event.kind === EVENT.CORRIDA);
+    await presence.mark(ana.id, "corrida", "corrida-dois-0001:taxi:52000:90000:2", 120);
+    a.socket.send(encodeCorrida({ op: "pedir", id: "corrida-dois-0001" }));
+    await until(() => rides(a).length === 1 && rides(r).length === 1);
+    const vehicle = rides(a)[0]!.args[0]!;
+    expect(rides(r)[0]).toMatchObject({ args: [vehicle, 0], text: "taxi" });
+    await until(() => rides(r).some((event) => event.args[1] === 1), 20_000);
+    a.socket.send(encodeCorrida({ op: "subir" }));
+    await until(() => a.me().vehicleId === vehicle);
+    expect(a.me().seat).toBe(1);
+    await pause(400);
+    // Waiting for Rui: still at the kerb, and Ana still in it.
+    expect(rides(a).some((event) => event.args[1] === 2)).toBe(false);
+    expect(a.me().vehicleId).toBe(vehicle);
+    r.socket.send(encodeCorrida({ op: "subir" }));
+    await until(() => r.me().vehicleId === vehicle && rides(r).some((event) => event.args[1] === 2));
+    expect(r.me().seat).toBe(2);
+    // Carried together, set down together near where it was asked to go: and they have arrived.
+    await until(() => rides(a).some((event) => event.text === "chegou") && rides(r).some((event) => event.text === "chegou"), 25_000);
+    await until(() => a.me().vehicleId === null && r.me().vehicleId === null);
+    expect(Math.hypot(a.me().x - 52_000, a.me().z - 90_000)).toBeLessThan(6000);
+    expect(Math.hypot(r.me().x - 52_000, r.me().z - 90_000)).toBeLessThan(6000);
+    expect(Math.hypot(r.me().x - a.me().x, r.me().z - a.me().z)).toBeGreaterThan(400);
+    await until(() => said(a, "chegaram").length === 1 && said(r, "chegaram").length === 1, 6000);
+    expect(said(r, "chegaram")[0]).toMatchObject({ subject: id(a), args: [3, 0] });
+
+    // Rui ends it: both are told. Then Rui asks, Ana says no: Rui is told only that, and does not ask her again yet.
+    r.socket.send(encodeSair({ op: "terminar" }));
+    await until(() => said(a, "fim").length === 1 && said(r, "fim").length === 1);
+    expect(said(a, "fim")[0]).toMatchObject({ subject: id(r), args: [4, SAIR_FINS.indexOf("terminou")] });
+    r.socket.send(encodeSair({ op: "convidar", entidade: id(a), lugar: 0 }));
+    await until(() => said(a, "convite").length === 2);
+    a.socket.send(encodeSair({ op: "recusar", entidade: id(r) }));
+    await until(() => said(r, "nao").length === 1);
+    r.socket.send(encodeSair({ op: "convidar", entidade: id(a), lugar: 0 }));
+    await until(() => refusals(r).length === 1);
+    expect(refusals(r)).toEqual(["cedo"]);
+    // The other way is open: Ana asks, Rui says yes, and Rui leaves the street: Ana is told it is over.
+    a.socket.send(encodeSair({ op: "convidar", entidade: id(r), lugar: 1 }));
+    await until(() => said(r, "convite").length === 2);
+    r.socket.send(encodeSair({ op: "aceitar", entidade: id(a) }));
+    await until(() => said(a, "combinado").length === 2);
+    await r.leave();
+    await until(() => said(a, "fim").length === 2);
+    expect(said(a, "fim")[1]!.args).toEqual([4, SAIR_FINS.indexOf("saiu")]);
+    await Promise.all([a.leave(), e.leave(), n.leave()]);
+  }, 90_000);
 
   test("a ride that cannot be given (no road near where it was asked to go), and one called off before getting on: the fare is given back on the zone's note", async () => {
     const one = await player();

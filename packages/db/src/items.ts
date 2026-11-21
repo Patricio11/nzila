@@ -130,6 +130,13 @@ export async function lastPresente(sql: Sql, playerId: string, seconds = 60): Pr
   return row ? { id: String(row.id), item: row.item, quantity: row.quantity, from: row.name } : null;
 }
 
+/** The thing one player handed another in the last `seconds`, if any: for the zone, which shows it in their hands. */
+export async function presenteEntre(sql: Sql, from: string, to: string, seconds = 20): Promise<string | null> {
+  const [row] = await sql<{ item: string }[]>`
+    SELECT item FROM presentes WHERE de = ${from} AND para = ${to} AND at > now() - make_interval(secs => ${seconds}) ORDER BY at DESC, id DESC LIMIT 1`;
+  return row?.item ?? null;
+}
+
 /** What a player gave and was given, for their own data: the thing and the day, never the other player. */
 export async function presentesDoJogador(sql: Sql, playerId: string): Promise<{ at: string; item: string; quantity: number; given: boolean }[]> {
   const rows = await sql<{ at: Date; item: string; quantity: number; given: boolean }[]>`

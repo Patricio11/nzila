@@ -3,7 +3,7 @@
 
 import { ptAO, ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
-import { Button, Glyph, IdCard } from "@nzila/ui";
+import { Button, Glyph, IdCard, type GlyphName } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { arrivedOn } from "../telemovel/bi.tsx";
 import { Coisa } from "../cantina/coisas.tsx";
@@ -23,7 +23,7 @@ const REASONS: readonly ReportReason[] = ["insults", "harassment", "sexual", "sc
  * Someone met in the street: their BI, and what can be done. Report, block and mute are here with "Falar", on the
  * one sheet, because a way to talk never comes without them (Rule 11).
  */
-export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClose, onGave = () => {}, jogos = [], onConvidar, onEscrever }: { met: Met; silenced: boolean; onSilence: (on: boolean) => void; onShutOut: (on: boolean) => void; onTalk: () => void; onClose: () => void; onGave?: () => void; jogos?: readonly string[]; onConvidar?: (jogo: string) => void; onEscrever?: (bi: string) => void }) {
+export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClose, onGave = () => {}, jogos = [], onConvidar, onEscrever, lugares = [], onSair }: { met: Met; silenced: boolean; onSilence: (on: boolean) => void; onShutOut: (on: boolean) => void; onTalk: () => void; onClose: () => void; onGave?: () => void; jogos?: readonly string[]; onConvidar?: (jogo: string) => void; onEscrever?: (bi: string) => void; lugares?: readonly { readonly id: string; readonly nome: string; readonly a: string; readonly glyph: string }[]; onSair?: (lugar: number) => void }) {
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [shut, setShut] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,6 +41,9 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
   // Inviting them to play at a table (Task 4B.1): the choice of game, and the game asked.
   const [inviting, setInviting] = useState(false);
   const [invited, setInvited] = useState<string | null>(null);
+  // Asking them out (Task 10.13): the choice of place, and the place asked.
+  const [asking, setAsking] = useState(false);
+  const [asked, setAsked] = useState<number | null>(null);
   // Kambas (Task 4B.2): where the two stand, and what asking came to.
   const [kamba, setKamba] = useState<EntreNos>("nada");
   const [kambaSaid, setKambaSaid] = useState<string | null>(null);
@@ -151,7 +154,31 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
               {tr.t("convite.enviado", { name: met.name, jogo: tr.t(`mesa.jogo.${invited}` as "mesa.jogo.xadrez") })}
             </p>
           ) : null}
-          {inviting ? (
+          {asked !== null && lugares[asked] ? (
+            <p class="cv-said" role="status">
+              {tr.t("sair.enviado", { name: met.name, a: lugares[asked]!.a })}
+            </p>
+          ) : null}
+          {asking ? (
+            <div class="cv-report">
+              <h3>{tr.t("sair.titulo", { name: met.name })}</h3>
+              <div class="cv-lugares">
+                {lugares.map((lugar, n) => (
+                  <button key={lugar.id} type="button" class="cv-lugar" data-lugar={lugar.id} onClick={() => (onSair?.(n), setAsked(n), setAsking(false))}>
+                    <span class="cv-lugar-sinal" aria-hidden="true">
+                      <Glyph name={lugar.glyph as GlyphName} size={26} />
+                    </span>
+                    <span>{lugar.nome}</span>
+                  </button>
+                ))}
+              </div>
+              <div class="cv-keys">
+                <Button kind="quiet" onPress={() => setAsking(false)}>
+                  {tr.t("report.cancel")}
+                </Button>
+              </div>
+            </div>
+          ) : inviting ? (
             <div class="cv-report">
               <h3>{tr.t("convite.titulo", { name: met.name })}</h3>
               <div class="cv-games">
@@ -231,6 +258,13 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
                 <span class="cv-convite">
                   <Button kind="quiet" onPress={() => (setSaid(null), setGave(null), setHanded(null), setInvited(null), setInviting(true))}>
                     {tr.t("convite.abrir")}
+                  </Button>
+                </span>
+              ) : null}
+              {card?.sair && lugares.length > 0 && onSair ? (
+                <span class="cv-convite cv-sair">
+                  <Button kind="quiet" onPress={() => (setSaid(null), setGave(null), setHanded(null), setInvited(null), setAsked(null), setAsking(true))}>
+                    {tr.t("sair.abrir")}
                   </Button>
                 </span>
               ) : null}

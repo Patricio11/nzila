@@ -35,6 +35,12 @@ export async function faceOf(sql: Sql, playerId: string): Promise<{ name: string
   return { name: row?.name ?? "", biNumber: row?.bi_number ?? "", look: row?.spec ?? null };
 }
 
+/** Whether a player is 18 or over, as they said on coming in (D-0.32): what is kept for adults asks this, and nothing else of their age is known. */
+export async function adultOf(sql: Sql, playerId: string): Promise<boolean> {
+  const [row] = await sql<{ adult: boolean }[]>`SELECT age_band = '18_plus' AS adult FROM players WHERE id = ${playerId}`;
+  return row?.adult === true;
+}
+
 /** A place in a district: millimetres. */
 export interface Whereabouts {
   readonly districtId: string;

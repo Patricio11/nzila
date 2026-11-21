@@ -53,7 +53,8 @@ const gateway = z.strictObject({
 });
 
 /** `glyph` says what kind of place it is, by the name of a house glyph: the sign that floats over it. */
-const poi = z.strictObject({ id, pos, nameKey: key, lineKey: key, positive: z.boolean(), stamp: z.boolean(), glyph: id.optional() });
+// `outing`: a place two may go out to together (Task 10.13, D-10.4).
+const poi = z.strictObject({ id, pos, nameKey: key, lineKey: key, positive: z.boolean(), stamp: z.boolean(), glyph: id.optional(), outing: z.boolean().optional() });
 
 const route = z.strictObject({
   id,

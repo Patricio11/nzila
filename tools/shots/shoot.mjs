@@ -76,6 +76,10 @@ const PAGES = [
   ["pano-preto-carta", "/origem?carta=%7B%22family%22%3A%22mecanico-zungueira%22%2C%22pai%22%3A%22mecanico%22%2C%22mae%22%3A%22zungueira%22%2C%22tier%22%3A%22aperto%22%2C%22province%22%3A%22malanje%22%2C%22bairro%22%3A%22cazenga%22%2C%22makuta%22%3A2500%2C%22version%22%3A1%7D&pano=preto"],
   // The land (F-134): the imbondeiro, the mangueira, the red earth, the outdoors.
   // The banca of things to give, by the mercado (D-10.1), and the rehearsal town's.
+  // A thing in the hand (F-257): carried, and held out.
+  ["mao-tem", "/pose?tem=flores,perfume,pano,gelado&ang=25&pausa&t=1"],
+  ["mao-tem-lado", "/pose?tem=chocolate,flores,rebucados,pano&ang=75&pausa&t=1"],
+  ["mao-dar", "/pose?dar=flores,pano&quem=0,1&ang=70&pausa&t=1"],
   ["banca", "/cena?pack=l1&hour=15&tier=normal&at=139.5,153.5,1.7&look=143.5,160.4,1"],
   ["banca-perto", "/cena?pack=l1&hour=10&tier=alta&at=143.2,157.2,1.5&look=143.6,160.4,0.95"],
   ["banca-tarde", "/cena?pack=l1&hour=17.2&tier=normal&at=149,155,1.7&look=143.5,160.4,1.1"],
@@ -83,6 +87,11 @@ const PAGES = [
   ["geladaria", "/cena?pack=l1&hour=16&tier=normal&at=183,72,1.7&look=189,82,1.2"],
   ["geladaria-esplanada", "/cena?pack=l1&hour=17.3&tier=alta&at=192.5,72.5,1.6&look=188.5,82,1"],
   ["geladaria-noite", "/cena?pack=l1&hour=20&tier=normal&at=189,70,2.2&look=189,84,1.5"],
+  // At the geladaria's counter, as the player sees it: facing it, and walking along its front (the awning is overhead).
+  ["geladaria-balcao", "/andar?pack=l1&hour=16&em=188.5,85.27&cam=180"],
+  ["geladaria-balcao-lado", "/andar?pack=l1&hour=16&em=188.5,85.27&cam=90"],
+  ["geladaria-ensaio", "/cena?hour=16&tier=normal&at=55,78,1.7&look=60.6,86,1.2"],
+  ["geladaria-ensaio-balcao", "/andar?hour=16&em=60.1,85.3&cam=90"],
   ["banca-ensaio", "/cena?hour=15&tier=normal&at=23.5,99.5,1.7&look=26.1,104.8,1"],
   ["terra-largo", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=214,170,2.2&look=230,184,4"],
   ["terra-largo-alto", "/cena?pack=l1&hour=12&tier=alta&transito=30&at=232,150,30&look=231,186,0"],
@@ -409,11 +418,13 @@ try {
       const sideways = await page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth");
       const file = `${pageName}_${sizeName}.png`;
       await page.screenshot({ path: join(out, file), fullPage: true });
+      // What a view of the world costs to draw, beside its picture: the budget is 120 draw calls and 120 000 triangles.
+      const cost = path.startsWith("/cena") ? await page.evaluate("window.__cena ? `${window.__cena.draws} draws, ${window.__cena.triangles} triangles` : ''") : "";
       await page.close();
       const faults = [...(sideways > 0 ? [`scrolls sideways by ${sideways} px`] : []), ...errors.map((e) => `error: ${e}`)];
       problems += faults.length;
       const seconds = ((Date.now() - started) / 1000).toFixed(1);
-      lines[order] = { file, line: `${file}  ${width}x${height}  ${seconds} s  ${faults.length ? faults.join("; ") : "ok"}` };
+      lines[order] = { file, line: `${file}  ${width}x${height}  ${seconds} s  ${cost ? `${cost}  ` : ""}${faults.length ? faults.join("; ") : "ok"}` };
   });
   // In the order of the list, whichever worker finished first.
   for (const done of lines.filter(Boolean)) {

@@ -6,11 +6,12 @@
 //   /pose?quem=0,3,5&ang=60        who, and from which bearing in degrees
 //   /pose?t=4.2&pausa              held at that second of the stride or the rest, for stills
 //   /pose?gesto=dancar             a gesture over and over
+//   /pose?tem=flores               a thing carried in the hand (flores, perfume, pano, gelado, chocolate, or a parcel); ?dar= holds it out
 
 import { WORLD } from "@nzila/world/client";
 import { useEffect, useRef } from "preact/hooks";
 import type { Dog } from "../render/dog.ts";
-import { EMOTES, EMOTE_SECONDS, loadPerson, strideOf, type Emote, type Person, type Rest } from "../render/person.ts";
+import { EMOTES, EMOTE_SECONDS, loadPerson, strideOf, type Emote, type Holding, type Person, type Rest } from "../render/person.ts";
 import { ground } from "../render/ground.ts";
 import { type TierName } from "../render/tiers.ts";
 import { WorldRenderer } from "../render/world-renderer.ts";
@@ -51,6 +52,7 @@ export function Pose() {
     if (seated) pieces.push({ colour: WORLD.wood, width: who.length * gap + 0.4, depth: 0.42, x: 0, y: seatY, z: -0.12 });
     renderer.scene.add(ground(renderer, pieces));
     let people: (Person | Dog)[] = [];
+    const inHand = new Map<Person, Holding>();
     let closed = false;
     void (async () => {
       const list = (await (await fetch(`${BASE}pessoas.json`)).json()) as Standing;
@@ -59,6 +61,11 @@ export function Pose() {
           const one = list.people[n] ?? list.people[0]!;
           const person: Person | Dog = one.animal ? await (await import("../render/dog.ts")).loadDog(renderer, BASE + one.model, one.height) : await loadPerson(renderer, BASE + one.model, one.height, one.skirt, one.female === true);
           person.seed = n * 1.7;
+          const thing = params.get("tem") ?? params.get("dar");
+          if (thing && !one.animal) {
+            const made = await import("../render/presente.ts");
+            inHand.set(person as Person, made.holding(made.thingFor(thing.split(",")[i % thing.split(",").length]!), params.has("dar") ? "dar" : "presente"));
+          }
           person.root.position.set((i - (who.length - 1) / 2) * gap, seated && !one.animal ? seatY - 0.46 * (one.height / 1.7) : 0, 0);
           renderer.scene.add(person.root);
           return person;
@@ -86,7 +93,7 @@ export function Pose() {
         const emote: { kind: Emote; seconds: number } | undefined = gesture ? { kind: gesture, seconds: seconds % EMOTE_SECONDS[gesture] } : undefined;
         person.pose(
           { speed, phase: "female" in person && person.height < 1 ? dogPhase(phase) : phase + i * 0.7, time: seconds + i * 0.37 },
-          { sit: pose === "sentar" ? 1 : 0, low: pose === "baixo" ? 1 : 0, ...(rest ? { rest } : {}), ...(emote ? { emote } : {}) },
+          { sit: pose === "sentar" ? 1 : 0, low: pose === "baixo" ? 1 : 0, ...(inHand.has(person as Person) ? { holding: inHand.get(person as Person)! } : {}), ...(rest ? { rest } : {}), ...(emote ? { emote } : {}) },
         );
       }
       const angle = ((Number(params.get("ang")) || 20) * Math.PI) / 180;

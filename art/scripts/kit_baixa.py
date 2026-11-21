@@ -448,12 +448,17 @@ def geladaria(b, x, z, rng, ground=0.14):
     b.box((x - 0.5, ground + 0.6, z - 1.55), (2.8, 1.2, 0.5), "paintMint", skip_bottom=False)
     b.box((x - 0.5, ground + 1.22, z - 1.6), (2.9, 0.06, 0.62), "paintWhite", skip_bottom=False)
     b.rect((x + 1.55, ground + 1.05, z - 1.41), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.8, 2.0, "wood")
-    # The awning: stripes of blue and white, sloping out over whoever is served.
+    # The awning: stripes of blue and white, sloping out over whoever is served; high, so that it is over the head
+    # of whoever stands at the counter and not across what they see (the camera is above and behind them).
     for k in range(8):
         x0, x1 = x - 2.3 + k * 0.575, x - 2.3 + (k + 1) * 0.575
-        b.face([(x0, ground + 2.65, z - 1.4), (x1, ground + 2.65, z - 1.4), (x1, ground + 2.25, z - 2.7), (x0, ground + 2.25, z - 2.7)], "signBlue" if k % 2 == 0 else "paintWhite", toward=(0.0, 1.0, -0.3), two_sided=True)
+        b.face([(x0, ground + 2.9, z - 1.4), (x1, ground + 2.9, z - 1.4), (x1, ground + 2.58, z - 2.5), (x0, ground + 2.58, z - 2.5)], "signBlue" if k % 2 == 0 else "paintWhite", toward=(0.0, 1.0, -0.3), two_sided=True)
+    # Held from the wall by two stays, not by poles: the way along the counter is clear (a pole stood between it and
+    # the chairs, and whoever walked along the front was caught there: found by the browser test, 2026-11-21).
+    b.soft = True
     for dx in (-2.25, 2.25):
-        b.tube([(x + dx, ground, z - 2.65), (x + dx, ground + 2.27, z - 2.65)], [0.03, 0.03], 5, "metal")
+        b.tube([(x + dx, ground + 2.05, z - 1.42), (x + dx, ground + 2.56, z - 2.45)], [0.025, 0.025], 4, "metal")
+    b.soft = False
     b.level = FULL
     # A cone on the roof, to be seen from the promenade: the wafer, and two scoops.
     b.tube([(x, ground + 3.25, z - 1.2), (x, ground + 4.0, z - 1.2)], [0.03, 0.3], 7, "awningGold", cap=False)

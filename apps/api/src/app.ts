@@ -6,7 +6,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId, sink } from "@nzila/economy";
 import { BASE_BISCATOS, BISCATO_KINDS, isBiscatoKind, taperPercent } from "@nzila/economy/biscatos";
-import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, lastPresente, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
+import { adultOf, bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, lastPresente, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
 import { biscatosPaidToday, payBiscato, payHospital } from "@nzila/db";
 import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
@@ -496,13 +496,16 @@ export function buildApp(deps: Deps): FastifyInstance {
     body: z.strictObject({ biNumber: biShape }),
     perMinute: 60,
     handler: async (body, caller) => {
-      const [row] = await deps.sql<{ id: string; name: string | null; bi_number: string; arrived_at: Date; bairro: string | null }[]>`
-        SELECT p.id, p.name, p.bi_number, p.arrived_at, o.bairro FROM players p LEFT JOIN player_origins o ON o.player_id = p.id
+      const [row] = await deps.sql<{ id: string; name: string | null; bi_number: string; arrived_at: Date; bairro: string | null; adult: boolean }[]>`
+        SELECT p.id, p.name, p.bi_number, p.arrived_at, o.bairro, p.age_band = '18_plus' AS adult FROM players p LEFT JOIN player_origins o ON o.player_id = p.id
         WHERE p.bi_number = ${body.biNumber} AND p.status = 'active'`;
       if (!row) throw new Refusal(404, "not_found");
       // And where the two stand to each other: kambas, an ask either way, or nothing yet (Task 4B.2).
       const kamba = row.id === caller.player.id ? "nada" : await entreNos(deps.sql, caller.player.id, row.id);
-      return { name: row.name, biNumber: row.bi_number, bairro: row.bairro, arrivedAt: row.arrived_at.toISOString(), kamba };
+      // "Convidar para sair" is there only between two adults neither of whom has shut the other out (D-10.3). Only
+      // whether the button is there is said: never the other's age, and never who shut whom out.
+      const sair = row.adult && row.id !== caller.player.id && (await adultOf(deps.sql, caller.player.id)) && !(await shutOutOf(deps.sql, caller.player.id)).includes(row.id);
+      return { name: row.name, biNumber: row.bi_number, bairro: row.bairro, arrivedAt: row.arrived_at.toISOString(), kamba, sair };
     },
   });
 
@@ -735,15 +738,18 @@ export function buildApp(deps: Deps): FastifyInstance {
     method: "POST",
     url: "/v1/corridas",
     guard: "player",
-    body: z.strictObject({ kind: z.enum(CORRIDA_KINDS), to: z.strictObject({ x: z.number().int().min(-10_000_000).max(10_000_000), z: z.number().int().min(-10_000_000).max(10_000_000) }) }),
+    // `dois`: a táxi for two, for someone who is out with somebody (D-10.5). The fare is the táxi's; whether there is
+    // a second rider is the zone's to say.
+    body: z.strictObject({ kind: z.enum(CORRIDA_KINDS), to: z.strictObject({ x: z.number().int().min(-10_000_000).max(10_000_000), z: z.number().int().min(-10_000_000).max(10_000_000) }), dois: z.boolean().optional() }),
     perMinute: 20,
     handler: async (body, caller) => {
       if (!(await presence.standing(caller.player.id))) throw new Refusal(409, "not_there");
+      if (body.dois && body.kind !== "taxi") throw new Refusal(400, "invalid");
       const price = tunables.now().fares[FARE_OF[body.kind]];
       const id = randomBytes(12).toString("base64url");
       const paid = await recordTransfer(deps.sql, { debitAccount: accountId("player_cash", caller.player.id), creditAccount: sink("fare"), amount: price, reason: "fare", ref: "corrida", actionId: `corrida:${id}` });
       if (!paid.ok) throw new Refusal(409, paid.error === "insufficient_funds" ? "insufficient" : "failed");
-      await presence.mark(caller.player.id, "corrida", `${id}:${body.kind}:${body.to.x}:${body.to.z}`, 120);
+      await presence.mark(caller.player.id, "corrida", `${id}:${body.kind}:${body.to.x}:${body.to.z}${body.dois ? ":2" : ""}`, 120);
       return { id, price, ...(await walletOf(deps.sql, caller.player.id)) };
     },
   });

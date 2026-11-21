@@ -13,6 +13,7 @@ const at = new Vector3();
 import { type Seen } from "../net/others.ts";
 import { type Named } from "./names.ts";
 import { EMOTE_SECONDS, strideOf, type Emote, type Person } from "./person.ts";
+import type { Hand } from "./presente.ts";
 import { FIRST_LOOK, dress } from "./wardrobe.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
 
@@ -29,6 +30,8 @@ interface Body {
   air: number;
   /** A gesture under way, and when it began (in the seconds the picture counts). */
   emote: { kind: Emote; began: number | null } | null;
+  /** What they hold out or carry: a thing just given or just received (D-10.2). */
+  hand: Hand | null;
   x: number;
   y: number;
   z: number;
@@ -79,6 +82,13 @@ export class Players {
     if (body) body.emote = { kind, began: null };
   }
 
+  /** Someone hands a thing over ("dar") or has just been handed one ("tem"): it is seen in their hand. */
+  hands(id: number, mode: "dar" | "tem", item: string): void {
+    const body = this.bodies.get(id);
+    // The shapes of things are fetched the first time one is handed over in sight.
+    if (body) void import("./presente.ts").then(({ Hand }) => (body.hand ??= new Hand())[mode](item));
+  }
+
   /** The gesture each body is making, or null: for the tests. */
   gesturing(): (string | null)[] {
     return [...this.bodies.values()].map((body) => body.emote?.kind ?? null);
@@ -100,7 +110,7 @@ export class Players {
   }
 
   private make(id: number, who: Who): Body {
-    const body: Body = { person: null, phase: 0, speed: 0, facing: null, shown: 0, air: 0, emote: null, x: 0, y: 0, z: 0 };
+    const body: Body = { person: null, phase: 0, speed: 0, facing: null, shown: 0, air: 0, emote: null, hand: null, x: 0, y: 0, z: 0 };
     // What came over the wire is checked again here; one who never chose is dressed in the first look.
     // The look was checked as it came off the wire; one whose look is not known is dressed in the first look.
     void dress(this.renderer, who.look ?? FIRST_LOOK)
@@ -160,7 +170,8 @@ export class Players {
       // A gesture lasts its time, and ends when its maker walks off.
       if (body.emote && body.emote.began === null) body.emote.began = seconds;
       if (body.emote && (seconds - body.emote.began! > EMOTE_SECONDS[body.emote.kind] || body.speed > 0.6 || flying)) body.emote = null;
-      person.pose({ speed: body.speed, phase: body.phase, time: seconds + one.id * 1.3 }, { sit: seated ? 1 : 0, jump: body.air > 0.05 ? Math.min(0.95, body.air * 0.5) : 0, ...(body.emote ? { emote: { kind: body.emote.kind, seconds: seconds - body.emote.began! } } : {}) });
+      const holding = body.hand?.update(seconds);
+      person.pose({ speed: body.speed, phase: body.phase, time: seconds + one.id * 1.3 }, { sit: seated ? 1 : 0, jump: body.air > 0.05 ? Math.min(0.95, body.air * 0.5) : 0, ...(holding ? { holding } : {}), ...(body.emote ? { emote: { kind: body.emote.kind, seconds: seconds - body.emote.began! } } : {}) });
       named.push({ x: one.x, y: one.y + person.height, z: one.z, name: who.name, still: one.speed < 0.15 && !flying, known: who.bi !== "" && this.knows(who.bi) });
     }
     for (const [id, body] of this.bodies) {

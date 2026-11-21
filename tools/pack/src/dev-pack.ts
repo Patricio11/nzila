@@ -72,6 +72,7 @@ interface DevLayout {
   zunga: [number, number, number];
   carros: [number, number, number];
   banca: [number, number, number];
+  gelados: [number, number, number];
   seats: { pos: [number, number, number]; facing: number }[];
   tables: { game: "xadrez" | "damas" | "ludo"; pos: [number, number, number]; facing: number; size: number; seats: { pos: [number, number, number]; facing: number }[] }[];
   water: { rect: [number, number, number, number]; level: number };
@@ -91,7 +92,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
   const chunks = await exportChunks(join(src, "district.blend"), src, join(scripts, "export_chunks.py"));
 
   const layout = JSON.parse(await readFile(join(src, "layout.json"), "utf8")) as DevLayout;
-  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares.", "dev.cantina.name": "Cantina de Ensaio", "dev.biscato.pratos.name": "Bacia de Ensaio", "dev.biscato.pratos.line": "Lavam-se pratos aqui. A tia paga na hora.", "dev.biscato.carga.name": "Carrinhos de Ensaio", "dev.biscato.carga.line": "Há sempre carga para levar à banca. Paga-se por cada uma.", "dev.biscato.zunga.name": "Bacias de Ensaio", "dev.biscato.zunga.line": "Leva uma bacia e vende a quem passa.", "dev.biscato.carros.name": "Baldes de Ensaio", "dev.biscato.carros.line": "Um balde, uma esponja e carros à espera.", "dev.cantina.line": "Pão, gasosa, arroz, sabão, velas. Tudo pela grade.", "dev.banca.name": "Banca de Ensaio", "dev.banca.line": "Flores, perfume e panos, para oferecer." };
+  const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares.", "dev.cantina.name": "Cantina de Ensaio", "dev.biscato.pratos.name": "Bacia de Ensaio", "dev.biscato.pratos.line": "Lavam-se pratos aqui. A tia paga na hora.", "dev.biscato.carga.name": "Carrinhos de Ensaio", "dev.biscato.carga.line": "Há sempre carga para levar à banca. Paga-se por cada uma.", "dev.biscato.zunga.name": "Bacias de Ensaio", "dev.biscato.zunga.line": "Leva uma bacia e vende a quem passa.", "dev.biscato.carros.name": "Baldes de Ensaio", "dev.biscato.carros.line": "Um balde, uma esponja e carros à espera.", "dev.cantina.line": "Pão, gasosa, arroz, sabão, velas. Tudo pela grade.", "dev.banca.name": "Banca de Ensaio", "dev.banca.line": "Flores, perfume e panos, para oferecer.", "dev.gelados.name": "Geladaria de Ensaio", "dev.gelados.line": "Gelado de múcua e de coco. Senta-te na esplanada.", "dev.gelados.sair": "Os gelados", "dev.gelados.a": "aos gelados", "dev.banca.sair": "A banca das flores", "dev.banca.a": "à banca das flores" };
   const manifest: SourceManifest = {
     id: "zz-dev/d1",
     province: "zz-dev",
@@ -119,7 +120,9 @@ export async function buildDevPack(workDir: string, outDir: string) {
       { id: "biscato-zunga-ensaio", pos: layout.zunga, nameKey: "dev.biscato.zunga.name", lineKey: "dev.biscato.zunga.line", positive: true, stamp: false, glyph: "biscatos" },
       { id: "biscato-carros-ensaio", pos: layout.carros, nameKey: "dev.biscato.carros.name", lineKey: "dev.biscato.carros.line", positive: true, stamp: false, glyph: "biscatos" },
       // The banca of things to give (D-10.1): last in the list, so that the places before it keep their numbers.
-      { id: "banca-ensaio", pos: layout.banca, nameKey: "dev.banca.name", lineKey: "dev.banca.line", positive: true, stamp: false, glyph: "flores" },
+      { id: "banca-ensaio", pos: layout.banca, nameKey: "dev.banca.name", lineKey: "dev.banca.line", positive: true, stamp: false, glyph: "flores", outing: true },
+      // The geladaria (D-10.4): a shop, and a place two go out to.
+      { id: "gelados-ensaio", pos: layout.gelados, nameKey: "dev.gelados.name", lineKey: "dev.gelados.line", positive: true, stamp: false, glyph: "gelado", outing: true },
     ],
     routes: [],
     paragens: layout.paragens.map((pos, n) => {

@@ -10,7 +10,7 @@
 // right arm out and up, a positive one the left.
 
 import { EMOTE_NAMES, type EmoteName } from "@nzila/protocol";
-import { Bone, Group, Mesh, Quaternion, SkinnedMesh, Vector3, type Material } from "three";
+import { Bone, Group, Mesh, MeshBasicMaterial, Quaternion, SkinnedMesh, Vector3, type Material } from "three";
 import { type WorldRenderer } from "./world-renderer.ts";
 import { modelLoader } from "./model-loader.ts";
 
@@ -35,6 +35,12 @@ export type Emote = EmoteName;
 /** How long each lasts, in seconds. */
 export const EMOTE_SECONDS: Readonly<Record<Emote, number>> = { acenar: 2.4, rir: 2.6, aplaudir: 2.6, chamar: 2.2, dancar: 9.6 };
 
+/** What holds a thing in a body's hand: it poses the arm (with `toward`), and puts the thing right once the bones are set. */
+export interface Holding {
+  arms(person: Person): void;
+  after(person: Person): void;
+}
+
 export interface Doing {
   /** A gesture under way, and the seconds since it began. */
   readonly emote?: { readonly kind: Emote; readonly seconds: number };
@@ -46,6 +52,8 @@ export interface Doing {
   readonly land?: number;
   /** Something held: a fishing rod out over the water, or a hand up to the bacia on the head. */
   readonly hold?: "cana" | "bacia" | "guiador";
+  /** Something in the hand whose pose is its own (a thing given, presente.ts): asked for the arms before the body is set, and again after. */
+  readonly holding?: Holding;
   /** 0 to 1: seated low, on a little bench or a kerb, knees up and forearms on them. Over and above `sit`. */
   readonly low?: number;
   /**
@@ -85,6 +93,13 @@ const ease = (u: number): number => {
   const c = Math.min(1, Math.max(0, u));
   return c * c * (3 - 2 * c);
 };
+
+/** The dance, once it has been fetched; and the fetching of it. */
+let dance: Record<"rir" | "dancar", (person: Person, e: number, u: number) => number> | null = null;
+let dancing: Promise<void> | null = null;
+
+/** What a body that is only its shadow is painted with: nothing. */
+let unseen: MeshBasicMaterial | null = null;
 
 /** Above this speed (metres a second) a body runs; at or below it, it walks. */
 export const RUNS_ABOVE_M_S = 3.2;
@@ -130,6 +145,11 @@ export class Person {
     mesh.frustumCulled = false;
   }
 
+  /** One of the body's bones, by its name ("handR"). */
+  bone(name: string): Bone | undefined {
+    return this.joints.get(name)?.bone;
+  }
+
   /** Asks a bone to turn from its rest by angles about the body's axes. */
   private set(name: string, x: number, y = 0, z = 0): void {
     const joint = this.joints.get(name);
@@ -140,7 +160,7 @@ export class Person {
   }
 
   /** Moves what was asked of a bone toward other angles: 0 leaves it, 1 replaces it. */
-  private toward(name: string, amount: number, x: number, y = 0, z = 0): void {
+  toward(name: string, amount: number, x: number, y = 0, z = 0): void {
     const joint = this.joints.get(name);
     if (!joint || amount <= 0) return;
     joint.angles[0] += (x - joint.angles[0]) * amount;
@@ -280,77 +300,10 @@ export class Person {
           this.toward(`hand${tag}`, e, -0.1, -side * 0.2);
         }
         this.toward("head", e * 0.6, -0.06 + 0.02 * clap);
-      } else if (emote.kind === "rir") {
-        const shake = Math.sin(u * 17);
-        // Thrown back, the shoulders shaking, a hand to the belly.
-        this.toward("spine", e, -0.1 + 0.025 * shake);
-        this.toward("chest", e, -0.12 + 0.035 * shake);
-        this.toward("head", e, -0.3 + 0.05 * shake, 0.08 * Math.sin(u * 2.2));
-        this.toward("upperArmL", e, -0.35, 0, -0.3);
-        this.toward("lowerArmL", e, -1.5, -0.7);
-        this.toward("upperArmR", e, 0.1 + 0.04 * shake, 0, 0.26);
-        hipsY -= e * 0.012 * (1 + shake) * scale;
-      } else if (emote.kind === "dancar") {
-        // Four figures of 2.4 seconds, each melting into the next, at about 150 beats a minute.
-        const beat = u * 15.7;
-        const half = Math.sin(beat / 2);
-        const part = (u % 9.6) / 2.4;
-        const weight = (n: number): number => ease(1 - Math.min(Math.abs(part - n - 0.5), 4 - Math.abs(part - n - 0.5)) + 0.5);
-        const bounce = weight(0);
-        const pump = weight(1);
-        const squat = weight(2);
-        const lean = weight(3);
-        const dip = 0.06 * Math.abs(Math.sin(beat));
-        let drop = 9;
-        for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
-          const mine = Math.max(0, half * side);
-          // Knees bent throughout, opening and closing; one foot and then the other comes off the ground.
-          const thigh = -(0.42 + dip + 0.32 * mine * (bounce + pump) + 0.7 * squat + 0.16 * lean * mine);
-          const shin = 0.84 + 2 * dip + 0.5 * mine * (bounce + pump) + 1.0 * squat + 0.3 * lean * mine;
-          const open = side * (0.1 + 0.22 * (0.5 + 0.5 * Math.sin(beat)) * (bounce + pump) + 0.34 * squat + 0.16 * lean) + 0.2 * lean * half;
-          this.toward(`thigh${tag}`, e, thigh, 0, open);
-          this.toward(`shin${tag}`, e, shin);
-          this.toward(`foot${tag}`, e, -(thigh + shin) * 0.9);
-          drop = Math.min(drop, 0.4 * (1 - Math.cos(thigh)) + 0.41 * (1 - Math.cos(shin + thigh)));
-          // The arms: loose and pumping; then one fist overhead; then both thrown forward; then swung to the side of the lean.
-          const loose = 0.55 * half * side;
-          this.toward(`upperArm${tag}`, e * (bounce + lean), loose - 0.15 + 0.5 * lean * half * side, 0, side * (0.12 + 0.3 * lean * Math.max(0, half * side)));
-          this.toward(`lowerArm${tag}`, e * (bounce + lean), -1.15 - 0.3 * Math.sin(beat));
-          this.toward(`upperArm${tag}`, e * squat, -1.25 + 0.12 * Math.sin(beat), 0, side * 0.2);
-          this.toward(`lowerArm${tag}`, e * squat, -0.35 - 0.3 * Math.max(0, Math.sin(beat)));
-        }
-        this.toward("upperArmR", e * pump, -0.25, 0, -2.5 - 0.12 * Math.sin(beat));
-        this.toward("lowerArmR", e * pump, -0.55 - 0.45 * Math.max(0, Math.sin(beat)));
-        this.toward("upperArmL", e * pump, 0.25, 0, 0.3);
-        this.toward("lowerArmL", e * pump, -1.3);
-        // The trunk leans in and works against the hips.
-        this.toward("hips", e, 0.12 + 0.2 * squat, -0.22 * half * (bounce + pump), 0.1 * half * (bounce + pump) + 0.22 * lean * half);
-        this.toward("spine", e, 0.2 + 0.22 * squat + 0.05 * Math.sin(beat), 0.2 * half * (bounce + pump), -0.14 * lean * half);
-        this.toward("chest", e, 0.1 + 0.06 * Math.sin(beat + 1), 0.16 * half * bounce, -0.1 * lean * half);
-        this.toward("neck", e, -0.2 - 0.2 * squat);
-        this.toward("head", e, -0.08 + 0.07 * Math.sin(beat), -0.1 * half * (bounce + lean), 0.08 * lean * half);
-        if (this.female) {
-          // Her third figure: knees bent, leaning in with a hand on each knee, the back held, and the hips
-          // tilting up and down on the beat.
-          const work = Math.sin(beat);
-          this.toward("hips", e * squat, 0.42 + 0.3 * work, 0, 0.05 * half);
-          this.toward("spine", e * squat, 0.2 - 0.27 * work);
-          this.toward("chest", e * squat, -0.12 - 0.03 * work);
-          this.toward("neck", e * squat, -0.34);
-          for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
-            // A leg hangs from the hips, so it is turned back by as much as the hips tilt: the knees and the
-            // feet stay where they are while the hips move.
-            this.toward(`thigh${tag}`, e * squat, -1.0 - (0.42 + 0.3 * work), 0, side * 0.3);
-            this.toward(`shin${tag}`, e * squat, 1.35);
-            this.toward(`foot${tag}`, e * squat, -0.35);
-            // The arms straight down to the knees, and staying there while the hips move.
-            this.toward(`upperArm${tag}`, e * squat, -0.72, 0, -side * 0.12);
-            this.toward(`lowerArm${tag}`, e * squat, -0.06);
-            this.toward(`hand${tag}`, e * squat, 0.35, 0, 0);
-          }
-          drop += squat * (0.4 * (1 - Math.cos(1.0)) + 0.41 * (1 - Math.cos(0.35)) - drop);
-        }
-        hipsY -= e * drop * scale;
+      } else if (emote.kind === "rir" || emote.kind === "dancar") {
+        // Laughing and dancing are fetched the first time anybody does either (dancar.ts); until they have come, the body waits a moment.
+        if (dance) hipsY -= e * dance[emote.kind](this, e, u) * scale;
+        else dancing ??= import("./dancar.ts").then((module) => void (dance = module));
       } else {
         // Chamar: the arm out in front, palm down, the hand folding toward the body again and again.
         const beckon = Math.max(0, Math.sin(u * 8));
@@ -362,6 +315,7 @@ export class Person {
       }
     }
 
+    doing.holding?.arms(this);
     if (doing.hold === "cana") {
       // Both hands to the rod, the right one leading, the forearms up; the body turned a little to it.
       this.toward("upperArmR", 1, -0.6 + 0.02 * Math.sin(t * 0.9), 0, -0.1);
@@ -437,6 +391,7 @@ export class Person {
       if (x !== 0) turn.multiply(step.setFromAxisAngle(X, x));
       joint.bone.quaternion.copy(joint.rest).multiply(joint.worldInverse).multiply(turn).multiply(joint.world);
     }
+    doing.holding?.after(this);
   }
 
   /**
@@ -444,7 +399,7 @@ export class Person {
    * long enough. Null when the arms are doing something else (walking, a gesture, holding something, the air).
    */
   private rested(gait: Gait, doing: Doing, sit: number, low: number): [Rest, number] | null {
-    const busy = gait.speed > 0.15 || doing.emote !== undefined || doing.hold !== undefined || ((doing.jump ?? 0) > 0 && (doing.jump ?? 0) < 1) || low > 0.05;
+    const busy = gait.speed > 0.15 || doing.emote !== undefined || doing.hold !== undefined || doing.holding !== undefined || ((doing.jump ?? 0) > 0 && (doing.jump ?? 0) < 1) || low > 0.05;
     if (doing.rest !== undefined) return doing.rest && !busy ? [doing.rest, 1] : null;
     if (busy || (sit > 0.05 && sit < 0.95)) {
       this.stillFrom = null;
@@ -463,6 +418,26 @@ export class Person {
     // Into it gently after the first rest, and out of it before the next.
     const r = Math.min(ease(into / REST_EASE_S), ease((each - into) / REST_EASE_S), still < REST_EASE_S ? ease(still / REST_EASE_S) : 1);
     return [rest, r];
+  }
+
+  /** The body's own paint, kept while it is only a shadow. */
+  private paint: Material | Material[] | null = null;
+
+  /**
+   * Only its shadow: the body is not seen, and casts one. For the light body standing in the place of a whole one,
+   * whose shadow it casts for a fraction of the triangles.
+   */
+  set shadowOnly(on: boolean) {
+    if (on === (this.paint !== null)) return;
+    if (on) {
+      this.paint = this.mesh.material;
+      this.mesh.material = unseen ??= new MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+      this.mesh.castShadow = true;
+    } else {
+      this.mesh.material = this.paint!;
+      this.paint = null;
+      this.mesh.castShadow = false;
+    }
   }
 
   /** Whether the body casts a shadow where the tier draws real ones. */

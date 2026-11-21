@@ -43,6 +43,8 @@ export interface District {
   readonly places?: readonly { readonly x: number; readonly z: number }[];
   /** The tables where the bairro plays, in the pack's order: a phone names one by its number. Millimetres. */
   readonly tables?: readonly TablePlace[];
+  /** The places two may go out to (Task 10.13), in the pack's order: a phone names one by its number. Millimetres. */
+  readonly outings?: readonly { readonly x: number; readonly z: number }[];
   /** The benches' seats, in the pack's order: a phone names one by its number to sit on it (F-205). Millimetres. */
   readonly benches?: readonly Place[];
   /** Where a player whose Energia runs out wakes (Task 4.4): the district's hospital or centro médico, from its places. */
@@ -58,7 +60,7 @@ interface ManifestRead {
   readonly chunks: readonly { readonly walkGrid?: string }[];
   readonly seats?: readonly SeatPlace[];
   readonly paragens?: readonly { readonly id: string; readonly pos: readonly [number, number, number] }[];
-  readonly pois?: readonly { readonly id: string; readonly pos: readonly [number, number, number]; readonly glyph?: string }[];
+  readonly pois?: readonly { readonly id: string; readonly pos: readonly [number, number, number]; readonly glyph?: string; readonly outing?: boolean }[];
   readonly routes?: readonly { readonly id: string; readonly kind: string; readonly spline: string; readonly stopPoints: readonly number[]; readonly headwaySeconds: number }[];
   readonly npc?: { readonly crowd: string | null };
   readonly spawns: readonly { readonly pos: readonly [number, number, number]; readonly facing?: number; readonly kind: string }[];
@@ -109,6 +111,7 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     z: mm(one.pos[2]),
     seats: one.seats.map((seat) => ({ x: mm(seat.pos[0]), y: mm(seat.pos[1]), z: mm(seat.pos[2]), yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) })),
   }));
+  const outings = (manifest.pois ?? []).filter((one) => one.outing === true).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   const benches = (manifest.seats ?? []).map((seat): Place => ({ x: mm(seat.pos[0]), y: mm(seat.pos[1]), z: mm(seat.pos[2]), yaw: Math.round((((seat.facing % 360) + 360) % 360) * 100) }));
   // The hospital or the centro médico, by its name among the district's places (WORLD_ATLAS.md §5.1, step 7).
   const clinic = (manifest.pois ?? []).find((one) => /^(hospital|centro-medico)/.test(one.id));
@@ -117,7 +120,7 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     const kind = /^biscato-([a-z]+)-/.exec(one.id)?.[1];
     return kind ? [{ kind, x: mm(one.pos[0]), z: mm(one.pos[2]) }] : [];
   });
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

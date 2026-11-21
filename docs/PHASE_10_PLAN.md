@@ -10,12 +10,12 @@ Phase 10 is not open. **Two of its lines are built now**, in the founder's order
 |---|---|---|
 | A player's sheet, with block and report on it | `apps/client/src/conversa/sheet.tsx` | Built (3.6, 4B.2) |
 | An ask the other answers in one tap, limited per hour, never across a block | the tables' invitation (4B.1): `apps/zone/src/mesas.ts`, `apps/client/src/mesas/ui.tsx` | Built; the pattern to follow |
-| Each player's age band | `players.age_band` (Phase 2) | Known to the API only; **the zone never loads it** (F-113) |
+| Each player's age band | `players.age_band` (Phase 2) | The zone learns on entry whether a player is 18 or over, and nothing else (`adultOf`, 2026-11-21) |
 | Things bought in a shop, through the ledger | `buy` in `packages/db/src/items.ts`, `/v1/shop/buy` | Built (4.2, 4.3) |
 | A thing handed to someone | `/v1/items/give`, "Dar uma coisa" on the sheet | Built, but **nothing records it and the one given to is never told** |
 | Things that are gifts | | **None**: the only shop is the cantina, food and the house |
 | Places to go in the bairro | the pack's points of interest | The Marginal's miradouro, pontão, gelados, Largo |
-| A ride for two | `apps/zone/src/corridas.ts` | One rider today (D-6.5) |
+| A ride for two | `apps/zone/src/corridas.ts` | The táxi takes two (2026-11-21); the moto and the kupapata one |
 
 ## Decisions
 
@@ -27,9 +27,13 @@ Phase 10 is not open. **Two of its lines are built now**, in the founder's order
 
 **D-10.3 Convidar para sair is the zone's, for two adults only (delegated, D-0.34).** On the sheet of someone in the street, "Convidar para sair" appears only when **both** are 18 or over and neither has blocked the other: the zone learns each player's age band on entry (the API's card says only whether the button is there, never the other's band). The ask names a place; the other answers "Vamos", "Agora não", or another of the places ("Prefiro o Miradouro"), and the first answers that the same way: they choose together. Saying no costs nothing and says nothing more than "Agora não". Limits: three asks an hour, and someone who said no is not asked again by the same player for half an hour. Never across the age bands and never across a block, checked by the zone at every step. *Recommendation: yes.*
 
-**D-10.4 The places of an outing are the bairro's (founder, 2026-11-20).** In the Marginal: **o Pontão ao pôr do sol, o Miradouro, os gelados, o Largo**. A shopping, a restaurant, the cinema, the campo and a hospedaria are added as each is built (the hospedaria is a door that closes: nothing is shown or described). At the gelados, a gelado is bought like anything else and may be given (D-10.1, D-10.2). *(Founder, 2026-11-20, with a picture: "na geladaria tem que ter mesa e cadeiras". Built: the Geladaria da Marginal, west of the kiosk row, `kit_baixa.geladaria`: its counter under a striped awning, and a deck of tables and plastic chairs under sunshades; the chairs are seats, so the two of an outing sit down together.)*
+*(D-10.3 built 2026-11-21: `apps/zone/src/saidas.ts` keeps the rules (three asks an hour, half an hour after a no, an ask forgotten after ninety seconds, one outing at a time); the room checks the two are adults and not shut out at every ask and every answer, and says "Agora não dá." the same whichever it was. The card's `sair` is the API's word on whether the button is there. On the phone: `apps/client/src/sair/`, fetched when a card is opened or an ask arrives. An answer with another place is not counted against the hour.)*
+
+**D-10.4 The places of an outing are the bairro's (founder, 2026-11-20).** In the Marginal: **o Pontão ao pôr do sol, o Miradouro, os gelados, o Largo**. A shopping, a restaurant, the cinema, the campo and a hospedaria are added as each is built (the hospedaria is a door that closes: nothing is shown or described). At the gelados, a gelado is bought like anything else and may be given (D-10.1, D-10.2). *(Founder, 2026-11-20, with a picture: "na geladaria tem que ter mesa e cadeiras". Built: the Geladaria da Marginal, west of the kiosk row, `kit_baixa.geladaria`: its counter under a striped awning, and a deck of tables and plastic chairs under sunshades; the chairs are seats, so the two of an outing sit down together. A pack marks a place for an outing with `outing: true` and gives it two more words, how the chooser names it and how one goes to it: "O Pontão ao pôr do sol" / "ao Pontão", "O Miradouro", "Os gelados", "O Largo" (the tables of the Largo).)*
 
 **D-10.5 They really go: on foot, or a táxi for two (founder, 2026-11-20).** Agreed, both have the place on the compass and a chip says who they are out with and where. Either may call a táxi for two from the chip (300 Mk, the táxi's fare, paid by whoever calls it): it comes as D-6.5's do, both get in the back, and it sets them down together. When both stand at the place: "Chegaram ao Pontão." The outing ends when either ends it, when they have been apart a while, or at the day's end.
+
+*(D-10.5 built 2026-11-21: the place is a gold mark on the compass and a chip under the wallet ("A sair com Ana · Os gelados · 28 m"); pressed, the chip offers "Táxi para dois · 300 Mk" and "Terminar a saída". The táxi comes as any ride does; each gets in with the gold button, the caller on one side of the back seat and the other beside them; it goes when both are in, or with the caller alone when its wait runs out; it sets them down a step apart. Arrived is both within twelve metres of the place. Apart is more than seventy metres for four minutes; the day's end is forty-five minutes for now (F-268). Someone who leaves the street ends it, and the other is told.)*
 
 ## Open questions
 

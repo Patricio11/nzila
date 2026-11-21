@@ -12,6 +12,8 @@ export interface PlayerCard {
   readonly arrivedAt: string;
   /** Where the two stand to each other (Task 4B.2). */
   readonly kamba?: "kambas" | "pedido_enviado" | "pedido_recebido" | "nada";
+  /** Whether "Convidar para sair" is there for the two (D-10.3): the server's word, and nothing of why. */
+  readonly sair?: boolean;
 }
 
 /** The BI of another player, by its number. Null when it cannot be had. */

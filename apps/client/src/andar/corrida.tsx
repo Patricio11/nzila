@@ -180,18 +180,19 @@ export class Corridas {
     return this.drawn.get(vehicle)?.body ?? null;
   }
 
-  /** Where whoever hired a ride sits on it, in its own axes. */
-  seatAt(vehicle: number): readonly [number, number, number] | null {
-    return this.drawn.get(vehicle)?.passenger ?? null;
+  /** Where whoever hired a ride sits on it, in its own axes; seat 2 is beside them, for the other of a táxi for two. */
+  seatAt(vehicle: number, seat = 1): readonly [number, number, number] | null {
+    const mine = this.drawn.get(vehicle)?.passenger ?? null;
+    return mine && seat === 2 ? [-mine[0], mine[1], mine[2]] : mine;
   }
 
   /**
    * The player's own body, on their ride when they are on one: seated behind the rider, carried with the ride. True
    * while it is so; the street then leaves the body alone.
    */
-  carry(person: Person, myRide: { vehicle: number } | null, seconds: number): boolean {
+  carry(person: Person, myRide: { vehicle: number; seat?: number } | null, seconds: number): boolean {
     const body = myRide && myRide.vehicle >= HIRED_VEHICLE_BASE ? this.bodyAt(myRide.vehicle) : null;
-    const seat = body && myRide ? this.seatAt(myRide.vehicle) : null;
+    const seat = body && myRide ? this.seatAt(myRide.vehicle, myRide.seat) : null;
     if (!body || !seat) {
       if (person.root.parent && person.root.parent !== this.renderer.scene) this.renderer.scene.add(person.root);
       return false;
@@ -241,8 +242,8 @@ export class Corridas {
 const PASSENGER: Readonly<Record<CorridaKind, readonly [number, number, number]>> = { mota: [0, 0.84, -0.55], kupapata: [0.44, 0.83, -0.5], taxi: [-0.38, 0.52, -0.7] };
 
 /** A ride asked for from the Mapa: paid through the API, then asked of the zone by its id. What went wrong, if anything. */
-export async function pedir(net: Linha, kind: CorridaKind, to: { x: number; z: number }): Promise<string | null> {
-  const { answer, error } = await askAsPlayer<{ id: string }>("POST", "/v1/corridas", { kind, to: { x: Math.round(to.x * 1000), z: Math.round(to.z * 1000) } });
+export async function pedir(net: Linha, kind: CorridaKind, to: { x: number; z: number }, dois = false): Promise<string | null> {
+  const { answer, error } = await askAsPlayer<{ id: string }>("POST", "/v1/corridas", { kind, to: { x: Math.round(to.x * 1000), z: Math.round(to.z * 1000) }, ...(dois ? { dois: true } : {}) });
   if (!answer) return error ?? "failed";
   net.current?.post(encodeCorrida({ op: "pedir", id: answer.id }));
   return null;
@@ -282,9 +283,10 @@ export function Chip({ net, corridas }: { net: Linha; corridas: Corridas }) {
     <div class={`cd-chip cd-${mine.kind}${mine.fim ? " cd-fim" : ""}`} role="status">
       <span class="cd-icon" aria-hidden="true" />
       <p>{line}</p>
-      {!mine.fim && mine.fase !== "vai" ? (
+      {/* On the way, getting off is the gold button's, where the thumb is: not said twice (F-256). */}
+      {!mine.fim && mine.fase !== "vai" && mine.fase !== "leva" ? (
         <Button kind="quiet" onPress={() => net.current?.post(encodeCorrida({ op: "descer" }))}>
-          {tr.t(mine.fase === "leva" ? "corrida.descer" : "corrida.cancelar")}
+          {tr.t("corrida.cancelar")}
         </Button>
       ) : null}
     </div>

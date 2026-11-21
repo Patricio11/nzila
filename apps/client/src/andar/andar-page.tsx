@@ -28,6 +28,7 @@ import { PointLight, Vector3 } from "three";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DistrictScene } from "../render/district-scene.ts";
 import { EMOTES, EMOTE_SECONDS, RUNS_ABOVE_M_S, loadPerson, strideOf, type Emote, type Person } from "../render/person.ts";
+import type { Hand } from "../render/presente.ts";
 import { type VanSeen } from "../render/traffic.ts";
 import { account, balanceNow, type KeptOut } from "../world/account.ts";
 import { type TierName } from "../render/tiers.ts";
@@ -53,7 +54,7 @@ interface Standing {
 declare global {
   interface Window {
     /** For the films and the tests: where the person is and what they are doing. */
-    __andar?: { tap?: string; mesa: number | null; rideRefusals: number; shop: string | null; othersOnScreen: { x: number; y: number }[]; shoulder: number; othersRiding: number; myRide: { vehicle: number; seat: number } | null; hired: { fase: string; fim: string | null; x: number; z: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
+    __andar?: { tap?: string; mesa: number | null; rideRefusals: number; shop: string | null; othersOnScreen: { x: number; y: number }[]; shoulder: number; sair: { convite: number | null; saida: number | null; chegou: boolean; aviso: string | null } | null; hand: string | null; othersRiding: number; myRide: { vehicle: number; seat: number } | null; hired: { fase: string; fim: string | null; x: number; z: number } | null; streetNow: number; vans: { key: string; x: number; z: number }[]; trafficFollowed: boolean; at: number; known: number; x: number; z: number; speed: number; ready: boolean; seated: boolean; emote: string | null; action: string | null; lift: number; jumps: number; riding: string | null; sounds: number; names: number; waited: number; nearestVehicle: number; tangled: number; heeding: number; linked: boolean; players: number; corrections: number; channel: number | null; net: string; reconnections: number; fall: () => void; talk: boolean; balloons: number; lines: string[]; gestures: (string | null)[]; others: { x: number; z: number; name: string; still: boolean }[] };
   }
 }
 
@@ -199,6 +200,20 @@ export function Andar() {
   const markedNow = useRef<Marked | null>(null);
   markedNow.current = marked;
   const [hud, setHud] = useState<Hud>({ talk: false, lines: [], refused: null, out: null, cash: account()?.wallet?.cash ?? account()?.origin?.makuta ?? 0, said: null, net: "alone", ready: false, place: "", second: 0, heading: 0, marks: [], action: null, ride: null, stick: { x: 0, y: 0, dx: 0, dy: 0, active: false } });
+  /** Going out with someone (Task 10.13): fetched when a card is opened or an ask arrives, in a district with places for it. */
+  const [SairM, setSairM] = useState<typeof import("../sair/sair.tsx") | null>(null);
+  const sairRef = useRef<import("../sair/sair.tsx").Sair | null>(null);
+  const sairLoading = useRef(false);
+  const loadSair = (): void => {
+    const district = districtRef.current;
+    if (sairLoading.current || !district) return;
+    if (!district.manifest.pois.some((one) => one.outing)) return;
+    sairLoading.current = true;
+    void import("../sair/sair.tsx").then((module) => {
+      sairRef.current = new module.Sair(module.lugaresDe(district.manifest.pois, (key) => district.word(key)));
+      setSairM(() => module);
+    });
+  };
   /** The ride module: fetched once, and its drawing made in the street's world. */
   const loadCorrida = async (): Promise<typeof import("./corrida.tsx")> => {
     const module = await import("./corrida.tsx");
@@ -212,6 +227,7 @@ export function Andar() {
   /** The line being typed is open; and someone met, whose card is up. */
   const [composing, setComposing] = useState(false);
   const [met, setMet] = useState<Met | null>(null);
+  useEffect(() => void (met && loadSair()), [met !== null]);
   /** The session, for what the player does with their hands: say, type, silence. Set when the world is entered. */
   const net = useRef<Session | null>(null);
   const overBox = useRef<HTMLDivElement>(null);
@@ -281,6 +297,8 @@ export function Andar() {
     let speed = 0;
     let carried = 0;
     let emote: { kind: Emote; began: number } | null = null;
+    /** A thing just given or just received, in the player's own hand: fetched the first time there is one. */
+    let hand: Hand | null = null;
     let seat: { x: number; y: number; z: number; facing: number; n: number } | null = null;
     // Sitting on a bench, or getting up, said to the zone too (F-205): everyone sees it, and the player rests.
     const sitOn = (next: typeof seat): void => {
@@ -352,7 +370,7 @@ export function Andar() {
           session = new Session(renderer, opened.manifest.id, Number.isInteger(canal) && canal > 0 ? canal : undefined);
           session.seatOthers(
             (vehicle) => (vehicle >= HIRED_VEHICLE_BASE ? (corridas.current?.bodyAt(vehicle) ?? null) : (opened.traffic?.bodyAt(vehicle) ?? null)),
-            (seat, vehicle) => (vehicle >= HIRED_VEHICLE_BASE ? (corridas.current?.seatAt(vehicle) ?? null) : (opened.traffic?.seats[seat]?.pos ?? null)),
+            (seat, vehicle) => (vehicle >= HIRED_VEHICLE_BASE ? (corridas.current?.seatAt(vehicle, seat) ?? null) : (opened.traffic?.seats[seat]?.pos ?? null)),
           );
           net.current = session;
           if (overBox.current) over = new Over(overBox.current);
@@ -762,8 +780,16 @@ export function Andar() {
             rider.person.pose({ speed: 0, phase: 0, time: seconds + n * 1.7 }, { sit: 1, ...(rider.who === "cobrador" && ride.last.dwelling ? { emote: { kind: "chamar" as const, seconds: seconds % EMOTE_SECONDS.chamar } } : {}) });
           }
         }
-        person.pose({ speed, phase, time: seconds }, { sit, jump, land: flying ? 0 : air.land, ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
+        if (session?.handed) {
+          const { mode, item } = session.handed;
+          session.handed = null;
+          void import("../render/presente.ts").then((module) => (hand ??= new module.Hand())[mode](item));
+        }
+        const holding = hand?.update(seconds);
+        person.pose({ speed, phase, time: seconds }, { sit, jump, land: flying ? 0 : air.land, ...(holding ? { holding } : {}), ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
         if (session && !Corrida && (session.corridas || session.pedidos.length)) void loadCorrida();
+        if (session && session.saidas.length > 0 && !sairRef.current) loadSair();
+        sairRef.current?.hear(net, x, z);
         corridas.current?.update(session?.corridas ?? null, session?.pedidos ?? [], ground, Date.now() + (session?.zoneClockAhead ?? 0), elapsed, seconds);
         const hiredBody = corridas.current?.carry(person, session?.myRide ?? null, seconds) ? corridas.current.bodyAt(session!.myRide!.vehicle) : null;
         if (hiredBody) {
@@ -899,7 +925,7 @@ export function Andar() {
           const point = new Vector3(one.x, one.y - 0.6, one.z).project(renderer.camera);
           return point.z > 1 ? [] : [{ x: box.left + ((point.x + 1) / 2) * box.width, y: box.top + ((1 - point.y) / 2) * box.height }];
         }) : [];
-        window.__andar = { ...(window.__andar?.tap ? { tap: window.__andar.tap } : {}), mesa: atTable?.mesa ?? null, rideRefusals, shop: shopHere?.id ?? null, othersOnScreen: onScreen, shoulder, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound?.played ?? 0, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, hired: corridas.current?.probe() ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
+        window.__andar = { ...(window.__andar?.tap ? { tap: window.__andar.tap } : {}), mesa: atTable?.mesa ?? null, rideRefusals, shop: shopHere?.id ?? null, othersOnScreen: onScreen, shoulder, sair: sairRef.current?.probe() ?? null, hand: hand?.item ?? null, at: performance.now(), x, z, speed, ready: true, seated: sit > 0.9, emote: emote?.kind ?? null, action, lift, jumps: air.count, riding: ride ? ride.route : null, sounds: sound?.played ?? 0, names: district.names?.shown ?? 0, waited: district.traffic?.waited ?? 0, trafficFollowed: district.traffic?.followed ?? false, othersRiding: session?.othersRiding() ?? 0, myRide: session?.myRide ?? null, hired: corridas.current?.probe() ?? null, streetNow: district.streetNow, vans: (district.traffic?.seen ?? []).map((van) => ({ key: `${van.route}/${van.index}`, x: van.x, z: van.z })), tangled: district.traffic?.tangled ?? 0, heeding: district.traffic?.heeding ?? 0, linked: session?.walking ?? false, players: session?.count ?? 0, corrections: session?.corrections ?? 0, channel: session?.channel ?? null, known: session?.known ?? 0, net: session?.state ?? "alone", reconnections: session?.reconnections ?? 0, fall: () => session?.fall(), talk: session?.canTalk ?? false, balloons: over?.shown ?? 0, lines: (session?.talk.lines(performance.now(), true) ?? []).map((line) => `${line.who ?? "eu"}: ${line.text}`), gestures: session?.gesturing() ?? [], others: district.others.map((one) => ({ x: one.x, z: one.z, name: one.name, still: one.still })), nearestVehicle: Math.min(Infinity, ...[...(district.traffic?.seen ?? []), ...(district.traffic?.roaming ?? [])].map((vehicle) => Math.hypot(vehicle.x - x, vehicle.z - z))) };
         if (now - lastHud > 120) {
           // How near the bay and how near traffic, for the sea and the road in the ear: the ground is asked
           // outward from where the player stands.
@@ -921,6 +947,7 @@ export function Andar() {
           const mark = markedNow.current;
           if (mark) marks.push({ bearing: ((Math.atan2(mark.x - x, -(mark.z - z)) * 180) / Math.PI + 360) % 360, metres: Math.hypot(mark.x - x, mark.z - z), kind: "target" });
           if (errands) marks.push(...errands.marks(x, z));
+          if (sairRef.current) marks.push(...sairRef.current.marks(x, z));
           const rect = element.getBoundingClientRect();
           const length = Math.max(1, Math.hypot(stick.x, stick.y) / 1.5);
           const word = (key: string): string => district!.word(key);
@@ -1059,6 +1086,7 @@ export function Andar() {
               {Needs ? <Needs net={net} world={world} onMark={setMarked} /> : null}
               {hud.ride && Viagem ? <Viagem ride={hud.ride} /> : null}
               {Corrida && corridas.current ? <Corrida.Chip net={net} corridas={corridas.current} /> : null}
+              {SairM && sairRef.current ? <SairM.Chip sair={sairRef.current} net={net} corrida={loadCorrida} /> : null}
             </span>
             <span class="andar-top-right">
               <Compass heading={hud.heading} marks={hud.marks} />
@@ -1130,6 +1158,7 @@ export function Andar() {
           {shop ? <LazyLoja show={(loja) => <loja.Cantina shop={shop} second={hud.second} place={hud.place} onClose={() => (setShop(null), void errandsRef.current?.mochila())} />} /> : null}
           {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila zone={net.current} onClose={() => setBag(false)} />} /> : null}
           {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} gesto={(kind) => (asks.current.emote = kind)} /> : null}
+          {SairM && sairRef.current && !met && !shop && !bag && !phone ? <SairM.Ui sair={sairRef.current} net={net} /> : null}
           {met ? (
             <LazySheet
               met={met}
@@ -1139,6 +1168,8 @@ export function Andar() {
               onGave={() => net.current?.nudge(met.bi)}
               jogos={tablesRef.current?.jogos() ?? []}
               onConvidar={(jogo) => tablesRef.current?.convidar(jogo, met.entity)}
+              lugares={sairRef.current?.lugares ?? []}
+              onSair={(lugar) => sairRef.current?.convidar(net, met.entity, lugar)}
               onEscrever={(bi) => (setMet(null), setAbrirKamba(bi), setPhoneApp("mensagens"), setPhone(true))}
               onTalk={() => (setMet(null), setComposing(true))}
               onClose={() => setMet(null)}

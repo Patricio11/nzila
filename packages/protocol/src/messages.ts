@@ -39,6 +39,8 @@ export const MSG = {
   CORRIDA: 21,
   /** Zone to client: every ride asked for in the channel, where it is going and from when (Task 6.2). */
   CORRIDAS: 22,
+  /** Client to zone: what a player asks about going out with someone (Task 10.13). */
+  SAIR: 23,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -251,6 +253,10 @@ export const EVENT = {
   CORRIDA: 18,
   /** A ride not given: text is why ("sem_estrada", "ocupado", "nao_paga"); the API gives the fare back on the zone's note. */
   CORRIDA_RECUSADA: 19,
+  /** subject has just handed args[0] (a body) the thing named in text, as the record says (D-10.2): seen in the hand of one and then the other. */
+  PRESENTE: 20,
+  /** An outing (Task 10.13): args[0] is what is said, its place in SAIR_DITOS (sair.ts); subject is the other of the two. */
+  SAIR: 21,
 } as const;
 
 /**
@@ -558,6 +564,29 @@ function readCorrida(r: Reader): CorridaPedido {
   throw new ProtocolError("malformed", "corrida");
 }
 
+// ---------------------------------------------------------------- Sair (Task 10.13)
+
+/** The most places a district offers for an outing. */
+export const SAIR_LUGARES_MAX = 16;
+
+/**
+ * Client to zone: ask someone (by their number in the channel) out to a place (its number among the district's
+ * places for an outing); say yes or no to their ask; answer it with another place; or end the outing one is on.
+ * Written in sair.ts.
+ */
+export type SairPedido =
+  | { readonly op: "convidar" | "outro"; readonly entidade: number; readonly lugar: number }
+  | { readonly op: "aceitar" | "recusar"; readonly entidade: number }
+  | { readonly op: "terminar" };
+
+function readSair(r: Reader): SairPedido {
+  const op = r.u8();
+  if (op === 1 || op === 4) return { op: op === 1 ? "convidar" : "outro", entidade: r.uint(), lugar: r.bounded(SAIR_LUGARES_MAX - 1, "place") };
+  if (op === 2 || op === 3) return { op: op === 2 ? "aceitar" : "recusar", entidade: r.uint() };
+  if (op === 5) return { op: "terminar" };
+  throw new ProtocolError("malformed", "sair");
+}
+
 // ---------------------------------------------------------------- Mesa
 
 /** What a player asks of a table. Numbers are never reused. */
@@ -719,7 +748,8 @@ export type ClientMessage =
   | ({ readonly type: "comer" } & Comer)
   | ({ readonly type: "banco" } & Banco)
   | ({ readonly type: "biscato" } & { readonly pedido: BiscatoPedido })
-  | ({ readonly type: "corrida" } & { readonly pedido: CorridaPedido });
+  | ({ readonly type: "corrida" } & { readonly pedido: CorridaPedido })
+  | ({ readonly type: "sair" } & { readonly pedido: SairPedido });
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -741,6 +771,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.BANCO) return { type: "banco", ...readBanco(r) };
   if (type === MSG.BISCATO) return { type: "biscato", pedido: readBiscato(r) };
   if (type === MSG.CORRIDA) return { type: "corrida", pedido: readCorrida(r) };
+  if (type === MSG.SAIR) return { type: "sair", pedido: readSair(r) };
   throw new ProtocolError("unknown_type", String(type));
 }
 

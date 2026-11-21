@@ -9,7 +9,7 @@
 
 import { isGreeting } from "@nzila/i18n";
 import { TrafficRules, actorAt, nearestPavement } from "@nzila/world";
-import { eatOne, faceOf, keepChatLines, keepNeeds, needsOf, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
+import { adultOf, eatOne, faceOf, keepChatLines, keepNeeds, needsOf, presenteEntre, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_TUNABLES, type Tunables } from "@nzila/economy";
 import { BASE_BISCATOS, isBiscatoKind } from "@nzila/economy/biscatos";
 import { randomInt } from "node:crypto";
@@ -20,6 +20,7 @@ import {
   type RideAsked,
   type BiscatoPedido,
   type CorridaPedido,
+  type SairPedido,
   HIRED_VEHICLE_BASE,
   encodeTraffic,
   EVENT,
@@ -39,6 +40,8 @@ import {
   CHAT_REFUSAL,
 } from "@nzila/protocol";
 import { CORRIDA_FASES, CORRIDA_KINDS, encodeCorridas } from "@nzila/protocol/corridas";
+import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, type SairDito, type SairRecusa } from "@nzila/protocol/sair";
+import { Saidas, type Fim, type Saida } from "./saidas.ts";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { BISCATO_GRACE_MS, BISCATO_NOTE_S, scoreRonda, spotNear, takeInputs, type Ronda } from "./biscatos.ts";
@@ -233,6 +236,9 @@ export class ChannelRoom {
   private readonly tunables: () => Tunables;
   /** Rides asked for in this channel (Task 6.2). */
   private readonly corridas: Corridas;
+  /** Going out (Task 10.13): who is out with whom, when the district has places for it; and who here is 18 or over. */
+  private readonly saidas: Saidas | null;
+  private readonly adults = new Set<string>();
 
   constructor(deps: ZoneDeps, number: number, changed: () => void = () => {}) {
     this.changed = changed;
@@ -245,6 +251,7 @@ export class ChannelRoom {
     this.holds = deps.holds ?? CHANNEL_HOLDS;
     this.tunables = deps.tunables ?? (() => BASE_TUNABLES);
     this.corridas = new Corridas(deps.district.ground);
+    this.saidas = (deps.district.outings?.length ?? 0) > 0 ? new Saidas(deps.district.outings!.length) : null;
     this.log = deps.log ?? ((line: string) => console.error(line));
     this.number = number;
     this.channel = new Channel(deps.district.ground, deps.district.obstacles);
@@ -381,8 +388,11 @@ export class ChannelRoom {
       return true;
     }
     this.arriving++;
-    const [last, face, apart, against, needs] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId)]).finally(() => this.arriving--);
+    const [last, face, apart, against, needs, adult] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk || this.saidas ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId), this.saidas ? adultOf(this.sql, playerId) : false]).finally(() => this.arriving--);
     this.shut.set(playerId, new Set(apart));
+    // Whether they are 18 or over is learned once, here (D-10.3, F-113): going out is for two adults.
+    if (adult) this.adults.add(playerId);
+    else this.adults.delete(playerId);
     // Silenced by a moderator before they came in: silent from their first word.
     if (against.some((one) => one.kind === "mute")) this.muted.add(playerId);
     else this.muted.delete(playerId);
@@ -412,6 +422,10 @@ export class ChannelRoom {
   /** What a newcomer is told beyond where they are: that talk is open here, when it is. */
   private welcome(line: Line): void {
     if (this.talk) line.send(encodeEvent({ kind: EVENT.CHAT_OPEN, tick: this.channel.world.tick, subject: 0, args: [], text: "" }));
+    // Back on a new line while out with someone: told again, so that the phone shows it.
+    const held = this.held.get(line);
+    const saida = held ? this.saidas?.of(held.playerId) : null;
+    if (held && saida) this.tellSair(held.playerId, Saidas.other(saida, held.playerId), "combinado", saida.lugar);
     const rides = this.corridas.said(Date.now());
     if (rides.rides.length > 0) line.send(encodeCorridas(rides));
   }
@@ -429,6 +443,11 @@ export class ChannelRoom {
   private async depart(held: Held): Promise<Place | null> {
     // Whoever saw them typing is told they have stopped: nobody is left with three dots over an empty place.
     if (held.typing) this.saysTyping(held, false);
+    // Whoever they were out with is told it is over; what they asked, and were asked, is no more.
+    const saida = this.saidas?.terminar(held.playerId);
+    if (saida) this.tellSair(Saidas.other(saida, held.playerId), held.playerId, "fim", SAIR_FINS.indexOf("saiu"));
+    this.saidas?.forget(held.playerId);
+    this.adults.delete(held.playerId);
     // A ride they called drives off.
     const called = this.corridas.of(held.entityId);
     if (called) {
@@ -475,6 +494,7 @@ export class ChannelRoom {
       else if (message.type === "banco") this.onBench(held, message.seat, message.sim);
       else if (message.type === "biscato") this.biscato(line, held, message.pedido);
       else if (message.type === "corrida") this.corrida(line, held, message.pedido);
+      else if (message.type === "sair") this.sair(held, message.pedido);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -535,8 +555,89 @@ export class ChannelRoom {
 
   /** The player who called a ride is told where it is in its corrida (and why, when it ends or is not given). */
   private tellRide(ride: Corrida, text = ""): void {
-    const line = this.lineOfEntity.get(ride.entity);
-    if (line) line.send(encodeEvent({ kind: EVENT.CORRIDA, tick: this.channel.world.tick, subject: 0, args: [ride.vehicle, CORRIDA_FASES.indexOf(ride.fase)], text: text || ride.kind }));
+    const bytes = encodeEvent({ kind: EVENT.CORRIDA, tick: this.channel.world.tick, subject: 0, args: [ride.vehicle, CORRIDA_FASES.indexOf(ride.fase)], text: text || ride.kind });
+    this.lineOfEntity.get(ride.entity)?.send(bytes);
+    // A táxi for two (D-10.5): whoever rides along is told the same.
+    if (ride.com !== null) this.lineOfEntity.get(ride.com)?.send(bytes);
+  }
+
+  /** The body a player has in this channel, here or on a line that dropped; 0 when they have none. */
+  private entityOf(playerId: string): number {
+    for (const held of this.held.values()) if (held.playerId === playerId) return held.entityId;
+    return this.away.get(playerId)?.held.entityId ?? 0;
+  }
+
+  /** Says something of an outing to one of the two: what, about whom, and a number (the place, or why). */
+  private tellSair(to: string, about: string, what: SairDito, n: number, counter = false): void {
+    this.lineOf(to)?.send(encodeEvent({ kind: EVENT.SAIR, tick: this.channel.world.tick, subject: this.entityOf(about), args: counter ? [SAIR_DITOS.indexOf(what), n, 1] : [SAIR_DITOS.indexOf(what), n], text: "" }));
+  }
+
+  /**
+   * Convidar para sair (Task 10.13, D-10.3). Only between two who are both 18 or over and neither of whom has shut
+   * the other out: looked at again at every step, and said the same ("nao_pode") whichever it was, so that nothing
+   * is learned of the other. The one asked is asked; the one who asked is told the answer; agreed, both are told.
+   */
+  private sair(held: Held, pedido: SairPedido): void {
+    const saidas = this.saidas;
+    if (!saidas) return;
+    const now = Date.now();
+    const me = held.playerId;
+    const refuse = (why: SairRecusa): void => this.lineOf(me)?.send(encodeEvent({ kind: EVENT.SAIR, tick: this.channel.world.tick, subject: "entidade" in pedido ? pedido.entidade : 0, args: [SAIR_DITOS.indexOf("recusado"), SAIR_RECUSAS.indexOf(why)], text: "" }));
+    if (pedido.op === "terminar") {
+      const saida = saidas.terminar(me);
+      if (saida) this.endSaida(saida, "terminou");
+      return;
+    }
+    const otherLine = this.lineOfEntity.get(pedido.entidade);
+    const other = otherLine ? this.held.get(otherLine) : undefined;
+    if (!other || other === held || !this.adults.has(me) || !this.adults.has(other.playerId) || this.apart(held.entityId, pedido.entidade)) return refuse("nao_pode");
+    const them = other.playerId;
+    if (pedido.op === "convidar") {
+      const done = saidas.convidar(me, them, pedido.lugar, now);
+      if (done !== true) return refuse(done);
+      return this.tellSair(them, me, "convite", pedido.lugar);
+    }
+    if (pedido.op === "outro") {
+      const done = saidas.outro(me, them, pedido.lugar, now);
+      if (done !== true) return refuse(done);
+      return this.tellSair(them, me, "convite", pedido.lugar, true);
+    }
+    if (pedido.op === "recusar") {
+      const done = saidas.recusar(me, them, now);
+      if (done !== true) return refuse(done);
+      return this.tellSair(them, me, "nao", 0);
+    }
+    const saida = saidas.aceitar(me, them, now);
+    if (typeof saida === "string") return refuse(saida);
+    this.tellSair(me, them, "combinado", saida.lugar);
+    this.tellSair(them, me, "combinado", saida.lugar);
+  }
+
+  /** An outing is over: both are told, and why. */
+  private endSaida(saida: Saida, porque: Fim): void {
+    this.tellSair(saida.a, saida.b, "fim", SAIR_FINS.indexOf(porque));
+    this.tellSair(saida.b, saida.a, "fim", SAIR_FINS.indexOf(porque));
+  }
+
+  /** Time passes for those who are out: arrived together at the place, apart too long, grown late; or no longer allowed. */
+  private stepSaidas(): void {
+    const saidas = this.saidas;
+    if (!saidas) return;
+    const where = (playerId: string): { x: number; z: number } | null => this.channel.placeOf(this.entityOf(playerId));
+    const { chegaram, fim } = saidas.step(Date.now(), where, this.district.outings ?? []);
+    for (const saida of chegaram) {
+      this.tellSair(saida.a, saida.b, "chegaram", saida.lugar);
+      this.tellSair(saida.b, saida.a, "chegaram", saida.lugar);
+    }
+    for (const one of fim) this.endSaida(one.saida, one.porque);
+    // One has shut the other out since: it is over, said as an ending like any other.
+    for (const held of this.held.values()) {
+      const saida = saidas.of(held.playerId);
+      if (saida && saida.a === held.playerId && this.shut.get(saida.a)?.has(saida.b) === true) {
+        saidas.terminar(saida.a);
+        this.endSaida(saida, "terminou");
+      }
+    }
   }
 
   /**
@@ -568,10 +669,13 @@ export class ChannelRoom {
       const at = this.channel.placeOf(held.entityId);
       if (!at || !this.presence) return refuse("nao_paga");
       void this.presence.marked(held.playerId, "corrida").then((note) => {
-        const [id, kind, x, z] = (note ?? "").split(":");
+        const [id, kind, x, z, dois] = (note ?? "").split(":");
         const which = CORRIDA_KINDS.find((one) => one === kind);
         if (id !== pedido.id || !which || !Number.isFinite(Number(x)) || !Number.isFinite(Number(z))) return refuse("nao_paga");
-        const made = this.corridas.ask({ id, kind: which, playerId: held.playerId, entity: held.entityId }, at, { x: Number(x), z: Number(z) }, Date.now());
+        // A táxi for two (D-10.5): only a táxi, and only for someone who is out with somebody; they ride beside them.
+        const saida = dois === "2" && which === "taxi" ? this.saidas?.of(held.playerId) : null;
+        const com = saida ? this.entityOf(Saidas.other(saida, held.playerId)) || null : null;
+        const made = this.corridas.ask({ id, kind: which, playerId: held.playerId, entity: held.entityId, com }, at, { x: Number(x), z: Number(z) }, Date.now());
         if (made === "usada") return refuse("nao_paga");
         if (made === "sem_estrada") return void giveBack(id, "sem_estrada");
         this.tellCorridas();
@@ -579,22 +683,43 @@ export class ChannelRoom {
       });
       return;
     }
+    // Asked along on a táxi for two: they get in beside whoever called it, and off when they like; the ride is not theirs.
+    const along = ride ? null : this.corridas.alongOn(held.entityId);
+    if (along) {
+      const aboard = along.aboard.has(held.entityId);
+      if (pedido.op === "subir" && !aboard) {
+        const at = this.channel.placeOf(held.entityId);
+        const there = poseOf(along, now);
+        if (along.fase !== "espera" || !at || this.channel.ridingOf(held.entityId) || this.channel.sittingOf(held.entityId) || Math.hypot(there.x - at.x, there.z - at.z) > RIDE_REACH_MM) return;
+        this.channel.ride(held.entityId, along.vehicle, 2);
+        if (this.corridas.getIn(along, held.entityId, now)) this.tellCorridas();
+        this.tellRide(along);
+      } else if (pedido.op === "descer" && aboard) {
+        along.aboard.delete(held.entityId);
+        this.setDown(held.entityId, poseOf(along, now));
+      }
+      return;
+    }
     if (!ride) return;
     if (pedido.op === "subir") {
       const at = this.channel.placeOf(held.entityId);
       const there = poseOf(ride, now);
-      if (ride.fase !== "espera" || !at || Math.hypot(there.x - at.x, there.z - at.z) > RIDE_REACH_MM) return;
+      if (ride.fase !== "espera" || ride.aboard.has(held.entityId) || !at || Math.hypot(there.x - at.x, there.z - at.z) > RIDE_REACH_MM) return;
       this.channel.ride(held.entityId, ride.vehicle, 1);
-      this.corridas.board(ride, now);
-      this.tellCorridas();
+      if (this.corridas.getIn(ride, held.entityId, now)) this.tellCorridas();
       this.tellRide(ride);
       return;
     }
-    if (ride.fase === "leva") {
-      this.setDown(held.entityId, poseOf(ride, now));
+    if (ride.fase === "leva" || ride.aboard.has(held.entityId)) {
+      // Off on the way, or out again while it waited for the other: everyone in it is put down, and it goes.
+      const pose = poseOf(ride, now);
+      const onTheWay = ride.fase === "leva";
+      for (const [n, entity] of [...ride.aboard].entries()) this.setDown(entity, { ...pose, x: pose.x + Math.sin(pose.heading) * 1200 * n, z: pose.z + Math.cos(pose.heading) * 1200 * n });
+      ride.aboard.clear();
       this.corridas.leave(ride, now);
       this.tellCorridas();
-      this.tellRide(ride, "desceu");
+      if (onTheWay) this.tellRide(ride, "desceu");
+      else void giveBack(ride.id, "cancelada");
       return;
     }
     // Called off before getting on: it goes, and the fare comes back.
@@ -608,16 +733,28 @@ export class ChannelRoom {
     const now = Date.now();
     const changes = this.corridas.step(now);
     for (const ride of changes.waiting) this.tellRide(ride);
-    for (const ride of changes.gaveUp) this.tellRide(ride, "foi_embora");
+    for (const ride of changes.setOut) this.tellRide(ride);
+    for (const ride of changes.gaveUp) {
+      // Gone without whoever called it: someone asked along who got in is put down where it stood.
+      const pose = poseOf(ride, now);
+      for (const entity of ride.aboard) this.setDown(entity, pose);
+      ride.aboard.clear();
+      this.tellRide(ride, "foi_embora");
+    }
     for (const ride of changes.arrived) {
-      this.setDown(ride.entity, { ...ride.drop, heading: poseOf(ride, now).heading });
+      const heading = poseOf(ride, now).heading;
+      // Set down together, a step apart along the kerb.
+      for (const [n, entity] of [...ride.aboard].entries()) this.setDown(entity, { x: ride.drop.x + Math.sin(heading) * 1200 * n, z: ride.drop.z + Math.cos(heading) * 1200 * n, heading });
+      ride.aboard.clear();
       this.tellRide(ride, "chegou");
     }
     for (const rider of this.channel.riders()) {
       if (rider.vehicle < HIRED_VEHICLE_BASE) continue;
       const ride = this.corridas.byVehicle(rider.vehicle);
       const at = this.channel.placeOf(rider.id);
-      if (ride?.fase === "leva") {
+      // In it while it waits at the kerb for the other of the two: they sit where it stands.
+      if (ride?.fase === "espera" && ride.aboard.has(rider.id)) continue;
+      if (ride?.fase === "leva" && ride.aboard.has(rider.id)) {
         const pose = poseOf(ride, now);
         this.channel.carry(rider.id, { x: Math.round(pose.x), y: at?.y ?? 0, z: Math.round(pose.z), yaw: Math.round(((pose.heading * 18_000) / Math.PI + 36_000) % 36_000) });
       } else if (at) this.channel.alight(rider.id, at);
@@ -824,6 +961,17 @@ export class ChannelRoom {
     if (!from || !to || !line || Math.hypot(from.x - to.x, from.z - to.z) > HAND_REACH_MM * 2 || this.apart(held.entityId, entity)) return;
     held.nudgedAt = now;
     line.send(encodeEvent({ kind: EVENT.GIVEN, tick: this.channel.world.tick, subject: held.entityId, args: [], text: "" }));
+    // A thing handed over is seen (F-257): what it was is read from the record, never taken from the phone, and
+    // said to the two of them and to whoever has the giver in sight.
+    const other = this.held.get(line);
+    if (!other) return;
+    void presenteEntre(this.sql, held.playerId, other.playerId)
+      .then((item) => {
+        if (!item) return;
+        const bytes = encodeEvent({ kind: EVENT.PRESENTE, tick: this.channel.world.tick, subject: held.entityId, args: [entity], text: item });
+        for (const [one, seeing] of this.held) if (seeing === held || seeing === other || this.channel.seenBy(seeing.entityId).includes(held.entityId)) one.send(bytes);
+      })
+      .catch((error: unknown) => this.log(`zone: could not read what ${held.playerId} handed over: ${String(error)}`));
   }
 
   /**
@@ -1116,6 +1264,8 @@ export class ChannelRoom {
         void this.presence.mark(held.playerId, "lugar", `${index}/${places.length}`).catch(() => {});
       }
     }
+    // Those who are out together (Task 10.13): once a second.
+    if (tick % (STEPS_A_LOOK * 4) === 0) this.stepSaidas();
     // The tables: time passes at them (a kota plays, a turn runs out, the next game begins), and whoever is near is
     // told what changed. Someone whose seat was given to a kota for letting their turns run out is stood up.
     if (tick % STEPS_A_LOOK === 0 && this.mesas) {

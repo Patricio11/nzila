@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  SAIR_LUGARES_MAX,
   CHAT_MAX_CHARS,
   EVENT,
   HANDOFF_REASON,
@@ -35,6 +36,7 @@ import {
   type InputFrame,
 } from "./messages.ts";
 import { decodeCorridas, encodeCorrida, encodeCorridas } from "./corridas.ts";
+import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, encodeSair } from "./sair.ts";
 import { MIN_CLIENT_VERSION, PROTOCOL_VERSION, negotiate } from "./version.ts";
 import { arrivalLook, checkLook } from "./look.ts";
 import { ProtocolError, Writer } from "./wire.ts";
@@ -152,6 +154,13 @@ describe("a nudge", () => {
     expect(decodeClientMessage(encodeCorrida({ op: "descer" }))).toEqual({ type: "corrida", pedido: { op: "descer" } });
     expect(() => decodeClientMessage(encodeCorrida({ op: "pedir", id: "curta" }))).toThrow(ProtocolError);
     expect(() => decodeClientMessage(new Writer().u8(MSG.CORRIDA).u8(7).finish())).toThrow(ProtocolError);
+    // Going out (Task 10.13): each ask comes back as it was written, and a place past the list is not read.
+    for (const pedido of [{ op: "convidar", entidade: 7, lugar: 2 }, { op: "outro", entidade: 300, lugar: 0 }, { op: "aceitar", entidade: 7 }, { op: "recusar", entidade: 7 }, { op: "terminar" }] as const) {
+      expect(decodeClientMessage(encodeSair(pedido))).toEqual({ type: "sair", pedido });
+    }
+    expect(() => decodeClientMessage(new Writer().u8(MSG.SAIR).u8(1).uint(7).u8(SAIR_LUGARES_MAX).finish())).toThrow(ProtocolError);
+    expect(() => decodeClientMessage(new Writer().u8(MSG.SAIR).u8(9).finish())).toThrow(ProtocolError);
+    expect([SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS]).toEqual([["convite", "nao", "combinado", "chegaram", "fim", "recusado"], ["terminou", "longe", "tarde", "saiu"], ["nao_pode", "muitos", "cedo", "ocupado", "convite"]]);
     const said = { nowMs: 1_800_000_000_000, rides: [{ vehicle: HIRED_VEHICLE_BASE + 3, kind: 1, fase: 2, fromMs: 1_799_999_990_000, speed: 9000, path: [{ x: 120_000, z: -4_560 }, { x: 180_000, z: 60_000 }] }] };
     expect(decodeZoneMessage(encodeCorridas(said))).toEqual({ type: "corridas", bytes: encodeCorridas(said) });
     expect(decodeCorridas(encodeCorridas(said))).toEqual(said);

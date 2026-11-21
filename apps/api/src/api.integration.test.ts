@@ -791,12 +791,28 @@ describe("other players: looking, shutting out, reporting (Rule 11)", () => {
     expect(card.statusCode).toBe(200);
     const shown = card.json() as Record<string, unknown>;
     // And where the one looking stands to them (kambas, an ask, or nothing): the looker's own, not the other's (Task 4B.2).
-    expect(Object.keys(shown).sort()).toEqual(["arrivedAt", "bairro", "biNumber", "kamba", "name"]);
+    expect(Object.keys(shown).sort()).toEqual(["arrivedAt", "bairro", "biNumber", "kamba", "name", "sair"]);
     expect(shown).toMatchObject({ name: them.name, biNumber: them.biNumber });
     expect(typeof shown.bairro).toBe("string");
     expect((await post(me.token, "/v1/players/card", { biNumber: "99999999-LA" })).statusCode).toBe(404);
     expect((await app.inject({ method: "POST", url: "/v1/players/card", payload: { biNumber: them.biNumber } })).statusCode).toBe(401);
     expect((await post(me.token, "/v1/players/card", { biNumber: "'; DROP TABLE players; --" })).statusCode).toBe(400);
+  });
+
+  test("\"Convidar para sair\" is on a card only between two adults neither of whom has shut the other out, and the card says nothing of why (D-10.3)", async () => {
+    const ana = await newGuest(956);
+    const rui = await newGuest(957);
+    const novo = await newGuest(958, "15_17");
+    const sair = async (who: { token: string }, of: { biNumber: string }): Promise<unknown> => ((await post(who.token, "/v1/players/card", { biNumber: of.biNumber })).json() as { sair: unknown }).sair;
+    expect([await sair(ana, rui), await sair(rui, ana)]).toEqual([true, true]);
+    // Never across the age bands, either way; and nothing on the card tells the two cases apart but the button.
+    expect([await sair(ana, novo), await sair(novo, ana)]).toEqual([false, false]);
+    const young = (await post(ana.token, "/v1/players/card", { biNumber: novo.biNumber })).json() as Record<string, unknown>;
+    expect(Object.keys(young).sort()).toEqual(["arrivedAt", "bairro", "biNumber", "kamba", "name", "sair"]);
+    expect(JSON.stringify(young)).not.toMatch(/15_17|age/i);
+    // Shut out by either: gone for both.
+    expect((await post(rui.token, "/v1/blocks", { biNumber: ana.biNumber })).statusCode).toBe(200);
+    expect([await sair(ana, rui), await sair(rui, ana)]).toEqual([false, false]);
   });
 
   test("a player shuts another out and lets them back in; asking twice changes nothing; nobody shuts themselves out; the list is theirs alone", async () => {
@@ -1148,6 +1164,11 @@ describe("a ride asked for (Task 6.2, D-6.5)", () => {
     await presence.mark(one.playerId, "corrida-devolver", ride.id, 600);
     expect((await post(one.token, "/v1/corridas/devolver")).json()).toEqual({ back: BASE_TUNABLES.fares.motoTaxi, cash: card, bank: 0 });
     expect((await post(one.token, "/v1/corridas/devolver")).json()).toEqual({ back: BASE_TUNABLES.fares.motoTaxi, cash: card, bank: 0 });
+    // A táxi for two (D-10.5): the táxi's fare, and the zone's note says it is for two; no other ride takes two.
+    expect((await post(one.token, "/v1/corridas", { kind: "mota", to: { x: 0, z: 0 }, dois: true })).statusCode).toBe(400);
+    const forTwo = (await post(one.token, "/v1/corridas", { kind: "taxi", to: { x: 5000, z: -7000 }, dois: true })).json() as { id: string; price: number };
+    expect(forTwo.price).toBe(BASE_TUNABLES.fares.taxi);
+    expect(await presence.marked(one.playerId, "corrida")).toBe(`${forTwo.id}:taxi:5000:-7000:2`);
     // A táxi a player cannot pay for is not called.
     const broke = await newGuest(1461);
     await presence.stand(broke.playerId, { districtId: "lda/corridas", x: 0, y: 0, z: 0, yaw: 0 });

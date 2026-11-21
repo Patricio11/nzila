@@ -476,6 +476,17 @@ _banca = _clear_spot([_carga, _zunga, _carros], south=3.4)
 kit_baixa.banca_de_presentes(b, _banca[0], _banca[1] + 1.7, rng, KERB)
 places["banca"] = [round(_banca[0], 2), KERB, round(_banca[1], 2)]
 
+# And a geladaria with its esplanada (D-10.4), its counter to the north: the nearest open pavement that takes all of
+# it, clear of everything above. Its chairs are the last seats of the list, so the benches keep their numbers.
+_wide = [(_cx + dx * 0.5, _cz + dz * 0.5) for dz in range(-120, 121) for dx in range(-200, 200)]
+_gel = next((x, z) for x, z in sorted(_wide, key=lambda p: math.hypot(p[0] - _cx, p[1] - _cz)) if _paved(x - 4.5, z - 7.3, x + 4.7, z + 1.6)
+            and math.hypot(x - _cx, z - 3.0 - _cz) > 9.0 and math.hypot(x - _spot[0], z - 3.0 - _spot[1]) > 10.0
+            and all(math.hypot(x + k * 5.0 - _row[0] - 7.5, z - 3.0 - _row[1]) > 13.0 for k in range(1))
+            and all(math.hypot(x - sx, z - 3.0 - sz) > 8.0 for sx, _sy, sz, _yaw in b.seats)
+            and all(math.hypot(x - ax, z - 3.0 - az) > 9.0 for ax, az in (_carga, _zunga, _carros, _banca)))
+kit_baixa.geladaria(b, _gel[0], _gel[1], rng, KERB)
+places["gelados"] = [round(_gel[0] - 0.5, 2), KERB, round(_gel[1] - 3.3, 2)]
+
 # Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
 # a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
 def _flag_at(ix, iz):
@@ -538,6 +549,7 @@ layout = {
     "zunga": places["zunga"],
     "carros": places["carros"],
     "banca": places["banca"],
+    "gelados": places["gelados"],
     "seats": [{"pos": [round(x, 2), round(y, 2), round(z, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for x, y, z, yaw in b.seats],
     "tables": [{"game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for t in tables],
     # The bay: from the foot of the sea wall out past the edge of what is modelled.
