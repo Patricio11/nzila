@@ -29,6 +29,7 @@
     "test:engines": "node tools/retry.mjs 2 vitest run --project engines",
     "test:integration": "vitest run --project integration",
     "budget": "node tools/budget/check.mjs",
+    "test:quick": "node tools/gate/quick.mjs",
     "test:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:engines && pnpm test:integration && pnpm pack:check && pnpm pack:dev && pnpm pack:l1 && pnpm pack:zango && pnpm build && pnpm budget && pnpm test:e2e",
     "shots": "node tools/shots/shoot.mjs",
     "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",

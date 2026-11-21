@@ -20,4 +20,9 @@ Then:
 - When a task changes something visible, run `pnpm build` then `pnpm shots <task-label>`: screenshots go to `screenshots/<task-label>/` (not in git), and you look at every one of them (the `todas_N.png` sheets are for this) before calling the task done.
 - A bug, a gap or an idea found while working on a task is never lost: fix it in the task when you can, and record it in `docs/FINDINGS.md` either way (the convention is at the top of that file).
 
-Gate before any commit: `pnpm test:all`.
+Two gates (the founder, 2026-11-21):
+
+- **Before any commit, the quick gate: `pnpm test:quick "<names of the browser tests of what changed>"`** (a few minutes: types, lint, unit tests with coverage, house rules, integration tests, the build and its budget, then on the Android profile the three browser tests every player passes through and those named). After a change to `art/scripts`, rebuild that pack first.
+- **When a whole piece of work is done (a bairro, a phase), and always before anything reaches players, the full gate: `pnpm test:all`** (about half an hour: everything, both phone profiles, every browser's engine, every pack rebuilt).
+
+Say in each report which gate a commit went in on. A commit made on the quick gate may carry a fault that only the full gate finds: that is the trade, and it is why the full gate is never skipped at the end.
