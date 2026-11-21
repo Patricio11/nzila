@@ -6,7 +6,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId, sink } from "@nzila/economy";
 import { BASE_BISCATOS, BISCATO_KINDS, isBiscatoKind, taperPercent } from "@nzila/economy/biscatos";
-import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
+import { bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, lastPresente, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
 import { biscatosPaidToday, payBiscato, payHospital } from "@nzila/db";
 import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
@@ -800,14 +800,14 @@ export function buildApp(deps: Deps): FastifyInstance {
   declare(app, gate, banked("bank_out"));
 
   // What the player holds, in a few bytes, asked now and then while they play; and whether someone has just
-  // handed them Makuta, so that their phone can say so.
+  // handed them Makuta or a thing (D-10.2), so that their phone can say so.
   declare(app, gate, {
     method: "GET",
     url: "/v1/me/balance",
     guard: "player",
     body: nothing,
     perMinute: 30,
-    handler: async (_body, caller) => ({ ...(await walletOf(deps.sql, caller.player.id)), got: await lastGift(deps.sql, caller.player.id) }),
+    handler: async (_body, caller) => ({ ...(await walletOf(deps.sql, caller.player.id)), got: await lastGift(deps.sql, caller.player.id), presente: await lastPresente(deps.sql, caller.player.id) }),
   });
 
   // Makuta handed to another player, in person (Task 4.1, D-4.11). The zone says the two stand together. The one
@@ -873,7 +873,8 @@ export function buildApp(deps: Deps): FastifyInstance {
         units: unitsCarried(catalogue, held),
         carryUnits: catalogue.carryUnits,
         receipts: await receiptsOf(deps.sql, caller.player.id, 10),
-        shop: at && stock ? { id: at, stock: stock.map((line) => ({ item: line.item, price: line.price })), card: { stamps: Math.min(new Set(await cardDays(deps.sql, caller.player.id, at)).size, recados.cartao.stamps), of: recados.cartao.stamps, gift: recados.cartao.gift } } : null,
+        // The card of the house is the cantina's: a banca and the gelados keep none.
+        shop: at && stock ? { id: at, stock: stock.map((line) => ({ item: line.item, price: line.price })), card: at.split("-")[0] === "cantina" ? { stamps: Math.min(new Set(await cardDays(deps.sql, caller.player.id, at)).size, recados.cartao.stamps), of: recados.cartao.stamps, gift: recados.cartao.gift } : null } : null,
         // What the Carteira holds now: the gold button says whether it is enough.
         ...(await walletOf(deps.sql, caller.player.id)),
       };
@@ -900,20 +901,22 @@ export function buildApp(deps: Deps): FastifyInstance {
       if (!bought.ok) throw new Refusal(409, bought.error === "insufficient_funds" ? "insufficient" : bought.error === "too_heavy" ? "too_heavy" : "invalid");
       const card = stampsOf(recados, days, dayOf(Date.now()));
       let gift: string | null = null;
-      if (!bought.replay && card.fills) {
+      const carded = body.shop.split("-")[0] === "cantina";
+      if (carded && !bought.replay && card.fills) {
         // Seven days' stamps: the card is full, the gift is the dona's, and a new card begins.
         await fillCard(deps.sql, caller.player.id, body.shop);
         if (await giveGift(deps.sql, caller.player.id, recados.cartao.gift, fits(catalogue.items.get(recados.cartao.gift)?.size ?? 0))) gift = recados.cartao.gift;
       }
-      return { receipt: bought.receipt, ...(await walletOf(deps.sql, caller.player.id)), items: await heldBy(deps.sql, caller.player.id), card: { stamps: card.stamps, of: recados.cartao.stamps, filled: !bought.replay && card.fills, gift } };
+      return { receipt: bought.receipt, ...(await walletOf(deps.sql, caller.player.id)), items: await heldBy(deps.sql, caller.player.id), card: carded ? { stamps: card.stamps, of: recados.cartao.stamps, filled: !bought.replay && card.fills, gift } : null };
     },
   });
 
   // Eating or drinking something carried is the zone's (Task 4.4): it keeps Fome and Energia, and writes the thing
   // eaten and what it gave together (`eatOne`).
 
-  // Giving something carried to someone beside you: a sweet, a soft drink, a bag of charcoal for a mother. The
-  // zone says the two stand together; nothing is given across a block; the other must have room for it.
+  // Giving something carried to someone beside you: flowers, a sweet, a soft drink, a bag of charcoal for a mother
+  // (Task 10.13's gift). The zone says the two stand together; nothing is given across a block; the other must have
+  // room for it; it is written down, and the one given to is told (D-10.2); and it is not handed straight back.
   declare(app, gate, {
     method: "POST",
     url: "/v1/items/give",
@@ -926,7 +929,7 @@ export function buildApp(deps: Deps): FastifyInstance {
       if (!((await presence.marked(caller.player.id, "com")) ?? "").split(",").includes(to)) throw new Refusal(409, "not_together");
       if (!catalogue.items.has(body.item)) throw new Refusal(400, "invalid");
       const given = await giveThings(deps.sql, caller.player.id, to, body.item, body.quantity, fits(0));
-      if (given !== "ok") throw new Refusal(409, given === "none" ? "none" : "too_heavy");
+      if (given !== "ok") throw new Refusal(409, given);
       // The errand for two (a gasosa shared): paid once a day to the one who gave, and a little to the one given
       // it; never between two accounts of the same phone.
       let aDois = false;

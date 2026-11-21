@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "carryUnits": 24,
   "items": [
     { "id": "pao", "kind": "comida", "size": 1, "use": "comer", "fome": 900, "energia": 0 },
@@ -25,6 +25,10 @@
     { "id": "velas", "kind": "casa", "size": 1, "use": null, "fome": 0, "energia": 0 },
     { "id": "fosforos", "kind": "casa", "size": 0, "use": null, "fome": 0, "energia": 0 },
     { "id": "pilhas", "kind": "casa", "size": 1, "use": null, "fome": 0, "energia": 0 },
-    { "id": "carvao", "kind": "casa", "size": 6, "use": null, "fome": 0, "energia": 0 }
+    { "id": "carvao", "kind": "casa", "size": 6, "use": null, "fome": 0, "energia": 0 },
+    { "id": "gelado", "kind": "mimo", "size": 1, "use": "comer", "fome": 300, "energia": 200 },
+    { "id": "flores", "kind": "presente", "size": 1, "use": null, "fome": 0, "energia": 0 },
+    { "id": "perfume", "kind": "presente", "size": 1, "use": null, "fome": 0, "energia": 0 },
+    { "id": "pano", "kind": "presente", "size": 1, "use": null, "fome": 0, "energia": 0 }
   ]
 }

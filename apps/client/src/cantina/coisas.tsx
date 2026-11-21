@@ -117,6 +117,36 @@ const PICTURES: Readonly<Record<string, readonly Shape[]>> = {
     ["k-noite", "M10 9a2.5 2 0 1 0 5 0 2.5 2 0 0 0-5 0z M15 8a2.5 2 0 1 0 5 0 2.5 2 0 0 0-5 0z M19 9.5a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"],
     ["", "M9 18h14"],
   ],
+  // Two scoops on a cone: múcua under, coco over.
+  gelado: [
+    ["k-pao", "M10.5 16h11L16 30z"],
+    ["", "M12.5 19l5 5 M19.5 19l-5 5"],
+    ["k-laranja", "M9.5 16a6.5 6 0 0 1 13 0z"],
+    ["k-luz", "M11.5 10.5a4.5 4.5 0 0 1 9 0z"],
+  ],
+  // The banca's (D-10.1). A bunch in its paper, tied with a ribbon.
+  flores: [
+    ["k-ganho", "M9 15c-2-1-3-3-2-5 2 0 4 2 4 5z M23 15c2-1 3-3 2-5-2 0-4 2-4 5z"],
+    ["k-papel", "M8 14h16l-4.5 16h-7z"],
+    ["k-vermelho", "M7.5 10a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0z M17.5 10a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0z"],
+    ["k-ouro", "M12.5 6.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0z"],
+    ["k-vermelho", "M10.6 21h10.8l-.8 3h-9.2z"],
+  ],
+  // A small square bottle, its gold stopper, and a breath of it.
+  perfume: [
+    ["k-agua", "M9 13h14v14a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2z"],
+    ["k-ouro", "M13 6h6v4h-6z M14.5 10h3v3h-3z"],
+    ["k-luz", "M12 18h8v6h-8z"],
+    ["", "M22 5l3-1.5 M22.5 8h3"],
+  ],
+  // The cloth folded in four, its border showing.
+  pano: [
+    ["k-chocolate", "M5 24h22l-2 4H7z"],
+    ["k-vermelho", "M4 9h24v15H4z"],
+    ["k-ouro", "M4 13h24v3.5H4z"],
+    ["k-noite", "M4 20h24v2H4z"],
+    ["", "M6 18.5l2.5-1.5 2.5 1.5 2.5-1.5 2.5 1.5 2.5-1.5 2.5 1.5 2.5-1.5 2.5 1.5"],
+  ],
 };
 
 /** A thing's picture. A thing the game has no picture for yet is a plain parcel tied with string. */

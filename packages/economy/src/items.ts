@@ -9,7 +9,8 @@ import itemsFile from "../tunables/items.json" with { type: "json" };
 import shopsFile from "../tunables/shops.json" with { type: "json" };
 import { type Mk } from "./ledger.ts";
 
-export const ITEM_KINDS = ["comida", "bebida", "mimo", "cozinha", "casa"] as const;
+/** What a thing is for. A `presente` is bought to be given (the banca by the mercado, D-10.1). */
+export const ITEM_KINDS = ["comida", "bebida", "mimo", "cozinha", "casa", "presente"] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 export const ITEM_USES = ["comer", "beber"] as const;
 export type ItemUse = (typeof ITEM_USES)[number];

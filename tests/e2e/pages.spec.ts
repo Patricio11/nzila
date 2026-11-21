@@ -1989,12 +1989,14 @@ test.describe("two phones in the same street", () => {
     }
     const seen = watch(page);
     // Somebody whose first errand of the day is near where people arrive: at the caixa or at the cantina (the
-    // rehearsal town's places 5 and 6 of 7), so that the test walks a few steps and not across the town; and, when it
+    // rehearsal town's places 5 and 6 of its eight; the biscatos' places are not errands' places), so that the test walks a few steps and not across the town; and, when it
     // is a thing to bring, somebody whose family gave enough to buy it (the day's draw can ask for óleo at 1 800 Mk of
     // someone given 1 700: F-219).
     type Day = { recados: { n: number; kind: string; who: number; item?: string; place?: number; done: boolean }[]; familia: { amount: number } };
     const shops = JSON.parse(readFileSync(new URL("../../packages/economy/tunables/shops.json", import.meta.url), "utf8")) as { shops: { cantina: { stock: { item: string; price: number }[] } } };
     const priceOf = (item: string): number => shops.shops.cantina.stock.find((one) => one.item === item)?.price ?? Infinity;
+    // The places errands are done at, as the zone counts them: every place of the pack but the biscatos' (F-261).
+    const places = ((await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] }).pois.filter((one) => !one.id.startsWith("biscato-"));
     let chosen: { guest: { playerId: string; token: string; name: string; biNumber: string; arrivedAt: string }; deviceId: string; day: Day } | null = null;
     for (let n = 0; n < 60 && !chosen; n++) {
       const deviceId = `recados-${n}-${Date.now()}-abcdefgh`;
@@ -2002,7 +2004,7 @@ test.describe("two phones in the same street", () => {
       const authorization = { authorization: `Bearer ${guest.token}` };
       const day = (await (await page.request.get("/api/v1/recados", { headers: authorization })).json()) as Day;
       const first = day.recados[0]!;
-      if (![5, 6].includes(first.place! % 7)) continue;
+      if (![5, 6].includes(first.place! % places.length)) continue;
       const cash = ((await (await page.request.post("/api/v1/me/origin", { headers: authorization, data: {} })).json()) as { wallet: { cash: number } }).wallet.cash;
       if (first.kind !== "traz" || priceOf(first.item!) <= cash) chosen = { guest, deviceId, day };
     }
@@ -2030,7 +2032,7 @@ test.describe("two phones in the same street", () => {
     await expect(phone.locator(`.ms-msg[data-kind="${first.kind}"] .ms-place-on`)).toBeVisible();
     await page.screenshot({ path: info.outputPath("recados-marcado.png") });
     await page.getByRole("button", { name: "Fechar" }).first().click();
-    const target = ((await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { pos: [number, number, number] }[] }).pois[first.place! % 7]!.pos;
+    const target = places[first.place! % places.length]!.pos;
     const walkAlong = async (x: number): Promise<void> => {
       const key = (await page.evaluate(() => window.__andar!.x)) < x ? "d" : "a";
       await page.keyboard.down(key);
@@ -2382,11 +2384,90 @@ test.describe("two phones in the same street", () => {
     // And the books say so.
     expect(await (await page.request.get("/api/v1/me/wallet", { headers })).json()).toMatchObject({ cash: had - 300 });
     // A thing from the Mochila can be handed over too; with nothing in it, the sheet says so.
-    await sheet.getByRole("button", { name: "Dar uma coisa" }).click();
+    await sheet.getByRole("button", { name: "Dar presente" }).click();
     await expect(sheet.getByText(`O que dás a ${otherName}?`)).toBeVisible();
     await expect(sheet.getByText("Não levas nada na mochila.")).toBeVisible({ timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("dar-coisa-vazia.png") });
     await sheet.getByRole("button", { name: "Deixar estar" }).click();
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("a gift (Task 10.13): flowers bought at the banca, given to someone beside you from their card, and they are told at once who gave them", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Giving a gift was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(240_000);
+    const seen = watch(page);
+    await comeIn(page, 97);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const otherName = await comeIn(other, 98);
+    await page.goto("/andar?tier=poupanca&hour=10");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    const token = await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token);
+    const headers = { authorization: `Bearer ${token}` };
+    await page.request.post("/api/v1/me/origin", { headers, data: {} });
+    await other.goto("/andar?tier=poupanca&hour=10");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    // To the banca of things to give: a shop in the street, as the cantina is, with its own sign.
+    const banca = ((await (await page.request.get("/packs/dev/manifest.json")).json()) as { pois: { id: string; glyph?: string; pos: [number, number, number] }[] }).pois.find((one) => one.id === "banca-ensaio")!;
+    expect(banca.glyph).toBe("flores");
+    await walkTo(page, banca.pos[0], banca.pos[2], 1.2);
+    // Keys pressed before the page has the keyboard move nobody: once more if so.
+    if (await page.evaluate(() => window.__andar!.shop === null)) await walkTo(page, banca.pos[0], banca.pos[2], 1.2);
+    // The banca is one of the places errands are done at: today's may be here, and its button comes first (F-263).
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && ["buy", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 });
+    if (await page.evaluate(() => window.__andar!.action !== "buy")) {
+      await page.waitForTimeout(1200);
+      await page.keyboard.press("e");
+      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 15_000 });
+    }
+    await page.screenshot({ path: info.outputPath("banca-rua.png") });
+    const stall = page.getByRole("dialog", { name: "Banca de Ensaio" });
+    for (let tries = 0; tries < 3 && !(await stall.isVisible()); tries++) {
+      await page.getByRole("button", { name: "Comprar" }).click();
+      await stall.waitFor({ timeout: 3000 }).catch(() => {});
+    }
+    // Her own words and her own shelf: flowers, perfume, a pano, at the founder's prices.
+    await expect(stall.locator(".ct-grille")).toContainText("Bom dia, querido.", { timeout: 10_000 });
+    await expect(stall.getByRole("heading", { name: "Para oferecer" })).toBeVisible();
+    await expect(stall.locator('.ct-pick[data-item="flores"]')).toContainText(/Ramo de flores.*500\sMk/s);
+    await expect(stall.locator('.ct-pick[data-item="perfume"]')).toContainText(/2\.500\sMk/);
+    await expect(stall.locator('.ct-pick[data-item="pano"]')).toContainText(/Pano.*3\.000\sMk/s);
+    await page.screenshot({ path: info.outputPath("banca-aberta.png") });
+    const before = ((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash;
+    await stall.locator('.ct-pick[data-item="flores"]').click();
+    await stall.getByRole("button", { name: /^Pagar 500\sMk$/ }).click();
+    await expect(stall.locator(".n-receipt")).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("banca-recibo.png") });
+    await stall.getByRole("button", { name: "Já está" }).click();
+    // 500 Mk less than before the flowers (an errand done at the banca on the way paid something first).
+    expect(((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash).toBe(before - 500);
+    // In the Mochila it says what it is for.
+    await page.getByRole("button", { name: "Mochila" }).click();
+    await expect(page.getByRole("dialog", { name: "Mochila" })).toContainText("Para oferecer a alguém", { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("presente-mochila.png") });
+    await page.getByRole("dialog", { name: "Mochila" }).getByRole("button", { name: "Fechar" }).click();
+    // Back to the other, and given from their card.
+    const them = await other.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    await walkTo(page, them.x, them.z, 1.6);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05, undefined, { timeout: 5_000 });
+    expect(await tapSomeone(page, otherName), "a tap on the other player opened their card").toBe(true);
+    const sheet = page.getByRole("dialog", { name: otherName });
+    await sheet.getByRole("button", { name: "Dar presente" }).click();
+    await expect(sheet.locator('.cv-thing[data-item="flores"]')).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("presente-escolher.png") });
+    await sheet.locator('.cv-thing[data-item="flores"]').click();
+    await expect(sheet.getByRole("status")).toHaveText(`Deste um ramo de flores a ${otherName}.`, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("presente-dado.png") });
+    // The other is told at once what, and by whom; and it is in their Mochila.
+    await expect(other.getByText(/deu-te um ramo de flores\./)).toBeVisible({ timeout: 8_000 });
+    await other.screenshot({ path: info.outputPath("presente-recebido.png") });
+    await other.getByRole("button", { name: "Mochila" }).click();
+    await expect(other.getByRole("dialog", { name: "Mochila" })).toContainText("Ramo de flores", { timeout: 10_000 });
+    await other.screenshot({ path: info.outputPath("presente-na-mochila.png") });
     expect(seen.errors).toEqual([]);
   });
 

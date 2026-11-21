@@ -432,6 +432,68 @@ def quiosque(b, x, z, rng, ground=0.14, face=-1):
     return 1.7
 
 
+def geladaria(b, x, z, rng, ground=0.14):
+    """
+    The geladaria of the Marginal (founder, 2026-11-20: "tem que ter mesa e cadeiras"), its front to -Z: a small white
+    house with a pink band along its top, an awning in blue and white stripes over the open counter, the cold box
+    behind the glass, and before it an esplanada of round tables with plastic chairs under sunshades. The chairs
+    are seats: whoever buys a gelado sits down to eat it.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    b.box((x, ground + 1.35, z), (4.4, 2.7, 2.8), "paintWhite")
+    b.box((x, ground + 2.95, z), (4.7, 0.55, 3.1), "muralPink", skip_bottom=False)
+    # The counter's opening, lit, the cold box under it, and the door at the side.
+    b.rect((x - 0.5, ground + 1.75, z - 1.41), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.6, 1.0, "windowLit")
+    b.box((x - 0.5, ground + 0.6, z - 1.55), (2.8, 1.2, 0.5), "paintMint", skip_bottom=False)
+    b.box((x - 0.5, ground + 1.22, z - 1.6), (2.9, 0.06, 0.62), "paintWhite", skip_bottom=False)
+    b.rect((x + 1.55, ground + 1.05, z - 1.41), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.8, 2.0, "wood")
+    # The awning: stripes of blue and white, sloping out over whoever is served.
+    for k in range(8):
+        x0, x1 = x - 2.3 + k * 0.575, x - 2.3 + (k + 1) * 0.575
+        b.face([(x0, ground + 2.65, z - 1.4), (x1, ground + 2.65, z - 1.4), (x1, ground + 2.25, z - 2.7), (x0, ground + 2.25, z - 2.7)], "signBlue" if k % 2 == 0 else "paintWhite", toward=(0.0, 1.0, -0.3), two_sided=True)
+    for dx in (-2.25, 2.25):
+        b.tube([(x + dx, ground, z - 2.65), (x + dx, ground + 2.27, z - 2.65)], [0.03, 0.03], 5, "metal")
+    b.level = FULL
+    # A cone on the roof, to be seen from the promenade: the wafer, and two scoops.
+    b.tube([(x, ground + 3.25, z - 1.2), (x, ground + 4.0, z - 1.2)], [0.03, 0.3], 7, "awningGold", cap=False)
+    b.gem((x, ground + 4.15, z - 1.2), (0.33, 0.28, 0.33), 6, "muralPink", rng, rough=0.06)
+    b.gem((x, ground + 4.5, z - 1.2), (0.26, 0.22, 0.26), 6, "paintWhite", rng, rough=0.06)
+    # The tubs in the cold box, each its flavour.
+    for k, colour in enumerate(["paintWhite", "muralPink", "awningGold", "wood", "paintMint"]):
+        b.box((x - 1.5 + k * 0.5, ground + 1.27, z - 1.6), (0.36, 0.06, 0.4), colour, skip_bottom=False)
+    b.level = BOTH
+    # The deck of the esplanada: boards laid on the lawn, a step up from it.
+    b.box((x + 0.1, ground + 0.03, z - 4.3), (8.6, 0.06, 5.6), "wood", skip_bottom=False)
+    for k in range(1, 9):
+        zz = z - 7.1 + k * 0.62
+        b.face([(x - 4.2, ground + 0.062, zz), (x + 4.4, ground + 0.062, zz), (x + 4.4, ground + 0.062, zz + 0.04), (x - 4.2, ground + 0.062, zz + 0.04)], "tarShade", toward=(0.0, 1.0, 0.0))
+    ground = ground + 0.06
+    # The esplanada: three round tables, each with its chairs and a sunshade through its middle.
+    b.soft = True
+    for k, (tx, tz, chairs) in enumerate([(x - 2.6, z - 4.6, ("muralPink", "paintWhite", "muralPink")), (x + 0.2, z - 5.2, ("paintWhite", "signBlue", "paintWhite", "signBlue")), (x + 2.9, z - 4.5, ("signBlue", "muralPink", "paintWhite"))]):
+        b.at(tx, tz)
+        b.level = BOTH
+        b.tube([(tx, ground + 0.7, tz), (tx, ground + 0.74, tz)], [0.48, 0.48], 10, "paintWhite")
+        b.tube([(tx, ground, tz), (tx, ground + 0.7, tz)], [0.2, 0.05], 6, "metal")
+        for n, colour in enumerate(chairs):
+            angle = 2 * math.pi * n / len(chairs) + k * 0.7
+            sx, sz = tx + math.sin(angle) * 0.82, tz + math.cos(angle) * 0.82
+            facing = angle + math.pi
+            _cadeira(b, sx, sz, facing, ground, colour)
+            b.seats.append((sx, ground + 0.45, sz, facing))
+    b.soft = False
+    # A sunshade through the middle of each of the outer tables: a pole and a wide cone, pink and white.
+    for tx, tz, colour in ((x - 2.6, z - 4.6, "muralPink"), (x + 2.9, z - 4.5, "paintWhite")):
+        b.at(tx, tz)
+        b.tube([(tx, ground + 0.74, tz), (tx, ground + 2.5, tz)], [0.025, 0.025], 5, "metal")
+        b.tube([(tx, ground + 2.12, tz), (tx, ground + 2.5, tz)], [1.35, 0.03], 8, colour, cap=False)
+        b.tube([(tx, ground + 2.06, tz), (tx, ground + 2.12, tz)], [1.35, 1.35], 8, "signBlue", cap=False)
+    ground = ground - 0.06
+    b.at(x, z)
+    return (x - 2.4, z - 1.5, x + 2.4, z + 1.5)
+
+
 def campo(b, x, z, width, depth, kind, ground=0.14):
     """A court on the promenade: painted ground, white lines, and its goals or hoops."""
     b.at(x, z)
@@ -609,6 +671,50 @@ def banca(b, x, z, rng, ground=0.14):
     kit.parasol(b, x + 0.2, z + 0.9, rng, ground)
     b.at(x, z)
     return 1.3
+
+
+def banca_de_presentes(b, x, z, rng, ground=0.14):
+    """
+    The banca of things to give (D-10.1), its front to -Z: a table under a pano, buckets of flowers, panos
+    folded in a pile, small bottles of perfume in a row, and behind it a pano hung out between two poles to be seen
+    from across the street. A sunshade over it all.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    b.box((x, ground + 0.4, z), (2.3, 0.8, 1.0), "wood")
+    # The pano over the table's front, its border in gold.
+    b.face([(x - 1.17, ground + 0.02, z - 0.51), (x + 1.17, ground + 0.02, z - 0.51), (x + 1.17, ground + 0.82, z - 0.51), (x - 1.17, ground + 0.82, z - 0.51)], "awningRed", toward=(0.0, 0.0, -1.0))
+    b.face([(x - 1.17, ground + 0.5, z - 0.515), (x + 1.17, ground + 0.5, z - 0.515), (x + 1.17, ground + 0.62, z - 0.515), (x - 1.17, ground + 0.62, z - 0.515)], "awningGold", toward=(0.0, 0.0, -1.0))
+    # The poles and the pano hung between them: three bands, as panos are printed.
+    for dx in (-1.1, 1.1):
+        b.tube([(x + dx, ground, z + 0.62), (x + dx, ground + 2.25, z + 0.62)], [0.035, 0.03], 5, "wood")
+    b.tube([(x - 1.1, ground + 2.2, z + 0.62), (x + 1.1, ground + 2.2, z + 0.62)], [0.02, 0.02], 4, "wood")
+    for k, (lo, hi, colour) in enumerate([(1.05, 1.4, "awningGold"), (1.4, 1.85, "zincBlue"), (1.85, 2.2, "awningGold")]):
+        b.face([(x - 1.0, ground + lo, z + 0.62), (x + 1.0, ground + lo, z + 0.62), (x + 1.0, ground + hi, z + 0.62), (x - 1.0, ground + hi, z + 0.62)], colour, toward=(0.0, 0.0, -1.0), two_sided=True)
+    b.level = FULL
+    # The flowers: two buckets on the table's left, stems and heads.
+    for i, heads in enumerate((["awningRed", "awningRed", "paintWhite"], ["awningGold", "paintWhite", "awningRed"])):
+        bx, bz = x - 0.85 + i * 0.42, z - 0.1 + i * 0.12
+        b.tube([(bx, ground + 0.8, bz), (bx, ground + 1.02, bz)], [0.11, 0.14], 7, "zincBlue" if i == 0 else "paintMint", cap=False)
+        for k in range(5):
+            angle = 2 * math.pi * k / 5 + i
+            hx, hz = bx + math.cos(angle) * 0.1, bz + math.sin(angle) * 0.1
+            b.gem((hx, ground + 1.12, hz), (0.05, 0.1, 0.05), 4, "acaciaLeaf", rng, rough=0.05)
+            b.gem((hx + math.cos(angle) * 0.03, ground + 1.26 + (k % 2) * 0.05, hz + math.sin(angle) * 0.03), (0.075, 0.07, 0.075), 5, heads[k % len(heads)], rng, rough=0.1)
+    # The panos, folded and piled, no two alike.
+    for k, colour in enumerate(["awningRed", "awningGold", "awningTeal", "zincBlue", "awningRed"]):
+        b.box((x + 0.62 + (k % 2) * 0.03, ground + 0.835 + k * 0.07, z - 0.05), (0.56, 0.07, 0.4), colour, skip_bottom=False)
+    b.box((x + 0.62, ground + 0.835 + 5 * 0.07 - 0.03, z - 0.05), (0.57, 0.012, 0.12), "paintWhite", skip_bottom=False)
+    # The perfumes, in a row at the front: small bottles with gold stoppers.
+    for k in range(5):
+        px = x - 0.2 + k * 0.13
+        b.box((px, ground + 0.86, z - 0.3), (0.07, 0.12, 0.05), "paintWhite" if k % 2 else "paintMint", skip_bottom=False)
+        b.box((px, ground + 0.94, z - 0.3), (0.035, 0.04, 0.035), "awningGold", skip_bottom=False)
+    b.level = BOTH
+    # The sunshade stands behind the table, between it and the hung pano, and leans over both.
+    kit.parasol(b, x + 0.2, z + 0.56, rng, ground)
+    b.at(x, z)
+    return 1.4
 
 
 # ---------------------------------------------------------------- the tables of the Largo (Task 4B.1)

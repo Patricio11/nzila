@@ -1,6 +1,22 @@
 {
-  "version": 1,
+  "version": 2,
   "shops": {
+    "banca": {
+      "stock": [
+        { "item": "flores", "price": 500 },
+        { "item": "perfume", "price": 2500 },
+        { "item": "pano", "price": 3000 },
+        { "item": "rebucados", "price": 20 },
+        { "item": "chocolate", "price": 400 }
+      ]
+    },
+    "gelados": {
+      "stock": [
+        { "item": "gelado", "price": 300 },
+        { "item": "agua", "price": 100 },
+        { "item": "gasosa", "price": 250 }
+      ]
+    },
     "cantina": {
       "stock": [
         { "item": "pao", "price": 50 },

@@ -1171,7 +1171,8 @@ describe("a new player's first hour (Task 4.7)", () => {
       if (each.kind === "traz" || each.kind === "vaiver") {
         if (each.kind === "traz") {
           await presence.mark(one.playerId, "loja", "cantina-largo");
-          expect((await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: each.item, quantity: 1 }], key: `hora-coisa-${each.n}` })).statusCode).toBe(200);
+          const bought = await post(one.token, "/v1/shop/buy", { shop: "cantina-largo", lines: [{ item: each.item, quantity: 1 }], key: `hora-coisa-${each.n}` });
+          expect(bought.statusCode, `${each.item}: ${bought.body} (card ${card.makuta})`).toBe(200);
         }
         await presence.mark(one.playerId, "lugar", `${each.place! % 10}/10`);
       } else if (each.kind === "guarda") {
@@ -1452,6 +1453,39 @@ describe("things, and the cantina (Tasks 4.2 and 4.3)", () => {
     // Once the other has shut them out, nothing is given.
     await post(two.token, "/v1/blocks", { biNumber: one.biNumber });
     expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "gasosa", quantity: 1 })).json()).toEqual({ error: "not_found" });
+  });
+
+  test("a gift (Task 10.13, D-10.1 and D-10.2): flowers bought at the banca and given; the one given to is told by whom; it is written down; and it is not handed straight back", async () => {
+    const one = await born(1330);
+    const two = await born(1331);
+    // The cantina sells no flowers; the banca by the mercado does, at the founder's price, through the ledger.
+    await presence.mark(one.playerId, "loja", "cantina-largo");
+    expect((await shopping(one.token, [{ item: "flores", quantity: 1 }], "flores-0001")).json()).toEqual({ error: "not_sold" });
+    await presence.mark(one.playerId, "loja", "banca-mercado");
+    const things = (await app.inject({ method: "GET", url: "/v1/me/items", headers: as(one.token) })).json() as { shop: { id: string; stock: { item: string; price: number }[] }; about: Record<string, { kind: string }> };
+    expect(things.shop.stock.slice(0, 3)).toEqual([{ item: "flores", price: 500 }, { item: "perfume", price: 2500 }, { item: "pano", price: 3000 }]);
+    expect(things.about.flores).toMatchObject({ kind: "presente", use: null });
+    const bought = (await shopping(one.token, [{ item: "flores", quantity: 1 }], "flores-0002", "banca-mercado")).json() as { receipt: { total: number }; cash: number };
+    expect(bought.receipt.total).toBe(500);
+    expect(bought.cash).toBe(one.cash - 500);
+    // Nobody has been given anything yet.
+    expect((await app.inject({ method: "GET", url: "/v1/me/balance", headers: as(two.token) })).json()).toMatchObject({ presente: null });
+    await presence.mark(one.playerId, "com", two.playerId);
+    expect((await post(one.token, "/v1/items/give", { biNumber: two.biNumber, item: "flores", quantity: 1 })).json()).toEqual({ items: [], aDois: false });
+    // The one given to is told what, and by whom; the one who gave is told nothing of the kind.
+    expect((await app.inject({ method: "GET", url: "/v1/me/balance", headers: as(two.token) })).json()).toMatchObject({ presente: { item: "flores", quantity: 1, from: one.name } });
+    expect((await app.inject({ method: "GET", url: "/v1/me/balance", headers: as(one.token) })).json()).toMatchObject({ presente: null });
+    // Written down, once, for both.
+    const [row] = await sql<{ de: string; para: string; item: string; quantity: number }[]>`SELECT de, para, item, quantity FROM presentes WHERE para = ${two.playerId}`;
+    expect(row).toEqual({ de: one.playerId, para: two.playerId, item: "flores", quantity: 1 });
+    // Not handed straight back to whoever gave it; anything else may be.
+    await presence.mark(two.playerId, "com", one.playerId);
+    expect((await post(two.token, "/v1/items/give", { biNumber: one.biNumber, item: "flores", quantity: 1 })).json()).toEqual({ error: "de_volta" });
+    expect((await app.inject({ method: "GET", url: "/v1/me/items", headers: as(two.token) })).json()).toMatchObject({ items: [{ item: "flores", quantity: 1 }] });
+    // And in each one's own data: the thing and the day, never the other player.
+    const mine = (await app.inject({ method: "GET", url: "/v1/me/data", headers: as(two.token) })).json() as { gifts: { item: string; quantity: number; given: boolean }[] };
+    expect(mine.gifts).toMatchObject([{ item: "flores", quantity: 1, given: false }]);
+    expect(JSON.stringify(mine.gifts)).not.toContain(one.playerId);
   });
 });
 

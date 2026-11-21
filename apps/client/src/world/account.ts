@@ -402,14 +402,19 @@ export async function resetPassword(email: string, code: string, password: strin
   return comeInto(deviceId, answer);
 }
 
-/** What the player holds now, in a few bytes; and Makuta someone has just handed them, said once. */
+/** What the player holds now, in a few bytes; and Makuta or a thing someone has just handed them, said once. */
 const told = new Set<string>();
-export async function balanceNow(): Promise<{ amount: number; from: string | null } | null> {
+export async function balanceNow(): Promise<{ amount: number; from: string | null; item?: string } | null> {
   const mine = account();
   if (!mine?.token) return null;
-  const { answer } = await ask<{ cash: number; bank: number; got: { id: string; amount: number; from: string | null } | null }>("GET", "/v1/me/balance", undefined, mine.token);
+  const { answer } = await ask<{ cash: number; bank: number; got: { id: string; amount: number; from: string | null } | null; presente?: { id: string; item: string; from: string | null } | null }>("GET", "/v1/me/balance", undefined, mine.token);
   if (!answer) return null;
   keep({ ...(account() ?? mine), wallet: { cash: answer.cash, bank: answer.bank } });
+  const gift = answer.presente;
+  if (gift && !told.has(`p${gift.id}`)) {
+    told.add(`p${gift.id}`);
+    return { amount: 0, from: gift.from, item: gift.item };
+  }
   if (!answer.got || told.has(answer.got.id)) return null;
   told.add(answer.got.id);
   return { amount: answer.got.amount, from: answer.got.from };

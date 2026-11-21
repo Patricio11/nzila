@@ -127,7 +127,7 @@ export const CAIXA_REACH_M = 3;
 /** A little inside the zone's own reach, so that what the phone offers the zone also allows. */
 export const SHOP_REACH_M = 3;
 /** The signs of shops, as the zone knows them. */
-const SHOP_GLYPHS = ["cantina"];
+const SHOP_GLYPHS = ["cantina", "flores", "gelado"];
 
 /** The world as this device alone knows it. */
 export class LocalWorld implements WorldProvider {

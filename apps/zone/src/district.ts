@@ -69,7 +69,7 @@ interface ManifestRead {
 export const CAIXA_GLYPH = "banco";
 export const CAIXA_REACH_MM = 3500;
 /** The signs of shops; and how near a shop's place a player must stand to buy (at its grille or its counter). */
-export const SHOP_GLYPHS = ["cantina"];
+export const SHOP_GLYPHS = ["cantina", "flores", "gelado"];
 export const SHOP_REACH_MM = 3500;
 /** How near a place a player must stand for an errand there to be done. */
 export const PLACE_REACH_MM = 4500;

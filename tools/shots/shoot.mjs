@@ -75,6 +75,15 @@ const PAGES = [
   ["pano-dourado-carta", "/origem?carta=%7B%22family%22%3A%22mecanico-zungueira%22%2C%22pai%22%3A%22mecanico%22%2C%22mae%22%3A%22zungueira%22%2C%22tier%22%3A%22aperto%22%2C%22province%22%3A%22malanje%22%2C%22bairro%22%3A%22cazenga%22%2C%22makuta%22%3A2500%2C%22version%22%3A1%7D&pano=dourado"],
   ["pano-preto-carta", "/origem?carta=%7B%22family%22%3A%22mecanico-zungueira%22%2C%22pai%22%3A%22mecanico%22%2C%22mae%22%3A%22zungueira%22%2C%22tier%22%3A%22aperto%22%2C%22province%22%3A%22malanje%22%2C%22bairro%22%3A%22cazenga%22%2C%22makuta%22%3A2500%2C%22version%22%3A1%7D&pano=preto"],
   // The land (F-134): the imbondeiro, the mangueira, the red earth, the outdoors.
+  // The banca of things to give, by the mercado (D-10.1), and the rehearsal town's.
+  ["banca", "/cena?pack=l1&hour=15&tier=normal&at=139.5,153.5,1.7&look=143.5,160.4,1"],
+  ["banca-perto", "/cena?pack=l1&hour=10&tier=alta&at=143.2,157.2,1.5&look=143.6,160.4,0.95"],
+  ["banca-tarde", "/cena?pack=l1&hour=17.2&tier=normal&at=149,155,1.7&look=143.5,160.4,1.1"],
+  // The geladaria of the Marginal, its esplanada toward the bay.
+  ["geladaria", "/cena?pack=l1&hour=16&tier=normal&at=183,72,1.7&look=189,82,1.2"],
+  ["geladaria-esplanada", "/cena?pack=l1&hour=17.3&tier=alta&at=192.5,72.5,1.6&look=188.5,82,1"],
+  ["geladaria-noite", "/cena?pack=l1&hour=20&tier=normal&at=189,70,2.2&look=189,84,1.5"],
+  ["banca-ensaio", "/cena?hour=15&tier=normal&at=23.5,99.5,1.7&look=26.1,104.8,1"],
   ["terra-largo", "/cena?pack=l1&hour=15&tier=normal&transito=30&at=214,170,2.2&look=230,184,4"],
   ["terra-largo-alto", "/cena?pack=l1&hour=12&tier=alta&transito=30&at=232,150,30&look=231,186,0"],
   ["terra-largo-tarde", "/cena?pack=l1&hour=17&tier=normal&transito=30&at=246,196,2.0&look=230,184,4.5"],

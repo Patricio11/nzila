@@ -51,6 +51,8 @@ export const GLYPHS = {
   cinema: "M4 5h16v14H4z M8 5v14 M16 5v14 M4 9h4 M4 15h4 M16 9h4 M16 15h4",
   // A cantina: its awning in stripes, the grille of its window, the door beside it.
   cantina: "M3 9l2-5h14l2 5 M3 9a2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0A2.25 2.25 0 0 0 21 9 M5 11.5V20h14v-8.5 M7.5 13h4v4h-4z M9.5 13v4 M7.5 15h4 M14.5 20v-6h2.5v6",
+  // A banca of gifts (D-10.1): one flower on its stem, a leaf either side.
+  flores: "M8 4c0 5.5 1.5 8 4 8s4-2.5 4-8l-2 2.2L12 3l-2 3.2z M12 12v9 M12 19c-3 0-5-1.8-5-4.5 3 0 5 1.8 5 4.5z M12 17c3 0 5-1.8 5-4.5-3 0-5 1.8-5 4.5z",
   pintura: "M12 4a8 8 0 1 0 0 16c1.5 0 2-1 1.5-2.2-.6-1.4.3-2.8 2-2.8H18a3 3 0 0 0 3-3c0-4.4-4-8-9-8z M8 11h.01 M11 8h.01 M15 9h.01",
 } as const;
 

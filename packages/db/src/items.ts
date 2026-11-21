@@ -102,18 +102,39 @@ export async function useOne(sql: Sql, playerId: string, item: string): Promise<
  * Hands things from one Mochila to another. Both are held in the order of their ids, so that two handing to each
  * other at once never wait on each other. `fits` is asked of the receiver's Mochila as it would be.
  */
-export async function giveThings(sql: Sql, from: string, to: string, item: string, quantity: number, fits: (held: readonly Held[]) => boolean): Promise<"ok" | "none" | "too_heavy"> {
+export async function giveThings(sql: Sql, from: string, to: string, item: string, quantity: number, fits: (held: readonly Held[]) => boolean): Promise<"ok" | "none" | "too_heavy" | "de_volta"> {
   return sql.begin(async (tx) => {
     const t = tx as unknown as Sql;
     await t`SELECT id FROM players WHERE id IN ${t([from, to])} ORDER BY id FOR UPDATE`;
+    // A thing is not handed straight back to whoever gave it: value does not go to and fro (D-10.2).
+    if ((await t`SELECT 1 FROM presentes WHERE de = ${to} AND para = ${from} AND item = ${item} AND at > now() - make_interval(mins => ${GIVE_BACK_MINUTES}) LIMIT 1`).length > 0) return "de_volta" as const;
     const theirs = await heldBy(t, to);
     if (!fits([...theirs, { item, quantity }])) return "too_heavy" as const;
     if (!(await take(t, from, item, quantity))) return "none" as const;
     await t`
       INSERT INTO items (owner_id, place, item, quantity) VALUES (${to}, 'mochila', ${item}, ${quantity})
       ON CONFLICT (owner_id, place, item) DO UPDATE SET quantity = items.quantity + EXCLUDED.quantity, updated_at = now()`;
+    await t`INSERT INTO presentes (de, para, item, quantity) VALUES (${from}, ${to}, ${item}, ${quantity})`;
     return "ok" as const;
-  }) as Promise<"ok" | "none" | "too_heavy">;
+  }) as Promise<"ok" | "none" | "too_heavy" | "de_volta">;
+}
+
+/** How long a thing given is not given back to whoever gave it. */
+export const GIVE_BACK_MINUTES = 60;
+
+/** The newest thing another player handed this one, if it came in the last `seconds`: for telling them so. */
+export async function lastPresente(sql: Sql, playerId: string, seconds = 60): Promise<{ id: string; item: string; quantity: number; from: string | null } | null> {
+  const [row] = await sql<{ id: string; item: string; quantity: number; name: string | null }[]>`
+    SELECT g.id, g.item, g.quantity, p.name FROM presentes g JOIN players p ON p.id = g.de
+    WHERE g.para = ${playerId} AND g.at > now() - make_interval(secs => ${seconds}) ORDER BY g.at DESC, g.id DESC LIMIT 1`;
+  return row ? { id: String(row.id), item: row.item, quantity: row.quantity, from: row.name } : null;
+}
+
+/** What a player gave and was given, for their own data: the thing and the day, never the other player. */
+export async function presentesDoJogador(sql: Sql, playerId: string): Promise<{ at: string; item: string; quantity: number; given: boolean }[]> {
+  const rows = await sql<{ at: Date; item: string; quantity: number; given: boolean }[]>`
+    SELECT at, item, quantity, de = ${playerId} AS given FROM presentes WHERE de = ${playerId} OR para = ${playerId} ORDER BY at, id`;
+  return rows.map((row) => ({ at: row.at.toISOString(), item: row.item, quantity: row.quantity, given: row.given }));
 }
 
 /** A player's receipts, newest first. */

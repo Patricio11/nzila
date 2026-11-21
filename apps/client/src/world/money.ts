@@ -103,7 +103,7 @@ export async function payPlayer(biNumber: string, amount: number): Promise<{ sai
 
 /** A kind of thing, as the server says: what it is, the room it takes in a Mochila, and whether it is eaten or drunk. */
 export interface ThingAbout {
-  readonly kind: "comida" | "bebida" | "mimo" | "cozinha" | "casa";
+  readonly kind: "comida" | "bebida" | "mimo" | "cozinha" | "casa" | "presente";
   readonly size: number;
   readonly use: "comer" | "beber" | null;
 }
@@ -178,7 +178,7 @@ export async function buyThings(shop: string, lines: readonly Held[]): Promise<{
 }
 
 /** What handing a thing to someone came to. "together": the zone does not say the two stand together. */
-export type GaveThing = "ok" | "together" | "heavy" | "none" | "offline";
+export type GaveThing = "ok" | "together" | "heavy" | "none" | "devolta" | "offline";
 
 /** Hands one of a thing to the player with this BI, beside you. */
 export async function giveThing(biNumber: string, item: string): Promise<{ said: GaveThing; items?: readonly Held[] }> {
@@ -190,5 +190,5 @@ export async function giveThing(biNumber: string, item: string): Promise<{ said:
     said = await ask<{ items: Held[] }>("POST", "/v1/items/give", { biNumber, item, quantity: 1 }, mine.token);
   }
   if (said.answer) return { said: "ok", items: said.answer.items };
-  return { said: said.error === "not_together" ? "together" : said.error === "too_heavy" ? "heavy" : said.error === "none" ? "none" : "offline" };
+  return { said: said.error === "not_together" ? "together" : said.error === "too_heavy" ? "heavy" : said.error === "none" ? "none" : said.error === "de_volta" ? "devolta" : "offline" };
 }

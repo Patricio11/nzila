@@ -138,7 +138,7 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
           ) : null}
           {handed ? (
             <p class="cv-said" role="status">
-              {tr.t(`give.said.${handed.said}`, { name: met.name, item: handed.item ? tr.t(`item.${handed.item}` as "item.pao") : "" })}
+              {tr.t(`give.said.${handed.said}`, { name: met.name, item: handed.item ? tr.t(`item.${handed.item}.um` as "item.pao.um") : "" })}
             </p>
           ) : null}
           {kambaSaid ? (

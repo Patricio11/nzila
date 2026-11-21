@@ -452,9 +452,9 @@ _bacia = (places["cantina"][0] + 5.0, places["cantina"][2])
 _cands = [(_cx + dx * 0.5, _cz + dz * 0.5) for dz in range(-24, 25) for dx in range(-80, 80)]
 
 
-def _clear_spot(away):
-    """The nearest open pavement to where people arrive that is clear of every button's place, and of `away`."""
-    return next((x, z) for x, z in sorted(_cands, key=lambda p: math.hypot(p[0] - _cx, p[1] - _cz)) if _paved(x - 1.5, z - 1.5, x + 1.5, z + 1.5)
+def _clear_spot(away, south=1.5):
+    """The nearest open pavement to where people arrive that is clear of every button's place, and of `away`; open `south` metres to its south."""
+    return next((x, z) for x, z in sorted(_cands, key=lambda p: math.hypot(p[0] - _cx, p[1] - _cz)) if _paved(x - 1.6, z - 1.5, x + 1.6, z + south)
                 and math.hypot(x - _cx, z - _cz) > 6.0 and math.hypot(x - _cx - 2.4, z - _cz + 1.2) > 5.0
                 and math.hypot(x - _spot[0], z - _spot[1]) > 7.0 and math.hypot(x - _bacia[0], z - _bacia[1]) > 6.0
                 and all(math.hypot(x - (_row[0] + k * 5.0), z - _row[1]) > 5.0 for k in range(4))
@@ -470,6 +470,11 @@ places["zunga"] = [round(_zunga[0], 2), KERB, round(_zunga[1], 2)]
 # And the lavadores' buckets (lavar carros).
 _carros = _clear_spot([_carga, _zunga])
 places["carros"] = [round(_carros[0], 2), KERB, round(_carros[1], 2)]
+
+# And a banca of things to give (D-10.1), its front to the north as the cantina's is.
+_banca = _clear_spot([_carga, _zunga, _carros], south=3.4)
+kit_baixa.banca_de_presentes(b, _banca[0], _banca[1] + 1.7, rng, KERB)
+places["banca"] = [round(_banca[0], 2), KERB, round(_banca[1], 2)]
 
 # Everything built is solid: the walk grid is marked from the boxes themselves, so that a wall,
 # a counter or a pillar nobody remembered to mark is still not walked through (finding F-132).
@@ -532,6 +537,7 @@ layout = {
     "carga": places["carga"],
     "zunga": places["zunga"],
     "carros": places["carros"],
+    "banca": places["banca"],
     "seats": [{"pos": [round(x, 2), round(y, 2), round(z, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for x, y, z, yaw in b.seats],
     "tables": [{"game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for t in tables],
     # The bay: from the foot of the sea wall out past the edge of what is modelled.

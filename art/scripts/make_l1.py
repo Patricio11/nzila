@@ -189,7 +189,7 @@ def riser(xa, xb, d, y0, y1, colour):
 
 
 # What kind of place each point of interest is: the house glyph on the sign that floats over it.
-POI_GLYPHS = {"miradouro": "vista", "musicos": "musica", "gelados": "gelado", "por-do-sol": "sol", "palmeiras": "palmeira", "pontao": "pontao", "livreiro": "livro",
+POI_GLYPHS = {"miradouro": "vista", "musicos": "musica", "gelados-marginal": "gelado", "banca-mercado": "flores", "por-do-sol": "sol", "palmeiras": "palmeira", "pontao": "pontao", "livreiro": "livro",
               "fruta": "fruta", "xadrez": "xadrez", "cobrador": "megafone", "cinema": "cinema", "mural": "pintura", "biscato-pratos-quiosque": "biscatos", "biscato-carga-mutamba": "biscatos", "biscato-zunga-marginal": "biscatos", "biscato-carros-baixa": "biscatos"}
 
 
@@ -388,7 +388,12 @@ for i in range(6):
     kx = 196.0 + i * 5.2
     block(kx, shore(kx) + 26.5, kb.quiosque(b, kx, shore(kx) + 26.5, rng, G + 0.03))
 caixa("caixa-marginal", 186.0, shore(186) + 15.5, "Caixa da Marginal")
-poi("gelados", 201.0, shore(201) + 23.0, "A esquina dos gelados", "O gelado de múcua acaba cedo. Vem antes das cinco.")
+# The geladaria (D-10.1, D-10.4; the founder's picture, 2026-11-20): west of the kiosk row, its counter and its
+# esplanada of tables and chairs toward the bay. A shop, and a place to go out to.
+gel_x, gel_z = 189.0, shore(189) + 27.5
+rect = kb.geladaria(b, gel_x, gel_z, rng, G + 0.03)
+mark(rect[0], rect[1], rect[2], rect[3], "#")
+poi("gelados-marginal", gel_x - 0.5, gel_z - 2.9, "Geladaria da Marginal", "Gelado de múcua, de coco, de ginguba. Senta-te na esplanada e vê a baía.")
 # A biscato (Task 4.5): the kiosk in the middle of the row washes its plates in a bacia in front of it, for a few coins.
 poi("biscato-pratos-quiosque", 211.6, shore(211.6) + 23.6, "O quiosque da Tia Bela", "Ao almoço há sempre pratos para lavar. A tia paga na hora.")
 kb.campo(b, 290.0, shore(290) + 21.0, 24.0, 13.0, "basquete", G + 0.03)
@@ -496,6 +501,11 @@ for i, sx in enumerate([mx0 + 10.0, mx0 + 15.5, mx0 + 21.5, mx0 + 29.0]):
         block(sx + dx, seat_z + dz, kb.bacia_no_chao(b, sx + dx, seat_z + dz, rng, G))
     sellers.append((sx, seat_z))
 poi("fruta", mx0 + 14.0, z0 + 9.0, "A fila da fruta", "Manga, maboque, múcua. Prova antes de comprar, ninguém leva a mal.")
+# The banca of things to give (D-10.1), at the end of the sellers' row on the same pavement, its front to the street:
+# flowers, perfume, panos. A shop, as the cantina is; whoever buys stands before it.
+banca_x, banca_z = mx0 + 35.5, z0 - 0.55
+block(banca_x, banca_z, kb.banca_de_presentes(b, banca_x, banca_z, rng, G))
+poi("banca-mercado", banca_x, banca_z - 1.7, "Banca da Mamã Rosa", "Flores, perfume e panos. Para a namorada, para a mãe, ou só porque sim.")
 # Largo da Mutamba: an open square, trees, the tables where the bairro plays, and the paragem where the linhas meet.
 lx0, lx1 = BLOCKS[1]
 # The tables (Task 4B.1), each kind its own: Não te irrites, two of xadrez, one of damas. The game draws the
@@ -886,6 +896,12 @@ actors.append({"role": "any", "who": 4, "offset": 0.0, "keys": timetable([("at",
 
 # Whoever serves at the bank's counter: behind it all day, facing the street, now and then calling the next one.
 actors.append({"role": "any", "who": 2, "offset": 0.0, "keys": timetable([("at", balcao_x, balcao_z + 0.25), ("stay", 26.0, "", 0.0), ("stay", 2.2, "chamar", 0.0), ("stay", 18.0, "", 0.0)])})
+
+# Whoever serves at the geladaria: behind the cold box, calling now and then.
+actors.append({"role": "any", "who": 6, "offset": 5.0, "keys": timetable([("at", gel_x - 0.5, gel_z - 1.05), ("stay", 24.0, "", 180.0), ("stay", 2.2, "chamar", 180.0), ("stay", 15.0, "", 180.0)])})
+
+# Mamã Rosa at her banca: standing beside it all day, facing the street, calling to whoever passes.
+actors.append({"role": "vendedeira", "who": 2, "offset": 3.0, "keys": timetable([("at", banca_x + 1.75, banca_z - 0.1), ("stay", 22.0, "", 180.0), ("stay", 2.2, "chamar", 180.0), ("stay", 16.0, "", 180.0)])})
 
 # The sellers before the market: seated low all day; now and then one calls to whoever passes.
 for n, (sx, sz) in enumerate(sellers):

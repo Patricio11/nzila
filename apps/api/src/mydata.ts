@@ -7,7 +7,7 @@
 // and the card of origin go. The history of consents stays for its period:
 // it is the proof that they agreed. The audit log records that it was done.
 
-import { audit, blockedBy, classificacaoDoJogador, kambasDe, mensagensDoJogador, consentsOf, statementOf, walletOf } from "@nzila/db";
+import { audit, blockedBy, classificacaoDoJogador, kambasDe, mensagensDoJogador, presentesDoJogador, consentsOf, statementOf, walletOf } from "@nzila/db";
 import { accountId } from "@nzila/economy";
 import { type OriginTable } from "@nzila/economy";
 import { settleLook } from "@nzila/protocol";
@@ -56,6 +56,8 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
     // Their kambas, by name and BI number, and what they wrote to kambas (kept thirty days).
     kambas: (await kambasDe(sql, playerId)).map((one) => ({ name: one.nome, biNumber: one.bi, since: one.desde })),
     wrote: await mensagensDoJogador(sql, playerId),
+    // The things they gave and were given: what and when, not to or by whom.
+    gifts: await presentesDoJogador(sql, playerId),
   };
 }
 

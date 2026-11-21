@@ -127,7 +127,7 @@ interface Hud {
   /** What is in the Carteira, as the books last said. */
   cash: number;
   /** Someone has just waved at the player, or the two have just met. */
-  said: { kind: "met" | "waved" | "greeted" | "got" | "recado" | "recadoNo"; name: string; amount: number } | null;
+  said: { kind: "met" | "waved" | "greeted" | "got" | "dito" | "recado" | "recadoNo"; name: string; amount: number } | null;
   /** How it stands with the zone: the player is told when a line is being picked up, and when it could not be. */
   net: NetState;
   ready: boolean;
@@ -256,7 +256,7 @@ export function Andar() {
     let stopWatch = (): void => {};
     // What hangs over heads: words, dots, empty balloons. And when the player's last line was refused, until when to say so.
     let over: Over | null = null;
-    let said: { kind: "met" | "waved" | "greeted" | "got" | "recado" | "recadoNo"; name: string; amount?: number; until: number } | null = null;
+    let said: { kind: "met" | "waved" | "greeted" | "got" | "dito" | "recado" | "recadoNo"; name: string; amount?: number; until: number } | null = null;
     // Os recados do dia in the street, fetched once the player is among others.
     let errands: Errands | null = null;
     let tables: Tables | null = null;
@@ -862,7 +862,15 @@ export function Andar() {
           if (clock - balanceAt > BALANCE_EVERY_MS || session.given) {
             session.given = false;
             balanceAt = clock;
-            void balanceNow().then((got) => got && (said = { kind: "got", name: got.from ?? "", amount: got.amount, until: performance.now() + 5000 }));
+            void balanceNow().then((got) => {
+              if (!got) return;
+              if (!got.item) return void (said = { kind: "got", name: got.from ?? "", amount: got.amount, until: performance.now() + 5000 });
+              // A thing given (D-10.2): its words come with the things' own, fetched now.
+              void import("@nzila/i18n/later").then(({ ptAOLater }) => {
+                tr.extend(ptAOLater);
+                said = { kind: "dito", name: tr.t("presente.got" as "pay.got", { name: got.from ?? "", item: tr.t(`item.${got.item}.um` as "pay.got") }), until: performance.now() + 6000 };
+              });
+            });
           }
           if (session.met) {
             said = { kind: "met", name: session.met, until: clock + 4500 };
@@ -1072,8 +1080,8 @@ export function Andar() {
           ) : null}
           {hud.said && hud.net === "linked" ? (
             <div class="andar-net">
-              <Banner state={hud.said.kind === "met" || hud.said.kind === "got" || hud.said.kind === "recado" ? "done" : hud.said.kind === "recadoNo" ? "stopped" : "moving"}>
-                {hud.said.kind === "recado" ? tr.t("recado.obrigado", { who: hud.said.name, amount: tr.makuta(hud.said.amount) }) : hud.said.kind === "recadoNo" ? tr.t(`recado.said.${hud.said.name}` as "recado.said.none") : tr.t(hud.said.kind === "got" ? "pay.got" : hud.said.kind === "met" ? "meet.done" : hud.said.kind === "greeted" ? "meet.greeted" : "meet.waved", { name: hud.said.name, amount: tr.makuta(hud.said.amount) })}
+              <Banner state={hud.said.kind === "met" || hud.said.kind === "got" || hud.said.kind === "dito" || hud.said.kind === "recado" ? "done" : hud.said.kind === "recadoNo" ? "stopped" : "moving"}>
+                {hud.said.kind === "dito" ? hud.said.name : hud.said.kind === "recado" ? tr.t("recado.obrigado", { who: hud.said.name, amount: tr.makuta(hud.said.amount) }) : hud.said.kind === "recadoNo" ? tr.t(`recado.said.${hud.said.name}` as "recado.said.none") : tr.t(hud.said.kind === "got" ? "pay.got" : hud.said.kind === "met" ? "meet.done" : hud.said.kind === "greeted" ? "meet.greeted" : "meet.waved", { name: hud.said.name, amount: tr.makuta(hud.said.amount) })}
               </Banner>
             </div>
           ) : null}

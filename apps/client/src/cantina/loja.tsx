@@ -23,10 +23,12 @@ tr.extend(ptAOLater);
 
 /** The most of one thing in one purchase; the server says the same (packages/economy, MOST_OF_ONE). */
 const MOST_OF_ONE = 20;
-const CHATS = 6;
 const THANKS = 3;
+/** Each kind of shop speaks for itself (the first word of the place's name in the pack): how many things its keeper says. */
+const KEEPERS: Readonly<Record<string, number>> = { cantina: 6, banca: 4, gelados: 4 };
 /** The shelves, in the order the dona keeps them, and which kinds of thing sit on each. */
 const SHELVES = [
+  { id: "presentes", kinds: ["presente"] },
   { id: "comer", kinds: ["comida", "mimo"] },
   { id: "beber", kinds: ["bebida"] },
   { id: "cozinha", kinds: ["cozinha"] },
@@ -85,8 +87,10 @@ export function Cantina({ shop, second, place, onClose }: { shop: { id: string; 
   const [said, setSaid] = useState<BuySaid | null>(null);
   const [receipt, setReceipt] = useState<Bought | null>(null);
   const hour = second / 3600;
-  const hello = tr.t(hour < 12 ? "cantina.hello.dia" : hour < 19 ? "cantina.hello.tarde" : "cantina.hello.noite");
-  const [chat] = useState(() => tr.t(`cantina.chat.${pick(CHATS)}` as "cantina.chat.0"));
+  // The banca and the gelados have their own keeper and their own paint; anything else is a cantina.
+  const kind = shop.id.split("-")[0]! in KEEPERS ? shop.id.split("-")[0]! : "cantina";
+  const hello = tr.t(`${kind}.hello.${hour < 12 ? "dia" : hour < 19 ? "tarde" : "noite"}` as "cantina.hello.dia");
+  const [chat] = useState(() => tr.t(`${kind}.chat.${pick(KEEPERS[kind]!)}` as "cantina.chat.0"));
   const [thanks, setThanks] = useState(0);
   // The cantina's card: a stamp for each day of buying here; the seventh, and the bread is the dona's.
   const [stamps, setStamps] = useState<{ stamps: number; of: number; filled: boolean } | null>(null);
@@ -142,14 +146,14 @@ export function Cantina({ shop, second, place, onClose }: { shop: { id: string; 
   };
 
   return (
-    <Sheet label={shop.name} onClose={onClose} kind="ct-cantina">
+    <Sheet label={shop.name} onClose={onClose} kind={`ct-cantina ct-de-${kind}`}>
       <header class="ct-front">
         <span class="ct-blocks" aria-hidden="true" />
         <h2 class="ct-board">
           <span>{shop.name}</span>
         </h2>
         <div class="ct-grille">
-          <SpeechBalloon text={receipt ? (stamps?.filled ? tr.t("cantina.cartao.cheio") : tr.t(`cantina.thanks.${thanks}` as "cantina.thanks.0")) : far ? tr.t("cantina.far") : things ? `${hello} ${chat}` : tr.t("cantina.reading")} />
+          <SpeechBalloon text={receipt ? (stamps?.filled ? tr.t("cantina.cartao.cheio") : tr.t(`${kind}.thanks.${thanks}` as "cantina.thanks.0")) : far ? tr.t(`${kind}.far` as "cantina.far") : things ? `${hello} ${chat}` : tr.t(`${kind}.reading` as "cantina.reading")} />
         </div>
         {stamps ? (
           <div class="ct-card" aria-label={tr.t("cantina.cartao.diz", { stamps: stamps.filled ? stamps.of : stamps.stamps, of: stamps.of })}>
@@ -221,7 +225,7 @@ export function Cantina({ shop, second, place, onClose }: { shop: { id: string; 
           <footer class="ct-foot">
             <Room units={things.units} adding={adding} carry={things.carryUnits} />
             <p class="ct-said" role="status">
-              {said && said !== "ok" && said !== "far" ? tr.t(`cantina.said.${said}`) : said === "far" ? tr.t("cantina.far") : ""}
+              {said && said !== "ok" && said !== "far" ? tr.t(`cantina.said.${said}`) : said === "far" ? tr.t(`${kind}.far` as "cantina.far") : ""}
             </p>
             {count === 0 ? (
               <Button kind="quiet" disabled>
@@ -341,7 +345,7 @@ export function Mochila({ zone = null, onClose }: { zone?: EatsThrough | null; o
                 </span>
                 <span class="ct-what">
                   <b>{nameOf(one.item)}</b>
-                  <small>{how ? lineOf(one.item) : tr.t("mochila.keep")}</small>
+                  <small>{how ? lineOf(one.item) : tr.t(things.about[one.item]?.kind === "presente" ? "mochila.oferecer" : "mochila.keep")}</small>
                 </span>
                 {how ? (
                   <Button kind="quiet" busy={busy === one.item} onPress={() => void use(one.item, how)}>

@@ -83,7 +83,8 @@ describe("every key used in code exists", () => {
     }
     expect(used.size).toBeGreaterThan(0);
     for (const [key, file] of used) expect(messageKeys, `${file} uses "${key}"`).toContain(key);
-  });
+    // Every source file is read: with the whole gate running beside it, five seconds were once not enough (F-260).
+  }, 30_000);
 });
 
 describe("plurals and arguments", () => {

@@ -328,6 +328,16 @@ export const mensagens = pgTable("mensagens", {
   lidaAt: at("lida_at"),
 });
 
+/** Every thing one player handed another (D-10.2). */
+export const presentes = pgTable("presentes", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  de: uuid("de").notNull(),
+  para: uuid("para").notNull(),
+  item: text("item").notNull(),
+  quantity: integer("quantity").notNull(),
+  at: at("at").notNull().defaultNow(),
+});
+
 export const staffRoles = pgTable(
   "staff_roles",
   {
@@ -422,6 +432,7 @@ export const tables = {
   kambaPedidos,
   kambas,
   mensagens,
+  presentes,
   staffRoles,
   auditLog,
   featureFlags,
