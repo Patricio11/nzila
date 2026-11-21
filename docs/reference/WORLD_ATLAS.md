@@ -192,7 +192,7 @@ Each province needs one reason to go that no other has. These are starting ideas
 | Namibe | The desert, the welwitschia, the coast | 16B |
 | Zaire | Mbanza Kongo, the old capital of the Kongo kingdom; the river mouth | backlog |
 | Cuanza Sul | Waterfalls and the coast road | backlog |
-| Cuanza Norte | The botanical garden; the great river and its dams | backlog |
+| Cuanza Norte | The botanical garden; the great river and its dams. **Dondo**, the old town on the Kwanza where the founder was born: pale pink and white fronts with tiled roofs, royal palms down the avenue, grey block paving, kupapatas and motos (his film, 2026-11-21; `docs/FINDINGS.md` F-271) | backlog; **the founder, 2026-11-21: Dondo is done when the game does another province** |
 | Bengo | Beaches north of the capital | backlog |
 | Icolo e Bengo | The river plain; the wildlife park south of the Kwanza (verify which province holds it today) | backlog |
 | Bié | The centre of the country | backlog |

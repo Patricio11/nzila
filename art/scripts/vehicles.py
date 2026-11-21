@@ -407,6 +407,74 @@ def kupapata(b, x, z, yaw, ground=0.0, paint="zincBlue"):
     return 1.8
 
 
+def kupapata_carga(b, x, z, yaw, ground=0.0, paint="zincBlue"):
+    """
+    The kupapata that carries loads: there is more than one kind, and this is the open one, from the founder's film
+    from Dondo, Kwanza Norte (2026-11-21, a woman at the bars). A motorcycle in front, ridden astride, with a round
+    lamp, orange indicators, wide bars with mirrors, a painted tank and red springs on the fork; behind it an open
+    bed on two wheels, a frame of steel tube with black panels, a rail round the top and a red tailboard with the
+    maker's name. No roof: whoever rides in the back holds the rail. 3.2 m long, 1.3 m wide.
+    """
+    b.at(x, z)
+    at = _place(x, ground, z, yaw)
+    b.level = LIGHT
+    _box(b, at, 0.0, 0.72, -0.75, 1.26, 0.5, 1.6, "tarShade")
+    _box(b, at, 0.0, 0.66, 0.8, 0.3, 0.8, 1.1, paint)
+    _box(b, at, 0.0, 0.7, -1.555, 1.26, 0.34, 0.03, "awningRed")
+    b.level = FULL
+    # The front wheel, knobbly and wide, under its mudguard; the fork, with a red spring on each leg.
+    _wheel(b, at, 0.045, 0.29, 1.28, 0.29, 0.11, 12)
+    _box(b, at, 0.0, 0.62, 1.28, 0.15, 0.03, 0.46, "tarShade")
+    for side in (1, -1):
+        _bar(b, at, (side * 0.09, 0.29, 1.28), (side * 0.08, 1.02, 0.98), 0.02, "rim")
+        _bar(b, at, (side * 0.09, 0.4, 1.235), (side * 0.085, 0.74, 1.095), 0.042, "awningRed", 6)
+        # The orange indicators either side of the lamp, and a mirror on each bar.
+        _box(b, at, side * 0.2, 0.9, 1.08, 0.09, 0.07, 0.07, "awningGold")
+        _bar(b, at, (side * 0.24, 1.06, 0.97), (side * 0.3, 1.26, 0.93), 0.008, "metal", 4)
+        _box(b, at, side * 0.31, 1.29, 0.93, 0.11, 0.07, 0.015, "metal")
+        _bar(b, at, (side * 0.4, 1.06, 0.95), (side * 0.4, 1.04, 0.84), 0.024, "tyre")
+    # The round lamp in its shell, and the wide bars.
+    b.tube([at(0.0, 0.94, 1.02), at(0.0, 0.94, 1.14)], [0.1, 0.12], 8, "rim")
+    _box(b, at, 0.0, 0.94, 1.145, 0.17, 0.17, 0.012, "lamp")
+    _bar(b, at, (-0.4, 1.06, 0.95), (0.4, 1.06, 0.95), 0.018, "metal")
+    # The frame under it all, the engine, the tank with its stripe, and the rider's seat.
+    _box(b, at, 0.0, 0.34, 0.1, 0.16, 0.08, 2.2, "metal")
+    _box(b, at, 0.0, 0.44, 0.62, 0.3, 0.28, 0.36, "metal")
+    _bar(b, at, (-0.14, 0.34, 0.5), (-0.16, 0.36, -0.1), 0.035, "rim")
+    tank = [at(px, py, pz) for px, py, pz in [(-0.15, 0.72, 0.52), (0.15, 0.72, 0.52), (0.15, 0.72, 0.92), (-0.15, 0.72, 0.92)]]
+    crown = [at(px, py, pz) for px, py, pz in [(-0.11, 0.92, 0.56), (0.11, 0.92, 0.56), (0.09, 0.88, 0.9), (-0.09, 0.88, 0.9)]]
+    middle = at(0.0, 0.8, 0.72)
+    for k in range(4):
+        n = (k + 1) % 4
+        b.face([tank[k], tank[n], crown[n], crown[k]], paint, away_from=middle)
+    b.face(crown, paint, away_from=middle)
+    for side in (1, -1):
+        _box(b, at, side * 0.145, 0.8, 0.72, 0.012, 0.05, 0.3, "vanWhite")
+    _box(b, at, 0.0, 0.78, 0.34, 0.3, 0.09, 0.42, "vanSeat")
+    # The bed: a floor on its frame, black panels, a rail of tube round the top on stanchions, and the red tailboard.
+    _box(b, at, 0.0, 0.52, -0.75, 1.26, 0.06, 1.6, "metal")
+    for side in (1, -1):
+        _wheel(b, at, side * 0.56, 0.28, -0.85, 0.28, 0.13, 12)
+        _box(b, at, side * 0.56, 0.6, -0.85, 0.16, 0.03, 0.62, "tarShade")
+        _box(b, at, side * 0.615, 0.72, -0.75, 0.03, 0.34, 1.6, "tarShade")
+        _bar(b, at, (side * 0.615, 1.02, 0.05), (side * 0.615, 1.02, -1.55), 0.02, "metal")
+        for lz in (0.05, -0.75, -1.55):
+            _bar(b, at, (side * 0.615, 0.55, lz), (side * 0.615, 1.02, lz), 0.02, "metal", 4)
+        _box(b, at, side * 0.5, 0.68, -1.572, 0.12, 0.12, 0.01, "tailLight")
+    _box(b, at, 0.0, 0.72, 0.035, 1.26, 0.34, 0.03, "tarShade")
+    # The rail behind the rider, higher than the sides: what they lean back on, and what a passenger holds.
+    _bar(b, at, (-0.615, 1.02, 0.05), (-0.45, 1.22, 0.05), 0.02, "metal", 4)
+    _bar(b, at, (0.615, 1.02, 0.05), (0.45, 1.22, 0.05), 0.02, "metal", 4)
+    _bar(b, at, (-0.45, 1.22, 0.05), (0.45, 1.22, 0.05), 0.02, "metal")
+    _box(b, at, 0.0, 0.7, -1.555, 1.26, 0.34, 0.03, "awningRed")
+    _box(b, at, 0.0, 0.74, -1.572, 0.62, 0.11, 0.01, "vanWhite")
+    _bar(b, at, (-0.615, 1.02, -1.55), (0.615, 1.02, -1.55), 0.02, "metal")
+    # A board along one side to sit on, for whoever is taken.
+    _box(b, at, 0.44, 0.76, -0.62, 0.3, 0.05, 1.3, "wood")
+    b.level = BOTH
+    return 1.3
+
+
 def _sub_points(a, c):
     return (a[0] - c[0], a[1] - c[1], a[2] - c[2])
 
@@ -440,6 +508,7 @@ def _painted(draw, paint):
 # the right.
 VEHICLE_SEATS["mota"] = [{"who": "condutor", "pos": [0.0, 0.83, -0.12]}, {"who": "passageiro", "pos": [0.0, 0.84, -0.55]}]
 VEHICLE_SEATS["kupapata"] = [{"who": "condutor", "pos": [0.0, 0.83, 0.36]}, {"who": "passageiro", "pos": [0.44, 0.83, -0.5]}]
+VEHICLE_SEATS["kupapata-carga"] = [{"who": "condutor", "pos": [0.0, 0.83, 0.34]}, {"who": "passageiro", "pos": [0.44, 0.81, -0.5]}]
 VEHICLE_SEATS["taxi"] = [{"who": "condutor", "pos": [0.38, 0.52, 0.15]}, {"who": "passageiro", "pos": [-0.38, 0.52, -0.7]}]
 
 
@@ -461,6 +530,7 @@ VEHICLES = {
     "carro-vermelho": (_painted(carro, "carRed"), 0.84, 2.03),
     "mota": (_painted(mota, "awningRed"), 0.3, 0.95),
     "kupapata": (_painted(kupapata, "zincBlue"), 0.65, 1.6),
+    "kupapata-carga": (_painted(kupapata_carga, "zincBlue"), 0.65, 1.6),
     "taxi": (taxi, 0.84, 2.03),
 }
 

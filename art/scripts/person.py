@@ -880,11 +880,14 @@ def pessoa(b, x, z, yaw, spec, rng, ground=0.0):
     elif style == "afro":
         # An afro: a round mass of tight curls, a ball larger than the head and higher than it, rising from a soft
         # edge round the face; lumpy where the curls gather.
-        size = spec.get("afro", 1.0)
+        # A woman's is worn bigger than a man's (the founder's film from Dondo, 2026-11-21, where it is a cloud as
+        # wide as the shoulders, low over the forehead and down to the jaw: that one wants a shape of its own, F-271).
+        size = spec.get("afro", 1.42 if spec.get("sex") == "f" else 1.0)
         AFRO_EDGE = [(0, 0.058), (40, 0.052), (62, 0.040), (78, 0.030), (92, 0.028), (110, 0.025), (125, 0.0), (150, -0.035), (180, -0.048)]
         ae_at, ae_dy = [p[0] for p in AFRO_EDGE], [p[1] for p in AFRO_EDGE]
-        ball = (0.0, yc + 0.030 + 0.012 * size, zc - 0.016)
-        radii = (0.120 * size, 0.118 * size, 0.128 * size)
+        big = max(0.0, size - 1.0)
+        ball = (0.0, yc + 0.030 + 0.012 * size - 0.07 * big, zc - 0.016 - 0.02 * big)
+        radii = (0.120 * size * (1 + 0.12 * big), 0.118 * size * (1 - 0.1 * big), 0.128 * size * (1 - 0.08 * big))
         cols, rows = 34, 10
         lines = []
         for r in range(rows + 1):

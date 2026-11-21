@@ -1044,7 +1044,7 @@ for n, (model, pace) in enumerate([("carro-preto", 9.0), ("candongueiro", 8.0), 
     descent(model, pace, n / 3 + 0.05)
 # Round a block of the Baixa: east along the first street, down a street, west along the second, up again.
 block_ring = [(270.0, STREET_A[1] - 2.0), (336.0, STREET_A[1] - 2.0), (342.0, STREET_A[1] + 4.0), (342.0, STREET_B[0] - 4.0), (336.0, STREET_B[0] + 2.0), (272.0, STREET_B[0] + 2.0), (266.0, STREET_B[0] - 4.0), (266.0, STREET_A[1] + 4.0)]
-for n, (model, pace) in enumerate([("kupapata", 6.2), ("carro-cinza", 8.0), ("mota", 9.5)]):
+for n, (model, pace) in enumerate([("kupapata", 6.2), ("kupapata-carga", 7.0), ("mota", 9.5)]):
     circuit(model, block_ring, pace, n / 3 + 0.1)
 os.makedirs(os.path.join(out_dir, "npc"), exist_ok=True)
 with open(os.path.join(out_dir, "npc", "crowd.json"), "w", encoding="utf-8") as handle:

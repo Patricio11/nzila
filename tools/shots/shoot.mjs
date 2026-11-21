@@ -142,6 +142,9 @@ const PAGES = [
   ["veiculos-carro", "/cena?hour=16.5&tier=normal&at=125.5,94.7,1.4&look=122,98.7,0.8"],
   ["veiculos-carro-tras", "/cena?hour=12&tier=normal&at=118.2,95.7,1.5&look=122,98.7,0.8"],
   ["veiculos-kupapata", "/cena?hour=15&tier=normal&at=131,95.2,1.5&look=128,98.7,0.9"],
+  // The kupapata that carries loads, open, as in Dondo.
+  ["veiculos-kupapata-carga", "/cena?hour=15&tier=normal&at=141,95.2,1.5&look=138,98.7,0.9"],
+  ["veiculos-kupapata-carga-tras", "/cena?hour=12&tier=normal&at=134.6,95.7,1.6&look=138,98.7,0.9"],
   ["veiculos-kupapata-tras", "/cena?hour=12&tier=normal&at=124.6,95.7,1.6&look=128,98.7,0.9"],
   ["veiculos-mota", "/cena?hour=15&tier=normal&at=134.8,96.2,1.3&look=133,98.7,0.7"],
   ["veiculos-noite", "/cena?hour=20.5&tier=normal&at=125,91.7,2.2&look=125,98.7,0.8"],
@@ -183,6 +186,9 @@ const PAGES = [
   ["provador-galo", "/provador?hour=15.5&ang=35&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A3%2C%22hair%22%3A%22galo%22%2C%22hairColour%22%3A%22hairBlond%22%2C%22top%22%3A%22tshirt%22%2C%22topColour%22%3A%22paintWhite%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22jeansDark%22%2C%22shoe%22%3A%22shoeWhite%22%7D"],
   ["provador-galo-vermelho", "/provador?hour=15.5&ang=150&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A1%2C%22hair%22%3A%22galo%22%2C%22hairColour%22%3A%22hairRed%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22shorts%22%2C%22bottomColour%22%3A%22khaki%22%2C%22shoe%22%3A%22shoe%22%7D"],
   ["provador-afro-ele", "/provador?hour=15.5&ang=20&look=%7B%22sex%22%3A%22m%22%2C%22skin%22%3A4%2C%22hair%22%3A%22afro%22%2C%22hairColour%22%3A%22hairBlack%22%2C%22top%22%3A%22long%22%2C%22topColour%22%3A%22vanBlue%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22clothBlack%22%2C%22shoe%22%3A%22shoe%22%7D"],
+  // A woman's afro, wide and round (the founder's film from Dondo, 2026-11-21).
+  ["provador-afro-ela", "/provador?hour=15.5&ang=20&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A4%2C%22hair%22%3A%22afro%22%2C%22hairColour%22%3A%22hairBlack%22%2C%22top%22%3A%22tshirt%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22clothBlack%22%2C%22shoe%22%3A%22shoeWhite%22%7D"],
+  ["provador-afro-ela-lado", "/provador?hour=15.5&ang=80&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A4%2C%22hair%22%3A%22afro%22%2C%22hairColour%22%3A%22hairBlack%22%2C%22top%22%3A%22tshirt%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22clothBlack%22%2C%22shoe%22%3A%22shoeWhite%22%7D"],
   ["provador-cachos", "/provador?hour=15.5&ang=25&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A1%2C%22hair%22%3A%22cachos%22%2C%22hairColour%22%3A%22hairBrown%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22paintWhite%22%2C%22bottom%22%3A%22trousers%22%2C%22bottomColour%22%3A%22jeans%22%2C%22shoe%22%3A%22shoeWhite%22%7D"],
   ["provador-bob", "/provador?hour=15.5&ang=20&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A3%2C%22hair%22%3A%22bob%22%2C%22hairColour%22%3A%22hairCopper%22%2C%22top%22%3A%22alcas%22%2C%22topColour%22%3A%22clothBlack%22%2C%22bottom%22%3A%22skirt%22%2C%22bottomColour%22%3A%22clothBlack%22%2C%22shoe%22%3A%22shoe%22%7D"],
   ["provador-vestido", "/provador?hour=15.5&ang=30&look=%7B%22sex%22%3A%22f%22%2C%22skin%22%3A2%2C%22hair%22%3A%22puxinho%22%2C%22hairColour%22%3A%22hairBlack%22%2C%22top%22%3A%22vestido%22%2C%22topColour%22%3A%22awningRed%22%2C%22bottom%22%3A%22none%22%2C%22shoe%22%3A%22shoeTan%22%7D"],

@@ -376,6 +376,7 @@ for cx in range(ACROSS):
                 vehicles.VEHICLES["carro-branco"][0](b, stop_x + 8.0, far_z, math.pi / 2)
                 vehicles.VEHICLES["kupapata"][0](b, stop_x + 14.0, far_z, math.pi / 2)
                 vehicles.VEHICLES["mota"][0](b, stop_x + 19.0, far_z, math.pi / 2)
+                vehicles.VEHICLES["kupapata-carga"][0](b, stop_x + 24.0, far_z, math.pi / 2)
             places["paragens"].append([round(stop_x, 2), KERB, round(oz + lo - 0.9, 2)])
 
         if seaside:
