@@ -8,8 +8,8 @@
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
 import { EVENT, type WorldEvent } from "@nzila/protocol";
-import { bolaAt, type Bola } from "@nzila/protocol/bola";
-import { Banner } from "@nzila/ui";
+import { bolaAt, encodeLado, type Bola } from "@nzila/protocol/bola";
+import { Banner, Button } from "@nzila/ui";
 import { WORLD } from "@nzila/world/client";
 import { Color, CylinderGeometry, DoubleSide, Group, Mesh, MeshLambertMaterial, SRGBColorSpace, SphereGeometry, Vector3, type Scene } from "three";
 import { useEffect, useState } from "preact/hooks";
@@ -26,7 +26,7 @@ declare global {
 
 /** What the street page gives this: the line to the zone, as far as a ball needs it. */
 export interface Linha {
-  readonly current: { bolas: WorldEvent[]; me: number | null; who(entity: number): { name: string } | null; heads(): { id: number; x: number; y: number; z: number }[] } | null;
+  readonly current: { bolas: WorldEvent[]; me: number | null; who(entity: number): { name: string } | null; heads(): { id: number; x: number; y: number; z: number }[]; post(bytes: Uint8Array): void } | null;
 }
 
 const RADIUS_M = 0.115;
@@ -54,8 +54,9 @@ export class Bolas {
   private readonly cloth = [new MeshLambertMaterial({ color: paint(WORLD.awningGold), side: DoubleSide }), new MeshLambertMaterial({ color: paint(WORLD.awningRed), side: DoubleSide })];
   private readonly bib = new CylinderGeometry(0.21, 0.19, 0.34, 10, 1, true);
   placar: readonly [number, number] = [0, 0];
-  /** The player's own side, and until when they are told of it. */
+  /** The player's own side, on which campo, and until when they are told of it. */
   lado = 0;
+  campo = 0;
   ladoAte = 0;
   /** Whether each side has someone: only then is there a score to say. */
   get jogo(): boolean {
@@ -111,7 +112,7 @@ export class Bolas {
         this.placar = [a, b];
         said = true;
       } else if (event.kind === EVENT.LADO) {
-        const [, lado = 0, a = 0, b = 0] = event.args;
+        const [campo = 0, lado = 0, a = 0, b = 0] = event.args;
         const had = this.lados.get(event.subject);
         if (had && had.lado !== lado) {
           had.colete.removeFromParent();
@@ -124,6 +125,7 @@ export class Bolas {
         }
         if (event.subject === session?.me && this.lado !== lado) {
           this.lado = lado;
+          this.campo = campo;
           this.ladoAte = now + 6000;
         }
         this.placar = [a, b];
@@ -178,7 +180,7 @@ export class Bolas {
 const AXIS = new Vector3();
 
 /** A goal, said over the street to whoever is near. */
-export function Ui({ bolas }: { bolas: Bolas }) {
+export function Ui({ bolas, net }: { bolas: Bolas; net: Linha }) {
   const [, redraw] = useState(0);
   useEffect(() => bolas.listen(() => redraw((n) => n + 1)), [bolas]);
   const golo = bolas.golo;
@@ -194,13 +196,21 @@ export function Ui({ bolas }: { bolas: Bolas }) {
           : tr.t("campo.golo", { nome: golo.nome, n: golo.n })
     : bolas.ladoAte !== 0 && bolas.lado > 0
       ? tr.t(bolas.lado === 1 ? "campo.lado.1" : "campo.lado.2")
-      : bolas.lado > 0 && bolas.jogo
-        ? tr.t("campo.placar", { a, b })
+      : bolas.lado > 0
+        ? bolas.jogo
+          ? tr.t("campo.placar", { a, b })
+          : tr.t(bolas.lado === 1 ? "campo.es.1" : "campo.es.2")
         : null;
   if (!line) return null;
   return (
     <div class="andar-net">
       <Banner state={golo ? "done" : "moving"}>{line}</Banner>
+      {/* Whoever is on a side may go over to the other: to play with a friend, or against one (D-11.12). */}
+      {bolas.lado > 0 && !golo ? (
+        <Button kind="quiet" onPress={() => net.current?.post(encodeLado(bolas.campo))}>
+          {tr.t("campo.trocar")}
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -559,6 +559,11 @@ block(cantina_x, cantina_z, 2.6)
 words["l1.poi.cantina-largo.name"] = "Cantina do Largo"
 words["l1.poi.cantina-largo.line"] = "Pão, gasosa, arroz, sabão, velas. Tudo pela grade, e a dona conhece toda a gente."
 places["pois"].append({"id": "cantina-largo", "pos": [round(cantina_x - 0.8, 2), G, round(cantina_z - 3.2, 2)], "nameKey": "l1.poi.cantina-largo.name", "lineKey": "l1.poi.cantina-largo.line", "positive": True, "stamp": False, "glyph": "cantina"})
+# A barber in the street (every bairro has its barbeiros: the founder, 2026-11-21): a chair, a mirror and a sunshade
+# on the Largo, east of the cantina. Hair is changed here as at any barbearia (D-11.10).
+barbeiro_x, barbeiro_z = lx0 + 66.0, z0 + 11.0
+block(barbeiro_x, barbeiro_z, kb.barbeiro_de_rua(b, barbeiro_x, barbeiro_z, rng, G))
+poi("servico-corte-largo", barbeiro_x, barbeiro_z - 1.7, "O barbeiro do Largo", "Cadeira, espelho e máquina, à sombra. Corta enquanto a conversa dura.")
 poi("xadrez", lx0 + 15.5, z0 + 14.5, "As mesas do Largo", "Xadrez, damas e Não te irrites. Os kotas jogam aqui desde manhã, e quem perde paga o café.")
 paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutamba")
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down

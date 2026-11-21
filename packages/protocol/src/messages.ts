@@ -43,6 +43,8 @@ export const MSG = {
   SAIR: 23,
   /** Client to zone: a gesture for two offered to someone, or their offer answered (the founder, 2026-11-21). */
   A_DOIS: 24,
+  /** Client to zone: the player goes over to the other side of a campo's match (D-11.12). Written in bola.ts. */
+  LADO: 25,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -788,7 +790,8 @@ export type ClientMessage =
   | ({ readonly type: "biscato" } & { readonly pedido: BiscatoPedido })
   | ({ readonly type: "corrida" } & { readonly pedido: CorridaPedido })
   | ({ readonly type: "sair" } & { readonly pedido: SairPedido })
-  | ({ readonly type: "a_dois" } & { readonly pedido: ADoisPedido });
+  | ({ readonly type: "a_dois" } & { readonly pedido: ADoisPedido })
+  | { readonly type: "lado"; readonly campo: number };
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -812,6 +815,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.CORRIDA) return { type: "corrida", pedido: readCorrida(r) };
   if (type === MSG.SAIR) return { type: "sair", pedido: readSair(r) };
   if (type === MSG.A_DOIS) return { type: "a_dois", pedido: readADois(r) };
+  if (type === MSG.LADO) return { type: "lado", campo: r.u8() };
   throw new ProtocolError("unknown_type", String(type));
 }
 

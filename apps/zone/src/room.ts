@@ -512,6 +512,8 @@ export class ChannelRoom {
       else if (message.type === "corrida") this.corrida(line, held, message.pedido);
       else if (message.type === "sair") this.sair(held, message.pedido);
       else if (message.type === "a_dois") this.aDois(line, held, message.pedido);
+      // Over to the other side of a campo's match: the ball's own rules say whether, and its next step tells everyone.
+      else if (message.type === "lado") this.bolas[message.campo]?.trocar(held.playerId, Date.now());
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);

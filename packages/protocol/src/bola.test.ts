@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { BOLA_SLOWS, bolaAt } from "./bola.ts";
+import { BOLA_SLOWS, bolaAt, encodeLado } from "./bola.ts";
+import { decodeClientMessage } from "./messages.ts";
 
 describe("the ball on a campo", () => {
   test("a ball that is not moving stays where it was said, and so does any ball before the moment it was said", () => {
@@ -26,4 +27,9 @@ describe("the ball on a campo", () => {
     expect(at.vx / at.vz).toBeCloseTo(-0.75, 6);
     expect(Math.hypot(at.vx, at.vz)).toBeCloseTo(5000 - BOLA_SLOWS / 2, 6);
   });
+});
+
+test("going over to the other side of a campo's match is said in two bytes, and read back", () => {
+  expect(encodeLado(3)).toHaveLength(2);
+  expect(decodeClientMessage(encodeLado(3))).toEqual({ type: "lado", campo: 3 });
 });

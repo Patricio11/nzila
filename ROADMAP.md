@@ -679,7 +679,7 @@ The phases below keep their numbers and their tasks. **The order they are built 
 - Depends on: 0.3, 8.3, 8.4 · Unblocks: 8.8.
 
 ### Task 8.6: More kinds of business
-- [ ] On the same model: cantina (the corner grocery: the owner buys stock wholesale at the market or from a kupapata delivery, sets prices, stands at the grille or hires someone to, and paints the front), barbearia and salão (changes a player's hair), oficina (repairs vehicles from 6.3), roulotte (street food on a pitch).
+- [ ] On the same model: cantina (the corner grocery: the owner buys stock wholesale at the market or from a kupapata delivery, sets prices, stands at the grille or hires someone to, and paints the front), barbearia and salão (changes a player's hair; *the founder, 2026-11-21: every bairro has its barbeiros and a salão de beleza, and a woman may own a salão as her business as a man his barbearia; the places, the cut and its price are built with Zango, D-11.10 and D-11.12, and are the bairro's own until this task gives them owners*), oficina (repairs vehicles from 6.3), roulotte (street food on a pitch).
 - Depends on: 8.5 · Unblocks: 15.x content.
 
 ### Task 8.9: Segurança for a business (founder, 2026-11-14)

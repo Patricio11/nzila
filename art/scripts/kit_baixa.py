@@ -1060,6 +1060,83 @@ def quiosque_bar(b, x, z, rng, ground=0.14, mesas=((3.6, 0.9), (5.9, -0.7))):
     return (x - 2.9, z - 1.2, x + 2.2, z + 1.2)
 
 
+def cadeira_de_barbeiro(b, cx, cz, ground=0.14, colour="awningRed", secador=False):
+    """
+    A barber's chair facing +Z (toward its mirror): a seat on a post, arms, a headrest. It is a seat. With `secador`
+    it is a salão's: the dome of a hair dryer stands over it on its own foot.
+    """
+    b.level = BOTH
+    b.tube([(cx, ground, cz), (cx, ground + 0.42, cz)], [0.2, 0.06], 6, "metal")
+    b.box((cx, ground + 0.5, cz), (0.52, 0.12, 0.5), colour, skip_bottom=False)
+    b.box((cx, ground + 0.86, cz - 0.27), (0.5, 0.62, 0.08), colour)
+    b.level = FULL
+    b.box((cx, ground + 1.24, cz - 0.27), (0.26, 0.14, 0.08), "tarShade", skip_bottom=False)
+    for side in (-0.29, 0.29):
+        b.box((cx + side, ground + 0.7, cz), (0.05, 0.05, 0.44), "metal", skip_bottom=False)
+    b.level = BOTH
+    if secador:
+        b.tube([(cx + 0.36, ground, cz - 0.42), (cx + 0.36, ground + 1.75, cz - 0.42)], [0.03, 0.03], 4, "metal", cap=False)
+        b.tube([(cx + 0.36, ground + 1.75, cz - 0.42), (cx, ground + 1.86, cz - 0.1)], [0.03, 0.03], 4, "metal", cap=False)
+        b.tube([(cx, ground + 1.5, cz - 0.1), (cx, ground + 1.88, cz - 0.1)], [0.27, 0.16], 8, "paintWhite")
+    b.seats.append((cx, ground + 0.58, cz, 0.0))
+
+
+def barbeiro_de_rua(b, x, z, rng, ground=0.14):
+    """
+    A barber in the street (every bairro has its barbeiros: the founder, 2026-11-21), facing +Z: a chair under a
+    sunshade, a mirror on a stand before it, a little table of machines and combs, and a stool for whoever waits.
+    Three metres of pavement are enough. The chair and the stool are seats. Returns the radius it stands on.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    b.soft = True
+    cadeira_de_barbeiro(b, x, z, ground)
+    # The mirror on its stand, a white frame about it.
+    b.tube([(x, ground, z + 1.05), (x, ground + 1.0, z + 1.05)], [0.14, 0.03], 5, "metal")
+    b.box((x, ground + 1.45, z + 1.05), (0.8, 0.95, 0.05), "paintWhite")
+    b.rect((x, ground + 1.45, z + 1.02), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.66, 0.8, "glassBlue")
+    # The table: the machine, a brush, a bottle of álcool.
+    b.box((x + 0.95, ground + 0.72, z + 0.7), (0.6, 0.04, 0.45), "wood", skip_bottom=False)
+    for lx, lz in ((-0.25, -0.18), (0.25, -0.18), (-0.25, 0.18), (0.25, 0.18)):
+        b.tube([(x + 0.95 + lx, ground, z + 0.7 + lz), (x + 0.95 + lx, ground + 0.7, z + 0.7 + lz)], [0.02, 0.02], 4, "wood", cap=False)
+    b.level = FULL
+    b.box((x + 0.85, ground + 0.78, z + 0.68), (0.2, 0.07, 0.08), "tarShade", skip_bottom=False)
+    b.tube([(x + 1.1, ground + 0.74, z + 0.75), (x + 1.1, ground + 0.94, z + 0.75)], [0.04, 0.03], 5, "signBlue")
+    b.level = BOTH
+    # The sunshade over all of it: its pole behind the chair, red and white.
+    b.tube([(x - 0.75, ground, z - 0.5), (x - 0.75, ground + 2.5, z - 0.5)], [0.03, 0.03], 5, "metal")
+    b.tube([(x - 0.75, ground + 2.15, z - 0.5), (x - 0.75, ground + 2.5, z - 0.5)], [1.7, 0.04], 8, "awningRed", cap=False)
+    b.tube([(x - 0.75, ground + 2.09, z - 0.5), (x - 0.75, ground + 2.15, z - 0.5)], [1.7, 1.7], 8, "paintWhite", cap=False)
+    b.soft = False
+    banquinho(b, x - 1.5, z + 0.6, ground)
+    b.at(x, z)
+    return 1.3
+
+
+def frente_de_salao(b, x, z, rng, ground=0.14):
+    """
+    What makes a house a salão de beleza (the founder, 2026-11-21), set before its front wall at (x, z), the street
+    to -Z: a band of pink across the wall, a wide mirror, two chairs under hair dryers, a shelf of creams, and a
+    bench where the next ones wait and talk. The chairs and the bench are seats. For any bairro.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    b.rect((x, ground + 2.2, z - 0.3), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 6.6, 0.5, "muralPink")
+    b.rect((x + 1.2, ground + 1.6, z - 0.3), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.9, 1.1, "paintWhite")
+    b.rect((x + 1.2, ground + 1.6, z - 0.31), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.7, 0.9, "glassBlue")
+    b.box((x + 1.2, ground + 1.0, z - 0.44), (2.8, 0.05, 0.24), "wood", skip_bottom=False)
+    b.level = FULL
+    for k in range(6):
+        b.tube([(x + 0.1 + k * 0.42, ground + 1.03, z - 0.44), (x + 0.1 + k * 0.42, ground + 1.2, z - 0.44)], [0.045, 0.04], 5, ["muralPink", "paintWhite", "paintMint", "awningGold", "muralPink", "paintWhite"][k])
+    b.level = BOTH
+    b.soft = True
+    for dx in (0.5, 1.9):
+        cadeira_de_barbeiro(b, x + dx, z - 1.25, ground, colour="muralPink", secador=True)
+    b.soft = False
+    kit.bench(b, x - 2.9, z - 1.5, math.pi, ground)
+    b.at(x, z)
+
+
 def frente_de_barbearia(b, x, z, rng, ground=0.14):
     """
     What makes a house a barbearia, set before its front wall at (x, z), the street to -Z: the pole of red, white and
@@ -1069,9 +1146,9 @@ def frente_de_barbearia(b, x, z, rng, ground=0.14):
     b.at(x, z)
     b.level = BOTH
     # The mirror in its white frame, and the shelf of combs and machines under it; clear of the door.
-    b.rect((x + 1.2, ground + 1.6, z - 0.20), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.9, 1.1, "paintWhite")
-    b.rect((x + 1.2, ground + 1.6, z - 0.22), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.7, 0.9, "glassBlue")
-    b.box((x + 1.2, ground + 1.0, z - 0.32), (2.8, 0.05, 0.24), "wood", skip_bottom=False)
+    b.rect((x + 1.2, ground + 1.6, z - 0.3), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.9, 1.1, "paintWhite")
+    b.rect((x + 1.2, ground + 1.6, z - 0.31), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.7, 0.9, "glassBlue")
+    b.box((x + 1.2, ground + 1.0, z - 0.44), (2.8, 0.05, 0.24), "wood", skip_bottom=False)
     # The pole: bands of the three colours.
     for k in range(6):
         b.tube([(x + 3.2, ground + 0.9 + k * 0.2, z - 0.12), (x + 3.2, ground + 1.1 + k * 0.2, z - 0.12)], [0.09, 0.09], 6, ["awningRed", "paintWhite", "signBlue"][k % 3], cap=False)
@@ -1080,16 +1157,7 @@ def frente_de_barbearia(b, x, z, rng, ground=0.14):
     # Two chairs, their backs to the street, facing the mirror: a seat on a post, arms, a headrest.
     b.soft = True
     for dx in (0.5, 1.9):
-        cx, cz = x + dx, z - 1.25
-        b.tube([(cx, ground, cz), (cx, ground + 0.42, cz)], [0.2, 0.06], 6, "metal")
-        b.box((cx, ground + 0.5, cz), (0.52, 0.12, 0.5), "awningRed", skip_bottom=False)
-        b.box((cx, ground + 0.86, cz - 0.27), (0.5, 0.62, 0.08), "awningRed")
-        b.level = FULL
-        b.box((cx, ground + 1.24, cz - 0.27), (0.26, 0.14, 0.08), "tarShade", skip_bottom=False)
-        for side in (-0.29, 0.29):
-            b.box((cx + side, ground + 0.7, cz), (0.05, 0.05, 0.44), "metal", skip_bottom=False)
-        b.level = BOTH
-        b.seats.append((cx, ground + 0.58, cz, 0.0))
+        cadeira_de_barbeiro(b, x + dx, z - 1.25, ground)
     b.soft = False
     kit.bench(b, x - 2.9, z - 1.5, math.pi, ground)
     b.at(x, z)

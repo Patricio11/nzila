@@ -1,6 +1,6 @@
 import { bolaAt } from "@nzila/protocol/bola";
 import { describe, expect, test } from "vitest";
-import { AFTER_GOAL_MS, BolaDoCampo, FORGOTTEN_MS, MATCH_TO, OFF_PITCH_MS, type Kicker } from "./bola.ts";
+import { AFTER_GOAL_MS, BolaDoCampo, FORGOTTEN_MS, MATCH_TO, OFF_PITCH_MS, SWITCH_AGAIN_MS, type Kicker } from "./bola.ts";
 
 // A pitch of forty metres by twenty-six, its goals 2,6 m either side of the middle of each short end.
 const CAMPO = { x0: 0, z0: 0, x1: 40_000, z1: 26_000, goal: 2600 };
@@ -125,5 +125,20 @@ describe("the ball on the campo, as the zone keeps it", () => {
     for (let n = 0; n <= AFTER_GOAL_MS / 50 + 1; n++, t += 50) bola.step(t, both());
     expect(bola.placar).toEqual([0, 0]);
     expect(score(1, true)).toMatchObject({ lado: 1, placar: [1, 0], fim: false });
+  });
+
+  test("going over to the other side (D-11.12): whoever is on a side may, and everyone is told at the next step; not twice at once; nobody off the pitch", () => {
+    const bola = new BolaDoCampo(CAMPO, 0);
+    const on = (id: number): Kicker => ({ ...body(id, 5000 + id * 1000, 5000, 0, 0), on: true });
+    bola.step(100, [on(1), on(2)]);
+    expect(bola.trocar("p9", 200)).toBe(false);
+    expect(bola.trocar("p2", 200)).toBe(true);
+    // Both on the amarelos now: no match, and the next to walk on is a vermelho.
+    expect(bola.step(300, [on(1), on(2)]).lados).toEqual([{ id: 2, lado: 1 }]);
+    expect(bola.jogo).toBe(false);
+    expect(bola.step(400, [on(1), on(2), on(3)]).lados).toEqual([{ id: 3, lado: 2 }]);
+    expect(bola.trocar("p2", 500)).toBe(false);
+    expect(bola.trocar("p2", 200 + SWITCH_AGAIN_MS)).toBe(true);
+    expect(bola.step(300 + SWITCH_AGAIN_MS, [on(1), on(2), on(3)]).lados).toEqual([{ id: 2, lado: 2 }]);
   });
 });

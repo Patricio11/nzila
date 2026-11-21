@@ -655,11 +655,17 @@ export const ptAOLater = {
   "campo.lado.1": "Jogas pelos amarelos. Defende a baliza amarela.",
   "campo.lado.2": "Jogas pelos vermelhos. Defende a baliza vermelha.",
   "campo.placar": "Amarelos {a} · {b} Vermelhos",
+  "campo.es.1": "És dos amarelos.",
+  "campo.es.2": "És dos vermelhos.",
+  "campo.trocar": "Mudar de lado",
   "campo.golo.meu": "Golo teu.",
   "campo.golo.1": "Golo dos amarelos, de {nome}.",
   "campo.golo.2": "Golo dos vermelhos, de {nome}.",
   "campo.fim.1": "Ganharam os amarelos, {a} a {b}.",
   "campo.fim.2": "Ganharam os vermelhos, {b} a {a}.",
+  // Water carried from the chafariz: the same cart, other ends.
+  "biscato.carga.chafariz": "Chafariz",
+  "biscato.carga.casas": "Casas",
   // Gestures for two (the founder, 2026-11-21): a handshake for anyone, a hug between two adults.
   "adois.apertar": "Aperto de mão",
   "adois.abracar": "Abraço",

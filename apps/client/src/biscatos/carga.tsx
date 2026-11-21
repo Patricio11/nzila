@@ -14,7 +14,7 @@ const SAID_MS = 2400;
 const LOADS = ["saco", "grade", "bidao", "saco", "grade", "saco", "bidao"] as const;
 
 /** The round being played: the road to the stall, the carrinho and its stack, and the two halves to tap. */
-function Jogo({ seed, lengthMs, ronda }: { seed: number; lengthMs: number; ronda: ReturnType<typeof useRonda> }) {
+function Jogo({ seed, lengthMs, ronda, agua = false }: { seed: number; lengthMs: number; ronda: ReturnType<typeof useRonda>; agua?: boolean }) {
   const road = useMemo(() => cargaRoad(seed, lengthMs), [seed, lengthMs]);
   const state = useRef(cargaStart());
   const inputs = useRef<CargaInput[]>([]);
@@ -70,19 +70,19 @@ function Jogo({ seed, lengthMs, ronda }: { seed: number; lengthMs: number; ronda
     <Moldura title={tr.t("action.carga")} goal={tr.t("biscato.carga.objetivo")} secondsLeft={(lengthMs - ronda.now()) / 1000} totalSeconds={lengthMs / 1000} done={tr.t("biscato.carga.entregues", { n: s.delivered })} onLeave={ronda.end}>
       <div class="bg">
         <div class="bg-caminho" aria-hidden="true">
-          <span class="bg-ponta">{tr.t("biscato.carga.paragem")}</span>
+          <span class="bg-ponta">{tr.t(agua ? "biscato.carga.chafariz" : "biscato.carga.paragem")}</span>
           <span class="bg-linha">
             <i class="bg-onde" style={{ left: `${(s.along / CARGA_TRIP_MM) * 100}%` }} />
           </span>
           <span class="bg-ponta bg-banca">
-            {tr.t("biscato.carga.banca")}
+            {tr.t(agua ? "biscato.carga.casas" : "biscato.carga.banca")}
             <b>{Array.from({ length: Math.min(s.delivered, 8) }, () => "▪").join("")}</b>
           </span>
         </div>
         <div class={`bg-carrinho${danger ? " bg-perigo" : ""}${fallen ? " bg-caiu" : ""}`} aria-hidden="true">
           <div class="bg-pilha" style={{ transform: `rotate(${(s.lean / 100).toFixed(2)}deg)` }}>
             {LOADS.slice(0, s.boxes).map((load, n) => (
-              <i class={`bg-${load}`} style={{ zIndex: 10 - n }} />
+              <i class={`bg-${agua ? "bidao" : load}`} style={{ zIndex: 10 - n }} />
             ))}
           </div>
           <span class="bg-cama" />
@@ -110,7 +110,10 @@ const CARGA: Trabalho = {
   hint: ({ failed }) => tr.t(failed > 0 ? "biscato.carga.dica.caiu" : "biscato.carga.dica.bem"),
 };
 
-/** Levar carga, as the street opens it. */
+/** The same work where what is carried is water (a chafariz): bidões on the cart, from the chafariz to the houses. */
+const AGUA: Trabalho = { ...CARGA, play: ({ seed, lengthMs, ronda }) => <Jogo seed={seed} lengthMs={lengthMs} ronda={ronda} agua /> };
+
+/** Levar carga, as the street opens it. A place whose name speaks of bidões is one where water is carried (F-273). */
 export function Biscato({ net, place, onClose }: { net: Linha; place: string; onClose: () => void }) {
-  return <Rondas net={net} place={place} work={CARGA} onClose={onClose} />;
+  return <Rondas net={net} place={place} work={/bid[oõ]/i.test(place) ? AGUA : CARGA} onClose={onClose} />;
 }

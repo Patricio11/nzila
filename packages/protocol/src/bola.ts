@@ -4,6 +4,9 @@
 // drawn or sent: it is the rule both sides keep. Kept apart from messages.ts so that it travels with the code
 // that draws the ball, not with every phone from the first byte.
 
+import { MSG } from "./messages.ts";
+import { Writer } from "./wire.ts";
+
 /** A ball as it was said: millimetres, millimetres a second, and the moment (any clock, in milliseconds). */
 export interface Bola {
   readonly x: number;
@@ -27,4 +30,9 @@ export function bolaAt(ball: Bola, nowMs: number): { x: number; z: number; vx: n
   const far = speed * rolled - (BOLA_SLOWS * rolled * rolled) / 2;
   const left = t >= stops ? 0 : (speed - BOLA_SLOWS * t) / speed;
   return { x: ball.x + (ball.vx / speed) * far, z: ball.z + (ball.vz / speed) * far, vx: ball.vx * left, vz: ball.vz * left };
+}
+
+/** Client to zone: go over to the other side of the match on a campo (its number in the pack). */
+export function encodeLado(campo: number): Uint8Array {
+  return new Writer().u8(MSG.LADO).u8(campo).finish();
 }

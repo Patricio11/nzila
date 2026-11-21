@@ -2926,6 +2926,33 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("every bairro has its barbeiros (the founder, 2026-11-21): on the Largo of the Marginal a barber in the street offers the cut, at the price of any barbearia", async ({ page, request }, info) => {
+    const l1 = (await request.get("/packs/l1/manifest.json")).ok() ? ((await (await request.get("/packs/l1/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] }) : null;
+    if (!l1 || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. The barber of the Largo was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(180_000);
+    const seen = watch(page);
+    await comeIn(page, 131);
+    const barber = l1.pois.find((one) => one.id === "servico-corte-largo")!;
+    // Off a van at the Mutamba, and across the Largo to the barber's sunshade.
+    await page.goto("/andar?pack=l1&tier=poupanca&hour=10&paragem=mutamba");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    await walkTo(page, barber.pos[0], barber.pos[2], 1.0, 200);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "corte", undefined, { timeout: 20_000 });
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: info.outputPath("barbeiro-largo.png") });
+    await page.getByRole("button", { name: "Cortar cabelo" }).click();
+    const sheet = page.getByRole("dialog", { name: "O barbeiro do Largo" });
+    await expect(sheet).toContainText(/Corte e penteado: 500\sMk\./, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("barbeiro-folha.png") });
+    await sheet.getByRole("button", { name: "Agora não" }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(seen.errors).toEqual([]);
+  });
+
   test("a match on Zango's campo (D-11.11): two walk onto the pitch and are on a side each, in bibs; one runs the ball into the far goal and both are told whose goal it is and the score", async ({ page, browser, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The packs are not built. The match on the campo was not checked here." });
@@ -2971,6 +2998,14 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__bola!.coletes === 2, undefined, { timeout: 20_000 });
     await vermelho;
     await other.screenshot({ path: info.outputPath("jogo-vermelhos.png") });
+    // Whoever is on a side may go over to the other (D-11.12): the vermelho joins the amarelos, and comes back.
+    await other.getByRole("button", { name: "Mudar de lado" }).click();
+    await other.waitForFunction(() => window.__bola!.lado === 1, undefined, { timeout: 10_000 });
+    await expect(other.getByRole("status").filter({ hasText: "Jogas pelos amarelos. Defende a baliza amarela." })).toBeVisible({ timeout: 10_000 });
+    await other.screenshot({ path: info.outputPath("jogo-mudou.png") });
+    await other.waitForTimeout(5200);
+    await other.getByRole("button", { name: "Mudar de lado" }).click();
+    await other.waitForFunction(() => window.__bola!.lado === 2, undefined, { timeout: 10_000 });
     // The amarelo runs the ball east, straight down the middle, into the vermelhos' goal.
     await page.keyboard.down("Shift");
     await page.keyboard.down("d");

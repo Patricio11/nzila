@@ -1214,7 +1214,7 @@ export function Andar() {
           {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila zone={net.current} onClose={() => setBag(false)} />} /> : null}
           {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} gesto={(kind) => (asks.current.emote = kind)} /> : null}
           {SairM && sairRef.current && !met && !shop && !bag && !phone ? <SairM.Ui sair={sairRef.current} net={net} /> : null}
-          {CampoM && campo.current && campo.current !== "loading" ? <CampoM.Ui bolas={campo.current} /> : null}
+          {CampoM && campo.current && campo.current !== "loading" ? <CampoM.Ui bolas={campo.current} net={net} /> : null}
           {EntreM && porta ? <EntreM.Viagem porta={porta} portas={entre.current && entre.current !== "loading" ? entre.current.portas : []} onClose={() => setPorta(null)} leave={() => net.current?.leave()} go={(pack, arrive) => location.assign(`/andar?pack=${pack}&paragem=${arrive}`)} /> : null}
           {met ? (
             <LazySheet

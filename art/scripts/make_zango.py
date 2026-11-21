@@ -400,6 +400,14 @@ words["zango.sign.barbearia"] = "BARBEARIA"
 signs.append({"id": "barbearia", "pos": [222.0, 2.85, 137.42], "facing": 180.0, "textKey": "zango.sign.barbearia"})
 kb.frente_de_barbearia(b, 222.0, 137.45, rng, 0.015)
 poi("servico-corte-zango", 223.2, 134.9, "Barbearia do Zango", "Corte, barba e penteado. O espelho não mente, e o barbeiro também não.")
+# The salão de beleza (the founder, 2026-11-21), a few doors along: where hair is braided, and the bairro is talked over.
+kit.casa(b, 190.0, 141.0, math.pi, rng, kind="bloco", width=7.0, depth=5.0, ground=0.0, shop=True)
+block(190.0, 141.0, 3.2)
+flat(185.5, 134.0, 194.5, 138.4, 0.015, "concrete")
+words["zango.sign.salao"] = "SALÃO DE BELEZA"
+signs.append({"id": "salao", "pos": [190.0, 2.85, 138.42], "facing": 180.0, "textKey": "zango.sign.salao"})
+kb.frente_de_salao(b, 190.0, 138.45, rng, 0.015)
+poi("servico-corte-salao", 191.2, 135.9, "Salão da Dona Nela", "Tranças, puxinhos e penteados. Senta-te, que a conversa já vai a meio.")
 
 # ------------------------------------------------------------------ poles, wires and what grows
 # A line of poles down one side of every street, wires hanging slack between them, a lamp on a few.

@@ -37,6 +37,8 @@ export const FORGOTTEN_MS = 5 * 60_000;
 export type Lado = 1 | 2;
 /** The side that reaches this many goals wins, and the count begins again. */
 export const MATCH_TO = 3;
+/** Nobody goes over to the other side twice within this long. */
+export const SWITCH_AGAIN_MS = 5000;
 /** Someone who has been off the pitch this long has left their side. */
 export const OFF_PITCH_MS = 20_000;
 
@@ -72,7 +74,22 @@ export class BolaDoCampo {
   private last: { id: number; playerId: string; at: number } | null = null;
   private backAt: number | null = null;
   /** Who is on which side, by player; and the score of the match, the amarelos' first. */
-  readonly lados = new Map<string, { id: number; lado: Lado; seenAt: number }>();
+  readonly lados = new Map<string, { id: number; lado: Lado; seenAt: number; wentAt?: number }>();
+  /** Those who have just gone over, until the next step tells of it. */
+  private readonly went: { id: number; lado: Lado }[] = [];
+
+  /**
+   * A player on a side goes over to the other (D-11.12): to play with a friend, or against one. Not twice in a few
+   * seconds. Told at the next step. A side left empty by it ends the match, as when someone walks off.
+   */
+  trocar(playerId: string, nowMs: number): boolean {
+    const one = this.lados.get(playerId);
+    if (!one || (one.wentAt !== undefined && nowMs - one.wentAt < SWITCH_AGAIN_MS)) return false;
+    one.lado = one.lado === 1 ? 2 : 1;
+    one.wentAt = nowMs;
+    this.went.push({ id: one.id, lado: one.lado });
+    return true;
+  }
   placar: [number, number] = [0, 0];
   private won = false;
 
@@ -89,7 +106,7 @@ export class BolaDoCampo {
 
   /** Who has come onto the pitch is given a side, and who has been off it a while loses theirs. Says what changed. */
   private sides(nowMs: number, near: readonly Kicker[]): { id: number; lado: Lado | 0 }[] {
-    const changed: { id: number; lado: Lado | 0 }[] = [];
+    const changed: { id: number; lado: Lado | 0 }[] = this.went.splice(0);
     for (const one of near) {
       if (!one.on) continue;
       const had = this.lados.get(one.playerId);
