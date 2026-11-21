@@ -2836,6 +2836,48 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("the ball on Zango's campo (2026-11-21): it lies in the middle; walked into, it rolls away the way the player was going", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. The ball on the campo was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(240_000);
+    const seen = watch(page);
+    // Someone born to a family of little money wakes in Zango: guests are made until one is.
+    let kept: Record<string, unknown> | null = null;
+    for (let n = 0; n < 12 && !kept; n++) {
+      const deviceId = `zango-bola-${n}-${Date.now()}-abcdefgh`;
+      const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string };
+      const dealt = (await (await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: { tier: string } };
+      if (dealt.origin.tier === "aperto") kept = { deviceId, ageBand: "18_plus", ...guest };
+    }
+    expect(kept, "a family of little money was dealt in twelve tries").not.toBeNull();
+    await page.addInitScript((account) => localStorage.setItem("nzila.conta", JSON.stringify(account)), kept);
+    await page.goto("/andar?pack=zango&tier=poupanca&hour=16");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    const campo = ((await (await page.request.get("/packs/zango/manifest.json")).json()) as { campos: { rect: [number, number, number, number] }[] }).campos[0]!.rect;
+    const middle = { x: (campo[0] + campo[2]) / 2, z: (campo[1] + campo[3]) / 2 };
+    // The zone tells of the ball to whoever is near: it lies in the middle of the pitch.
+    await page.waitForFunction(() => (window.__bola?.balls.length ?? 0) === 1, undefined, { timeout: 30_000 });
+    const lying = await page.evaluate(() => window.__bola!.balls[0]!);
+    expect(Math.hypot(lying.x - middle.x, lying.z - middle.z)).toBeLessThan(0.5);
+    // To a few metres east of it, then straight at it, going west.
+    await walkTo(page, middle.x + 4, middle.z, 0.5, 200);
+    await page.screenshot({ path: info.outputPath("bola-parada.png") });
+    await page.keyboard.down("a");
+    await page.waitForFunction((x) => window.__bola!.balls[0]!.x < x - 1.5, middle.x, { timeout: 15_000 });
+    await page.keyboard.up("a");
+    await page.screenshot({ path: info.outputPath("bola-chutada.png") });
+    // It rolled on west of where it lay, along the line it was kicked on, and comes to rest.
+    await page.waitForFunction(() => window.__bola!.balls[0]!.moving === false, undefined, { timeout: 15_000 });
+    const rested = await page.evaluate(() => window.__bola!.balls[0]!);
+    expect(rested.x).toBeLessThan(middle.x - 1.5);
+    expect(Math.abs(rested.z - middle.z)).toBeLessThan(3);
+    await page.screenshot({ path: info.outputPath("bola-longe.png") });
+    expect(seen.errors).toEqual([]);
+  });
+
   test("someone whose card wakes them in Zango and whose phone opens the Marginal is taken to Zango (D-11.1)", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The packs are not built. Waking in Zango was not checked here." });

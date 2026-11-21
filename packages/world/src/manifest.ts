@@ -140,6 +140,11 @@ export const manifestSchema = z.strictObject({
   tables: z
     .array(z.strictObject({ id, game: z.enum(["xadrez", "damas", "ludo"]), pos, facing: z.number(), size: z.number().positive(), seats: z.array(z.strictObject({ pos, facing: z.number() })).min(2).max(4) }))
     .optional(),
+  /**
+   * Pitches with a ball on them (Zango, 2026-11-21): the edges of the pitch [minX, minZ, maxX, maxZ] in metres, and
+   * half the width of each goal, which stand in the middle of the two short ends (along X). The ball is the zone's.
+   */
+  campos: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), goal: z.number().positive() })).optional(),
   /** Sheets of water: the bay, a lagoon. [minX, minZ, maxX, maxZ] in metres, and the height of the surface. */
   // `shore`: how far each metre of it is from land, as a small greyscale picture the pack builder makes (built, not written).
   water: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), level: z.number(), shore: z.string().optional() })),

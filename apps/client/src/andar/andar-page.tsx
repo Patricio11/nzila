@@ -228,6 +228,9 @@ export function Andar() {
       setSairM(() => module);
     }, () => void (sairLoading.current = false));
   };
+  /** The ball of a campo: fetched the first time the zone speaks of one. */
+  const [CampoM, setCampoM] = useState<typeof import("../campo/bola.tsx") | null>(null);
+  const campo = useRef<import("../campo/bola.tsx").Bolas | "loading" | null>(null);
   /** From one bairro to another (Task 11.2): fetched the first time the player stands at a paragem that leads elsewhere. */
   type Entre = typeof import("./entre-bairros.tsx");
   const [EntreM, setEntreM] = useState<Entre | null>(null);
@@ -833,6 +836,14 @@ export function Andar() {
         person.pose({ speed, phase, time: seconds }, { sit, jump, land: flying ? 0 : air.land, ...(holding ? { holding } : {}), ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
         if (session && !Corrida && (session.corridas || session.pedidos.length)) void loadCorrida();
         if (session && session.saidas.length > 0 && !sairRef.current) loadSair();
+        if (session && session.bolas.length > 0 && !campo.current) {
+          campo.current = "loading";
+          void import("../campo/bola.tsx").then(
+            (module) => ((campo.current = new module.Bolas(renderer.scene)), setCampoM(() => module)),
+            () => void (campo.current = null),
+          );
+        }
+        if (campo.current && campo.current !== "loading") campo.current.update(net, performance.now());
         sairRef.current?.hear(net, x, z);
         corridas.current?.update(session?.corridas ?? null, session?.pedidos ?? [], ground, Date.now() + (session?.zoneClockAhead ?? 0), elapsed, seconds);
         const hiredBody = corridas.current?.carry(person, session?.myRide ?? null, seconds) ? corridas.current.bodyAt(session!.myRide!.vehicle) : null;
@@ -1203,6 +1214,7 @@ export function Andar() {
           {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila zone={net.current} onClose={() => setBag(false)} />} /> : null}
           {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} gesto={(kind) => (asks.current.emote = kind)} /> : null}
           {SairM && sairRef.current && !met && !shop && !bag && !phone ? <SairM.Ui sair={sairRef.current} net={net} /> : null}
+          {CampoM && campo.current && campo.current !== "loading" ? <CampoM.Ui bolas={campo.current} /> : null}
           {EntreM && porta ? <EntreM.Viagem porta={porta} onClose={() => setPorta(null)} leave={() => net.current?.leave()} go={(pack, arrive) => location.assign(`/andar?pack=${pack}&paragem=${arrive}`)} /> : null}
           {met ? (
             <LazySheet

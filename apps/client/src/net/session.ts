@@ -339,7 +339,9 @@ export class Session {
     else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA || event.kind === EVENT.PONTOS) this.convites.push(event);
     else if (event.kind >= EVENT.BISCATO && event.kind <= EVENT.BISCATO_RECUSADO) this.biscatos.push(event);
     else if (event.kind === EVENT.CORRIDA || event.kind === EVENT.CORRIDA_RECUSADA) this.pedidos.push(event);
-    else if (event.kind === EVENT.A_DOIS) {
+    else if (event.kind === EVENT.BOLA || event.kind === EVENT.GOLO) {
+      if (this.bolas.length < 64) this.bolas.push(event);
+    } else if (event.kind === EVENT.A_DOIS) {
       // Made (a handshake, a hug): both bodies make it, turned to each other; the player's own is the page's.
       const kind = GESTOS_A_DOIS[event.args[2] ?? -1];
       if (A_DOIS_DITOS[event.args[0] ?? -1] !== "feito") this.saidas.push(event);
@@ -421,6 +423,9 @@ export class Session {
     this.players.vanAt = vanAt;
     this.players.seatAt = seatAt;
   }
+
+  /** What the zone says of a campo's ball, until the code that draws balls has read it. */
+  bolas: WorldEvent[] = [];
 
   /** A gesture the player has just begun with someone (their number in the channel), until the page has taken it. */
   par: { kind: GestoADois; com: number } | null = null;

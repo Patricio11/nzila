@@ -248,7 +248,7 @@ places["paragens"].append({"id": "mangueira", "pos": [round(PARAGEM[0], 2), G, r
 poi("paragem-mangueira", PARAGEM[0] + 3.0, PARAGEM[1] - 1.0, "A Mangueira", "Não há placa nem abrigo: é a mangueira. Daqui sai-se para todo o lado, e o cobrador diz para onde.")
 # Carts wait where the vans unload (a biscato, Task 4.5).
 for k in range(3):
-    cx_, cz_ = PARAGEM[0] - 9.5 + k * 1.5, PARAGEM[1] - 11.5
+    cx_, cz_ = PARAGEM[0] + 1.0 + k * 1.5, PARAGEM[1] - 10.5
     b.at(cx_, cz_)
     b.level = kit.BOTH
     b.box((cx_, 0.45, cz_), (0.9, 0.5, 1.4), "wood", skip_bottom=False)
@@ -257,7 +257,7 @@ for k in range(3):
         b.tube([(cx_ + side, 0.26, cz_ + 0.2), (cx_ + side * 1.14, 0.26, cz_ + 0.2)], [0.26, 0.26], 8, "tyre")
         b.tube([(cx_ + side * 0.8, 0.6, cz_ - 0.7), (cx_ + side * 0.8, 0.75, cz_ - 1.5)], [0.025, 0.025], 4, "pole", cap=False)
     b.level = kit.BOTH
-poi("biscato-carga-zango", PARAGEM[0] - 8.0, PARAGEM[1] - 9.6, "Os carrinhos da Mangueira", "O que sai das carrinhas vai para as bancas. Leva-se a carrinho, paga-se por cada carga.")
+poi("biscato-carga-zango", PARAGEM[0] + 2.5, PARAGEM[1] - 8.6, "Os carrinhos da Mangueira", "O que sai das carrinhas vai para as bancas. Leva-se a carrinho, paga-se por cada carga.")
 
 # The kiosk where airtime is sold: block, painted in three bands, a hatch and a little roof of sheet.
 SALDO = (PARAGEM[0] + 8.0, PARAGEM[1] - 6.5)
@@ -351,13 +351,7 @@ for k in range(5):
     b.at(tx, CAMPO[1] + CD / 2 + 2.2)
     b.tube([(tx - 0.3, 0.3, CAMPO[1] + CD / 2 + 2.2), (tx + 0.3, 0.3, CAMPO[1] + CD / 2 + 2.2)], [0.42, 0.42], 8, "tyre")
     b.seats.append((tx, 0.62, CAMPO[1] + CD / 2 + 2.2, math.pi))
-# The ball, where the last kick left it: stitched and patched, and everybody's.
-b.at(CAMPO[0] + 3.0, CAMPO[1] - 2.0)
-b.level = kit.BOTH
-b.gem((CAMPO[0] + 3.0, 0.12, CAMPO[1] - 2.0), (0.12, 0.12, 0.12), 6, "paintWhite", random.Random(9), rough=0.04)
-b.level = kit.FULL
-b.gem((CAMPO[0] + 3.05, 0.16, CAMPO[1] - 1.96), (0.06, 0.05, 0.06), 5, "tarShade", random.Random(10), rough=0.04)
-b.level = kit.BOTH
+# The ball is not drawn here: it is the zone's, and goes where it is kicked (`campos` in the manifest).
 kit.tree(b, CAMPO[0] + 16.0, CAMPO[1] + CD / 2 + 4.0, rng, 0.0, shade="sandDark", mix=("mangueira",), paved=False)
 poi("campo", CAMPO[0], CAMPO[1] + CD / 2 + 4.0, "O campo de terra", "À tarde joga-se aqui até não se ver a bola. Quem perde sai, quem ganha fica.")
 
@@ -621,6 +615,13 @@ with open(os.path.join(out_dir, "mapa.json"), "w", encoding="utf-8") as handle:
     json.dump({"cellM": MAP_CELL_M, "rows": map_rows}, handle, separators=(",", ":"))
 
 ARRIVAL = [round((MID[0] + MID[1]) / 2, 2), G, 104.0]
+# Where people arrive must be open ground on every side: carts once stood on this very spot, and whoever woke in
+# Zango could not take a step (found by the browser test of the ball, 2026-11-21).
+for _name, (_ax, _az) in (("arrival", (ARRIVAL[0], ARRIVAL[2])), ("mangueira", (PARAGEM[0], PARAGEM[1] - 0.5))):
+    for _iz in range(math.floor((_az - 1.5) / CELL), math.ceil((_az + 1.5) / CELL)):
+        for _ix in range(math.floor((_ax - 1.5) / CELL), math.ceil((_ax + 1.5) / CELL)):
+            if flags[(_ix // CELLS, _iz // CELLS)][_iz % CELLS][_ix % CELLS] == "#":
+                raise SystemExit(f"nzila: something stands where people arrive ({_name}), at {_ix * CELL:.1f}, {_iz * CELL:.1f}")
 partial = {
     "id": "ao-lua/zango",
     "province": "ao-lua",
@@ -645,6 +646,7 @@ partial = {
     "map": "mapa.json",
     "seats": [{"id": f"seat-{n + 1}", "pos": [round(sx, 2), round(sy, 2), round(sz, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for n, (sx, sy, sz, yaw) in enumerate(b.seats)],
     "tables": [{"id": f"mesa-{n + 1}", "game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for n, t in enumerate(tables)],
+    "campos": [{"id": "campo", "rect": [CAMPO[0] - CW / 2, CAMPO[1] - CD / 2, CAMPO[0] + CW / 2, CAMPO[1] + CD / 2], "goal": 2.6}],
     "water": [],
     "strings": "strings.pt-AO.json",
 }

@@ -45,6 +45,8 @@ export interface District {
   readonly tables?: readonly TablePlace[];
   /** The places two may go out to (Task 10.13), in the pack's order: a phone names one by its number. Millimetres. */
   readonly outings?: readonly { readonly x: number; readonly z: number }[];
+  /** The pitches with a ball on them, in the pack's order. Millimetres. */
+  readonly campos?: readonly { readonly x0: number; readonly z0: number; readonly x1: number; readonly z1: number; readonly goal: number }[];
   /** The ways out to other bairros (Task 11.2): where each is, where it leads, and the spawn one arrives at there. Millimetres. */
   readonly gateways?: readonly { readonly id: string; readonly x: number; readonly z: number; readonly to: string; readonly arrive: string }[];
   /** The benches' seats, in the pack's order: a phone names one by its number to sit on it (F-205). Millimetres. */
@@ -67,6 +69,7 @@ interface ManifestRead {
   readonly npc?: { readonly crowd: string | null };
   readonly spawns: readonly { readonly id?: string; readonly pos: readonly [number, number, number]; readonly facing?: number; readonly kind: string }[];
   readonly gateways?: readonly { readonly id: string; readonly pos: readonly [number, number, number]; readonly to: string; readonly arrive: string }[];
+  readonly campos?: readonly { readonly rect: readonly [number, number, number, number]; readonly goal: number }[];
   readonly tables?: readonly { readonly game: "xadrez" | "damas" | "ludo"; readonly pos: readonly [number, number, number]; readonly facing: number; readonly seats: readonly { readonly pos: readonly [number, number, number]; readonly facing: number }[] }[];
 }
 
@@ -107,6 +110,7 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     if (one.kind === "gateway" && one.id && !paragens.has(one.id)) paragens.set(one.id, { x: Math.round(one.pos[0] * 1000), y: Math.round(one.pos[1] * 1000), z: Math.round(one.pos[2] * 1000), yaw: Math.round((one.facing ?? 0) * 100) });
   }
   const gateways = (manifest.gateways ?? []).map((one) => ({ id: one.id, x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000), to: one.to, arrive: one.arrive }));
+  const campos = (manifest.campos ?? []).map((one) => ({ x0: Math.round(one.rect[0] * 1000), z0: Math.round(one.rect[1] * 1000), x1: Math.round(one.rect[2] * 1000), z1: Math.round(one.rect[3] * 1000), goal: Math.round(one.goal * 1000) }));
   // A place whose sign is the bank's is a caixa.
   const caixas = (manifest.pois ?? []).filter((one) => one.glyph === CAIXA_GLYPH).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   // A place whose sign is a shop's is one: a player standing at it may buy what it sells.
@@ -130,7 +134,7 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     const kind = /^biscato-([a-z]+)-/.exec(one.id)?.[1];
     return kind ? [{ kind, x: mm(one.pos[0]), z: mm(one.pos[2]) }] : [];
   });
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, gateways, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, gateways, campos, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

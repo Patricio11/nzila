@@ -45,6 +45,7 @@ import {
 import { CORRIDA_FASES, CORRIDA_KINDS, encodeCorridas } from "@nzila/protocol/corridas";
 import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, type SairDito, type SairRecusa } from "@nzila/protocol/sair";
 import { Saidas, type Fim, type Saida } from "./saidas.ts";
+import { BolaDoCampo, type Kicker } from "./bola.ts";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { BISCATO_GRACE_MS, BISCATO_NOTE_S, scoreRonda, spotNear, takeInputs, type Ronda } from "./biscatos.ts";
@@ -145,6 +146,8 @@ interface Held {
   withWhom: string;
   withAt: number;
   nudgedAt: number;
+  /** The campos whose ball they have been told of since they came near. */
+  bolas: Set<number>;
   /** When they were last said to be standing at a way out to another bairro. */
   portaAt: number;
   shopAt: number;
@@ -243,6 +246,9 @@ export class ChannelRoom {
   private readonly corridas: Corridas;
   /** Going out (Task 10.13): who is out with whom, when the district has places for it; and who here is 18 or over. */
   private readonly saidas: Saidas | null;
+  /** The ball of each campo (2026-11-21), and where each body was a step ago: how fast it is going is what kicks. */
+  private readonly bolas: BolaDoCampo[];
+  private readonly wasAt = new Map<number, { x: number; z: number }>();
   private readonly adults = new Set<string>();
 
   constructor(deps: ZoneDeps, number: number, changed: () => void = () => {}) {
@@ -257,6 +263,7 @@ export class ChannelRoom {
     this.tunables = deps.tunables ?? (() => BASE_TUNABLES);
     this.corridas = new Corridas(deps.district.ground);
     this.saidas = (deps.district.outings?.length ?? 0) > 0 ? new Saidas(deps.district.outings!.length) : null;
+    this.bolas = (deps.district.campos ?? []).map((campo) => new BolaDoCampo(campo, Date.now()));
     this.log = deps.log ?? ((line: string) => console.error(line));
     this.number = number;
     this.channel = new Channel(deps.district.ground, deps.district.obstacles);
@@ -385,7 +392,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, portaAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false, ronda: null });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, bolas: new Set(), portaAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false, ronda: null });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -413,7 +420,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = settleLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, portaAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, this.rules.tiredBelow) }, eating: false, ronda: null });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, bolas: new Set(), portaAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, this.rules.tiredBelow) }, eating: false, ronda: null });
     this.lineOfEntity.set(entityId, line);
     this.channel.setTired(entityId, tooTired(needs, this.rules.tiredBelow));
     // Noted at once where they came in, not at the next five-second round: a kamba going to them finds them (Task 4B.2).
@@ -453,6 +460,7 @@ export class ChannelRoom {
     if (saida) this.tellSair(Saidas.other(saida, held.playerId), held.playerId, "fim", SAIR_FINS.indexOf("saiu"));
     this.saidas?.forget(held.playerId);
     this.ofertas.delete(held.entityId);
+    this.wasAt.delete(held.entityId);
     this.adults.delete(held.playerId);
     // A ride they called drives off.
     const called = this.corridas.of(held.entityId);
@@ -664,6 +672,56 @@ export class ChannelRoom {
     if (other) {
       held.wavedAt = now;
       this.greets(other, now);
+    }
+  }
+
+  /** How far from a campo its ball is told of, and how near its edge a body must be to play. Millimetres. */
+  private static readonly BOLA_SEEN_MM = 90_000;
+  private static readonly BOLA_PLAYED_MM = 4000;
+
+  /**
+   * The balls (2026-11-21): every step, whoever is on foot on or beside a campo may kick its ball by going into
+   * it; a kick, a bounce and a goal are told to whoever is near, and someone who has just come near is told where
+   * the ball is.
+   */
+  private stepBolas(): void {
+    const now = Date.now();
+    const tick = this.channel.world.tick;
+    for (const [n, bola] of this.bolas.entries()) {
+      const { x0, z0, x1, z1 } = bola.campo;
+      const cx = (x0 + x1) / 2;
+      const cz = (z0 + z1) / 2;
+      const near: Kicker[] = [];
+      const watching: { line: Line; held: Held }[] = [];
+      for (const [line, held] of this.held) {
+        const at = this.channel.placeOf(held.entityId);
+        if (!at || Math.hypot(at.x - cx, at.z - cz) > ChannelRoom.BOLA_SEEN_MM) {
+          held.bolas.delete(n);
+          continue;
+        }
+        watching.push({ line, held });
+        const was = this.wasAt.get(held.entityId);
+        const m = ChannelRoom.BOLA_PLAYED_MM;
+        if (was && at.x > x0 - m && at.x < x1 + m && at.z > z0 - m && at.z < z1 + m && !this.channel.ridingOf(held.entityId) && !this.channel.sittingOf(held.entityId)) {
+          near.push({ id: held.entityId, playerId: held.playerId, x: at.x, z: at.z, vx: ((at.x - was.x) * 1000) / STEP_MS, vz: ((at.z - was.z) * 1000) / STEP_MS });
+        }
+      }
+      const { moved, golo } = bola.step(now, near);
+      const said = (): Uint8Array => encodeEvent({ kind: EVENT.BOLA, tick, subject: n, args: [bola.state.x, bola.state.z, bola.state.vx, bola.state.vz, now - bola.state.atMs], text: "" });
+      const bytes = moved ? said() : null;
+      for (const { line, held } of watching) {
+        if (bytes) line.send(bytes);
+        else if (!held.bolas.has(n)) line.send(said());
+        held.bolas.add(n);
+      }
+      if (golo) {
+        const scored = encodeEvent({ kind: EVENT.GOLO, tick, subject: golo.id, args: [n, golo.total], text: "" });
+        for (const { line } of watching) line.send(scored);
+      }
+    }
+    for (const held of this.held.values()) {
+      const at = this.channel.placeOf(held.entityId);
+      if (at) this.wasAt.set(held.entityId, { x: at.x, z: at.z });
     }
   }
 
@@ -1331,6 +1389,8 @@ export class ChannelRoom {
         void this.presence.mark(held.playerId, "lugar", `${index}/${places.length}`).catch(() => {});
       }
     }
+    // The balls on the campos: every step.
+    if (this.bolas.length > 0) this.stepBolas();
     // Those who are out together (Task 10.13): once a second.
     if (tick % (STEPS_A_LOOK * 4) === 0) this.stepSaidas();
     // The tables: time passes at them (a kota plays, a turn runs out, the next game begins), and whoever is near is

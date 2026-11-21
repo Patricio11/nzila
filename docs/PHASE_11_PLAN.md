@@ -40,6 +40,8 @@ Phase 11 is not open. **Its first two tasks and a district are built now**, in t
 
 What the pictures add to the kit: the phone-company kiosk (ours: three bands of our own colours and the word "Saldo", no company's name or mark), the barbearia's painted wall, the zinc stall on poles, sagging wires, the orange street at night (the lamp's colour is the district's, in the pack's ambient).
 
+**D-11.7 The ball is the zone's, and anyone on the campo plays (delegated; the founder asked for things to do, 2026-11-21).** A pack names its pitches (`campos`: the edges and the width of the goals). The zone keeps one ball on each: whoever walks or runs into it kicks it the way they are going, harder the faster they go; it rolls and slows by a rule every phone shares (`packages/protocol/src/bola.ts`), so the zone speaks only at a kick, a bounce and a goal; it comes back off the edges; between the posts it is a goal for whoever kicked it last, said to everyone near ("Golo de Ana. Já são 2."), and the ball is put back in the middle. No sides, no clock, no Makuta: whoever is there plays, and goals are counted until the campo has stood empty five minutes. Nothing the phone says moves the ball: only where the zone has the player. Sides, a match with a beginning and an end, and a wager between adults (4B.1's stakes) are for later.
+
 ## What is built (2026-11-21)
 
 - **Zango, art pass 1** (`art/scripts/make_zango.py`, `pnpm pack:zango`): 320 m by 256 m, twenty chunks, 2,1 MB at Normal and 0,4 MB at Poupança; one tarred road, five earth streets and two lanes; some 150 resettlement houses on 15 m plots, each grown its own way; the Mangueira (the paragem), the mercado da estrada with Tia Minga's banca, the "Saldo" kiosk, the cantina do Kota Beto, the damas da mangueira (two of damas and a Não te irrites), the caixa, the geladaria, a barbearia, the igreja, the campo de terra and the chafariz; poles and slack wires down every street; people, kupapatas of both kinds, motos and a candongueiro line. Its Normal views are 100 to 119 thousand triangles.
@@ -48,6 +50,8 @@ What the pictures add to the kit: the phone-company kiosk (ours: three bands of 
 - **11.1**: the invariant was already kept; the registry carries what the code needed to know.
 
 - **Things to do, first of the second pass (2026-11-21):** water carried from the chafariz and the taças washed at the geladaria (two biscatos), and a ball on the campo.
+
+- **The ball on the campo (D-11.7, 2026-11-21).**
 
 What it leaves is F-273.
 

@@ -265,6 +265,10 @@ export const EVENT = {
    * done. "feito": subject and the body args[1] make the gesture args[2] together, for whoever sees them.
    */
   A_DOIS: 22,
+  /** The ball of a campo (subject: the campo's number in the pack): args are x, z, vx, vz (mm, mm/s) and how many milliseconds ago that was so. Read with bolaAt (bola.ts). */
+  BOLA: 23,
+  /** A goal on a campo: subject scored it; args: the campo, and how many they have now. */
+  GOLO: 24,
 } as const;
 
 /**

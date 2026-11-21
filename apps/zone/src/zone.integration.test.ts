@@ -70,6 +70,10 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
     ["carros", { x: 90_000, y: 0, z: 59_000, yaw: 0 }],
     // On the pavement beside the road, to call a ride from.
     ["moto", { x: 20_000, y: 0, z: 57_000, yaw: 0 }],
+    // Five metres west of the middle of a campo, where its ball lies.
+    ["campo", { x: 73_000, y: 0, z: -83_000, yaw: 0 }],
+    // And at the side of the same campo, out of the way of whoever goes for the ball.
+    ["campo-lado", { x: 73_000, y: 0, z: -92_000, yaw: 0 }],
   ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 },
   // One bench's seat, facing +Z (F-205).
   benches: [{ x: -80_000, y: 450, z: 80_000, yaw: 0 }],
@@ -82,7 +86,9 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
   // The places two may go out to (Task 10.13): one beside the road up the second street, one where people talk.
   outings: [{ x: 50_000, z: 92_000 }, { x: -60_000, z: -60_000 }],
   // A way out to another bairro, at the paragem of the Mutamba (Task 11.2).
-  gateways: [{ id: "para-fora", x: 40_000, z: -20_000, to: "ao-lua/outro", arrive: "chegada" }] };
+  gateways: [{ id: "para-fora", x: 40_000, z: -20_000, to: "ao-lua/outro", arrive: "chegada" }],
+  // A campo of forty metres by twenty-six, far from everything else, with its ball.
+  campos: [{ x0: 58_000, z0: -96_000, x1: 98_000, z1: -70_000, goal: 2600 }] };
 // A town the database has never heard of: played in, and nobody's place in it is kept.
 const rehearsal: District = { ...district, id: "zz-dev/d1", provinceId: "zz-dev" };
 const presence = memoryPresence();
@@ -727,6 +733,28 @@ describe("where a player was", () => {
     await until(() => said(far, "nao_pode").length === 1);
     expect(said(a, "pedido")).toHaveLength(2);
     await Promise.all([a.leave(), r.leave(), n.leave(), far.leave()]);
+  }, 30_000);
+
+  test("the ball of a campo (2026-11-21): whoever comes near is told where it lies; walked into, it is kicked the way they go, and everyone near is told; far off, nobody hears of it", async () => {
+    const [one, other, away] = [await player(), await player(), await player()];
+    const p = await phone(one.token, PROTOCOL_VERSION, "campo");
+    const watcher = await phone(other.token, PROTOCOL_VERSION, "campo-lado");
+    const far = await phone(away.token, PROTOCOL_VERSION, "conversa");
+    const balls = (who: typeof p): WorldEvent[] => who.state.events.filter((event) => event.kind === EVENT.BOLA);
+    await until(() => balls(p).length >= 1 && balls(watcher).length >= 1);
+    // In the middle, still.
+    expect(balls(p)[0]).toMatchObject({ subject: 0 });
+    expect(balls(p)[0]!.args.slice(0, 4)).toEqual([78_000, -83_000, 0, 0]);
+    // Walked into from the west: it goes east, faster than a walk, and both are told.
+    const told = balls(watcher).length;
+    await p.walk(90, east);
+    await until(() => balls(watcher).length > told && balls(p).some((event) => event.args[2]! > 0));
+    const kick = balls(p).find((event) => event.args[2]! > 0)!;
+    expect(kick.args[2]).toBeGreaterThan(2600);
+    expect(Math.abs(kick.args[3]!)).toBeLessThan(kick.args[2]!);
+    // Someone on the other side of the bairro never hears of this ball.
+    expect(balls(far)).toEqual([]);
+    await Promise.all([p.leave(), watcher.leave(), far.leave()]);
   }, 30_000);
 
   test("whoever stands at a way out to another bairro is said to be there, with where it leads and where one arrives; nobody else is (Task 11.2)", async () => {

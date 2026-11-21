@@ -599,6 +599,9 @@ export const ptAOLater = {
   "viagem.falta": "Não tens Makuta para a corrida.",
   "viagem.falhou": "A carrinha não sai agora. Tenta daqui a pouco.",
   "viagem.longe": "Chega-te à paragem.",
+  // The ball on a campo (Zango, 2026-11-21).
+  "campo.golo": "Golo de {nome}. Já são {n}.",
+  "campo.golo.teu": "Golo teu. Já são {n}.",
   // Gestures for two (the founder, 2026-11-21): a handshake for anyone, a hug between two adults.
   "adois.apertar": "Aperto de mão",
   "adois.abracar": "Abraço",
