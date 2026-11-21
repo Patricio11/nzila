@@ -1,3 +1,7 @@
+// The gestures a body makes: Acenar, Aplaudir, Chamar, Rir and Dançar. Fetched the first time anybody makes one,
+// not carried by every phone from the way in (the megabytes rule, F-270). Each poses the body at `u` seconds into
+// the gesture, laid over what it was doing by `e` (0 to 1), and returns how far the hips drop (metres at 1,7 m).
+//
 // Dançar: kuduro, keyed by hand from stills of two films the founder supplied on 2026-11-15 (a boy dancing in a ring
 // of people on a Cazenga street; two dancers in a sala). The longest of the gestures by far, and danced by few at any
 // moment: fetched the first time somebody dances, not carried by every phone from the way in (the megabytes rule).
@@ -83,4 +87,37 @@ export function rir(person: Person, e: number, u: number): number {
   person.toward("lowerArmL", e, -1.5, -0.7);
   person.toward("upperArmR", e, 0.1 + 0.04 * shake, 0, 0.26);
   return 0.012 * (1 + shake);
+}
+
+/** Acenar: the right arm up and out, the forearm going from side to side. */
+export function acenar(person: Person, e: number, u: number): number {
+  person.toward("upperArmR", e, -0.1, 0, -2.25);
+  person.toward("lowerArmR", e, -0.25, 0, -0.35 + 0.5 * Math.sin(u * 9.5));
+  person.toward("handR", e, 0, 0, 0.25 * Math.sin(u * 9.5 + 0.6));
+  person.toward("head", e * 0.7, -0.05, -0.12, -0.06);
+  person.toward("chest", e * 0.5, 0, -0.06, -0.04);
+  return 0;
+}
+
+/** Aplaudir: the hands meet in front of the chest and part again. */
+export function aplaudir(person: Person, e: number, u: number): number {
+  const clap = Math.sin(u * 15);
+  for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+    person.toward(`upperArm${tag}`, e, -0.62, 0, -side * 0.3);
+    person.toward(`lowerArm${tag}`, e, -1.2, -side * (0.36 + 0.13 * clap));
+    person.toward(`hand${tag}`, e, -0.1, -side * 0.2);
+  }
+  person.toward("head", e * 0.6, -0.06 + 0.02 * clap);
+  return 0;
+}
+
+/** Chamar: the arm out in front, palm down, the hand folding toward the body again and again. */
+export function chamar(person: Person, e: number, u: number): number {
+  const beckon = Math.max(0, Math.sin(u * 8));
+  person.toward("upperArmR", e, -1.35, 0, -0.1);
+  person.toward("lowerArmR", e, -0.25 - 0.75 * beckon);
+  person.toward("handR", e, 0.5 - 0.9 * beckon);
+  person.toward("head", e * 0.7, 0.06, 0.05);
+  person.toward("chest", e * 0.5, 0.05);
+  return 0;
 }

@@ -1177,6 +1177,71 @@ describe("a ride asked for (Task 6.2, D-6.5)", () => {
   });
 });
 
+describe("two bairros (Task 11.2, D-11.1 and D-11.2)", () => {
+  const post = (token: string, url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: as(token), payload });
+  const get = (token: string, url: string) => app.inject({ method: "GET", url, headers: as(token) });
+  // The same server, dealing the first family of the table (little money) or the last (a great deal).
+  const dealing = (roll: number) => buildApp({ guests: true, sql, pepper, keyring, mailer, limiter: { allow: () => true }, presence, roll: () => roll });
+
+  test("a family of little money wakes in the bairro that takes them, the others in the first; a phone that opens the wrong one is told which is theirs", async () => {
+    const poor = await newGuest(1500);
+    const rich = await newGuest(1501);
+    // Before a card is dealt, the first bairro.
+    expect((await get(poor.token, "/v1/me/place")).json()).toEqual({ districtId: "ao-lua/l1", pack: "l1" });
+    expect(((await dealing(0).inject({ method: "POST", url: "/v1/me/origin", headers: as(poor.token), payload: {} })).json() as { origin: { tier: string } }).origin.tier).toBe("aperto");
+    expect(((await dealing(0.9999).inject({ method: "POST", url: "/v1/me/origin", headers: as(rich.token), payload: {} })).json() as { origin: { tier: string } }).origin.tier).toBe("ouro");
+    expect((await get(poor.token, "/v1/me/place")).json()).toEqual({ districtId: "ao-lua/zango", pack: "zango" });
+    expect((await get(rich.token, "/v1/me/place")).json()).toEqual({ districtId: "ao-lua/l1", pack: "l1" });
+    // The matchmaker lets each into their own, and tells a phone that asked for the other where to go.
+    await presence.announce({ id: "zona-bairros", address: "ws://zona-bairros", rooms: [{ name: "ao-lua.l1", channels: [] }, { name: "ao-lua.zango", channels: [] }] });
+    const wrong = await post(poor.token, "/v1/play/join", { districtId: "ao-lua/l1" });
+    expect([wrong.statusCode, wrong.json()]).toEqual([200, { elsewhere: "zango" }]);
+    expect((await post(poor.token, "/v1/play/join", { districtId: "ao-lua/zango" })).json()).toMatchObject({ room: "ao-lua.zango" });
+    expect((await post(rich.token, "/v1/play/join", { districtId: "ao-lua/zango" })).json()).toEqual({ elsewhere: "l1" });
+    expect((await post(rich.token, "/v1/play/join", { districtId: "ao-lua/l1" })).json()).toMatchObject({ room: "ao-lua.l1" });
+    // Once the zone says where they stand, that is where they are, whatever the card says.
+    await presence.stand(poor.playerId, { districtId: "ao-lua/l1", x: 0, y: 0, z: 0, yaw: 0 });
+    expect((await get(poor.token, "/v1/me/place")).json()).toEqual({ districtId: "ao-lua/l1", pack: "l1" });
+    await presence.retire("zona-bairros");
+  });
+
+  test("the candongueiro between bairros: only at a way out the zone names; the first crossing of the day is on the house, the next is the fare, through the ledger; the ticket opens the other bairro", async () => {
+    const one = await newGuest(1502);
+    const cash = ((await post(one.token, "/v1/me/origin")).json() as { wallet: { cash: number } }).wallet.cash;
+    await presence.announce({ id: "zona-bairros", address: "ws://zona-bairros", rooms: [{ name: "ao-lua.l1", channels: [] }, { name: "ao-lua.zango", channels: [] }] });
+    await presence.stand(one.playerId, { districtId: "ao-lua/l1", x: 0, y: 0, z: 0, yaw: 0 });
+    // Not at a way out: nothing is quoted and nothing sold.
+    expect((await get(one.token, "/v1/viagens")).json()).toEqual({ error: "not_there" });
+    expect((await post(one.token, "/v1/viagens", { key: "viagem-0001" })).json()).toEqual({ error: "not_there" });
+    expect((await post(one.token, "/v1/play/join", { districtId: "ao-lua/zango" })).json()).toEqual({ elsewhere: "l1" });
+    // At the paragem, on the zone's word: quoted free, taken free, and the other bairro opens.
+    await presence.mark(one.playerId, "porta", "para-zango|ao-lua/zango|mangueira");
+    expect((await get(one.token, "/v1/viagens")).json()).toEqual({ pack: "zango", arrive: "mangueira", price: 0, free: true });
+    const first = await post(one.token, "/v1/viagens", { key: "viagem-0001" });
+    expect(first.json()).toMatchObject({ pack: "zango", arrive: "mangueira", price: 0, cash });
+    expect((await post(one.token, "/v1/play/join", { districtId: "ao-lua/zango" })).json()).toMatchObject({ room: "ao-lua.zango" });
+    // Back the same day: the fare, once however many times it is asked with the same key.
+    await presence.stand(one.playerId, { districtId: "ao-lua/zango", x: 0, y: 0, z: 0, yaw: 0 });
+    await presence.mark(one.playerId, "porta", "para-marginal|ao-lua/l1|mutamba");
+    expect((await get(one.token, "/v1/viagens")).json()).toEqual({ pack: "l1", arrive: "mutamba", price: BASE_TUNABLES.fares.entreBairros, free: false });
+    for (let n = 0; n < 2; n++) expect((await post(one.token, "/v1/viagens", { key: "viagem-0002" })).json()).toMatchObject({ pack: "l1", price: BASE_TUNABLES.fares.entreBairros, cash: cash - BASE_TUNABLES.fares.entreBairros });
+    const lines = ((await get(one.token, "/v1/me/wallet")).json() as { cashLines: { reason: string; amount: number }[] }).cashLines;
+    expect(lines[0]).toMatchObject({ reason: "fare", amount: -BASE_TUNABLES.fares.entreBairros });
+    expect((await sql`SELECT de, para, paid::int FROM viagens WHERE player_id = ${one.playerId} ORDER BY id`).map((row) => ({ ...row }))).toEqual([{ de: "ao-lua/l1", para: "ao-lua/zango", paid: 0 }, { de: "ao-lua/zango", para: "ao-lua/l1", paid: BASE_TUNABLES.fares.entreBairros }]);
+    // A way out that leads nowhere the registry knows sells nothing; nor does someone with nothing pay.
+    await presence.mark(one.playerId, "porta", "para-lado-nenhum|ao-lua/nenhures|ali");
+    expect((await get(one.token, "/v1/viagens")).json()).toEqual({ error: "not_there" });
+    const broke = await newGuest(1503);
+    await presence.stand(broke.playerId, { districtId: "ao-lua/l1", x: 0, y: 0, z: 0, yaw: 0 });
+    await presence.mark(broke.playerId, "porta", "para-zango|ao-lua/zango|mangueira");
+    expect((await post(broke.token, "/v1/viagens", { key: "viagem-0003" })).statusCode).toBe(200);
+    await presence.mark(broke.playerId, "porta", "para-marginal|ao-lua/l1|mutamba");
+    expect((await post(broke.token, "/v1/viagens", { key: "viagem-0004" })).json()).toEqual({ error: "insufficient" });
+    expect(await auditLedger(sql)).toMatchObject({ ok: true, sum: 0 });
+    await presence.retire("zona-bairros");
+  });
+});
+
 describe("a new player's first hour (Task 4.7)", () => {
   const post = (token: string, url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url, headers: as(token), payload });
   const get = (token: string, url: string) => app.inject({ method: "GET", url, headers: as(token) });
@@ -1188,7 +1253,18 @@ describe("a new player's first hour (Task 4.7)", () => {
     expect((await post(one.token, "/v1/familia")).statusCode).toBe(200);
     // The day's errands, each done as the street does it: the zone's word on where the player stands, whom they met.
     const day = (await get(one.token, "/v1/recados")).json() as { recados: (Recado & { done: boolean })[] };
-    for (const each of day.recados) {
+    // Putting money by comes after the work, as it would for someone dealt little: a card of 2.000 Mk that has
+    // bought what its errands asked for cannot bank 1.500 until it has earned (F-275).
+    let worked = false;
+    const inOrder = [...day.recados.filter((each) => each.kind !== "guarda"), ...day.recados.filter((each) => each.kind === "guarda")];
+    for (const each of inOrder) {
+      if (each.kind === "guarda") {
+        for (const [n, round] of PRIMEIRA_HORA.biscatos.entries()) {
+          await presence.mark(one.playerId, "biscato", `hora${n}:${round.kind}:${round.score}`, 600);
+          expect((await post(one.token, "/v1/biscatos/pagar")).statusCode).toBe(200);
+        }
+        worked = true;
+      }
       if (each.kind === "traz" || each.kind === "vaiver") {
         if (each.kind === "traz") {
           await presence.mark(one.playerId, "loja", "cantina-largo");
@@ -1198,7 +1274,8 @@ describe("a new player's first hour (Task 4.7)", () => {
         await presence.mark(one.playerId, "lugar", `${each.place! % 10}/10`);
       } else if (each.kind === "guarda") {
         await presence.mark(one.playerId, "caixa");
-        expect((await post(one.token, "/v1/bank/deposit", { amount: each.amount, key: `hora-guarda-${each.n}` })).statusCode).toBe(200);
+        const kept = await post(one.token, "/v1/bank/deposit", { amount: each.amount, key: `hora-guarda-${each.n}` });
+        expect(kept.statusCode, `guarda ${each.amount}: ${kept.body} (card ${card.makuta}, wallet ${(await get(one.token, "/v1/me/wallet")).body.slice(0, 60)})`).toBe(200);
       } else {
         const newcomer = await newGuest(1451 + each.n);
         await presence.mark(one.playerId, "conheceu", `${one.playerId},${newcomer.playerId}`, 600);
@@ -1207,7 +1284,7 @@ describe("a new player's first hour (Task 4.7)", () => {
       expect(done.statusCode, `${each.kind}: ${done.body}`).toBe(200);
     }
     // A round of each biscato at the written scores, as the zone scores them and the API pays them.
-    for (const [n, round] of PRIMEIRA_HORA.biscatos.entries()) {
+    for (const [n, round] of worked ? [] : PRIMEIRA_HORA.biscatos.entries()) {
       await presence.mark(one.playerId, "biscato", `hora${n}:${round.kind}:${round.score}`, 600);
       expect((await post(one.token, "/v1/biscatos/pagar")).statusCode).toBe(200);
     }

@@ -9,7 +9,7 @@ import { Kambas } from "./kambas.tsx";
 import { novidadesAgora, onNovidades } from "./rede-kambas.ts";
 import { familia, feito, messageOf, onToday, placeIn, today, whoOf, type FeitoSaid, type Recado, type Today } from "../recados/recados.ts";
 import { type WorldProvider } from "../world/provider.ts";
-import { type Marked } from "./telemovel.tsx";
+import type { Marked } from "./telemovel.tsx";
 import "./mensagens.css";
 
 /** A face for a sender: the initial of their name (not of "Tia" or "Kota") on a colour of their own. */

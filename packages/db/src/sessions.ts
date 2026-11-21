@@ -63,3 +63,17 @@ export async function keepWhereabouts(sql: Sql, playerId: string, provinceId: st
     UPDATE players SET province_id = ${provinceId}, district_id = ${at.districtId}, x = ${at.x}, y = ${at.y}, z = ${at.z}
     WHERE id = ${playerId} AND status = 'active'`;
 }
+
+/** How many times a player has crossed from one bairro to another today (the server's day, UTC): the first is on the house (D-11.2). */
+export async function viagensHoje(sql: Sql, playerId: string): Promise<number> {
+  const [row] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM viagens WHERE player_id = ${playerId} AND at >= date_trunc('day', now())`;
+  return row?.n ?? 0;
+}
+
+/** Writes a crossing down. False when this very crossing (its key) was written already. */
+export async function recordViagem(sql: Sql, crossing: { playerId: string; de: string; para: string; paid: number; key: string }): Promise<boolean> {
+  const rows = await sql`
+    INSERT INTO viagens (player_id, de, para, paid, key) VALUES (${crossing.playerId}, ${crossing.de}, ${crossing.para}, ${crossing.paid}, ${crossing.key})
+    ON CONFLICT (player_id, key) DO NOTHING RETURNING id`;
+  return rows.length > 0;
+}

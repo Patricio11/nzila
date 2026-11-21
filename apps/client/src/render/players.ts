@@ -86,7 +86,7 @@ export class Players {
   hands(id: number, mode: "dar" | "tem", item: string): void {
     const body = this.bodies.get(id);
     // The shapes of things are fetched the first time one is handed over in sight.
-    if (body) void import("./presente.ts").then(({ Hand }) => (body.hand ??= new Hand())[mode](item));
+    if (body) void import("./presente.ts").then(({ Hand }) => (body.hand ??= new Hand())[mode](item), () => {});
   }
 
   /** The gesture each body is making, or null: for the tests. */

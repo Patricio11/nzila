@@ -587,6 +587,18 @@ export const ptAOLater = {
   "mesa.jogoNome.damas": "damas",
   "mesa.jogoNome.ludo": "Não te irrites",
   // Inviting someone to play.
+  // From one bairro to another (Task 11.2, D-11.2). {a} is where the van goes, as one goes there ("para o Zango"), from the pack.
+  "action.viajar": "Sair do bairro",
+  "viagem.titulo": "Candongueiro {a}",
+  "viagem.gratis": "Hoje a primeira corrida é por conta da casa.",
+  "viagem.preco": "A corrida custa {preco}.",
+  "viagem.dados": "{mb} MB para carregar o bairro.",
+  "viagem.ir": "Ir {a}",
+  "viagem.ficar": "Ficar",
+  "viagem.caminho": "A sair {a}.",
+  "viagem.falta": "Não tens Makuta para a corrida.",
+  "viagem.falhou": "A carrinha não sai agora. Tenta daqui a pouco.",
+  "viagem.longe": "Chega-te à paragem.",
   // Convidar para sair (Task 10.13, D-10.3 to D-10.5). {a} is the place as one goes to it ("ao Pontão"), from the pack.
   "sair.abrir": "Convidar para sair",
   "sair.titulo": "Aonde vão, tu e {name}?",

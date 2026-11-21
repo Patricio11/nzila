@@ -94,8 +94,8 @@ const ease = (u: number): number => {
   return c * c * (3 - 2 * c);
 };
 
-/** The dance, once it has been fetched; and the fetching of it. */
-let dance: Record<"rir" | "dancar", (person: Person, e: number, u: number) => number> | null = null;
+/** The gestures, once they have been fetched; and the fetching of them. */
+let dance: Record<Emote, (person: Person, e: number, u: number) => number> | null = null;
 let dancing: Promise<void> | null = null;
 
 /** What a body that is only its shadow is painted with: nothing. */
@@ -284,35 +284,10 @@ export class Person {
       const length = EMOTE_SECONDS[emote.kind];
       const e = ease(emote.seconds / 0.28) * ease((length - emote.seconds) / 0.32);
       const u = emote.seconds;
-      if (emote.kind === "acenar") {
-        // The right arm up and out, the forearm going from side to side.
-        this.toward("upperArmR", e, -0.1, 0, -2.25);
-        this.toward("lowerArmR", e, -0.25, 0, -0.35 + 0.5 * Math.sin(u * 9.5));
-        this.toward("handR", e, 0, 0, 0.25 * Math.sin(u * 9.5 + 0.6));
-        this.toward("head", e * 0.7, -0.05, -0.12, -0.06);
-        this.toward("chest", e * 0.5, 0, -0.06, -0.04);
-      } else if (emote.kind === "aplaudir") {
-        const clap = Math.sin(u * 15);
-        for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
-          // Hands meet in front of the chest and part again.
-          this.toward(`upperArm${tag}`, e, -0.62, 0, -side * 0.3);
-          this.toward(`lowerArm${tag}`, e, -1.2, -side * (0.36 + 0.13 * clap));
-          this.toward(`hand${tag}`, e, -0.1, -side * 0.2);
-        }
-        this.toward("head", e * 0.6, -0.06 + 0.02 * clap);
-      } else if (emote.kind === "rir" || emote.kind === "dancar") {
-        // Laughing and dancing are fetched the first time anybody does either (dancar.ts); until they have come, the body waits a moment.
-        if (dance) hipsY -= e * dance[emote.kind](this, e, u) * scale;
-        else dancing ??= import("./dancar.ts").then((module) => void (dance = module));
-      } else {
-        // Chamar: the arm out in front, palm down, the hand folding toward the body again and again.
-        const beckon = Math.max(0, Math.sin(u * 8));
-        this.toward("upperArmR", e, -1.35, 0, -0.1);
-        this.toward("lowerArmR", e, -0.25 - 0.75 * beckon);
-        this.toward("handR", e, 0.5 - 0.9 * beckon);
-        this.toward("head", e * 0.7, 0.06, 0.05);
-        this.toward("chest", e * 0.5, 0.05);
-      }
+      // The gestures are fetched the first time anybody makes one (dancar.ts); until they have come, the body waits a moment.
+      if (dance) hipsY -= e * dance[emote.kind](this, e, u) * scale;
+      // Not come (a weak line, a page being left): asked for again at the next gesture, and no error of it.
+      else dancing ??= import("./dancar.ts").then((module) => void (dance = module), () => void (dancing = null));
     }
 
     doing.holding?.arms(this);

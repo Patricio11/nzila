@@ -10,7 +10,8 @@ import { type Sql } from "postgres";
 
 interface WorldSeed {
   readonly provinces: readonly { id: string; nameKey: string; open: boolean }[];
-  readonly districts: readonly { id: string; provinceId: string; nameKey: string; open: boolean }[];
+  /** `pack`: the folder its built pack is served from. `wakes`: the tiers of family that wake here (D-11.1); the first district takes everyone else. */
+  readonly districts: readonly { id: string; provinceId: string; nameKey: string; open: boolean; pack?: string; wakes?: readonly string[] }[];
 }
 
 export async function loadWorldSeed(): Promise<WorldSeed> {

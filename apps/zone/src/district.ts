@@ -45,6 +45,8 @@ export interface District {
   readonly tables?: readonly TablePlace[];
   /** The places two may go out to (Task 10.13), in the pack's order: a phone names one by its number. Millimetres. */
   readonly outings?: readonly { readonly x: number; readonly z: number }[];
+  /** The ways out to other bairros (Task 11.2): where each is, where it leads, and the spawn one arrives at there. Millimetres. */
+  readonly gateways?: readonly { readonly id: string; readonly x: number; readonly z: number; readonly to: string; readonly arrive: string }[];
   /** The benches' seats, in the pack's order: a phone names one by its number to sit on it (F-205). Millimetres. */
   readonly benches?: readonly Place[];
   /** Where a player whose Energia runs out wakes (Task 4.4): the district's hospital or centro médico, from its places. */
@@ -63,7 +65,8 @@ interface ManifestRead {
   readonly pois?: readonly { readonly id: string; readonly pos: readonly [number, number, number]; readonly glyph?: string; readonly outing?: boolean }[];
   readonly routes?: readonly { readonly id: string; readonly kind: string; readonly spline: string; readonly stopPoints: readonly number[]; readonly headwaySeconds: number }[];
   readonly npc?: { readonly crowd: string | null };
-  readonly spawns: readonly { readonly pos: readonly [number, number, number]; readonly facing?: number; readonly kind: string }[];
+  readonly spawns: readonly { readonly id?: string; readonly pos: readonly [number, number, number]; readonly facing?: number; readonly kind: string }[];
+  readonly gateways?: readonly { readonly id: string; readonly pos: readonly [number, number, number]; readonly to: string; readonly arrive: string }[];
   readonly tables?: readonly { readonly game: "xadrez" | "damas" | "ludo"; readonly pos: readonly [number, number, number]; readonly facing: number; readonly seats: readonly { readonly pos: readonly [number, number, number]; readonly facing: number }[] }[];
 }
 
@@ -75,6 +78,8 @@ export const SHOP_GLYPHS = ["cantina", "flores", "gelado"];
 export const SHOP_REACH_MM = 3500;
 /** How near a place a player must stand for an errand there to be done. */
 export const PLACE_REACH_MM = 4500;
+/** How near a way out to another bairro a player must stand to take it. */
+export const GATEWAY_REACH_MM = 7000;
 /** That a player met someone is believed this long, in seconds: long enough to be told "chegou gente nova" and go. */
 export const MET_TTL_S = 1800;
 
@@ -97,6 +102,11 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     yaw: Math.round((spawn.facing ?? 0) * 100),
   };
   const paragens = new Map((manifest.paragens ?? []).map((one) => [one.id, { x: Math.round(one.pos[0] * 1000), y: Math.round(one.pos[1] * 1000), z: Math.round(one.pos[2] * 1000), yaw: 0 }]));
+  // Where someone from another bairro arrives (a spawn of kind "gateway") is come in at as a paragem is, by its name.
+  for (const one of manifest.spawns) {
+    if (one.kind === "gateway" && one.id && !paragens.has(one.id)) paragens.set(one.id, { x: Math.round(one.pos[0] * 1000), y: Math.round(one.pos[1] * 1000), z: Math.round(one.pos[2] * 1000), yaw: Math.round((one.facing ?? 0) * 100) });
+  }
+  const gateways = (manifest.gateways ?? []).map((one) => ({ id: one.id, x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000), to: one.to, arrive: one.arrive }));
   // A place whose sign is the bank's is a caixa.
   const caixas = (manifest.pois ?? []).filter((one) => one.glyph === CAIXA_GLYPH).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   // A place whose sign is a shop's is one: a player standing at it may buy what it sells.
@@ -120,7 +130,7 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     const kind = /^biscato-([a-z]+)-/.exec(one.id)?.[1];
     return kind ? [{ kind, x: mm(one.pos[0]), z: mm(one.pos[2]) }] : [];
   });
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
+  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, gateways, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

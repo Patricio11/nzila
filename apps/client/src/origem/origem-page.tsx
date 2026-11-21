@@ -11,7 +11,7 @@ import { type Origin } from "@nzila/economy";
 import { ptAO, ptAOTranslator as tr, type MessageKey } from "@nzila/i18n";
 import { Button, Pano, RoadMark, Wordmark, type PanoColour } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
-import { dealtOrigin } from "../world/account.ts";
+import { askAsPlayer, dealtOrigin } from "../world/account.ts";
 import "./origem.css";
 
 declare global {
@@ -29,8 +29,10 @@ const word = (key: string, fallback: string): string => (key in ptAO ? tr.t(key 
 
 export function Origem() {
   const params = new URLSearchParams(location.search);
-  const onward = params.get("voltar") ?? "/andar?pack=l1";
+  const [onward, setOnward] = useState(params.get("voltar") ?? "/andar?pack=l1");
   const [card, setCard] = useState<Origin | null>(null);
+  // The card says where one wakes (D-11.1): the server is asked which bairro that is, so that no other is fetched first.
+  useEffect(() => void (card && askAsPlayer<{ pack: string | null }>("GET", "/v1/me/place").then(({ answer }) => answer?.pack && setOnward((was) => was.replace(/pack=[\w-]+/, `pack=${answer.pack}`)))), [card !== null]);
   const [turned, setTurned] = useState(params.has("virada"));
 
   useEffect(() => {

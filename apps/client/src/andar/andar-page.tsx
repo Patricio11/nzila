@@ -34,7 +34,7 @@ import { account, balanceNow, type KeptOut } from "../world/account.ts";
 import { type TierName } from "../render/tiers.ts";
 import { dress, savedLook } from "../render/wardrobe.ts";
 import type { Sound } from "../sound/sound.ts";
-import { Telemovel, type Marked } from "../telemovel/telemovel.tsx";
+import type { Marked } from "../telemovel/telemovel.tsx";
 import { Arriving } from "../frontdoor/arriving.tsx";
 import { LocalWorld } from "../world/provider.ts";
 import { type NetState } from "../net/retry.ts";
@@ -99,6 +99,16 @@ function LazySheet(props: Parameters<typeof import("../conversa/sheet.tsx").Play
   return fetchedSheet ? fetchedSheet(props) : null;
 }
 
+/** The Telemóvel, fetched the first time it is taken out: not everyone does, and the way in is full (F-270). */
+let fetchedPhone: typeof import("../telemovel/telemovel.tsx").Telemovel | null = null;
+function LazyPhone(props: Parameters<typeof import("../telemovel/telemovel.tsx").Telemovel>[0]) {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    if (props.open && !fetchedPhone) void import("../telemovel/telemovel.tsx").then((module) => ((fetchedPhone = module.Telemovel), redraw((n) => n + 1)), () => {});
+  }, [props.open]);
+  return fetchedPhone ? fetchedPhone(props) : null;
+}
+
 /** The cantina's grille and the Mochila, fetched the first time either is opened (F-188). */
 type Loja = typeof import("../cantina/loja.tsx");
 let fetchedLoja: Loja | null = null;
@@ -114,7 +124,7 @@ function LazyLoja({ show }: { show: (module: Loja) => preact.JSX.Element }) {
 const pratos = () => import("../biscatos/pratos.tsx");
 const BISCATOS: Record<string, typeof pratos | undefined> = { pratos, carga: () => import("../biscatos/carga.tsx"), zunga: () => import("../biscatos/zunga.tsx"), carros: () => import("../biscatos/carros.tsx") };
 // A biscato's button is named by its kind ("pratos": "Lavar pratos").
-type Action = "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy" | "entregar" | "procurar" | "xadrez" | "damas" | "ludo" | "pratos" | "carga" | "zunga" | "carros";
+type Action = "viajar" | "sit" | "stand" | "board" | "getOff" | "askStop" | "stopAsked" | "caixa" | "buy" | "entregar" | "procurar" | "xadrez" | "damas" | "ludo" | "pratos" | "carga" | "zunga" | "carros";
 type Errands = import("../recados/rua.ts").StreetErrands;
 /** The tables of the bairro (Task 4B.1), fetched when the district has any. */
 type Tables = import("../mesas/mesas.ts").Mesas;
@@ -212,8 +222,13 @@ export function Andar() {
     void import("../sair/sair.tsx").then((module) => {
       sairRef.current = new module.Sair(module.lugaresDe(district.manifest.pois, (key) => district.word(key)));
       setSairM(() => module);
-    });
+    }, () => void (sairLoading.current = false));
   };
+  /** From one bairro to another (Task 11.2): fetched the first time the player stands at a paragem that leads elsewhere. */
+  type Entre = typeof import("./entre-bairros.tsx");
+  const [EntreM, setEntreM] = useState<Entre | null>(null);
+  const entre = useRef<{ module: Entre; portas: import("./entre-bairros.tsx").Porta[] } | "loading" | null>(null);
+  const [porta, setPorta] = useState<import("./entre-bairros.tsx").Porta | null>(null);
   /** The ride module: fetched once, and its drawing made in the street's world. */
   const loadCorrida = async (): Promise<typeof import("./corrida.tsx")> => {
     const module = await import("./corrida.tsx");
@@ -619,6 +634,20 @@ export function Andar() {
           asks.current.act = false;
           setShop(atShop);
         }
+        // At a paragem that leads to another bairro, standing still on foot, the button offers the van there.
+        const here = district;
+        if (!entre.current && here && here.manifest.gateways.length > 0) {
+          entre.current = "loading";
+          void import("./entre-bairros.tsx").then((module) => {
+            entre.current = { module, portas: module.portasDe(here.manifest.gateways, (key) => here.word(key)) };
+            setEntreM(() => module);
+          }, () => void (entre.current = null));
+        }
+        const wayOut = entre.current && entre.current !== "loading" && session?.walking && !seat && !ride && !moving ? entre.current.module.portaAqui(entre.current.portas, state.x / 1000, state.z / 1000) : null;
+        if (asks.current.act && wayOut && !atShop && !errand && !(!moving && world.atCaixa())) {
+          asks.current.act = false;
+          setPorta(wayOut);
+        }
         // At a biscato's place, standing still, the button offers the work.
         const biscatoHere = !seat && !ride && !moving ? world.atBiscato() : null;
         if (asks.current.act && biscatoHere) {
@@ -783,7 +812,7 @@ export function Andar() {
         if (session?.handed) {
           const { mode, item } = session.handed;
           session.handed = null;
-          void import("../render/presente.ts").then((module) => (hand ??= new module.Hand())[mode](item));
+          void import("../render/presente.ts").then((module) => (hand ??= new module.Hand())[mode](item), () => {});
         }
         const holding = hand?.update(seconds);
         person.pose({ speed, phase, time: seconds }, { sit, jump, land: flying ? 0 : air.land, ...(holding ? { holding } : {}), ...(emote ? { emote: { kind: emote.kind, seconds: frozen && held.emote ? skip : seconds - emote.began } } : {}) });
@@ -917,7 +946,7 @@ export function Andar() {
           }
         }
 
-        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : hired ?? (atTable ? null : seat ? "stand" : waiting ? "board" : tableNear ? tableNear.jogo : errand ? (errand.kind === "traz" ? "entregar" : "procurar") : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : biscatoHere ? (biscatoHere.kind as Action) : !moving && nearest() ? "sit" : null);
+        const action: Action | null = ride ? (ride.last.dwelling ? "getOff" : ride.asked ? "stopAsked" : "askStop") : hired ?? (atTable ? null : seat ? "stand" : waiting ? "board" : tableNear ? tableNear.jogo : errand ? (errand.kind === "traz" ? "entregar" : "procurar") : !moving && world.atCaixa() ? "caixa" : atShop ? "buy" : wayOut ? "viajar" : biscatoHere ? (biscatoHere.kind as Action) : !moving && nearest() ? "sit" : null);
         // Where each other player's chest is on the screen, in CSS pixels: for the tests that tap someone. Only those in
         // front of the camera: one behind it would project, mirrored, onto an empty part of the screen.
         const box = canvas.current?.getBoundingClientRect();
@@ -1139,7 +1168,7 @@ export function Andar() {
             {hud.action ? <ContextAction label={tr.t(`action.${hud.action}`)} disabled={hud.action === "stopAsked"} onPress={() => (asks.current.act = true)} /> : <span class="andar-action-space" />}
           </div>
           {biscato && Trabalho ? <Trabalho net={net} place={biscato.name} onClose={() => (setBiscato(null), setTrabalho(null))} /> : null}
-          <Telemovel world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} abrir={abrirKamba} onClose={() => (setPhone(false), setPhoneApp(null), setAbrirKamba(null))} ir={async (kind, to) => {
+          <LazyPhone world={world} open={phone} first={phoneApp} marked={marked} onMark={setMarked} abrir={abrirKamba} onClose={() => (setPhone(false), setPhoneApp(null), setAbrirKamba(null))} ir={async (kind, to) => {
             const why = await (await loadCorrida()).pedir(net, kind, to);
             if (why === null) setPhone(false);
             return why;
@@ -1159,6 +1188,7 @@ export function Andar() {
           {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila zone={net.current} onClose={() => setBag(false)} />} /> : null}
           {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} gesto={(kind) => (asks.current.emote = kind)} /> : null}
           {SairM && sairRef.current && !met && !shop && !bag && !phone ? <SairM.Ui sair={sairRef.current} net={net} /> : null}
+          {EntreM && porta ? <EntreM.Viagem porta={porta} onClose={() => setPorta(null)} leave={() => net.current?.leave()} go={(pack, arrive) => location.assign(`/andar?pack=${pack}&paragem=${arrive}`)} /> : null}
           {met ? (
             <LazySheet
               met={met}

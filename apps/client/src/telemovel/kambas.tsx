@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { blockPlayer, reportPlayer, type ReportReason } from "../world/money.ts";
 import { type WorldProvider } from "../world/provider.ts";
 import { calar, conversa, escrever, lista, responder, verNovidades, type Jogo, type Kamba, type Lista, type Mensagem } from "./rede-kambas.ts";
-import { type Marked } from "./telemovel.tsx";
+import type { Marked } from "./telemovel.tsx";
 import "./kambas.css";
 
 const REASONS: readonly ReportReason[] = ["insults", "harassment", "sexual", "scam", "cheating", "name", "other"];

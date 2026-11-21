@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "player": {
     "startingFloor": 1500
   },
@@ -7,7 +7,8 @@
     "candongueiroLocal": 200,
     "motoTaxi": 200,
     "kupapata": 250,
-    "taxi": 300
+    "taxi": 300,
+    "entreBairros": 300
   },
   "transfers": {
     "noSendDays": 3,

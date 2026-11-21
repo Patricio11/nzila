@@ -51,7 +51,8 @@ export function FrontDoor() {
     // With no server to answer, the game opens all the same, and asks again next time.
     await ensureGuest();
     // Someone new chooses how they look before they arrive; someone who has, goes straight in.
-    const world = `/andar?pack=${front.pack}`;
+    // The bairro they were last in on this phone; for someone new, the first, until their card says otherwise.
+    const world = `/andar?pack=${localStorage.getItem("nzila.pack") || front.pack}`;
     location.assign(localStorage.getItem("nzila.look") ? world : `/provador?voltar=${encodeURIComponent(world)}`);
   };
   /** By the main door, or by the light one. Someone never seen here is asked their age first. */

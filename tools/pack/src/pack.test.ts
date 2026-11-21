@@ -349,7 +349,8 @@ describe("pack check", () => {
       expect.stringMatching(/^sizes\.total\.normal: \d+ bytes, over the 8000000 of a district$/),
       expect.stringMatching(/^sizes\.firstView: \d+ bytes, over the 5700000 left for a first play$/),
     ]);
-  });
+    // It writes and reads half a megabyte several times: seconds, when the gate is busy with everything else (F-262).
+  }, 30_000);
 
   test("the drawing budgets, estimated from where players stand, as the reference phone streams", async () => {
     // The reference phone only ever draws a chunk's reduced model, so that is the one that must be light.

@@ -264,14 +264,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         process.exitCode = 1;
       }
     }
-  } else if (command === "l1") {
+  } else if (command === "l1" || command === "zango") {
+    // A real district: Marginal e Baixa, or Zango (docs/PHASE_11_PLAN.md). Each is drawn by its own script.
+    const place = command === "l1" ? { script: "make_l1.py", said: "Marginal e Baixa" } : { script: "make_zango.py", said: "Zango" };
     if (!findBlender() || !findKtx()) {
-      console.warn("pack l1: SKIPPED, Blender or KTX-Software not installed. Marginal e Baixa was not built.");
+      console.warn(`pack ${command}: SKIPPED, Blender or KTX-Software not installed. ${place.said} was not built.`);
     } else {
       try {
         const registry = JSON.parse(await readFile(join(root, "content", "registry.json"), "utf8")) as Registry;
         const brands = (await readFile(join(root, "docs", "legal", "BRAND_TERMS.txt"), "utf8")).split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
-        const manifest = await buildDistrict("make_l1.py", join(root, "dist", "l1"), join(root, "apps", "client", "public", "packs", "l1"), registry, brands);
+        const manifest = await buildDistrict(place.script, join(root, "dist", command), join(root, "apps", "client", "public", "packs", command), registry, brands);
         const mb = (bytes: number): string => (bytes / 1_000_000).toFixed(2);
         const heaviest = Math.max(...manifest.chunks.map((chunk) => chunk.stats.near.tris));
         // The front door states what the first visit costs before a byte of it is fetched (Rule 2): the first
@@ -285,20 +287,21 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         };
         const company = (await extra("dev-people")) * 0.6 + (await extra("dev-vehicles"));
         const share = manifest.sizes.total.poupanca / manifest.sizes.total.normal;
-        await writeFile(
+        // The front door is the first district's.
+        if (command === "l1") await writeFile(
           join(root, "apps", "client", "public", "packs", "front.json"),
           `${JSON.stringify({ pack: "l1", nameKey: manifest.nameKey, firstView: { normal: Math.round(manifest.sizes.firstView + company), poupanca: Math.round(manifest.sizes.firstView * share + company) } })}\n`,
         );
-        console.log(`pack l1: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal (budget 8), the heaviest chunk ${heaviest} triangles, ${manifest.pois.length} points of interest. Served at /packs/l1/.`);
+        console.log(`pack ${command}: ${manifest.chunks.length} chunks, ${mb(manifest.sizes.total.poupanca)} MB at Poupança, ${mb(manifest.sizes.total.normal)} MB at Normal (budget 8), the heaviest chunk ${heaviest} triangles, ${manifest.pois.length} points of interest. Served at /packs/${command}/.`);
       } catch (error) {
         if (!(error instanceof PackError)) throw error;
-        console.error(`pack l1: ${error.problems.length} problem(s):`);
+        console.error(`pack ${command}: ${error.problems.length} problem(s):`);
         for (const problem of error.problems.slice(0, 40)) console.error(`  - ${problem}`);
         process.exitCode = 1;
       }
     }
   } else {
-    console.error("usage: dev-pack.ts palette | dev | l1");
+    console.error("usage: dev-pack.ts palette | dev | l1 | zango");
     process.exitCode = 1;
   }
 }

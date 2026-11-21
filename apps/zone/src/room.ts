@@ -47,7 +47,7 @@ import { type Sql } from "postgres";
 import { BISCATO_GRACE_MS, BISCATO_NOTE_S, scoreRonda, spotNear, takeInputs, type Ronda } from "./biscatos.ts";
 import { Channel, type Place } from "./channel.ts";
 import { BOARD_REACH_MM as RIDE_REACH_MM, Corridas, poseOf, type Corrida } from "./corridas.ts";
-import { CAIXA_REACH_MM, MET_TTL_S, PLACE_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
+import { CAIXA_REACH_MM, GATEWAY_REACH_MM, MET_TTL_S, PLACE_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
 import { MESA_SEEN_MM, Mesas, type Terminada } from "./mesas.ts";
 import { Talk, reached } from "./talk.ts";
 
@@ -142,6 +142,8 @@ interface Held {
   withWhom: string;
   withAt: number;
   nudgedAt: number;
+  /** When they were last said to be standing at a way out to another bairro. */
+  portaAt: number;
   shopAt: number;
   placeAt: number;
   /** The players this one has met in this channel, by their ids: the API asks whether one of them is new. */
@@ -380,7 +382,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false, ronda: null });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, portaAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false, ronda: null });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -408,7 +410,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = settleLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, this.rules.tiredBelow) }, eating: false, ronda: null });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, portaAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, this.rules.tiredBelow) }, eating: false, ronda: null });
     this.lineOfEntity.set(entityId, line);
     this.channel.setTired(entityId, tooTired(needs, this.rules.tiredBelow));
     // Noted at once where they came in, not at the next five-second round: a kamba going to them finds them (Task 4B.2).
@@ -1248,6 +1250,19 @@ export class ChannelRoom {
         if (!shop) continue;
         held.shopAt = now;
         void this.presence.mark(held.playerId, "loja", shop.id).catch(() => {});
+      }
+    }
+    // And whoever stands at a way out to another bairro, which one, where it leads and where one arrives there: the
+    // API sells the crossing only on this word (Task 11.2). Never from a van or a seat.
+    if (tick % STEPS_A_LOOK === 0 && this.presence && (this.district.gateways?.length ?? 0) > 0) {
+      const now = Date.now();
+      for (const held of this.held.values()) {
+        if (now - held.portaAt < MARK_EVERY_MS) continue;
+        const at = this.channel.placeOf(held.entityId);
+        const gateway = at && !this.channel.ridingOf(held.entityId) && !this.channel.sittingOf(held.entityId) ? this.district.gateways!.find((one) => Math.hypot(one.x - at.x, one.z - at.z) <= GATEWAY_REACH_MM) : undefined;
+        if (!gateway) continue;
+        held.portaAt = now;
+        void this.presence.mark(held.playerId, "porta", `${gateway.id}|${gateway.to}|${gateway.arrive}`).catch(() => {});
       }
     }
     // And which of the district's places a player stands at, as "<its number>/<how many there are>": an errand at a

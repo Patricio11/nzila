@@ -8,7 +8,7 @@ import { WORLD } from "@nzila/world/client";
 import { type ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { type DistrictMap, type MapLine, type WorldProvider } from "../world/provider.ts";
-import { type Ir, type Marked } from "./telemovel.tsx";
+import type { Ir, Marked } from "./telemovel.tsx";
 import { ptAOLater } from "@nzila/i18n/later";
 
 // The words of this app came with it (F-195).

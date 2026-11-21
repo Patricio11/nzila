@@ -205,6 +205,13 @@ export async function playSeat(districtId: string, channel?: number): Promise<Pl
   const mine = account();
   if (!mine?.token) return null;
   const asked = await ask<PlaySeat>("POST", "/v1/play/join", { districtId, ...(channel ? { channel } : {}) }, mine.token);
+  // Sent to the bairro that is theirs, with whatever else the address asked for.
+  const elsewhere = (asked.answer as { elsewhere?: string } | null)?.elsewhere;
+  if (elsewhere) {
+    location.replace(location.href.replace(/pack=[\w-]+/, `pack=${elsewhere}`));
+    return null;
+  }
+  if (asked.answer) localStorage.setItem("nzila.pack", new URLSearchParams(location.search).get("pack") ?? "");
   if (asked.error === "kept_out") return { out: { kind: asked.said?.kind === "ban" ? "ban" : "suspend", until: typeof asked.said?.until === "string" ? asked.said.until : null } };
   return asked.answer;
 }

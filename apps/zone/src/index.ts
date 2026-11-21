@@ -22,7 +22,7 @@ import { startZone } from "./server.ts";
 const port = Number(process.env.ZONE_PORT ?? 2567);
 const packs = process.env.ZONE_PACKS
   ? process.env.ZONE_PACKS.split(",").map((folder) => pathToFileURL(`${folder.trim()}/`))
-  : ["l1", "dev"].map((pack) => new URL(`../../client/public/packs/${pack}/`, import.meta.url)).filter((folder) => existsSync(new URL("manifest.json", folder)));
+  : ["l1", "zango", "dev"].map((pack) => new URL(`../../client/public/packs/${pack}/`, import.meta.url)).filter((folder) => existsSync(new URL("manifest.json", folder)));
 
 const sql = connect();
 const districts = [];

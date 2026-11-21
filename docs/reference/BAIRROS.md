@@ -58,6 +58,8 @@ The founder dropped Vila Flor on 2026-11-19 ("forget about Vila Flor, we do Vila
 
 **4. Life and landmarks.** The CFL railway station on the line Musseques to Viana to Catete; the **Mercado do 30** at Km 30 (over 5 200 sellers in 12 sections, about 15 000 people a day; produce, live animals, rice, oil). On the map: private colégios, event halls (*salões de festa*, one with a pool), churches and a Kingdom Hall, fuel stations, transport yards. Paragens **not organised**: in February 2026 Viana moved two well-known boarding points, "Bombas dos Mutilados" and "Ponte Amarela" (Ver Angola headline): paragens named after a fuel station and a yellow bridge.
 
+**4b. Zango is many (the founder, 2026-11-21, two pictures; `docs/PHASE_11_PLAN.md` D-11.6).** Zango 1, 2, 3 and on, and Zango 8000. By day, an older Zango: a wide earth street, zinc stalls on poles, a block kiosk painted in the phone companies' three colours, a barbearia with its name on the wall, mangueiras over the roofs, wires sagging between poles. At night from the air, Zango 8000: tarred and planned, every street orange under sodium lamps, apartment blocks of three and four floors in rows, walled yards lit white.
+
 **5. Rules for the game.**
 - A dual carriageway (2 + 2 lanes, median, lamp posts) as the spine; the only tar. Everything off it is earth.
 - Off the spine: straight streets 8 to 12 m wide, 100 to 300 m apart, in patches of different angle; dead-end stubs 30 to 80 m into each block.

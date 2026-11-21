@@ -338,6 +338,17 @@ export const presentes = pgTable("presentes", {
   at: at("at").notNull().defaultNow(),
 });
 
+/** Every crossing from one bairro to another (D-11.2): paid or, the first of a day, on the house. */
+export const viagens = pgTable("viagens", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  playerId: uuid("player_id").notNull(),
+  de: text("de").notNull(),
+  para: text("para").notNull(),
+  paid: bigint("paid", { mode: "number" }).notNull(),
+  key: text("key").notNull(),
+  at: at("at").notNull().defaultNow(),
+});
+
 export const staffRoles = pgTable(
   "staff_roles",
   {
@@ -433,6 +444,7 @@ export const tables = {
   kambas,
   mensagens,
   presentes,
+  viagens,
   staffRoles,
   auditLog,
   featureFlags,

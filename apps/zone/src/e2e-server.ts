@@ -15,7 +15,7 @@ const url = new URL(databaseUrl());
 url.pathname = "/nzila_e2e";
 const sql = connect(url.toString(), 10);
 const districts = [];
-for (const pack of ["dev", "l1"]) {
+for (const pack of ["dev", "l1", "zango"]) {
   const folder = new URL(`../../client/public/packs/${pack}/`, import.meta.url);
   // A machine without Blender has no packs: the zone then runs nothing, and the tests that need it say so.
   if (!existsSync(new URL("manifest.json", folder))) continue;

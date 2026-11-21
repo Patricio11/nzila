@@ -34,7 +34,9 @@ export function watch(page: Page): Watch {
   const errors: string[] = [];
   let total = 0;
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
+    // Safari writes down every request a page was still making when it was left ("... due to access control
+    // checks."): the game and its API are one origin, so this is never a refusal, only a page that moved on (F-262).
+    if (message.type() === "error" && !/\/api\/\S* due to access control checks\.$/.test(message.text())) errors.push(message.text());
   });
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("response", (response) => {

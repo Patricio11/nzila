@@ -50,6 +50,8 @@ const gateway = z.strictObject({
   arrive: id,
   mode: z.enum(["walk", "ride", "walk|ride"]),
   openFlag: key,
+  /** The name of where it leads, in this pack's own words (and, at `<nameKey>.a`, as one goes there: "para o Zango"). */
+  nameKey: key.optional(),
 });
 
 /** `glyph` says what kind of place it is, by the name of a house glyph: the sign that floats over it. */
@@ -167,7 +169,8 @@ export type TierBytes = z.infer<typeof tierBytes>;
 /** Which provinces and districts exist (content/registry.json). */
 export const registrySchema = z.strictObject({
   provinces: z.array(z.strictObject({ id: provinceIdSchema, nameKey: key, open: z.boolean() })),
-  districts: z.array(z.strictObject({ id: districtIdSchema, provinceId: provinceIdSchema, nameKey: key, open: z.boolean() })),
+  // `pack`: the folder its built pack is served from. `wakes`: the tiers of family that wake there (D-11.1).
+  districts: z.array(z.strictObject({ id: districtIdSchema, provinceId: provinceIdSchema, nameKey: key, open: z.boolean(), pack: id.optional(), wakes: z.array(id).optional() })),
 });
 export type Registry = z.infer<typeof registrySchema>;
 

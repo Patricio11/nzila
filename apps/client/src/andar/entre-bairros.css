@@ -1,0 +1,42 @@
+/* From one bairro to another (Task 11.2): the sheet of the crossing, and the moment on the road. Tokens only. */
+.eb-back { position: absolute; inset: 0; z-index: 8; display: flex; align-items: flex-end; justify-content: center; background: var(--n-sombra); pointer-events: auto; }
+.eb-sheet { position: relative; box-sizing: border-box; width: 100%; max-width: 440px; border-radius: var(--r-sheet) var(--r-sheet) 0 0; background: var(--n-noite); color: var(--n-luz); overflow: hidden;
+  animation: eb-up 320ms var(--ease-mola) both; }
+.eb-in { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--s-3) calc(var(--s-3) + env(safe-area-inset-bottom)); }
+.eb-in h3 { margin: 0; font: var(--type-title); text-align: center; text-wrap: balance; }
+.eb-preco { margin: 0; font: var(--type-label); color: var(--n-dourado); text-align: center; }
+.eb-dados, .eb-said { margin: 0; font: var(--type-small); color: var(--n-luz-suave); text-align: center; }
+.eb-keys { display: flex; gap: var(--s-2); align-self: stretch; margin-top: var(--s-1); }
+.eb-keys .n-button { flex: 1; margin: 0; white-space: nowrap; }
+.eb-keys .n-button:first-child { flex: 0 0 auto; }
+
+/* The candongueiro, drawn small in the blue and white: a body, a white roof, windows, two wheels. */
+.eb-van { position: relative; display: block; width: 84px; height: 44px; }
+.eb-van::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 30px; border-radius: 10px 14px 6px 6px;
+  background: linear-gradient(var(--n-luz) 0 46%, var(--n-azul) 46%); box-shadow: inset 0 0 0 2px var(--n-pano-preto); }
+.eb-van::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 16px;
+  background: radial-gradient(circle at 8px 8px, var(--n-pano-preto) 0 7px, transparent 7.5px), radial-gradient(circle at calc(100% - 8px) 8px, var(--n-pano-preto) 0 7px, transparent 7.5px); }
+.eb-van-parada { animation: eb-idle 900ms ease-in-out infinite; }
+
+/* On the road: the whole screen for a moment, the van going across it. */
+.eb-caminho { position: absolute; inset: 0; z-index: 9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-3); background: var(--n-noite); color: var(--n-luz);
+  pointer-events: auto; animation: eb-fade 260ms ease-out both; }
+.eb-caminho .n-pano-faixa { position: absolute; top: 0; left: 0; right: 0; }
+.eb-caminho p { margin: 0; font: var(--type-title); text-align: center; }
+.eb-caminho .eb-van { animation: eb-drive 1700ms cubic-bezier(0.5, 0, 0.6, 1) both, eb-bounce 260ms ease-in-out infinite; }
+/* The road under it: the sky going gold, the tar, its broken line running back, and the dust the van raises. */
+.eb-estrada { position: relative; width: 100%; height: 132px; overflow: hidden; background: linear-gradient(var(--n-azul) 0, var(--n-dourado) 58%, var(--n-vermelho-fundo) 58% 100%); }
+.eb-estrada::before { content: ""; position: absolute; left: 0; right: 0; bottom: 14px; height: 30px; background: var(--n-pano-preto); }
+.eb-estrada::after { content: ""; position: absolute; left: -40px; right: -40px; bottom: 27px; height: 4px;
+  background: repeating-linear-gradient(90deg, var(--n-luz) 0 22px, transparent 22px 40px); animation: eb-linha 300ms linear infinite; }
+.eb-estrada .eb-van { position: absolute; left: calc(50% - 42px); bottom: 34px; z-index: 1; }
+.eb-po { position: absolute; left: calc(50% - 86px); bottom: 36px; width: 40px; height: 18px; border-radius: 50%; background: var(--n-luz-suave); opacity: 0.5; animation: eb-po 520ms ease-out infinite; }
+
+@keyframes eb-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes eb-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes eb-idle { 0%, 100% { transform: none; } 50% { transform: translateY(-2px); } }
+@keyframes eb-drive { from { translate: -46vw 0; } to { translate: 46vw 0; } }
+@keyframes eb-bounce { 0%, 100% { transform: none; } 50% { transform: translateY(-2px); } }
+@keyframes eb-linha { from { transform: none; } to { transform: translateX(-40px); } }
+@keyframes eb-po { from { transform: scale(0.5); opacity: 0.6; } to { transform: translateX(-26px) scale(1.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .eb-sheet, .eb-caminho, .eb-van, .eb-van-parada, .eb-caminho .eb-van, .eb-estrada::after, .eb-po { animation: none !important; } }

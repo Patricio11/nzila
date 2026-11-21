@@ -440,7 +440,7 @@ The phases below keep their numbers and their tasks. **The order they are built 
 
 1. **Phase 4** as written: money, items, shops, needs, biscatos done by hand.
 2. **Things to do together, brought forward:** hailing a kupapata or a táxi (the first line of 6.2); *Convidar para sair* and giving a gift (the first two lines of 10.13), for players of 18 or over; one small game two strangers can play in a minute (4B.1, Não te irrites, already here).
-3. **The second bairro, brought forward: Zango.** The pack pipeline's hardening and the handoff between districts (11.1, 11.2) come with it. Most players are born into a family of little money, and their card must wake them where it says. Until Zango exists nobody is told they were born anywhere but the Marginal.
+3. **The second bairro, brought forward: Zango.** *(Built 2026-11-21, art pass 1: `docs/PHASE_11_PLAN.md`. Families of little money wake there; the candongueiro goes between it and the Marginal.)* The pack pipeline's hardening and the handoff between districts (11.1, 11.2) come with it. Most players are born into a family of little money, and their card must wake them where it says. Until Zango exists nobody is told they were born anywhere but the Marginal.
 4. **Phase 4B**, the alpha, with two bairros.
 5. Then the phases in their order, and **the bairros in the founder's order: Zango, Cazenga, Maianga, Ilha de Luanda, Mussulo**, then the rest of 15 as the players ask. The Ilha and Mussulo are where the water is: **the jet ski (mota de água) is a game there** (15.1's water vehicles, as a run against the clock and against another player).
 
@@ -884,12 +884,12 @@ The phases below keep their numbers and their tasks. **The order they are built 
 
 ### Task 11.1: Pack pipeline hardening
 - [ ] Everything L1 needed that was special-cased moves into the manifest; `pack:check` grows the checks L1 taught us; a pack publishes to a staging channel first.
-- [ ] The invariant test `province-is-content`: a grep fails the build on any district or province id or name in `apps/` or `packages/` outside `content/`, fixtures and the registry seed.
+- [x] *(Already kept, found on the recheck of 2026-11-21: `packages/ui/src/house-rules.test.ts` fails on any id of `content/registry.json` in `apps`, `packages` or `tools`; the registry now also says which pack each bairro is and who wakes there, `docs/PHASE_11_PLAN.md`.)* The invariant test `province-is-content`: a grep fails the build on any district or province id or name in `apps/` or `packages/` outside `content/`, fixtures and the registry seed.
 - Depends on: 0.6, 1.5 · Unblocks: 11.3, 12.3.
 
 ### Task 11.2: District handoff
-- [ ] Gateways in the manifest (the causeway, a paragem, a pier): crossing one saves state, reserves a seat in the next district, streams its first chunks while a short travel moment plays (the ride, with the size of the download shown), and arrives. A candongueiro route may cross districts.
-- [ ] Honest limit, recorded: borders are gateways, not seamless. Seamless borders are a Phase 18 question.
+- [x] *(Built 2026-11-21 with Zango, brought forward (D-4.8), `docs/PHASE_11_PLAN.md` D-11.2 and D-11.4: a paragem that leads to the other bairro, the candongueiro there at 300 Mk with the first crossing of each day on the house, the megabytes said before anything is fetched, a moment on the road, arrival at the paragem there. A linha that itself crosses, and the ride seen from inside the van, wait for 6.1: F-273.)* Gateways in the manifest (the causeway, a paragem, a pier): crossing one saves state, reserves a seat in the next district, streams its first chunks while a short travel moment plays (the ride, with the size of the download shown), and arrives. A candongueiro route may cross districts.
+- [x] Honest limit, recorded: borders are gateways, not seamless. Seamless borders are a Phase 18 question.
 - Depends on: 3.2, 6.1 · Unblocks: 11.3, 16.1.
 
 ### Task 11.3: District L2, Ilha de Luanda

@@ -76,6 +76,19 @@ const PAGES = [
   ["pano-preto-carta", "/origem?carta=%7B%22family%22%3A%22mecanico-zungueira%22%2C%22pai%22%3A%22mecanico%22%2C%22mae%22%3A%22zungueira%22%2C%22tier%22%3A%22aperto%22%2C%22province%22%3A%22malanje%22%2C%22bairro%22%3A%22cazenga%22%2C%22makuta%22%3A2500%2C%22version%22%3A1%7D&pano=preto"],
   // The land (F-134): the imbondeiro, the mangueira, the red earth, the outdoors.
   // The banca of things to give, by the mercado (D-10.1), and the rehearsal town's.
+  // Zango (docs/PHASE_11_PLAN.md): the junction, the mercado, the largo, the campo, the igreja, a street of houses, from above, at night.
+  ["zango-cruzamento", "/cena?pack=zango&hour=16&tier=normal&at=171.5,96,1.7&look=176,120,1.2"],
+  ["zango-mercado", "/cena?pack=zango&hour=10&tier=normal&at=186,121,1.7&look=215,112,1.2"],
+  ["zango-largo", "/cena?pack=zango&hour=16.5&tier=normal&at=140,127,1.7&look=132,142,1.0"],
+  ["zango-geladaria", "/cena?pack=zango&hour=15&tier=normal&at=196,124,1.8&look=206,138,1.2"],
+  ["zango-campo", "/cena?pack=zango&hour=17&tier=normal&at=150,106,1.8&look=136,84,0.8"],
+  ["zango-igreja", "/cena?pack=zango&hour=9&tier=normal&at=204,112,1.8&look=204,86,3"],
+  ["zango-rua", "/cena?pack=zango&hour=17.3&tier=normal&at=235.5,150,1.7&look=235.5,250,1.5"],
+  ["zango-casas", "/cena?pack=zango&hour=11&tier=normal&at=80,59,1.7&look=60,68,1.4"],
+  ["zango-estrada", "/cena?pack=zango&hour=12&tier=normal&transito=30&at=120,123,1.8&look=200,122,1.4"],
+  ["zango-alto", "/cena?pack=zango&hour=12&tier=alta&at=172,60,70&look=172,128,0"],
+  ["zango-noite", "/cena?pack=zango&hour=20&tier=normal&at=171.5,100,1.8&look=180,122,1.6"],
+  ["zango-poupanca", "/cena?pack=zango&hour=16&tier=poupanca&at=171.5,96,1.7&look=176,120,1.2"],
   // A thing in the hand (F-257): carried, and held out.
   ["mao-tem", "/pose?tem=flores,perfume,pano,gelado&ang=25&pausa&t=1"],
   ["mao-tem-lado", "/pose?tem=chocolate,flores,rebucados,pano&ang=75&pausa&t=1"],

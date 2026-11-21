@@ -1060,6 +1060,11 @@ with open(os.path.join(out_dir, "mapa.json"), "w", encoding="utf-8") as handle:
     json.dump({"cellM": MAP_CELL_M, "rows": map_rows}, handle, separators=(",", ":"))
 
 spawn_x = 250.0
+mutamba_at = next(one["pos"] for one in places["paragens"] if one["id"] == "mutamba")
+words["l1.gateway.zango"] = "Zango"
+words["l1.gateway.zango.a"] = "para o Zango"
+with open(os.path.join(out_dir, "strings.pt-AO.json"), "w", encoding="utf-8") as handle:
+    json.dump(words, handle, ensure_ascii=False)
 partial = {
     "id": "ao-lua/l1",
     "province": "ao-lua",
@@ -1068,8 +1073,9 @@ partial = {
     "artPass": 1,
     "bounds": {"minX": 0, "minZ": 0, "maxX": WIDE, "maxZ": DEEP},
     "ambient": {"set": "l1", "soundBeds": []},
-    "spawns": [{"id": "arrival", "pos": [spawn_x, G, round(shore(spawn_x) + 6.0, 2)], "facing": 270, "kind": "first_arrival"}],
-    "gateways": [],
+    "spawns": [{"id": "arrival", "pos": [spawn_x, G, round(shore(spawn_x) + 6.0, 2)], "facing": 270, "kind": "first_arrival"}, {"id": "mutamba", "pos": mutamba_at, "facing": 0, "kind": "gateway"}],
+    # The way to Zango: the vans at the Mutamba (D-11.2). One arrives at the Mangueira.
+    "gateways": [{"id": "para-zango", "pos": mutamba_at, "to": "ao-lua/zango", "arrive": "mangueira", "mode": "ride", "openFlag": "world.open", "nameKey": "l1.gateway.zango"}],
     "pois": places["pois"],
     "routes": [
         {"id": "linha-marginal", "kind": "candongueiro", "spline": "routes/linha-marginal.json", "stops": ["marginal", "porto", "mutamba"], "stopPoints": [marginal_stops["marginal"], marginal_stops["porto"], marginal_stops["mutamba"]], "headwaySeconds": 240, "fareKey": "fares.candongueiroLocal"},

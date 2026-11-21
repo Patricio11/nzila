@@ -9,7 +9,7 @@ import { Button, EmptyState, Glyph, Skeleton } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { askAsPlayer } from "../world/account.ts";
 import { type WorldProvider } from "../world/provider.ts";
-import { type Marked } from "./telemovel.tsx";
+import type { Marked } from "./telemovel.tsx";
 import "./biscatos.css";
 
 // The words of this app came with it.

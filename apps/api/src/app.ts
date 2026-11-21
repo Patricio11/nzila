@@ -6,7 +6,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId, sink } from "@nzila/economy";
 import { BASE_BISCATOS, BISCATO_KINDS, isBiscatoKind, taperPercent } from "@nzila/economy/biscatos";
-import { adultOf, bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, lastPresente, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
+import { adultOf, loadWorldSeed, recordViagem, viagensHoje, whereaboutsOf, bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, lastPresente, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
 import { biscatosPaidToday, payBiscato, payHospital } from "@nzila/db";
 import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
@@ -49,6 +49,8 @@ export interface Deps {
   readonly phoneCodes?: boolean;
   /** The table a card of origin is drawn from, and the dice: the game's own unless a test brings others. */
   readonly origins?: OriginTable;
+  /** Which bairros exist, which pack each is, and who wakes in each (content/registry.json when not given). */
+  readonly world?: Awaited<ReturnType<typeof loadWorldSeed>>;
   readonly roll?: () => number;
   /** Where the zones say they are and seats are reserved: Redis (index.ts), or this process's memory when none is given. */
   readonly presence?: Presence;
@@ -435,6 +437,77 @@ export function buildApp(deps: Deps): FastifyInstance {
     },
   });
 
+  // ------------------------------------------------------------ where a player is (Task 11.2, D-11.1)
+  // Which bairros exist is data (content/registry.json). A player is in the bairro the zone last said they stand
+  // in; before they have stood anywhere, in the one their family's card wakes them in: families of little money
+  // in the bairro that takes them, everyone else in the first.
+  const world = deps.world ? Promise.resolve(deps.world) : loadWorldSeed();
+  const bairroOf = async (playerId: string): Promise<{ districtId: string; pack: string } | null> => {
+    const districts = (await world).districts.filter((one) => one.pack);
+    const first = districts[0];
+    if (!first) return null;
+    const known = (id: string | undefined): (typeof districts)[number] | undefined => districts.find((one) => one.id === id);
+    const standing = known((await presence.standing(playerId))?.districtId) ?? known((await whereaboutsOf(deps.sql, playerId))?.districtId);
+    if (standing) return { districtId: standing.id, pack: standing.pack! };
+    const tier = (await originOfPlayer(deps.sql, origins, playerId))?.tier;
+    const wakes = districts.find((one) => tier !== undefined && one.wakes?.includes(tier)) ?? first;
+    return { districtId: wakes.id, pack: wakes.pack! };
+  };
+
+  // Where the player is, for the phone to open the right bairro and nothing else first (megabytes are money).
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/me/place",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async (_body, caller) => (await bairroOf(caller.player.id)) ?? { districtId: null, pack: null },
+  });
+
+  // The candongueiro from one bairro to another (D-11.2). The zone says which way out the player stands at
+  // ("porta": the gateway, where it leads, where one arrives); the fare is the tunables', paid through the ledger,
+  // and the first crossing of each day is on the house; the crossing is a ticket the matchmaker honours once.
+  const crossingOf = async (playerId: string): Promise<{ gateway: string; to: string; arrive: string; pack: string } | null> => {
+    const [gateway, to, arrive] = ((await presence.marked(playerId, "porta")) ?? "").split("|");
+    const there = (await world).districts.find((one) => one.id === to && one.pack);
+    return gateway && arrive && there ? { gateway, to: there.id, arrive, pack: there.pack! } : null;
+  };
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/viagens",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async (_body, caller) => {
+      const crossing = await crossingOf(caller.player.id);
+      if (!crossing) throw new Refusal(409, "not_there");
+      const free = (await viagensHoje(deps.sql, caller.player.id)) === 0;
+      return { pack: crossing.pack, arrive: crossing.arrive, price: free ? 0 : tunables.now().fares.entreBairros, free };
+    },
+  });
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/viagens",
+    guard: "player",
+    body: z.strictObject({ key: z.string().regex(/^[A-Za-z0-9_-]{8,40}$/) }),
+    perMinute: 20,
+    handler: async (body, caller) => {
+      const crossing = await crossingOf(caller.player.id);
+      const from = await bairroOf(caller.player.id);
+      if (!crossing || !from) throw new Refusal(409, "not_there");
+      const free = (await viagensHoje(deps.sql, caller.player.id)) === 0;
+      const price = free ? 0 : tunables.now().fares.entreBairros;
+      if (price > 0) {
+        const paid = await recordTransfer(deps.sql, { debitAccount: accountId("player_cash", caller.player.id), creditAccount: sink("fare"), amount: price, reason: "fare", ref: "viagem", actionId: `viagem:${caller.player.id}:${body.key}` });
+        if (!paid.ok) throw new Refusal(409, paid.error === "insufficient_funds" ? "insufficient" : "failed");
+      }
+      await recordViagem(deps.sql, { playerId: caller.player.id, de: from.districtId, para: crossing.to, paid: price, key: body.key });
+      // The ticket: the matchmaker lets them into that bairro, for ten minutes.
+      await presence.mark(caller.player.id, "viagem", crossing.to, 600);
+      return { pack: crossing.pack, arrive: crossing.arrive, price, ...(await walletOf(deps.sql, caller.player.id)) };
+    },
+  });
+
   // The matchmaker (Task 3.2): which channel of a district this player is put in, and a ticket for a seat there.
   // The phone shows the ticket to the zone and nothing else: its session never leaves this address. People are put
   // together until a channel is comfortably full; `channel` is a friend's invitation to one in particular.
@@ -448,6 +521,13 @@ export function buildApp(deps: Deps): FastifyInstance {
       // Someone suspended or banned is not let into a street with others; their phone is told which and until when.
       const out = await keptOut(deps.sql, caller.player.id);
       if (out) throw new Refusal(403, "kept_out", { kind: out.kind, until: out.until });
+      // A bairro of the registry is come into where one is, or with a ticket for the crossing (D-11.2); a phone that
+      // opened another is told which is theirs. A rehearsal town is nobody's bairro and anyone walks it.
+      const here = await bairroOf(caller.player.id);
+      if (here && here.districtId !== body.districtId && (await world).districts.some((one) => one.id === body.districtId && one.pack) && (await presence.marked(caller.player.id, "viagem")) !== body.districtId) {
+        // Not a refusal: an answer. The phone goes there, and nothing is logged as having gone wrong.
+        return { elsewhere: here.pack };
+      }
       const room = zoneRoomOf(body.districtId);
       const zones = await presence.zones();
       if (!zones.some((zone) => zone.rooms.some((one) => one.name === room))) throw new Refusal(503, "no_zone");
