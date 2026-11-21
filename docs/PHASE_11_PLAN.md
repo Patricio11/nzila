@@ -47,6 +47,8 @@ What the pictures add to the kit: the phone-company kiosk (ours: three bands of 
 - **D-11.2 and D-11.4**: a pack's `gateways`; the zone says who stands at one ("porta"); `GET` and `POST /v1/viagens` (migration 0017, the tunable `fares.entreBairros`, the first crossing of each day free); the gold button "Sair do bairro", the sheet with the fare and the megabytes, the moment on the road, and arrival at the paragem there (`apps/client/src/andar/entre-bairros.tsx`, fetched at a way out).
 - **11.1**: the invariant was already kept; the registry carries what the code needed to know.
 
+- **Things to do, first of the second pass (2026-11-21):** water carried from the chafariz and the taças washed at the geladaria (two biscatos), and a ball on the campo.
+
 What it leaves is F-273.
 
 ## The order of work

@@ -95,7 +95,7 @@ places = {"pois": [], "paragens": []}
 words = {"world.ao-lua.zango.name": "Zango", "zango.gateway.marginal": "Marginal e Baixa", "zango.gateway.marginal.a": "para a Marginal"}
 OUTINGS = {"gelados-zango": ("Os gelados", "aos gelados"), "campo": ("O campo", "ao campo"), "damas": ("As damas", "às damas"), "mercado": ("O mercado", "ao mercado")}
 POI_GLYPHS = {"gelados-zango": "gelado", "banca-zango": "flores", "cantina-zango": "cantina", "mercado": "fruta", "damas": "xadrez", "paragem-mangueira": "megafone", "caixa-zango": "banco",
-              "biscato-carga-zango": "biscatos", "biscato-zunga-zango": "biscatos"}
+              "biscato-carga-zango": "biscatos", "biscato-zunga-zango": "biscatos", "biscato-carga-chafariz": "biscatos", "biscato-pratos-geladaria": "biscatos"}
 
 
 def poi(key, x, z, name, line):
@@ -152,7 +152,7 @@ for cx in range(ACROSS):
             b.at(gx, gz)
             b.level = kit.BOTH
             b.disc((gx, 0.006 + 0.001 * (n % 3), gz), ground_rng.uniform(1.4, 4.6), 7, ground_rng.choice(["sand", "sand", "earth", "lampPoolSand"]), squash=ground_rng.uniform(0.5, 1.0))
-        for n in range(8):
+        for n in range(5):
             gx, gz = cx * CHUNK + ground_rng.uniform(2, CHUNK - 2), cz * CHUNK + ground_rng.uniform(2, CHUNK - 2)
             if on_street(gx, gz) or ROAD[0] - 2 < gz < ROAD[1] + 2:
                 continue
@@ -184,7 +184,7 @@ def plot(px, pz, face_north, on_corner=False):
     houses += 1
     shops += 1 if shop else 0
     grown = rng.random()
-    if grown < 0.55:
+    if grown < 0.45:
         # A second room, of whatever there was money for.
         kit.casa(b, px + 4.6, house_z + sign * rng.uniform(-0.6, 1.2), yaw, rng, kind=rng.choice(["cru", "cru", "chapa"]), width=4.0, depth=rng.choice([4.0, 5.0]), ground=0.0)
     wall = rng.choice(["blockGrey", "blockGrey", "concrete", "paintWhite", "wall3"])
@@ -275,16 +275,16 @@ signs = [{"id": "saldo", "pos": [round(SALDO[0], 2), 2.0, round(SALDO[1] + 1.02,
 # The mercado de rua: stalls and bacias along the verge of the road, sunshades over them, and at its end the
 # banca of things to give (D-10.1).
 MERCADO = (PARAGEM[0] + 14.0, ROAD[0] - 4.2)
-for k in range(6):
-    sx = MERCADO[0] + k * 5.4
+for k in range(5):
+    sx = MERCADO[0] + k * 6.4
     block(sx, MERCADO[1], kb.banca(b, sx, MERCADO[1], rng, 0.0))
     for dz in (2.0, 2.9):
         if rng.random() < 0.7:
             kb.bacia_no_chao(b, sx + rng.uniform(-1.6, 1.6), MERCADO[1] + dz - 5.6, rng, 0.0)
     kb.banquinho(b, sx + 1.5, MERCADO[1] - 0.9, 0.0)
 # A second row behind, of zinc on poles: what is sold out of the sun.
-for k in range(4):
-    sx, sz = MERCADO[0] + 2.0 + k * 7.0, MERCADO[1] - 7.6
+for k in range(3):
+    sx, sz = MERCADO[0] + 3.0 + k * 9.5, MERCADO[1] - 7.6
     b.at(sx, sz)
     b.level = kit.BOTH
     for dx in (-1.8, 1.8):
@@ -299,7 +299,7 @@ for k in range(4):
     block(sx, sz - 0.3, 1.2)
 poi("mercado", MERCADO[0] + 13.0, MERCADO[1] + 2.4, "O mercado da estrada", "Fruta, peixe seco, fuba, carvão, sabão. Regateia-se a tudo, e ninguém leva a mal.")
 poi("biscato-zunga-zango", MERCADO[0] + 3.0, MERCADO[1] + 2.4, "As kitandeiras da estrada", "Há sempre uma bacia a mais. Pega nela e vende a quem passa.")
-banca_x, banca_z = MERCADO[0] + 6 * 5.4 + 1.0, MERCADO[1] + 0.2
+banca_x, banca_z = MERCADO[0] + 5 * 6.4 + 1.4, MERCADO[1] + 0.2
 block(banca_x, banca_z, kb.banca_de_presentes(b, banca_x, banca_z, rng, 0.0))
 poi("banca-zango", banca_x, banca_z + 1.7, "Banca da Tia Minga", "Flores, perfume e panos. Para a namorada, para a mãe, ou só porque sim.")
 
@@ -351,6 +351,13 @@ for k in range(5):
     b.at(tx, CAMPO[1] + CD / 2 + 2.2)
     b.tube([(tx - 0.3, 0.3, CAMPO[1] + CD / 2 + 2.2), (tx + 0.3, 0.3, CAMPO[1] + CD / 2 + 2.2)], [0.42, 0.42], 8, "tyre")
     b.seats.append((tx, 0.62, CAMPO[1] + CD / 2 + 2.2, math.pi))
+# The ball, where the last kick left it: stitched and patched, and everybody's.
+b.at(CAMPO[0] + 3.0, CAMPO[1] - 2.0)
+b.level = kit.BOTH
+b.gem((CAMPO[0] + 3.0, 0.12, CAMPO[1] - 2.0), (0.12, 0.12, 0.12), 6, "paintWhite", random.Random(9), rough=0.04)
+b.level = kit.FULL
+b.gem((CAMPO[0] + 3.05, 0.16, CAMPO[1] - 1.96), (0.06, 0.05, 0.06), 5, "tarShade", random.Random(10), rough=0.04)
+b.level = kit.BOTH
 kit.tree(b, CAMPO[0] + 16.0, CAMPO[1] + CD / 2 + 4.0, rng, 0.0, shade="sandDark", mix=("mangueira",), paved=False)
 poi("campo", CAMPO[0], CAMPO[1] + CD / 2 + 4.0, "O campo de terra", "À tarde joga-se aqui até não se ver a bola. Quem perde sai, quem ganha fica.")
 
@@ -370,6 +377,21 @@ for k in range(7):
     b.box((jx, 0.51, jz), (0.08, 0.06, 0.08), "paintWhite", skip_bottom=False)
 b.level = kit.BOTH
 block(CHAF[0], CHAF[1], 1.2)
+# Water is carried to whoever cannot come for it (a biscato, Task 4.5): a hand cart loaded with bidons, a little way
+# from the taps so that the queue is not in its way.
+AGUA = (CHAF[0] - 5.5, CHAF[1] + 0.5)
+b.at(*AGUA)
+b.level = kit.BOTH
+b.box((AGUA[0], 0.45, AGUA[1]), (0.9, 0.5, 1.4), "wood", skip_bottom=False)
+b.level = kit.FULL
+for side in (-0.5, 0.5):
+    b.tube([(AGUA[0] + side, 0.26, AGUA[1] + 0.2), (AGUA[0] + side * 1.14, 0.26, AGUA[1] + 0.2)], [0.26, 0.26], 8, "tyre")
+    b.tube([(AGUA[0] + side * 0.8, 0.6, AGUA[1] - 0.7), (AGUA[0] + side * 0.8, 0.75, AGUA[1] - 1.5)], [0.025, 0.025], 4, "pole", cap=False)
+for k in range(4):
+    b.box((AGUA[0] - 0.22 + (k % 2) * 0.44, 0.94, AGUA[1] - 0.3 + (k // 2) * 0.55), (0.3, 0.48, 0.24), "awningGold" if k % 2 else "zincBlue", skip_bottom=False)
+b.level = kit.BOTH
+block(AGUA[0], AGUA[1], 0.8)
+poi("biscato-carga-chafariz", AGUA[0] + 0.4, AGUA[1] + 2.2, "Os bidões do chafariz", "Há sempre quem não possa vir buscar água. Leva-lhe os bidões no carrinho, paga-se por cada carga.")
 poi("chafariz", CHAF[0] + 1.0, CHAF[1] + 2.4, "O chafariz", "A água vem de manhã cedo e ao fim da tarde. A fila de bidões guarda o lugar de cada um.")
 
 # ------------------------------------------------------------------ the largo: cantina, damas, caixa
@@ -394,6 +416,10 @@ for bx_ in (138.0, 154.0):
 GEL = (205.0, 138.0)
 rect = kb.geladaria(b, GEL[0], GEL[1], rng, 0.0)
 mark(rect[0], rect[1], rect[2], rect[3], "#")
+# The taças and the spoons are washed in a bacia at the side of the house (a biscato, Task 4.5).
+kb.bacia_no_chao(b, GEL[0] + 4.3, GEL[1] + 0.2, rng, 0.0, colour="zincBlue", goods=["paintWhite"])
+kb.banquinho(b, GEL[0] + 5.0, GEL[1] + 0.6, 0.0)
+poi("biscato-pratos-geladaria", GEL[0] + 5.0, GEL[1] - 0.6, "A bacia da geladaria", "As taças não se lavam sozinhas. O moço paga na hora, e ainda sobra um gelado.")
 poi("gelados-zango", GEL[0] - 0.5, GEL[1] - 3.3, "Geladaria do Zango", "Gelado de múcua e de ginguba, e sombra para o comer devagar.")
 # The barbearia: a house with its front open to the street and its name painted across the wall.
 kit.casa(b, 222.0, 140.0, math.pi, rng, kind="bloco", width=7.0, depth=5.0, ground=0.0, shop=True)
@@ -433,7 +459,7 @@ for lo, hi in STREETS:
             block(tx, tz, kit.tree(b, tx, tz, rng, 0.0, shade="sandDark", mix=("mangueira", "acacia"), paved=False))
 block(60.0, 110.0, kit.imbondeiro(b, 60.0, 110.0, random.Random(5), 0.0, shade="sandDark"))
 # Shade in the heart of the bairro: mangueiras and acácias where people stop, each with something under it.
-for tx, tz in [(116.0, 132.0), (163.0, 146.0), (180.0, 146.0), (228.0, 131.0), (192.0, 131.5), (114.5, 108.0), (164.5, 110.0), (228.5, 96.0), (179.0, 92.0), (150.0, 112.5), (97.0, 131.0), (247.0, 114.0), (60.0, 131.0), (281.0, 131.0)]:
+for tx, tz in [(116.0, 132.0), (180.0, 146.0), (228.0, 131.0), (114.5, 108.0), (228.5, 96.0), (150.0, 112.5), (97.0, 131.0), (247.0, 114.0), (60.0, 131.0), (281.0, 131.0)]:
     block(tx, tz, kit.tree(b, tx, tz, rng, 0.0, shade="sandDark", mix=("mangueira", "acacia", "mangueira"), paved=False))
     if rng.random() < 0.6:
         kb.bacia_no_chao(b, tx + rng.uniform(1.2, 2.0), tz + rng.uniform(-1.0, 1.0), rng, 0.0)
@@ -549,16 +575,16 @@ for who, points in enumerate([
 ]):
     there_and_back("any", points, crowd_rng.uniform(1.1, 1.4), rests=[(2, crowd_rng.uniform(8, 16), "")], who=who)
 # The sellers of the mercado, seated low by their bacias; one of them calls.
-for k in range(4):
-    sx = MERCADO[0] + 1.5 + k * 5.4 * 1.4
+for k in range(3):
+    sx = MERCADO[0] + 1.5 + k * 6.4 * 2
     actors.append({"role": "vendedeira", "who": k, "offset": round(k * 7.3, 1), "keys": timetable([("at", sx, MERCADO[1] - 0.9), ("stay", 24.0 + k * 3, "baixo", 0.0), ("stay", 2.2, "baixo-chamar", 0.0), ("stay", 14.0, "baixo", 0.0)])})
 # Whoever keeps each shop, and Tia Minga beside her banca.
 actors.append({"role": "any", "who": 3, "offset": 0.0, "keys": timetable([("at", CANTINA[0] - 0.8, CANTINA[1] - 1.2), ("stay", 30.0, "", 0.0), ("stay", 2.2, "chamar", 0.0), ("stay", 24.0, "", 0.0)])})
 actors.append({"role": "any", "who": 6, "offset": 5.0, "keys": timetable([("at", GEL[0] - 0.5, GEL[1] - 1.05), ("stay", 24.0, "", 180.0), ("stay", 2.2, "chamar", 180.0), ("stay", 15.0, "", 180.0)])})
 actors.append({"role": "vendedeira", "who": 5, "offset": 3.0, "keys": timetable([("at", banca_x + 1.75, banca_z + 0.1), ("stay", 22.0, "", 0.0), ("stay", 2.2, "chamar", 0.0), ("stay", 16.0, "", 0.0)])})
 # The children on the campo: after a ball nobody sees, from one end to the other and back.
-for who in range(3):
-    lane_z = CAMPO[1] - 6.0 + who * 6.0
+for who in range(2):
+    lane_z = CAMPO[1] - 5.0 + who * 9.0
     run = [("at", CAMPO[0] - 14.0, lane_z), ("go", CAMPO[0] + 2.0 + who * 3.0, lane_z + 3.0, 3.4), ("stay", 1.5, "", 90.0), ("go", CAMPO[0] + 15.0, lane_z - 2.0, 3.0), ("stay", 3.0 + who, "", 270.0),
            ("go", CAMPO[0] - 3.0, lane_z + 2.0, 3.6), ("go", CAMPO[0] - 14.0, lane_z, 2.6), ("stay", 4.0, "", 90.0)]
     actors.append({"role": "crianca", "who": who % 2, "offset": round(who * 3.7, 1), "keys": timetable(run)})

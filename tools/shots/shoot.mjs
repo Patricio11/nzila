@@ -88,6 +88,8 @@ const PAGES = [
   ["zango-estrada", "/cena?pack=zango&hour=12&tier=normal&transito=30&at=120,123,1.8&look=200,122,1.4"],
   ["zango-alto", "/cena?pack=zango&hour=12&tier=alta&at=172,60,70&look=172,128,0"],
   ["zango-noite", "/cena?pack=zango&hour=20&tier=normal&at=171.5,100,1.8&look=180,122,1.6"],
+  ["zango-chafariz", "/cena?pack=zango&hour=7.5&tier=normal&at=124,121,1.7&look=118,112,0.9"],
+  ["zango-bola", "/cena?pack=zango&hour=17&tier=normal&at=147,98,1.5&look=141,89,0.4"],
   ["zango-poupanca", "/cena?pack=zango&hour=16&tier=poupanca&at=171.5,96,1.7&look=176,120,1.2"],
   // A thing in the hand (F-257): carried, and held out.
   ["mao-tem", "/pose?tem=flores,perfume,pano,gelado&ang=25&pausa&t=1"],

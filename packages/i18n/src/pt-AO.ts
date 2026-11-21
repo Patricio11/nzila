@@ -171,6 +171,7 @@ export const ptAO = {
 
   // States every surface has.
   "state.soon": "Em breve",
+  "state.opening": "A abrir…",
   "state.saving": "A guardar",
   "state.saved": "Guardado",
   "state.reconnecting": "A ligar de novo…",

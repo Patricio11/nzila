@@ -106,7 +106,12 @@ function LazyPhone(props: Parameters<typeof import("../telemovel/telemovel.tsx")
   useEffect(() => {
     if (props.open && !fetchedPhone) void import("../telemovel/telemovel.tsx").then((module) => ((fetchedPhone = module.Telemovel), redraw((n) => n + 1)), () => {});
   }, [props.open]);
-  return fetchedPhone ? fetchedPhone(props) : null;
+  // On a weak line it takes a moment: said, so that the press is never met with nothing (F-276).
+  return fetchedPhone ? fetchedPhone(props) : props.open ? (
+    <div class="andar-net">
+      <Banner>{tr.t("state.opening")}</Banner>
+    </div>
+  ) : null;
 }
 
 /** The cantina's grille and the Mochila, fetched the first time either is opened (F-188). */

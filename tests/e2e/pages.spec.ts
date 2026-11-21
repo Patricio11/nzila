@@ -669,6 +669,39 @@ test.describe("the look chooser", () => {
 });
 
 test.describe("the Telemóvel", () => {
+  test("on a slow line the Telemóvel says it is coming, and comes (F-276): a press is never met with nothing", async ({ browser, request }, info) => {
+    if (info.project.name === "iphone") {
+      // The game's own keeping of its files cannot be switched off in Safari's engine here, and with it on the code is
+      // there before it can be held back: the notice is checked on the Android phone, and it is the same code.
+      info.annotations.push({ type: "skipped", description: "The Telemóvel on a slow line is checked on the Android profile only." });
+      test.skip();
+      return;
+    }
+    // On a first visit, before anything of the game is kept on the phone: what is kept would be there at once.
+    const context = await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "", serviceWorkers: "block" });
+    const page = await context.newPage();
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The Telemóvel on a slow line was not checked here." });
+      test.skip();
+      return;
+    }
+    const seen = watch(page);
+    // The Telemóvel is fetched the first time it is taken out (F-274): here its code takes two seconds to arrive.
+    await page.route(/\/assets\/telemovel-[\w-]+\.js$/, async (route) => {
+      await new Promise((later) => setTimeout(later, 2000));
+      await route.continue();
+    });
+    await page.goto("/andar?tier=poupanca&hour=16&sozinho");
+    await page.waitForFunction(() => window.__andar?.ready === true, undefined, { timeout: 45_000 });
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "A abrir…" })).toBeVisible({ timeout: 1500 });
+    await page.screenshot({ path: info.outputPath("telemovel-a-abrir.png") });
+    await expect(page.getByRole("dialog", { name: "Telemóvel" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("status").filter({ hasText: "A abrir…" })).toHaveCount(0);
+    expect(seen.errors).toEqual([]);
+    await context.close();
+  });
+
   test("opens over the world with its nine apps; the Mapa draws the district and marks a place for the compass; Definições change the hand and the picture and are remembered", async ({ page, request }, info) => {
     if (!(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "Marginal e Baixa or the people are not built (they need Blender). The Telemóvel was not checked here." });
