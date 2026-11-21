@@ -117,6 +117,23 @@ const PICTURES: Readonly<Record<string, readonly Shape[]>> = {
     ["k-noite", "M10 9a2.5 2 0 1 0 5 0 2.5 2 0 0 0-5 0z M15 8a2.5 2 0 1 0 5 0 2.5 2 0 0 0-5 0z M19 9.5a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"],
     ["", "M9 18h14"],
   ],
+  // The bar's (2026-11-21). Bun, meat, the leaf and the egg.
+  hamburguer: [
+    ["k-pao", "M5 14c0-6 5-9 11-9s11 3 11 9z M5 23h22c0 3-2 5-5 5H10c-3 0-5-2-5-5z"],
+    ["k-ganho", "M4 15h24v2.5H4z"],
+    ["k-noite", "M5 17.5h22v4H5z"],
+    ["k-ouro", "M6 21.5h20V23H6z"],
+  ],
+  bifana: [
+    ["k-pao", "M4 13c2-5 22-5 24 0v3H4z M4 21h24v2c-2 4-22 4-24 0z"],
+    ["k-vermelho", "M5 16h22v5H5z"],
+    ["", "M9 10l1 2 M15 9l1 2 M21 10l1 2"],
+  ],
+  batatas: [
+    ["k-ouro", "M10 4h2.5v14H10z M14.5 2h2.5v16h-2.5z M19 5h2.5v13H19z M12.5 7h2v11h-2z M17 8h2v10h-2z"],
+    ["k-vermelho", "M8 14h16l-2.5 15h-11z"],
+    ["k-luz", "M12 19h8v4h-8z"],
+  ],
   // Two scoops on a cone: múcua under, coco over.
   gelado: [
     ["k-pao", "M10.5 16h11L16 30z"],

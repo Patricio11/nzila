@@ -148,6 +148,8 @@ interface Held {
   nudgedAt: number;
   /** The campos whose ball they have been told of since they came near. */
   bolas: Set<number>;
+  /** When they were last said to be standing where something is done for them. */
+  servicoAt: number;
   /** When they were last said to be standing at a way out to another bairro. */
   portaAt: number;
   shopAt: number;
@@ -392,7 +394,7 @@ export class ChannelRoom {
         old.close(ZONE_CLOSE.ELSEWHERE);
       }
       this.channel.resume(back.entityId);
-      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, bolas: new Set(), portaAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false, ronda: null });
+      this.held.set(line, { entityId: back.entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: back.met, markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, bolas: new Set(), portaAt: 0, servicoAt: 0, shopAt: 0, placeAt: 0, metPlayers: back.metPlayers, tables: new Map(), needs: back.needs, eating: false, ronda: null });
       this.lineOfEntity.set(back.entityId, line);
       line.send(encodeJoinAccepted({ protocolVersion: PROTOCOL_VERSION, entityId: back.entityId, tick: this.channel.world.tick, serverTimeMs: Date.now(), provinceId: district.provinceId, districtId: district.id, channel: this.number }));
       this.welcome(line);
@@ -420,7 +422,7 @@ export class ChannelRoom {
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.
     const look = settleLook(face.look) ?? arrivalLook(seedOf(playerId));
     this.faces.set(entityId, encodeWho({ entityId, name: face.name, bi: face.biNumber, look }));
-    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, bolas: new Set(), portaAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, this.rules.tiredBelow) }, eating: false, ronda: null });
+    this.held.set(line, { entityId, playerId, told: new Set(), heard: 0, strikes: 0, typing: false, gestureAt: 0, wavedAt: 0, met: new Set(), markedAt: 0, withWhom: "", withAt: 0, nudgedAt: 0, bolas: new Set(), portaAt: 0, servicoAt: 0, shopAt: 0, placeAt: 0, metPlayers: new Set(), tables: new Map(), needs: { base: needs, steps: 0, rest: 0, fast: 0, jumps: 0, tired: tooTired(needs, this.rules.tiredBelow) }, eating: false, ronda: null });
     this.lineOfEntity.set(entityId, line);
     this.channel.setTired(entityId, tooTired(needs, this.rules.tiredBelow));
     // Noted at once where they came in, not at the next five-second round: a kamba going to them finds them (Task 4B.2).
@@ -1360,6 +1362,18 @@ export class ChannelRoom {
         if (!shop) continue;
         held.shopAt = now;
         void this.presence.mark(held.playerId, "loja", shop.id).catch(() => {});
+      }
+    }
+    // And whoever stands where something is done for them (a barbearia), what: the API sells it only on this word.
+    if (tick % STEPS_A_LOOK === 0 && this.presence && (this.district.servicos?.length ?? 0) > 0) {
+      const now = Date.now();
+      for (const held of this.held.values()) {
+        if (now - held.servicoAt < MARK_EVERY_MS) continue;
+        const at = this.channel.placeOf(held.entityId);
+        const servico = at && !this.channel.ridingOf(held.entityId) ? this.district.servicos!.find((one) => Math.hypot(one.x - at.x, one.z - at.z) <= SHOP_REACH_MM) : undefined;
+        if (!servico) continue;
+        held.servicoAt = now;
+        void this.presence.mark(held.playerId, "servico", servico.kind).catch(() => {});
       }
     }
     // And whoever stands at a way out to another bairro, which one, where it leads and where one arrives there: the

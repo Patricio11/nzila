@@ -83,6 +83,8 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
   caixas: [{ x: 2000, z: 0 }],
   // The district's places, in the pack's order: one beside where people arrive, one where people talk.
   places: [{ x: 1500, z: 0 }, { x: -60_000, z: -60_000 }],
+  // A barbearia where people talk (D-11.10).
+  servicos: [{ kind: "corte", x: -60_000, z: -60_000 }],
   // The places two may go out to (Task 10.13): one beside the road up the second street, one where people talk.
   outings: [{ x: 50_000, z: 92_000 }, { x: -60_000, z: -60_000 }],
   // A way out to another bairro, at the paragem of the Mutamba (Task 11.2).
@@ -769,6 +771,14 @@ describe("where a player was", () => {
     }, 5000);
     expect(said).toBe("para-fora|ao-lua/outro|chegada;para-longe|ao-lua/longe|largo");
     expect(await presence.marked(other.id, "porta")).toBeNull();
+    // And whoever stands at a barbearia is said to be there (D-11.10); nobody else is.
+    let where: string | null = null;
+    await until(() => {
+      void presence.marked(other.id, "servico").then((value) => void (where = value));
+      return where !== null;
+    }, 5000);
+    expect(where).toBe("corte");
+    expect(await presence.marked(one.id, "servico")).toBeNull();
     await p.leave();
     await far.leave();
   });

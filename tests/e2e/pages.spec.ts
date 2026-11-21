@@ -2912,6 +2912,100 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("Zango's kiosk bar and its barbearia (D-11.10): a hambúrguer off the chapa is 1.000 Mk and is in the Mochila; a cut is 500 Mk, the mirror offers the hair alone, and the hair is changed", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. Zango's bar and barbearia were not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(300_000);
+    const seen = watch(page);
+    // Someone born to a family of little money wakes in Zango: guests are made until one is.
+    let kept: { token: string } | null = null;
+    for (let n = 0; n < 12 && !kept; n++) {
+      const deviceId = `zango-bar-${n}-${Date.now()}-abcdefgh`;
+      const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string };
+      const dealt = (await (await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: { tier: string } };
+      // The card is kept on the phone, as it is once it has been dealt there.
+      if (dealt.origin.tier === "aperto") kept = { deviceId, ageBand: "18_plus", ...guest, origin: dealt.origin } as { token: string };
+    }
+    expect(kept, "a family of little money was dealt in twelve tries").not.toBeNull();
+    const headers = { authorization: `Bearer ${kept!.token}` };
+    // They chose how they look long ago: the hair is no longer theirs to change at home.
+    const look = { sex: "m", skin: 2, hair: "baixo", hairColour: "hairBlack", top: "tshirt", topColour: "awningGold", bottom: "trousers", bottomColour: "jeans", bands: "awningGold", shoe: "shoeTan" };
+    const first = await page.request.put("/api/v1/me/look", { headers, data: { look } });
+    const worn = first.ok() ? ((await first.json()) as { look: typeof look }).look : ((await (await page.request.get("/api/v1/me", { headers })).json()) as { look: typeof look }).look;
+    expect(first.ok(), await first.text()).toBe(true);
+    await page.addInitScript(([account, kept]) => (localStorage.setItem("nzila.conta", JSON.stringify(account)), localStorage.setItem("nzila.look", JSON.stringify(kept))), [kept, worn] as const);
+    await page.goto("/andar?pack=zango&tier=poupanca&hour=16");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    const pois = ((await (await page.request.get("/packs/zango/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] }).pois;
+    const cashNow = async (): Promise<number> => ((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash;
+    // The bar: to its hatch, and the kota is at the chapa.
+    const bar = pois.find((one) => one.id === "bar-zango")!;
+    await walkTo(page, bar.pos[0], bar.pos[2] + 3, 1.5, 200);
+    await walkTo(page, bar.pos[0], bar.pos[2], 1.0, 80);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && ["buy", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 });
+    if (await page.evaluate(() => window.__andar!.action !== "buy")) {
+      await page.waitForTimeout(1200);
+      await page.keyboard.press("e");
+      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 15_000 });
+    }
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: info.outputPath("bar-rua.png") });
+    const shop = page.getByRole("dialog", { name: "Bar da Mangueira" });
+    for (let tries = 0; tries < 3 && !(await shop.isVisible()); tries++) {
+      await page.getByRole("button", { name: "Comprar" }).click();
+      await shop.waitFor({ timeout: 3000 }).catch(() => {});
+    }
+    await expect(shop.locator(".ct-grille")).toContainText("Boa tarde, mano.", { timeout: 10_000 });
+    await expect(shop.locator('.ct-pick[data-item="hamburguer"]')).toContainText(/Hambúrguer.*1\.000\sMk/s);
+    await page.screenshot({ path: info.outputPath("bar-aberto.png") });
+    const before = await cashNow();
+    await shop.locator('.ct-pick[data-item="hamburguer"]').click();
+    await shop.getByRole("button", { name: /^Pagar 1\.000\sMk$/ }).click();
+    await expect(shop.locator(".n-receipt")).toBeVisible({ timeout: 10_000 });
+    await shop.getByRole("button", { name: "Já está" }).click();
+    expect(await cashNow()).toBe(before - 1000);
+    // The barbearia, across the road: the gold button offers the cut, and the sheet says what it costs first.
+    const barbearia = pois.find((one) => one.id === "servico-corte-zango")!;
+    await walkTo(page, barbearia.pos[0], barbearia.pos[2] - 4, 1.5, 300);
+    await walkTo(page, barbearia.pos[0], barbearia.pos[2], 1.0, 80);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "corte", undefined, { timeout: 15_000 });
+    await page.waitForTimeout(1500);
+    await expect(page.getByRole("button", { name: "Cortar cabelo" })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("barbearia-rua.png") });
+    const held = await cashNow();
+    await page.keyboard.press("e");
+    const sheet = page.getByRole("dialog", { name: "Barbearia do Zango" });
+    await expect(sheet).toContainText(/Corte e penteado: 500\sMk\./, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("barbearia-folha.png") });
+    await sheet.getByRole("button", { name: "Sentar na cadeira" }).click();
+    // The mirror: the hair and its colour, and nothing else.
+    await page.waitForURL(/\/provador\?corte/, { timeout: 20_000 });
+    const hair = page.getByRole("radiogroup", { name: "Cabelo", exact: true });
+    await expect(hair).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("radiogroup")).toHaveCount(2);
+    await expect(page.getByRole("radiogroup", { name: "Cor do cabelo" })).toBeVisible();
+    await hair.getByRole("radio", { name: "Afro" }).click();
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: info.outputPath("barbearia-espelho.png") });
+    await page.getByRole("button", { name: "Está bom" }).click();
+    // Back in the street of Zango, the cut paid for and worn.
+    await page.waitForURL(/\/andar\?pack=zango/, { timeout: 30_000 });
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    expect(await cashNow()).toBe(held - 500);
+    expect(((await (await page.request.get("/api/v1/me", { headers })).json()) as { look: { hair: string } }).look.hair).toBe("afro");
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: info.outputPath("barbearia-depois.png") });
+    // At home the mirror no longer offers the hair.
+    await page.goto("/provador");
+    await expect(page.getByRole("radiogroup").first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("radiogroup", { name: "Cabelo", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("radiogroup", { name: "Cor do cabelo" })).toHaveCount(0);
+    expect(seen.errors).toEqual([]);
+  });
+
   test("someone whose card wakes them in Zango and whose phone opens the Marginal is taken to Zango (D-11.1)", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The packs are not built. Waking in Zango was not checked here." });

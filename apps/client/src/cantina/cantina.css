@@ -26,6 +26,9 @@
 .ct-de-banca .ct-board { color: var(--n-noite); box-shadow: 0 3px 0 var(--n-vermelho-fundo); }
 .ct-de-banca .ct-board span { border-bottom-color: var(--n-dourado); }
 .ct-de-banca .ct-grille { background: repeating-linear-gradient(90deg, var(--n-dourado) 0 14px, var(--n-noite) 14px 18px, var(--n-luz) 18px 22px, var(--n-noite) 22px 26px); box-shadow: inset 0 0 0 3px var(--n-noite); }
+/* The kiosk bar: its three bands, and the board in black. */
+.ct-de-bar .ct-front { background: linear-gradient(90deg, var(--n-vermelho) 0 33%, var(--n-dourado) 33% 66%, var(--n-azul) 66%); }
+.ct-de-bar .ct-board { background: var(--n-noite-2); color: var(--n-luz); }
 /* The gelados: the white cart with its blue stripe, and the cold box's lid. */
 .ct-de-gelados .ct-front { background: var(--n-luz); box-shadow: inset 0 -10px 0 var(--n-rosa, var(--n-vermelho)); }
 .ct-de-gelados .ct-blocks { background: repeating-linear-gradient(90deg, var(--n-azul) 0 18px, var(--n-luz) 18px 36px); border-bottom-color: var(--n-luz); }

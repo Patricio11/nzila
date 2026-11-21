@@ -1,7 +1,7 @@
 // The sheet of someone met in the street (Rule 11): their BI and everything that can be done about them, on one
 // sheet. Fetched the first time someone is tapped, not before (the megabytes rule, F-188).
 
-import { ptAO, ptAOTranslator as tr } from "@nzila/i18n";
+import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
 import { Button, Glyph, IdCard, type GlyphName } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
@@ -104,7 +104,7 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
     return () => void (alive = false);
   }, [met.bi]);
 
-  const bairro = card?.bairro ? (`origin.bairro.${card.bairro}` in ptAO ? tr.t(`origin.bairro.${card.bairro}` as "origin.bairro.maianga") : card.bairro) : tr.t("bi.nobairro");
+  const bairro = card?.bairro ? (`origin.bairro.${card.bairro}` in ptAOLater ? tr.t(`origin.bairro.${card.bairro}` as "origin.bairro.maianga") : card.bairro) : tr.t("bi.nobairro");
   const shutOut = async (): Promise<void> => {
     setBusy(true);
     const done = await blockPlayer(met.bi, !shut);

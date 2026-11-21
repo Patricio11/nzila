@@ -5,9 +5,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { BASE_ORIGINS } from "@nzila/economy";
-import { ptAO } from "@nzila/i18n";
+import { ptAO as first } from "@nzila/i18n";
+import { ptAOLater } from "@nzila/i18n/later";
 import { CATALOGUE } from "@nzila/protocol";
 import { expect, test } from "vitest";
+
+// The words of the card itself are in the way in; the plain names of the bairros, which only the BI says, come later (F-281).
+const ptAO: Readonly<Record<string, string>> = { ...first, ...ptAOLater };
 
 test("everything the table of origins can deal has its words", () => {
   const needed = new Set<string>();

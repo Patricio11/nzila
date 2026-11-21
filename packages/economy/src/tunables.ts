@@ -35,6 +35,10 @@ const SPEC = {
     /** The candongueiro from one bairro to another (Task 11.2, D-11.2): the first crossing of each day is on the house. */
     entreBairros: MK,
   },
+  servicos: {
+    /** A cut at a barbearia: hair and its colour are changed there and nowhere else (D-11.10). */
+    corte: MK,
+  },
   transfers: {
     /** An account younger than this many days may send nothing to another player (the founder, 2026-11-18, D-4.11). */
     noSendDays: range(0, 365),

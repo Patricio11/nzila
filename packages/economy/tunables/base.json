@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "player": {
     "startingFloor": 1500
   },
@@ -9,6 +9,9 @@
     "kupapata": 300,
     "taxi": 350,
     "entreBairros": 300
+  },
+  "servicos": {
+    "corte": 500
   },
   "transfers": {
     "noSendDays": 3,

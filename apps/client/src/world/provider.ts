@@ -210,7 +210,7 @@ export class LocalWorld implements WorldProvider {
 
   atBiscato(): { kind: string; name: string } | null {
     const at = this.player;
-    const spot = at === null ? undefined : (this.scene?.manifest.pois ?? []).find((place) => place.id.startsWith("biscato-") && Math.hypot(place.pos[0] - at.x, place.pos[2] - at.z) < SHOP_REACH_M);
+    const spot = at === null ? undefined : (this.scene?.manifest.pois ?? []).find((place) => /^(biscato|servico)-/.test(place.id) && Math.hypot(place.pos[0] - at.x, place.pos[2] - at.z) < SHOP_REACH_M);
     return spot ? { kind: spot.id.split("-")[1]!, name: this.word(spot.nameKey) } : null;
   }
 

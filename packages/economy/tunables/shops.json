@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "shops": {
     "banca": {
       "stock": [
@@ -14,6 +14,16 @@
       "stock": [
         { "item": "gelado", "price": 300 },
         { "item": "agua", "price": 100 },
+        { "item": "gasosa", "price": 250 }
+      ]
+    },
+    "bar": {
+      "stock": [
+        { "item": "hamburguer", "price": 1000 },
+        { "item": "bifana", "price": 700 },
+        { "item": "batatas", "price": 400 },
+        { "item": "agua", "price": 100 },
+        { "item": "sumo", "price": 200 },
         { "item": "gasosa", "price": 250 }
       ]
     },

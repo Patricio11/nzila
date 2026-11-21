@@ -241,6 +241,10 @@ export function buildApp(deps: Deps): FastifyInstance {
     handler: async (body, caller) => {
       const look = checkLook(body.look);
       if (!look) throw new Refusal(400, "invalid");
+      // Hair and its colour are changed at a barbearia (D-11.10): the first look is free, and so is the hair that
+      // comes with another body; after that a cut must have been paid for, a quarter of an hour ago at most.
+      const [had] = await deps.sql<{ spec: { sex?: string; hair?: string; hairColour?: string } }[]>`SELECT spec FROM avatars WHERE player_id = ${caller.player.id}`;
+      if (had && had.spec.sex === look.sex && (had.spec.hair !== look.hair || had.spec.hairColour !== look.hairColour) && (await presence.marked(caller.player.id, "corte")) === null) throw new Refusal(409, "barbearia");
       await deps.sql`
         INSERT INTO avatars (player_id, spec) VALUES (${caller.player.id}, ${deps.sql.json(look as never)})
         ON CONFLICT (player_id) DO UPDATE SET spec = EXCLUDED.spec, updated_at = now()`;
@@ -512,6 +516,35 @@ export function buildApp(deps: Deps): FastifyInstance {
       // The ticket: the matchmaker lets them into that bairro, for ten minutes.
       await presence.mark(caller.player.id, "viagem", crossing.to, 600);
       return { pack: crossing.pack, arrive: crossing.arrive, price, ...(await walletOf(deps.sql, caller.player.id)) };
+    },
+  });
+
+  // A cut at a barbearia (D-11.10). The zone says the player stands at one; the price is the tunables', paid through
+  // the ledger; and for a quarter of an hour their hair may be changed (PUT /v1/me/look). Asked twice, paid once.
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/servicos/corte",
+    guard: "player",
+    body: nothing,
+    perMinute: 60,
+    handler: async (_body, caller) => {
+      if ((await presence.marked(caller.player.id, "servico")) !== "corte") throw new Refusal(409, "not_there");
+      return { price: tunables.now().servicos.corte };
+    },
+  });
+  declare(app, gate, {
+    method: "POST",
+    url: "/v1/servicos/corte",
+    guard: "player",
+    body: z.strictObject({ key: z.string().regex(/^[A-Za-z0-9_-]{8,40}$/) }),
+    perMinute: 20,
+    handler: async (body, caller) => {
+      if ((await presence.marked(caller.player.id, "servico")) !== "corte") throw new Refusal(409, "not_there");
+      const price = tunables.now().servicos.corte;
+      const paid = await recordTransfer(deps.sql, { debitAccount: accountId("player_cash", caller.player.id), creditAccount: sink("npc_shop"), amount: price, reason: "purchase", ref: "corte", actionId: `corte:${caller.player.id}:${body.key}` });
+      if (!paid.ok) throw new Refusal(409, paid.error === "insufficient_funds" ? "insufficient" : "failed");
+      await presence.mark(caller.player.id, "corte", "1", 900);
+      return { price, ...(await walletOf(deps.sql, caller.player.id)) };
     },
   });
 

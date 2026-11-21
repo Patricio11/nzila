@@ -17,7 +17,7 @@ import "@nzila/ui/later.css";
 // The words of this app came with it (F-195).
 tr.extend(ptAOLater);
 
-const word = (key: string, fallback: string): string => (key in ptAO ? tr.t(key as MessageKey) : fallback);
+const word = (key: string, fallback: string): string => (key in ptAO || key in ptAOLater ? tr.t(key as MessageKey) : fallback);
 
 /** "15 de Novembro": the day someone arrived, as it is written in Angola (the month with its capital). */
 export function arrivedOn(iso: string): string {
@@ -96,9 +96,12 @@ export function Bi({ world }: { world: WorldProvider }) {
   const me = world.me();
   const here = encodeURIComponent(location.pathname + location.search);
   const look = (
-    <Button kind="quiet" onPress={() => location.assign(`/provador?voltar=${here}`)}>
-      {tr.t("look.change")}
-    </Button>
+    <>
+      <Button kind="quiet" onPress={() => location.assign(`/provador?voltar=${here}`)}>
+        {tr.t("look.change")}
+      </Button>
+      <p class="tm-note">{tr.t("look.barbearia")}</p>
+    </>
   );
 
   if (!me?.name) {

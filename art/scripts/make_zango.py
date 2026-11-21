@@ -93,8 +93,8 @@ for iz in range(DOWN * CELLS):
 
 places = {"pois": [], "paragens": []}
 words = {"world.ao-lua.zango.name": "Zango", "zango.gateway.marginal": "Marginal e Baixa", "zango.gateway.marginal.a": "para a Marginal"}
-OUTINGS = {"gelados-zango": ("Os gelados", "aos gelados"), "campo": ("O campo", "ao campo"), "damas": ("As damas", "às damas"), "mercado": ("O mercado", "ao mercado")}
-POI_GLYPHS = {"gelados-zango": "gelado", "banca-zango": "flores", "cantina-zango": "cantina", "mercado": "fruta", "damas": "xadrez", "paragem-mangueira": "megafone", "caixa-zango": "banco",
+OUTINGS = {"bar-zango": ("O bar", "ao bar"), "gelados-zango": ("Os gelados", "aos gelados"), "campo": ("O campo", "ao campo"), "damas": ("As damas", "às damas"), "mercado": ("O mercado", "ao mercado")}
+POI_GLYPHS = {"bar-zango": "cantina", "gelados-zango": "gelado", "banca-zango": "flores", "cantina-zango": "cantina", "mercado": "fruta", "damas": "xadrez", "paragem-mangueira": "megafone", "caixa-zango": "banco",
               "biscato-carga-zango": "biscatos", "biscato-zunga-zango": "biscatos", "biscato-carga-chafariz": "biscatos", "biscato-pratos-geladaria": "biscatos"}
 
 
@@ -259,18 +259,13 @@ for k in range(3):
     b.level = kit.BOTH
 poi("biscato-carga-zango", PARAGEM[0] + 2.5, PARAGEM[1] - 8.6, "Os carrinhos da Mangueira", "O que sai das carrinhas vai para as bancas. Leva-se a carrinho, paga-se por cada carga.")
 
-# The kiosk where airtime is sold: block, painted in three bands, a hatch and a little roof of sheet.
-SALDO = (PARAGEM[0] + 8.0, PARAGEM[1] - 6.5)
-b.at(*SALDO)
-b.level = kit.BOTH
-for k, colour in enumerate(["awningRed", "awningGold", "awningTeal"]):
-    b.box((SALDO[0] - 0.8 + k * 0.8, 1.1, SALDO[1]), (0.8, 2.2, 2.0), colour)
-b.rect((SALDO[0], 1.35, SALDO[1] + 1.01), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.2, 0.8, "windowLit")
-b.face([(SALDO[0] - 1.5, 2.45, SALDO[1] - 1.2), (SALDO[0] + 1.5, 2.45, SALDO[1] - 1.2), (SALDO[0] + 1.5, 2.2, SALDO[1] + 1.9), (SALDO[0] - 1.5, 2.2, SALDO[1] + 1.9)], "roofZinc", toward=(0.0, 1.0, 0.0), two_sided=True)
-for dx in (-1.4, 1.4):
-    b.tube([(SALDO[0] + dx, 0.0, SALDO[1] + 1.8), (SALDO[0] + dx, 2.22, SALDO[1] + 1.8)], [0.03, 0.03], 4, "pole", cap=False)
-words["zango.sign.saldo"] = "SALDO"
-signs = [{"id": "saldo", "pos": [round(SALDO[0], 2), 2.0, round(SALDO[1] + 1.02, 2)], "facing": 0.0, "textKey": "zango.sign.saldo"}]
+# The kiosk bar of the Mangueira (the founder, 2026-11-21): hambúrguer off the chapa, cold drinks, chairs to sit at.
+BAR = (PARAGEM[0] + 8.0, PARAGEM[1] - 6.5)
+rect = kb.quiosque_bar(b, BAR[0], BAR[1], rng, 0.0)
+mark(rect[0], rect[1], rect[2], rect[3], "#")
+words["zango.sign.bar"] = "BAR"
+signs = [{"id": "bar", "pos": [round(BAR[0], 2), 2.1, round(BAR[1] + 1.12, 2)], "facing": 0.0, "textKey": "zango.sign.bar"}]
+poi("bar-zango", BAR[0], BAR[1] + 2.6, "Bar da Mangueira", "Hambúrguer na chapa, bifana e gasosa gelada. Senta-te, que a sombra é da casa.")
 
 # The mercado de rua: stalls and bacias along the verge of the road, sunshades over them, and at its end the
 # banca of things to give (D-10.1).
@@ -304,27 +299,8 @@ block(banca_x, banca_z, kb.banca_de_presentes(b, banca_x, banca_z, rng, 0.0))
 poi("banca-zango", banca_x, banca_z + 1.7, "Banca da Tia Minga", "Flores, perfume e panos. Para a namorada, para a mãe, ou só porque sim.")
 
 # ------------------------------------------------------------------ the igreja
-# A small church of block, painted white and blue, a cross on its gable, a yard swept clean and a low wall.
 IGREJA = (204.0, 88.0)
-b.at(*IGREJA)
-b.level = kit.BOTH
-b.box((IGREJA[0], 2.4, IGREJA[1]), (9.0, 4.8, 15.0), "paintWhite", top="tarShade")
-b.box((IGREJA[0], 0.5, IGREJA[1]), (9.06, 1.0, 15.06), "zincBlue", top="zincBlue")
-for side in (-1, 1):
-    b.face([(IGREJA[0], 6.6, IGREJA[1] - 7.9), (IGREJA[0], 6.6, IGREJA[1] + 7.9), (IGREJA[0] + side * 5.1, 4.6, IGREJA[1] + 7.9), (IGREJA[0] + side * 5.1, 4.6, IGREJA[1] - 7.9)], "zincRed", toward=(side * 0.4, 1.0, 0.0), two_sided=True)
-    for k in range(3):
-        b.rect((IGREJA[0] + side * 4.52, 2.7, IGREJA[1] - 4.0 + k * 4.0), (0.0, 0.0, 1.0), (0.0, 1.0, 0.0), 0.9, 1.9, "window")
-b.face([(IGREJA[0] - 4.5, 4.8, IGREJA[1] + 7.51), (IGREJA[0] + 4.5, 4.8, IGREJA[1] + 7.51), (IGREJA[0], 6.6, IGREJA[1] + 7.51)], "paintWhite", toward=(0.0, 0.0, 1.0), two_sided=True)
-b.rect((IGREJA[0], 1.3, IGREJA[1] + 7.53), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.9, 2.6, "wood")
-b.box((IGREJA[0], 7.5, IGREJA[1] + 7.4), (0.16, 1.8, 0.16), "paintWhite", skip_bottom=False)
-b.box((IGREJA[0], 7.8, IGREJA[1] + 7.4), (0.9, 0.16, 0.16), "paintWhite", skip_bottom=False)
-b.box((IGREJA[0], 0.1, IGREJA[1] + 8.6), (3.4, 0.2, 2.0), "concrete")
-for wx0, wx1 in ((IGREJA[0] - 12.0, IGREJA[0] - 2.5), (IGREJA[0] + 2.5, IGREJA[0] + 12.0)):
-    kit.muro(b, wx0, IGREJA[1] + 11.0, wx1, IGREJA[1] + 11.0, "paintWhite", height=0.9)
-kit.tree(b, IGREJA[0] - 9.0, IGREJA[1] + 9.0, rng, 0.0, shade="sandDark", mix=("acacia",), paved=False)
-kit.tree(b, IGREJA[0] + 9.5, IGREJA[1] + 6.0, rng, 0.0, shade="sandDark", mix=("mangueira",), paved=False)
-for k in range(2):
-    kit.bench(b, IGREJA[0] - 6.5 + k * 13.0, IGREJA[1] + 9.6, math.pi, 0.0)
+kb.igreja(b, IGREJA[0], IGREJA[1], rng, 0.0)
 poi("igreja", IGREJA[0], IGREJA[1] + 9.8, "A igreja do bairro", "Ao domingo não cabe ninguém. Durante a semana é a sombra mais sossegada do Zango.")
 
 # ------------------------------------------------------------------ the campo de terra, and the chafariz
@@ -419,7 +395,9 @@ poi("gelados-zango", GEL[0] - 0.5, GEL[1] - 3.3, "Geladaria do Zango", "Gelado d
 kit.casa(b, 222.0, 140.0, math.pi, rng, kind="bloco", width=7.0, depth=5.0, ground=0.0, shop=True)
 flat(217.5, 133.0, 226.5, 137.4, 0.015, "concrete")
 words["zango.sign.barbearia"] = "BARBEARIA"
-signs.append({"id": "barbearia", "pos": [222.0, 2.55, 137.42], "facing": 180.0, "textKey": "zango.sign.barbearia"})
+signs.append({"id": "barbearia", "pos": [222.0, 2.85, 137.42], "facing": 180.0, "textKey": "zango.sign.barbearia"})
+kb.frente_de_barbearia(b, 222.0, 137.45, rng, 0.015)
+poi("servico-corte-zango", 223.2, 134.9, "Barbearia do Zango", "Corte, barba e penteado. O espelho não mente, e o barbeiro também não.")
 
 # ------------------------------------------------------------------ poles, wires and what grows
 # A line of poles down one side of every street, wires hanging slack between them, a lamp on a few.

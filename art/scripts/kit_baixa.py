@@ -1003,3 +1003,125 @@ def viaduto(b, x0, x1, parts, ground=0.14):
                     b.face([(x0, ground, zend), (x1, ground, zend), (x1, yend - THICK, zend), (x0, yend - THICK, zend)], "plinth", toward=toward)
     b.level = BOTH
     return solid
+
+
+def quiosque_bar(b, x, z, rng, ground=0.14, mesas=((3.6, 0.9), (5.9, -0.7))):
+    """
+    A kiosk bar (the founder, 2026-11-21: "a kiosk bar where they sell burger, and drinks and should have some
+    chairs to sit"), its hatch to +Z: a box of block painted in three bands, a lit hatch with its shelf, a roof of
+    sheet that leans out over whoever is served, the chapa on a cut drum at its side, crates of empties, and
+    plastic tables with their chairs at `mesas` (each an offset from the kiosk). The chairs are seats. Any bairro
+    may stand one at a paragem or a corner. Returns the rectangle the kiosk and its chapa stand on.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    for k, colour in enumerate(["awningRed", "awningGold", "awningTeal"]):
+        b.box((x - 1.0 + k * 1.0, ground + 1.15, z), (1.0, 2.3, 2.2), colour)
+    b.rect((x, ground + 1.45, z + 1.11), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.0, 0.9, "windowLit")
+    b.box((x, ground + 0.98, z + 1.28), (2.3, 0.07, 0.36), "wood", skip_bottom=False)
+    b.face([(x - 1.9, ground + 2.6, z - 1.3), (x + 1.9, ground + 2.6, z - 1.3), (x + 1.9, ground + 2.3, z + 2.3), (x - 1.9, ground + 2.3, z + 2.3)], "roofZinc", toward=(0.0, 1.0, 0.0), two_sided=True)
+    b.soft = True
+    for dx in (-1.8, 1.8):
+        b.tube([(x + dx, ground + 1.7, z + 1.12), (x + dx, ground + 2.31, z + 2.2)], [0.025, 0.025], 4, "metal")
+    b.soft = False
+    # The chapa: half an oil drum on legs, coals in it, and what is on it.
+    gx, gz = x - 2.3, z + 0.5
+    b.tube([(gx - 0.45, ground + 0.8, gz), (gx + 0.45, ground + 0.8, gz)], [0.3, 0.3], 8, "tarShade")
+    for dx in (-0.4, 0.4):
+        for dz in (-0.2, 0.2):
+            b.tube([(gx + dx, ground, gz + dz * 1.4), (gx + dx, ground + 0.7, gz + dz)], [0.02, 0.02], 4, "metal", cap=False)
+    b.level = FULL
+    b.box((gx, ground + 1.0, gz), (0.8, 0.03, 0.5), "metal", skip_bottom=False)
+    for k in range(3):
+        b.tube([(gx - 0.25 + k * 0.25, ground + 1.02, gz), (gx - 0.25 + k * 0.25, ground + 1.06, gz)], [0.09, 0.09], 7, "wood")
+    # Crates of empties against the wall, and bottles on the shelf.
+    for k in range(3):
+        b.box((x + 1.85, ground + 0.16 + k * 0.32, z - 0.5), (0.5, 0.3, 0.38), ["awningRed", "awningGold", "awningRed"][k], skip_bottom=False)
+    for k in range(5):
+        b.tube([(x - 0.8 + k * 0.4, ground + 1.02, z + 1.3), (x - 0.8 + k * 0.4, ground + 1.3, z + 1.3)], [0.045, 0.03], 5, ["awningGold", "acaciaLeaf", "awningRed", "paintWhite", "awningGold"][k])
+    # The esplanada: plastic tables on the earth, three chairs at each.
+    b.soft = True
+    for k, (ox, oz) in enumerate(mesas):
+        tx, tz = x + ox, z + oz
+        b.at(tx, tz)
+        b.level = BOTH
+        b.tube([(tx, ground + 0.7, tz), (tx, ground + 0.74, tz)], [0.46, 0.46], 10, "paintWhite")
+        b.tube([(tx, ground, tz), (tx, ground + 0.7, tz)], [0.2, 0.05], 6, "metal")
+        for n in range(3):
+            angle = 2 * math.pi * n / 3 + 0.5 + k * 0.9
+            sx, sz = tx + math.sin(angle) * 0.82, tz + math.cos(angle) * 0.82
+            _cadeira(b, sx, sz, angle + math.pi, ground, ["awningRed", "paintWhite", "awningGold"][(n + k) % 3])
+            b.seats.append((sx, ground + 0.45, sz, angle + math.pi))
+        b.level = FULL
+        b.tube([(tx + 0.12, ground + 0.74, tz - 0.08), (tx + 0.12, ground + 0.98, tz - 0.08)], [0.04, 0.028], 5, "awningGold")
+    b.soft = False
+    b.level = BOTH
+    b.at(x, z)
+    return (x - 2.9, z - 1.2, x + 2.2, z + 1.2)
+
+
+def frente_de_barbearia(b, x, z, rng, ground=0.14):
+    """
+    What makes a house a barbearia, set before its front wall at (x, z), the street to -Z: the pole of red, white and
+    blue at the corner, a mirror on the wall, two barber's chairs on the apron before it, and a bench against the
+    wall for whoever waits. The chairs and the bench are seats. For any bairro.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    # The mirror in its white frame, and the shelf of combs and machines under it; clear of the door.
+    b.rect((x + 1.2, ground + 1.6, z - 0.20), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.9, 1.1, "paintWhite")
+    b.rect((x + 1.2, ground + 1.6, z - 0.22), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.7, 0.9, "glassBlue")
+    b.box((x + 1.2, ground + 1.0, z - 0.32), (2.8, 0.05, 0.24), "wood", skip_bottom=False)
+    # The pole: bands of the three colours.
+    for k in range(6):
+        b.tube([(x + 3.2, ground + 0.9 + k * 0.2, z - 0.12), (x + 3.2, ground + 1.1 + k * 0.2, z - 0.12)], [0.09, 0.09], 6, ["awningRed", "paintWhite", "signBlue"][k % 3], cap=False)
+    b.tube([(x + 3.2, ground + 2.1, z - 0.12), (x + 3.2, ground + 2.18, z - 0.12)], [0.12, 0.12], 6, "metal")
+    b.tube([(x + 3.2, ground + 0.82, z - 0.12), (x + 3.2, ground + 0.9, z - 0.12)], [0.12, 0.12], 6, "metal")
+    # Two chairs, their backs to the street, facing the mirror: a seat on a post, arms, a headrest.
+    b.soft = True
+    for dx in (0.5, 1.9):
+        cx, cz = x + dx, z - 1.25
+        b.tube([(cx, ground, cz), (cx, ground + 0.42, cz)], [0.2, 0.06], 6, "metal")
+        b.box((cx, ground + 0.5, cz), (0.52, 0.12, 0.5), "awningRed", skip_bottom=False)
+        b.box((cx, ground + 0.86, cz - 0.27), (0.5, 0.62, 0.08), "awningRed")
+        b.level = FULL
+        b.box((cx, ground + 1.24, cz - 0.27), (0.26, 0.14, 0.08), "tarShade", skip_bottom=False)
+        for side in (-0.29, 0.29):
+            b.box((cx + side, ground + 0.7, cz), (0.05, 0.05, 0.44), "metal", skip_bottom=False)
+        b.level = BOTH
+        b.seats.append((cx, ground + 0.58, cz, 0.0))
+    b.soft = False
+    kit.bench(b, x - 2.9, z - 1.5, math.pi, ground)
+    b.at(x, z)
+
+
+def igreja(b, x, z, rng, ground=0.14):
+    """
+    A small church of a bairro, its door to +Z: block painted white with a blue skirt, a roof of red sheet, a cross
+    on its gable, a step before the door, a low white wall along the street, two trees in the yard and benches in
+    their shade (they are seats: the quietest place to rest). For any bairro. Returns the rectangle it stands on.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    b.box((x, ground + 2.4, z), (9.0, 4.8, 15.0), "paintWhite", top="tarShade")
+    b.box((x, ground + 0.5, z), (9.06, 1.0, 15.06), "zincBlue", top="zincBlue")
+    for side in (-1, 1):
+        b.face([(x, ground + 6.6, z - 7.9), (x, ground + 6.6, z + 7.9), (x + side * 5.1, ground + 4.6, z + 7.9), (x + side * 5.1, ground + 4.6, z - 7.9)], "zincRed", toward=(side * 0.4, 1.0, 0.0), two_sided=True)
+        for k in range(3):
+            b.rect((x + side * 4.52, ground + 2.7, z - 4.0 + k * 4.0), (0.0, 0.0, 1.0), (0.0, 1.0, 0.0), 0.9, 1.9, "window")
+    b.face([(x - 4.5, ground + 4.8, z + 7.51), (x + 4.5, ground + 4.8, z + 7.51), (x, ground + 6.6, z + 7.51)], "paintWhite", toward=(0.0, 0.0, 1.0), two_sided=True)
+    b.rect((x, ground + 1.3, z + 7.53), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.9, 2.6, "wood")
+    b.box((x, ground + 7.5, z + 7.4), (0.16, 1.8, 0.16), "paintWhite", skip_bottom=False)
+    b.box((x, ground + 7.8, z + 7.4), (0.9, 0.16, 0.16), "paintWhite", skip_bottom=False)
+    b.box((x, ground + 0.1, z + 8.6), (3.4, 0.2, 2.0), "concrete")
+    for wx0, wx1 in ((x - 12.0, x - 2.5), (x + 2.5, x + 12.0)):
+        kit.muro(b, wx0, z + 11.0, wx1, z + 11.0, "paintWhite", height=0.9)
+    kit.tree(b, x - 9.0, z + 9.0, rng, ground, shade="sandDark", mix=("acacia",), paved=False)
+    kit.tree(b, x + 9.5, z + 6.0, rng, ground, shade="sandDark", mix=("mangueira",), paved=False)
+    # Benches before the door, and in the shade of each tree.
+    for k in range(2):
+        kit.bench(b, x - 6.5 + k * 13.0, z + 9.6, math.pi, ground)
+    kit.bench(b, x - 9.0, z + 6.6, 0.0, ground)
+    kit.bench(b, x + 9.5, z + 3.6, 0.0, ground)
+    b.at(x, z)
+    return (x - 4.6, z - 7.6, x + 4.6, z + 7.6)

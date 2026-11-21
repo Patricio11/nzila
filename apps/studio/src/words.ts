@@ -75,6 +75,7 @@ export const TUNABLES: Readonly<Record<string, string>> = {
   "fares.kupapata": "Uma corrida de kupapata no bairro (Mk)",
   "fares.taxi": "Uma corrida de táxi no bairro (Mk)",
   "fares.entreBairros": "O candongueiro de um bairro para outro (Mk)",
+  "servicos.corte": "Um corte na barbearia (Mk)",
   "transfers.noSendDays": "Dias em que uma conta nova não pode dar dinheiro",
   "transfers.newAccountDays": "Dias em que uma conta é nova",
   "transfers.newAccountDailyCap": "O máximo que uma conta nova dá por dia (Mk)",

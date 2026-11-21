@@ -140,6 +140,19 @@ describe("how a player looks", () => {
   test("is recorded when the wardrobe has it, replaced when it is changed, and given back", async () => {
     const guest = await newGuest(20);
     expect((await put(guest.token, her)).statusCode).toBe(200);
+    // The hair is a barbearia's (D-11.10): changed without a cut paid for, it is refused; everything else is free.
+    expect((await put(guest.token, { ...her, hair: "afro" })).json()).toEqual({ error: "barbearia" });
+    expect((await put(guest.token, { ...her, hairColour: "hairBrown" })).json()).toEqual({ error: "barbearia" });
+    expect((await put(guest.token, { ...her, topColour: "awningRed" })).statusCode).toBe(200);
+    // Not at a barbearia, no cut is sold; at one, it is paid once however often it is asked, and the hair may change.
+    expect((await app.inject({ method: "GET", url: "/v1/servicos/corte", headers: as(guest.token) })).json()).toEqual({ error: "not_there" });
+    const cut = (key: string) => app.inject({ method: "POST", url: "/v1/servicos/corte", headers: as(guest.token), payload: { key } });
+    expect((await cut("corte-0001")).json()).toEqual({ error: "not_there" });
+    await presence.mark(guest.playerId, "servico", "corte");
+    expect((await app.inject({ method: "GET", url: "/v1/servicos/corte", headers: as(guest.token) })).json()).toEqual({ price: BASE_TUNABLES.servicos.corte });
+    expect((await cut("corte-0001")).json()).toEqual({ error: "insufficient" });
+    const dealt = ((await app.inject({ method: "POST", url: "/v1/me/origin", headers: as(guest.token), payload: {} })).json() as { origin: { makuta: number } }).origin.makuta;
+    for (let n = 0; n < 2; n++) expect((await cut("corte-0002")).json()).toMatchObject({ price: BASE_TUNABLES.servicos.corte, cash: dealt - BASE_TUNABLES.servicos.corte });
     const changed = await put(guest.token, { ...her, hair: "afro", extras: ["oculos"], tall: 1 });
     expect(changed.json()).toEqual({ look: { ...her, hair: "afro", extras: ["oculos"], tall: 1, broad: 0 } });
     expect(await sql`SELECT count(*)::int AS n FROM avatars WHERE player_id = ${guest.playerId}`).toEqual([{ n: 1 }]);

@@ -185,6 +185,9 @@ export function Provador() {
   const covered = look.hair === "lenco" || look.hair === "bone";
   const sizes = (of: "tall" | "broad"): { id: string; label: string }[] => [-1, 0, 1].map((n) => ({ id: String(n), label: tr.t(`look.${of}.${look.sex}.${n + 1}` as "look.tall.f.0") }));
   const [saving, setSaving] = useState(false);
+  // Hair and its colour are a barbearia's (D-11.10): chosen here the first time, and after a cut paid for there.
+  const cut = params.has("corte");
+  const [hairToo] = useState(() => cut || given !== null || !savedLook());
   /** Kept on the device, proposed to the server, and on: to the card of origin for someone who has none, to the world otherwise. */
   const done = async (): Promise<void> => {
     setSaving(true);
@@ -208,10 +211,12 @@ export function Provador() {
         {missing ? <p class="provador-note">{tr.t("frontdoor.building")}</p> : null}
         {mine ? (
           <>
-            <Choice label={tr.t("look.sex")} options={named("sex", ["f", "m"])} value={look.sex} onChange={(sex) => change({ sex: sex as Look["sex"] })} />
-            <Swatches label={tr.t("look.skin")} options={SKINS_IN_ORDER.map((skin, n) => ({ id: String(skin), label: tr.t("look.colour", { n: n + 1 }), colour: skinTone(skin) }))} value={String(look.skin)} onChange={(skin) => change({ skin: Number(skin) })} />
-            <Choice label={tr.t("look.hair")} options={named("hair", Object.keys(mine.hair))} value={look.hair} onChange={(hair) => change({ hair })} />
-            {look.hair === "careca" ? null : <Swatches label={tr.t(covered ? "look.lencoColour" : "look.hairColour")} options={swatches(covered ? COLOURS.cloth : COLOURS.hair)} value={look.hairColour} onChange={(hairColour) => change({ hairColour })} />}
+            {cut ? null : <Choice label={tr.t("look.sex")} options={named("sex", ["f", "m"])} value={look.sex} onChange={(sex) => change({ sex: sex as Look["sex"] })} />}
+            {cut ? null : <Swatches label={tr.t("look.skin")} options={SKINS_IN_ORDER.map((skin, n) => ({ id: String(skin), label: tr.t("look.colour", { n: n + 1 }), colour: skinTone(skin) }))} value={String(look.skin)} onChange={(skin) => change({ skin: Number(skin) })} />}
+            {hairToo ? <Choice label={tr.t("look.hair")} options={named("hair", Object.keys(mine.hair))} value={look.hair} onChange={(hair) => change({ hair })} /> : null}
+            {look.hair === "careca" || !hairToo ? null : <Swatches label={tr.t(covered ? "look.lencoColour" : "look.hairColour")} options={swatches(covered ? COLOURS.cloth : COLOURS.hair)} value={look.hairColour} onChange={(hairColour) => change({ hairColour })} />}
+            {cut ? null : (
+            <>
             <div class="provador-extras" role="group" aria-label={tr.t("look.extras")}>
               <span class="n-choice-label">{tr.t("look.extras")}</span>
               {Object.keys(mine.extras ?? {}).map((extra) => (
@@ -230,6 +235,8 @@ export function Provador() {
             )}
             {look.bottom === "pano" ? <Swatches label={tr.t("look.bands")} options={swatches(COLOURS.bands)} value={look.bands} onChange={(bands) => change({ bands })} /> : null}
             <Swatches label={tr.t("look.shoe")} options={swatches(COLOURS.shoe)} value={look.shoe} onChange={(shoe) => change({ shoe })} />
+            </>
+            )}
             <div class="provador-done">
               <Button onPress={() => void done()} busy={saving}>
                 {tr.t("look.done")}
