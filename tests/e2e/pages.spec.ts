@@ -2784,11 +2784,13 @@ test.describe("two phones in the same street", () => {
     // The paragem is one of the places errands are done at: today's may be here, and its button comes first (F-263).
     const atTheWayOut = async (phone: Page): Promise<void> => {
       await phone.waitForFunction(() => window.__andar!.speed < 0.05 && ["viajar", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 20_000 });
-      if (await phone.evaluate(() => window.__andar!.action !== "viajar")) {
+      // An errand here may take more than one press (found, then handed over), and its button comes first each time.
+      for (let tries = 0; tries < 5 && (await phone.evaluate(() => window.__andar!.action !== "viajar")); tries++) {
         await phone.waitForTimeout(1200);
         await phone.keyboard.press("e");
-        await phone.waitForFunction(() => window.__andar!.action === "viajar", undefined, { timeout: 15_000 });
+        await phone.waitForFunction(() => window.__andar!.speed < 0.05 && ["viajar", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 }).catch(() => {});
       }
+      await phone.waitForFunction(() => window.__andar!.action === "viajar", undefined, { timeout: 15_000 });
     };
     await comeIn(page, 121);
     // Off a van at the Mutamba, where the vans for Zango stand.
@@ -2808,8 +2810,12 @@ test.describe("two phones in the same street", () => {
     await expect(sheet).toContainText("Hoje a primeira corrida é por conta da casa.", { timeout: 10_000 });
     await expect(sheet).toContainText(/\d(,\d)? MB para carregar o bairro\./, { timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("viagem-folha.png") });
+    // Where the phone keeps what it fetches, the corrida is when the other bairro comes down (Task 11.2), said on the card.
+    const keeps = await page.evaluate(() => Boolean(navigator.serviceWorker?.controller));
+    info.annotations.push({ type: "the crossing", description: keeps ? "the phone keeps what it fetches: the bairro was brought down on the road" : "no service worker here: the street fetched for itself on arriving" });
     await sheet.getByRole("button", { name: "Ir para o Zango" }).click();
     await expect(page.getByRole("status").filter({ hasText: "A sair para o Zango." })).toBeVisible({ timeout: 10_000 });
+    if (keeps) await expect(page.locator(".eb-caminho .eb-dados")).toContainText(/O bairro vem a caminho: [\d.,]+ de [\d.,]+ (MB|kB)\./, { timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("viagem-caminho.png") });
     // In Zango, at the Mangueira, in the street with whoever is there; nothing was paid.
     await page.waitForURL(/\/andar\?pack=zango&paragem=mangueira/, { timeout: 20_000 });

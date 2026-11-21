@@ -1051,6 +1051,91 @@ def casa(b, x, z, yaw, rng, kind="bloco", width=8.0, depth=6.0, ground=0.0, shop
     return max(width, depth) / 2
 
 
+# The paint a street of resettlement houses was delivered in: pale, the skirt a shade deeper. One pair to a row.
+REALOJAMENTO = [("wall0", "wall3"), ("wall4", "paintWhite"), ("wall1", "wall3"), ("paintMint", "paintWhite"), ("wall3", "paintWhite"), ("wall2", "wall3")]
+
+
+def casa_de_realojamento(b, x, z, yaw, rng, ground=0.0, paint=("wall0", "wall3"), width=8.0, depth=6.0, shop=False):
+    """
+    The house of a resettlement bairro (Zango, and any bairro the State built in rows): one model, the same down the
+    whole street. Its front faces local +Z, turned by yaw. A roof of two slopes, its ridge along the street, the
+    front slope coming down over a veranda on two columns; a door between two framed windows; the walls in the
+    pale paint the row was delivered in (`paint`: the skirt, the wall). What makes each one somebody's is what
+    the owner did since: the skirt painted over in a colour of their own, a water tank on its stand, blocks
+    stacked for the room to come, a dish, pots on the veranda. `shop`: one window is a hatch with its awning.
+    """
+    b.at(x, z)
+    height = 2.6
+
+    def at(lx, ly, lz):
+        return _add((x, ground, z), _turn((lx, ly, lz), yaw))
+
+    right = _turn((1.0, 0.0, 0.0), yaw)
+    front = _turn((0.0, 0.0, 1.0), yaw)
+    low, high = paint
+    if rng.random() < 0.3:
+        # Painted over since: every third house or so has a skirt nobody else in the row has.
+        low = rng.choice(["zincBlue", "awningTeal", "cloth", "muralPink", "paintMint", "wall2", "awningRed"])
+    roof = rng.choice(["roofZinc", "roofZinc", "roofZinc", "zincRust"])
+    ridge, eave_f, eave_b, ex = height + 1.15, depth / 2 + 1.3, -depth / 2 - 0.35, width / 2 + 0.3
+
+    b.level = BOTH
+    b.box(at(0.0, height / 2, 0.0), (width, height, depth), high, yaw=yaw, top="tarShade")
+    b.box(at(0.0, 0.45, 0.0), (width + 0.05, 0.9, depth + 0.05), low, yaw=yaw, top=low)
+    # The roof: two slopes from a ridge along the street; the front one reaches out over the veranda.
+    b.face([at(-ex, ridge, 0.0), at(ex, ridge, 0.0), at(ex, height + 0.12, eave_f), at(-ex, height + 0.12, eave_f)], roof, toward=(0.0, 1.0, 0.0), two_sided=True)
+    b.face([at(-ex, ridge, 0.0), at(ex, ridge, 0.0), at(ex, height + 0.25, eave_b), at(-ex, height + 0.25, eave_b)], roof, toward=(0.0, 1.0, 0.0), two_sided=True)
+    # The gables, and the strips of wall under the slopes.
+    for side in (-1, 1):
+        b.face([at(side * width / 2, height, depth / 2), at(side * width / 2, height, -depth / 2), at(side * width / 2, ridge - 0.04, 0.0)], high, toward=_mul(right, side), two_sided=True)
+    b.rect(at(0.0, height + 0.2, depth / 2 + 0.01), right, (0.0, 1.0, 0.0), width, 0.42, high)
+    b.rect(at(0.0, height + 0.16, -depth / 2 - 0.01), _mul(right, -1.0), (0.0, 1.0, 0.0), width, 0.34, high)
+    # The veranda: a step of concrete the width of the house, and the two columns that hold the roof over it.
+    b.box(at(0.0, 0.08, depth / 2 + 0.6), (width, 0.16, 1.2), "concrete", yaw=yaw)
+    for side in (-1, 1):
+        b.box(at(side * (width / 2 - 0.15), (height + 0.3) / 2, depth / 2 + 1.05), (0.18, height + 0.3, 0.18), high, yaw=yaw)
+    # The door, and a framed window either side of it.
+    door = rng.choice(["zincBlue", "wood", "metal", "zincRed", "awningTeal"])
+    b.rect(at(0.0, 1.21, depth / 2 + 0.035), right, (0.0, 1.0, 0.0), 0.95, 2.1, door)
+    for side in (-1, 1):
+        wx = side * 2.45
+        if shop and side == 1:
+            b.rect(at(wx, 1.5, depth / 2 + 0.035), right, (0.0, 1.0, 0.0), 1.9, 1.1, "windowLit")
+            b.box(at(wx, 0.98, depth / 2 + 0.2), (2.0, 0.06, 0.34), "wood", yaw=yaw, skip_bottom=False)
+            b.box(at(wx, 2.3, depth / 2 + 0.06), (2.1, 0.42, 0.06), "cloth", yaw=yaw)
+        else:
+            b.rect(at(wx, 1.6, depth / 2 + 0.03), right, (0.0, 1.0, 0.0), 1.24, 1.24, "paintWhite")
+            b.rect(at(wx, 1.6, depth / 2 + 0.045), right, (0.0, 1.0, 0.0), 1.0, 1.0, "windowLit" if rng.random() < 0.45 else "window")
+    side_x = rng.choice([-1, 1])
+    b.rect(at(side_x * (width / 2 + 0.035), 1.6, rng.uniform(-1.0, 1.0)), _mul(front, -side_x), (0.0, 1.0, 0.0), 0.9, 0.9, "window")
+    # The water tank on its stand of block, at the side of one house in three: seen from the end of the street.
+    if rng.random() < 0.34:
+        tx = -side_x * (width / 2 + 0.85)
+        b.box(at(tx, 0.7, -depth * 0.25), (1.1, 1.4, 1.1), "blockGrey", yaw=yaw)
+        foot = at(tx, 1.4, -depth * 0.25)
+        b.tube([foot, _add(foot, (0.0, 1.05, 0.0))], [0.52, 0.5], 8, "zincBlue")
+    b.level = FULL
+    # Pots on the veranda, blocks stacked for the room to come, the dish.
+    for i in range(rng.randint(0, 3)):
+        pot = at(rng.choice([-1, 1]) * rng.uniform(0.9, 3.4), 0.16, depth / 2 + rng.uniform(0.5, 1.0))
+        b.tube([pot, _add(pot, (0.0, 0.32, 0.0))], [0.14, 0.19], 5, "roof")
+        b.gem(_add(pot, (0.0, 0.62, 0.0)), (0.3, 0.36, 0.3), 4, "palmLeaf", rng)
+    if rng.random() < 0.35:
+        sx = side_x * (width / 2 + 0.7)
+        for i in range(rng.randint(2, 4)):
+            b.box(at(sx + rng.uniform(-0.1, 0.1), 0.1 + i * 0.2, depth / 2 - 0.6), (0.8, 0.2, 0.4), "blockGrey", yaw=yaw + rng.uniform(-0.1, 0.1), skip_bottom=False)
+    if rng.random() < 0.5:
+        foot = at(rng.uniform(-width * 0.35, width * 0.35), height + 0.72, -depth * 0.25)
+        b.tube([foot, _add(foot, (0.0, 0.5, 0.0))], [0.03, 0.03], 3, "metal", cap=False)
+        aim = _unit((rng.uniform(-1, 1), 0.8, rng.uniform(-1, 1)))
+        side = _unit(_cross(aim, (0.0, 1.0, 0.0)))
+        up = _cross(side, aim)
+        centre = _add(foot, (0.0, 0.6, 0.0))
+        b.face([_add(centre, _add(_mul(side, math.cos(a) * 0.4), _mul(up, math.sin(a) * 0.4))) for a in [2 * math.pi * k / 7 for k in range(7)]], "paintWhite", two_sided=True)
+    b.level = BOTH
+    return max(width, depth) / 2
+
+
 def muro(b, x0, z0, x1, z1, colour, height=1.7, thick=0.2):
     """A wall along a straight line that runs along X or along Z."""
     if abs(x1 - x0) >= abs(z1 - z0):

@@ -2,13 +2,18 @@
 // there. The sheet says where it goes, what the corrida costs (the first of each day is on the house), and how
 // many megabytes the other bairro is to carry in, before anything is paid or fetched. Paid through the API on the
 // zone's word that the player stands at the way out; then the phone leaves this street and opens the other at the
-// paragem one gets off at. Fetched the first time the player stands at such a paragem: the way in is full (F-270).
+// paragem one gets off at. The corrida is when the other bairro comes down (Task 11.2: "streams its first chunks
+// while a short travel moment plays"): while the van is on the road the phone fetches what it will see on getting
+// off, counted on the meter and said on the card, and kept by the phone, so that one steps off into a street that
+// is already there. Fetched the first time the player stands at such a paragem: the way in is full (F-270).
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
 import { Button } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
+import { meteredFetch } from "../net/data-meter.ts";
 import { askAsPlayer } from "../world/account.ts";
+import { traz, type Pedaco, type Tier as StreamTier } from "./traz.ts";
 import "./entre-bairros.css";
 
 // The words of this came with it.
@@ -49,6 +54,59 @@ interface Quote {
   readonly free: boolean;
 }
 
+/** As much of a bairro's manifest as the corrida needs: where one gets off, and what stands round it. */
+interface Outro {
+  readonly sizes?: { readonly firstView?: number };
+  readonly chunks?: readonly Pedaco[];
+  readonly paragens?: readonly { readonly id: string; readonly pos: readonly [number, number, number] }[];
+  readonly spawns?: readonly { readonly id?: string; readonly pos: readonly [number, number, number] }[];
+}
+
+/** The corrida lasts at least this long, and waits for the other bairro at most this long. */
+const ON_THE_ROAD_MS = 1700;
+const AT_MOST_MS = 25_000;
+
+/**
+ * Brings down what will be seen on getting off at `arrive`: the same chunks, in the same models, that the street
+ * would ask for there at this phone's tier. Only where the phone keeps what it fetches (the service worker): where
+ * it does not, fetching here would be paying twice, and the street fetches for itself as it always has.
+ */
+async function carry(pack: string, outro: Outro | null, arrive: string, tier: StreamTier, said: (done: number, all: number) => void): Promise<void> {
+  const at = [...(outro?.paragens ?? []), ...(outro?.spawns ?? [])].find((one) => one.id === arrive)?.pos;
+  if (!outro?.chunks || !at || !navigator.serviceWorker?.controller) return;
+  const want = traz(outro.chunks, at[0], at[2], tier);
+  const all = want.reduce((sum, one) => sum + one.bytes, 0);
+  let done = 0;
+  let next = 0;
+  said(0, all);
+  const worker = async (): Promise<void> => {
+    while (next < want.length) {
+      const one = want[next++]!;
+      await meteredFetch(`/packs/${pack}/${one.model}`).catch(() => {});
+      done += one.bytes;
+      said(done, all);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+}
+
+/**
+ * How much of the world this phone draws: what the address says, else what the Definições keep (`nzila.settings`,
+ * written by world/provider.ts the moment it is changed), else Normal. Read here and not handed down by the street's
+ * page, which has no room for one more thing (F-281).
+ */
+function tierNow(): StreamTier {
+  const asked = new URLSearchParams(location.search).get("tier");
+  let kept: { tier?: string; poupanca?: boolean } = {};
+  try {
+    kept = JSON.parse(localStorage.getItem("nzila.settings") ?? "{}") as typeof kept;
+  } catch {
+    // Storage is off: Normal.
+  }
+  const tier = kept.poupanca ? "poupanca" : (asked ?? kept.tier);
+  return tier === "poupanca" || tier === "alta" ? tier : "normal";
+}
+
 /** A key for one crossing: asked twice, it is paid once. */
 const newKey = (): string => `v${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
@@ -58,6 +116,8 @@ const newKey = (): string => `v${Date.now().toString(36)}${Math.random().toStrin
  * paragem leads to more than one bairro, the sheet first asks where to.
  */
 export function Viagem({ porta: near, portas, onClose, leave, go }: { porta: Porta; portas: readonly Porta[]; onClose: () => void; leave: () => void; go: (pack: string, arrive: string) => void }) {
+  const [outro, setOutro] = useState<Outro | null>(null);
+  const [carried, setCarried] = useState<{ done: number; all: number } | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [chosen, setChosen] = useState<Way | null>(null);
   const [megabytes, setMegabytes] = useState<number | null>(null);
@@ -80,8 +140,8 @@ export function Viagem({ porta: near, portas, onClose, leave, go }: { porta: Por
     let alive = true;
     // What the other bairro weighs, from its own manifest: a few kilobytes that the journey needs anyway.
     void fetch(`/packs/${chosen.pack}/manifest.json`)
-      .then((res) => (res.ok ? (res.json() as Promise<{ sizes?: { firstView?: number } }>) : null))
-      .then((manifest) => alive && manifest?.sizes?.firstView && setMegabytes(manifest.sizes.firstView / 1_000_000))
+      .then((res) => (res.ok ? (res.json() as Promise<Outro>) : null))
+      .then((manifest) => alive && manifest && (setOutro(manifest), manifest.sizes?.firstView && setMegabytes(manifest.sizes.firstView / 1_000_000)))
       .catch(() => {});
     return () => void (alive = false);
   }, [chosen]);
@@ -93,10 +153,12 @@ export function Viagem({ porta: near, portas, onClose, leave, go }: { porta: Por
     const { answer, error } = await askAsPlayer<Way>("POST", "/v1/viagens", { gateway: chosen.gateway, key });
     setBusy(false);
     if (!answer) return setSaid(tr.t(error === "insufficient" ? "viagem.falta" : error === "not_there" ? "viagem.longe" : "viagem.falhou"));
-    // Paid: out of this street, a moment on the road, and into the other.
+    // Paid: out of this street, and on the road; the other bairro comes down while the van goes, and then one gets off.
     setGoing(true);
     leave();
-    setTimeout(() => go(answer.pack, answer.arrive), 1700);
+    const since = Date.now();
+    await Promise.race([carry(answer.pack, outro, answer.arrive, tierNow(), (done, all) => setCarried({ done, all })).catch(() => {}), new Promise((late) => setTimeout(late, AT_MOST_MS))]);
+    setTimeout(() => go(answer.pack, answer.arrive), Math.max(0, ON_THE_ROAD_MS - (Date.now() - since)));
   };
   if (going) {
     return (
@@ -107,6 +169,14 @@ export function Viagem({ porta: near, portas, onClose, leave, go }: { porta: Por
           <span class="eb-van" />
         </div>
         <p>{tr.t("viagem.caminho", { a: porta.a })}</p>
+        {carried && carried.all > 0 ? (
+          <p class="eb-dados" data-carried={carried.done >= carried.all ? "all" : "some"}>
+            {/* A light bairro at Poupança is some tens of kilobytes: said in the unit that shows it. */}
+            {carried.all >= 1_000_000
+              ? tr.t("viagem.traz", { feito: tr.number(Math.round(carried.done / 100_000) / 10), todo: tr.number(Math.round(carried.all / 100_000) / 10) })
+              : tr.t("viagem.traz.pouco", { feito: tr.number(Math.round(carried.done / 1000)), todo: tr.number(Math.round(carried.all / 1000)) })}
+          </p>
+        ) : null}
       </div>
     );
   }

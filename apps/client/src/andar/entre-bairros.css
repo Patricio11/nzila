@@ -25,6 +25,7 @@
   pointer-events: auto; animation: eb-fade 260ms ease-out both; }
 .eb-caminho .n-pano-faixa { position: absolute; top: 0; left: 0; right: 0; }
 .eb-caminho p { margin: 0; font: var(--type-title); text-align: center; }
+.eb-caminho p.eb-dados { font: var(--type-small); }
 .eb-caminho .eb-van { animation: eb-drive 1700ms cubic-bezier(0.5, 0, 0.6, 1) both, eb-bounce 260ms ease-in-out infinite; }
 /* The road under it: the sky going gold, the tar, its broken line running back, and the dust the van raises. */
 .eb-estrada { position: relative; width: 100%; height: 132px; overflow: hidden; background: linear-gradient(var(--n-azul) 0, var(--n-dourado) 58%, var(--n-vermelho-fundo) 58% 100%); }

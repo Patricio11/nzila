@@ -173,21 +173,22 @@ houses = 0
 shops = 0
 
 
-def plot(px, pz, face_north, on_corner=False):
+def plot(px, pz, face_north, on_corner=False, paint=kit.REALOJAMENTO[0]):
     """One plot whose middle is here, its house at the back and its gate to the street it faces."""
     global houses, shops
     sign = -1.0 if face_north else 1.0  # the way to the street, along Z
     yaw = math.pi if face_north else 0.0
     house_z = pz - sign * 3.2
     shop = on_corner and rng.random() < 0.5
-    kit.casa(b, px - 1.5, house_z, yaw, rng, kind="bloco", width=8.0, depth=6.0, ground=0.0, shop=shop)
+    # The house the State delivered, the same down the row and in the row's paint; what follows is the owner's.
+    kit.casa_de_realojamento(b, px - 1.5, house_z, yaw, rng, ground=0.0, paint=paint, shop=shop)
     houses += 1
     shops += 1 if shop else 0
     grown = rng.random()
     if grown < 0.45:
         # A second room, of whatever there was money for.
         kit.casa(b, px + 4.6, house_z + sign * rng.uniform(-0.6, 1.2), yaw, rng, kind=rng.choice(["cru", "cru", "chapa"]), width=4.0, depth=rng.choice([4.0, 5.0]), ground=0.0)
-    wall = rng.choice(["blockGrey", "blockGrey", "concrete", "paintWhite", "wall3"])
+    wall = rng.choice(["blockGrey", "concrete", "paintWhite", "wall3", "wall0", paint[0], paint[1]])
     front = pz + sign * (PLOT / 2 - 0.3)
     if grown > 0.25:
         # The front wall, with its gate; lower where it is still going up.
@@ -228,13 +229,15 @@ for bx0, bx1 in block_xs:
         if bz1 - bz0 >= 3 * PLOT + 9.0:
             rows.insert(1, (bz0 + 1.5 + PLOT * 1.5, False))
         for pz, face_north in rows:
+            # A row was delivered in one paint: the next row, and the next block, in another.
+            row_paint = kit.REALOJAMENTO[(int(bx0) // 7 + int(pz) // 5) % len(kit.REALOJAMENTO)]
             for n in range(count):
                 px = left + PLOT / 2 + n * PLOT
                 if px - PLOT / 2 < 2.0 or px + PLOT / 2 > WIDE - 2.0 or pz - PLOT / 2 < 2.0 or pz + PLOT / 2 > DEEP - 2.0:
                     continue
                 if any(px + PLOT / 2 > cx0 and px - PLOT / 2 < cx1 and pz + PLOT / 2 > cz0 and pz - PLOT / 2 < cz1 for cx0, cz0, cx1, cz1 in CLEAR):
                     continue
-                plot(px, pz, face_north, on_corner=n in (0, count - 1))
+                plot(px, pz, face_north, on_corner=n in (0, count - 1), paint=row_paint)
 
 # ------------------------------------------------------------------ the heart: the paragem and the mercado
 # North of the road, east of the middle street. The paragem is a mangueira on the corner: the vans stop on the

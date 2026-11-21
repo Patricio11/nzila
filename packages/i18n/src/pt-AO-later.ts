@@ -645,6 +645,8 @@ export const ptAOLater = {
   "viagem.ir": "Ir {a}",
   "viagem.ficar": "Ficar",
   "viagem.caminho": "A sair {a}.",
+  "viagem.traz": "O bairro vem a caminho: {feito} de {todo} MB.",
+  "viagem.traz.pouco": "O bairro vem a caminho: {feito} de {todo} kB.",
   "viagem.falta": "Não tens Makuta para a corrida.",
   "viagem.falhou": "A carrinha não sai agora. Tenta daqui a pouco.",
   "viagem.longe": "Chega-te à paragem.",
