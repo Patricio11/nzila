@@ -1,0 +1,4 @@
+/* The button that changes the way a place is seen from inside: under the wallet, out of the way of the thumb. */
+.dentro-vista { position: absolute; left: var(--s-3); top: calc(84px + env(safe-area-inset-top)); z-index: 5; display: flex; flex-direction: column; gap: var(--s-1); align-items: flex-start; }
+.dentro-vista .n-button { margin: 0; }
+.dentro-vista p { margin: 0; padding: var(--s-1) var(--s-2); border-radius: 10px; background: var(--n-noite); color: var(--n-luz); font: var(--type-small); }

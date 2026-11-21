@@ -2959,6 +2959,94 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("being inside (Phase 5, D-0.41): Zango's igreja and its salão are walked into at the door; inside, one button changes between eye level, the view from above with the roof off, and one's own eyes from a seat", async ({ page, request }, info) => {
+    const zango = (await request.get("/packs/zango/manifest.json")).ok() ? ((await (await request.get("/packs/zango/manifest.json")).json()) as { insides?: { id: string; rect: [number, number, number, number]; door: [number, number]; front: number }[]; pois: { id: string; pos: [number, number, number] }[] }) : null;
+    if (!zango?.insides?.length || !(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. Being inside was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(360_000);
+    const seen = watch(page);
+    // Someone born to a family of little money wakes in Zango: guests are made until one is.
+    let kept: Record<string, unknown> | null = null;
+    for (let n = 0; n < 12 && !kept; n++) {
+      const deviceId = `zango-dentro-${n}-${Date.now()}-abcdefgh`;
+      const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string };
+      const dealt = (await (await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: { tier: string } };
+      if (dealt.origin.tier === "aperto") kept = { deviceId, ageBand: "18_plus", ...guest, origin: dealt.origin };
+    }
+    expect(kept, "a family of little money was dealt in twelve tries").not.toBeNull();
+    await page.addInitScript((account) => localStorage.setItem("nzila.conta", JSON.stringify(account)), kept);
+    await page.goto("/andar?pack=zango&tier=poupanca&hour=10");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    const inside = (id: string) => zango.insides!.find((one) => one.id === id)!;
+    const view = page.locator(".dentro-vista").getByRole("button");
+
+    // The igreja: up to its door, and in. Nothing is loaded: it is the same street.
+    const igreja = inside("igreja");
+    // Round to the gate in the churchyard's wall, and through it to the step.
+    await walkTo(page, igreja.door[0], igreja.door[1] + 8, 1.0, 400);
+    await walkTo(page, igreja.door[0], igreja.door[1] + 1.8, 0.6, 120);
+    expect(await page.evaluate(() => window.__dentro?.onde ?? null)).toBeNull();
+    await expect(view).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath("dentro-igreja-porta-fora.png") });
+    await walkTo(page, igreja.door[0], igreja.door[1] - 3.2, 0.6, 120);
+    await page.waitForFunction(() => window.__dentro?.onde === "igreja" && window.__dentro.vista === "porta", undefined, { timeout: 10_000 });
+    await expect(view).toHaveText("Vista: à altura dos olhos");
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: info.outputPath("dentro-igreja-olhos-de-pe.png") });
+    // At eye level the camera is in the room with the player, not over the roof.
+    const [, eyeY] = await page.evaluate(() => window.__dentro!.camera);
+    expect(eyeY).toBeLessThan(2.6);
+    // From above: the roof off, the camera high over the pews.
+    await view.click();
+    await expect(view).toHaveText("Vista: de cima");
+    await page.waitForFunction(() => window.__dentro!.vista === "cima" && window.__dentro!.camera[1] > 5, undefined, { timeout: 10_000 });
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: info.outputPath("dentro-igreja-de-cima.png") });
+    // Through one's own eyes: asked for standing, it says to sit; seated in a pew, the camera is at the eyes.
+    await view.click();
+    await expect(view).toHaveText("Vista: pelos teus olhos");
+    await expect(page.locator(".dentro-vista").getByRole("status")).toHaveText("Senta-te para veres pelos teus olhos.");
+    await walkTo(page, igreja.door[0] + 1.0, igreja.door[1] - 3.2, 0.5, 80);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "sit", undefined, { timeout: 15_000 });
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__dentro?.sentado === true, undefined, { timeout: 10_000 });
+    await expect(page.locator(".dentro-vista").getByRole("status")).toHaveCount(0);
+    const seated = await page.evaluate(() => ({ camera: window.__dentro!.camera, x: window.__andar!.x, z: window.__andar!.z }));
+    expect(Math.hypot(seated.camera[0] - seated.x, seated.camera[2] - seated.z)).toBeLessThan(0.2);
+    expect(seated.camera[1]).toBeGreaterThan(0.8);
+    expect(seated.camera[1]).toBeLessThan(1.5);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: info.outputPath("dentro-igreja-sentado.png") });
+    // Up, and out at the door: outside it is the street's own camera again, and the choice is kept for next time.
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__dentro?.sentado === false, undefined, { timeout: 10_000 });
+    await walkTo(page, igreja.door[0], igreja.door[1] - 2.5, 0.6, 80);
+    await walkTo(page, igreja.door[0], igreja.door[1] + 1.8, 0.6, 120);
+    await page.waitForFunction(() => window.__dentro?.onde === null, undefined, { timeout: 10_000 });
+    await walkTo(page, igreja.door[0], igreja.door[1] + 8, 1.0, 120);
+    await expect(view).toHaveCount(0);
+    expect(await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.dentro") ?? "{}") as Record<string, string>).igreja)).toBe("olhos");
+
+    // The salão: a small room. In at its door, and the cut is offered inside, before the mirror.
+    const salao = inside("salao");
+    const chair = zango.pois.find((one) => one.id === "servico-corte-salao")!;
+    await walkTo(page, salao.door[0], salao.door[1] - 3.5, 1.2, 400);
+    await walkTo(page, salao.door[0], salao.door[1] + 1.4, 0.5, 120);
+    await page.waitForFunction(() => window.__dentro?.onde === "salao", undefined, { timeout: 10_000 });
+    await walkTo(page, chair.pos[0], chair.pos[2], 0.8, 120);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "corte", undefined, { timeout: 15_000 });
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: info.outputPath("dentro-salao.png") });
+    await view.click();
+    await expect(view).toHaveText("Vista: de cima");
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: info.outputPath("dentro-salao-de-cima.png") });
+    expect(seen.errors).toEqual([]);
+  });
+
   test("a match on Zango's campo (D-11.11): two walk onto the pitch and are on a side each, in bibs; one runs the ball into the far goal and both are told whose goal it is and the score", async ({ page, browser, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The packs are not built. The match on the campo was not checked here." });

@@ -90,6 +90,8 @@ const PAGES = [
   ["zango-noite", "/cena?pack=zango&hour=20&tier=normal&at=171.5,100,1.8&look=180,122,1.6"],
   ["zango-bar", "/cena?pack=zango&hour=16&tier=normal&at=193,117,1.7&look=192,108,1.1"],
   ["zango-barbearia", "/cena?pack=zango&hour=10&tier=normal&at=219.5,130,1.7&look=221.5,137,1.3"],
+  ["dentro-salao", "/cena?pack=zango&hour=10&tier=normal&at=187.6,139.3,1.6&look=191,142.6,1.2"],
+  ["dentro-igreja", "/cena?pack=zango&hour=10&tier=normal&at=204,94.3,1.7&look=204,82,2.2"],
   ["zango-salao", "/cena?pack=zango&hour=10&tier=normal&at=188,130.5,1.7&look=190.5,138,1.3"],
   ["largo-barbeiro", "/cena?pack=l1&hour=10&tier=normal&at=258,168.5,1.7&look=254,172,1.0"],
   ["zango-chafariz", "/cena?pack=zango&hour=7.5&tier=normal&at=124,121,1.7&look=118,112,0.9"],

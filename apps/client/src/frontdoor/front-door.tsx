@@ -37,6 +37,9 @@ export function FrontDoor() {
   // Someone whose saved BI was opened on another phone is told, once, and shown the way back in.
   const [putOut] = useState(wasPutOut);
   const [returning, setReturning] = useState(putOut || params.has("entrar"));
+  // The words of coming back into an account are fetched when someone does: someone new never reads them (F-283).
+  const [worded, setWorded] = useState(false);
+  useEffect(() => void (returning && !worded && import("@nzila/i18n/later").then(({ ptAOLater }) => (tr.extend(ptAOLater), setWorded(true)), () => {})), [returning]);
   useEffect(() => {
     fetch("/packs/front.json")
       .then((response) => (response.ok ? (response.json() as Promise<Front>) : null))
@@ -91,7 +94,7 @@ export function FrontDoor() {
             <Postal />
           </div>
           {putOut ? <p class="frontdoor-cost">{tr.t("session.elsewhere")}</p> : null}
-          <Guardar mode="signin" first={params.get("entrar") === "numero" ? "phone" : "email"} onBack={() => setReturning(false)} onDone={() => void go(new LocalWorld().settings.poupanca)} />
+          {worded ? <Guardar mode="signin" first={params.get("entrar") === "numero" ? "phone" : "email"} onBack={() => setReturning(false)} onDone={() => void go(new LocalWorld().settings.poupanca)} /> : null}
         </>
       ) : asking ? (
         <AgeGate onIn={old} start={params.get("ano") ?? ""} shut={params.has("cedo")} busy={going} />

@@ -147,6 +147,12 @@ export const manifestSchema = z.strictObject({
    * half the width of each goal, which stand in the middle of the two short ends (along X). The ball is the zone's.
    */
   campos: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), goal: z.number().positive() })).optional(),
+  /**
+   * Places that are gone into where they stand (Phase 5, D-5.7): the rectangle one is inside of [minX, minZ, maxX,
+   * maxZ] in metres, the middle of its doorway [x, z], the way the door looks along Z (1 or -1), and the height of
+   * its walls (the view from above takes the roof off there).
+   */
+  insides: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), door: z.tuple([z.number(), z.number()]), front: z.union([z.literal(1), z.literal(-1)]), height: z.number().positive() })).optional(),
   /** Sheets of water: the bay, a lagoon. [minX, minZ, maxX, maxZ] in metres, and the height of the surface. */
   // `shore`: how far each metre of it is from land, as a small greyscale picture the pack builder makes (built, not written).
   water: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), level: z.number(), shore: z.string().optional() })),

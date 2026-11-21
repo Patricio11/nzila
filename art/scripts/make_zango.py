@@ -98,6 +98,10 @@ POI_GLYPHS = {"bar-zango": "cantina", "gelados-zango": "gelado", "banca-zango": 
               "biscato-carga-zango": "biscatos", "biscato-zunga-zango": "biscatos", "biscato-carga-chafariz": "biscatos", "biscato-pratos-geladaria": "biscatos"}
 
 
+# The places that are gone into (D-5.7): for each, the rectangle one is inside of, its doorway, and its height.
+insides = []
+
+
 def poi(key, x, z, name, line):
     words[f"zango.poi.{key}.name"] = name
     words[f"zango.poi.{key}.line"] = line
@@ -303,7 +307,7 @@ poi("banca-zango", banca_x, banca_z + 1.7, "Banca da Tia Minga", "Flores, perfum
 
 # ------------------------------------------------------------------ the igreja
 IGREJA = (204.0, 88.0)
-kb.igreja_de_bairro(b, IGREJA[0], IGREJA[1], rng, 0.0)
+insides.append({"id": "igreja", **kb.igreja_de_bairro(b, IGREJA[0], IGREJA[1], rng, 0.0)})
 poi("igreja", IGREJA[0], IGREJA[1] + 9.8, "A igreja do bairro", "Ao domingo não cabe ninguém. Durante a semana é a sombra mais sossegada do Zango.")
 
 # ------------------------------------------------------------------ the campo de terra, and the chafariz
@@ -403,14 +407,13 @@ words["zango.sign.barbearia"] = "BARBEARIA"
 signs.append({"id": "barbearia", "pos": [222.0, 2.85, 137.42], "facing": 180.0, "textKey": "zango.sign.barbearia"})
 kb.frente_de_barbearia(b, 222.0, 137.45, rng, 0.015)
 poi("servico-corte-zango", 223.2, 134.9, "Barbearia do Zango", "Corte, barba e penteado. O espelho não mente, e o barbeiro também não.")
-# The salão de beleza (the founder, 2026-11-21), a few doors along: where hair is braided, and the bairro is talked over.
-kit.casa(b, 190.0, 141.0, math.pi, rng, kind="bloco", width=7.0, depth=5.0, ground=0.0, shop=True)
-block(190.0, 141.0, 3.2)
+# The salão de beleza (the founder, 2026-11-21), a few doors along: where hair is braided, and the bairro is talked
+# over. It is gone into (D-5.7): the cut is done inside, before the mirror.
+insides.append({"id": "salao", **kb.salao_de_beleza(b, 190.0, 141.0, rng, 0.0)})
 flat(185.5, 134.0, 194.5, 138.4, 0.015, "concrete")
 words["zango.sign.salao"] = "SALÃO DE BELEZA"
-signs.append({"id": "salao", "pos": [190.0, 2.85, 138.42], "facing": 180.0, "textKey": "zango.sign.salao"})
-kb.frente_de_salao(b, 190.0, 138.45, rng, 0.015)
-poi("servico-corte-salao", 191.2, 135.9, "Salão da Dona Nela", "Tranças, puxinhos e penteados. Senta-te, que a conversa já vai a meio.")
+signs.append({"id": "salao", "pos": [190.0, 2.95, 138.42], "facing": 180.0, "textKey": "zango.sign.salao"})
+poi("servico-corte-salao", 190.4, 141.6, "Salão da Dona Nela", "Tranças, puxinhos e penteados. Senta-te, que a conversa já vai a meio.")
 
 # ------------------------------------------------------------------ poles, wires and what grows
 # A line of poles down one side of every street, wires hanging slack between them, a lamp on a few.
@@ -638,6 +641,7 @@ partial = {
     "map": "mapa.json",
     "seats": [{"id": f"seat-{n + 1}", "pos": [round(sx, 2), round(sy, 2), round(sz, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for n, (sx, sy, sz, yaw) in enumerate(b.seats)],
     "tables": [{"id": f"mesa-{n + 1}", "game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for n, t in enumerate(tables)],
+    "insides": insides,
     "campos": [{"id": "campo", "rect": [CAMPO[0] - CW / 2, CAMPO[1] - CD / 2, CAMPO[0] + CW / 2, CAMPO[1] + CD / 2], "goal": 2.6}],
     "water": [],
     "strings": "strings.pt-AO.json",

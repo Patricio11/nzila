@@ -228,6 +228,9 @@ export function Andar() {
       setSairM(() => module);
     }, () => void (sairLoading.current = false));
   };
+  /** Being inside (Phase 5): fetched when the bairro has places that are gone into. 0 while it is on its way. */
+  const [DentroM, setDentroM] = useState<typeof import("../dentro/dentro.tsx") | null>(null);
+  const dentro = useRef<import("../dentro/dentro.tsx").Dentro | null | 0>(null);
   /** The ball of a campo: fetched the first time the zone speaks of one. */
   const [CampoM, setCampoM] = useState<typeof import("../campo/bola.tsx") | null>(null);
   const campo = useRef<import("../campo/bola.tsx").Bolas | "loading" | null>(null);
@@ -888,7 +891,14 @@ export function Andar() {
         // The seat the zone gave the player, or the player's own seat when walking alone.
         const mySeat = session?.myRide?.seat;
         const place = (mySeat !== undefined ? district.traffic?.seats[mySeat] : undefined) ?? district.traffic?.seats.find((s) => s.who === "jogador");
-        if (ride && van && place) {
+        const insides = district.manifest.insides;
+        if (dentro.current === null && insides?.length) {
+          dentro.current = 0;
+          void import("../dentro/dentro.tsx").then((module) => ((dentro.current = new module.Dentro(insides)), setDentroM(() => module)), () => {});
+        }
+        if (dentro.current && dentro.current.camera(renderer, { x, y, z, yaw: camera.yaw, pitch: camera.pitch, sit, height: person.height, body: person.root }, Boolean(ride))) {
+          // Inside a place: seen as the player chose to see it (D-0.41).
+        } else if (ride && van && place) {
           // From the seat: the eyes of someone sitting there, turned by the thumb.
           van.updateMatrixWorld();
           eye.set(place.pos[0], place.pos[1] + 0.7, place.pos[2] + 0.06);
@@ -1214,6 +1224,7 @@ export function Andar() {
           {bag && !shop ? <LazyLoja show={(loja) => <loja.Mochila zone={net.current} onClose={() => setBag(false)} />} /> : null}
           {tablesRef.current ? <tablesRef.current.Ui mesas={tablesRef.current} mesa={table} gesto={(kind) => (asks.current.emote = kind)} /> : null}
           {SairM && sairRef.current && !met && !shop && !bag && !phone ? <SairM.Ui sair={sairRef.current} net={net} /> : null}
+          {DentroM && dentro.current ? <DentroM.Ui dentro={dentro.current} /> : null}
           {CampoM && campo.current && campo.current !== "loading" ? <CampoM.Ui bolas={campo.current} net={net} /> : null}
           {EntreM && porta ? <EntreM.Viagem porta={porta} portas={entre.current && entre.current !== "loading" ? entre.current.portas : []} onClose={() => setPorta(null)} leave={() => net.current?.leave()} go={(pack, arrive) => location.assign(`/andar?pack=${pack}&paragem=${arrive}`)} /> : null}
           {met ? (

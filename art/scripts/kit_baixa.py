@@ -1060,25 +1060,26 @@ def quiosque_bar(b, x, z, rng, ground=0.14, mesas=((3.6, 0.9), (5.9, -0.7))):
     return (x - 2.9, z - 1.2, x + 2.2, z + 1.2)
 
 
-def cadeira_de_barbeiro(b, cx, cz, ground=0.14, colour="awningRed", secador=False):
+def cadeira_de_barbeiro(b, cx, cz, ground=0.14, colour="awningRed", secador=False, yaw=0.0):
     """
-    A barber's chair facing +Z (toward its mirror): a seat on a post, arms, a headrest. It is a seat. With `secador`
-    it is a salão's: the dome of a hair dryer stands over it on its own foot.
+    A barber's chair facing +Z (toward its mirror), or turned right round with `yaw` of pi: a seat on a post, arms,
+    a headrest. It is a seat. With `secador` it is a salão's: the dome of a hair dryer stands over it on its foot.
     """
+    s = -1.0 if abs(yaw) > 1.0 else 1.0  # which way its back is
     b.level = BOTH
     b.tube([(cx, ground, cz), (cx, ground + 0.42, cz)], [0.2, 0.06], 6, "metal")
     b.box((cx, ground + 0.5, cz), (0.52, 0.12, 0.5), colour, skip_bottom=False)
-    b.box((cx, ground + 0.86, cz - 0.27), (0.5, 0.62, 0.08), colour)
+    b.box((cx, ground + 0.86, cz - s * 0.27), (0.5, 0.62, 0.08), colour)
     b.level = FULL
-    b.box((cx, ground + 1.24, cz - 0.27), (0.26, 0.14, 0.08), "tarShade", skip_bottom=False)
+    b.box((cx, ground + 1.24, cz - s * 0.27), (0.26, 0.14, 0.08), "tarShade", skip_bottom=False)
     for side in (-0.29, 0.29):
         b.box((cx + side, ground + 0.7, cz), (0.05, 0.05, 0.44), "metal", skip_bottom=False)
     b.level = BOTH
     if secador:
-        b.tube([(cx + 0.36, ground, cz - 0.42), (cx + 0.36, ground + 1.75, cz - 0.42)], [0.03, 0.03], 4, "metal", cap=False)
-        b.tube([(cx + 0.36, ground + 1.75, cz - 0.42), (cx, ground + 1.86, cz - 0.1)], [0.03, 0.03], 4, "metal", cap=False)
-        b.tube([(cx, ground + 1.5, cz - 0.1), (cx, ground + 1.88, cz - 0.1)], [0.27, 0.16], 8, "paintWhite")
-    b.seats.append((cx, ground + 0.58, cz, 0.0))
+        b.tube([(cx + 0.36, ground, cz - s * 0.42), (cx + 0.36, ground + 1.75, cz - s * 0.42)], [0.03, 0.03], 4, "metal", cap=False)
+        b.tube([(cx + 0.36, ground + 1.75, cz - s * 0.42), (cx, ground + 1.86, cz - s * 0.1)], [0.03, 0.03], 4, "metal", cap=False)
+        b.tube([(cx, ground + 1.5, cz - s * 0.1), (cx, ground + 1.88, cz - s * 0.1)], [0.27, 0.16], 8, "paintWhite")
+    b.seats.append((cx, ground + 0.58, cz, yaw))
 
 
 def barbeiro_de_rua(b, x, z, rng, ground=0.14):
@@ -1167,20 +1168,27 @@ def igreja_de_bairro(b, x, z, rng, ground=0.14):
     """
     A small church of a bairro, its door to +Z: block painted white with a blue skirt, a roof of red sheet, a cross
     on its gable, a step before the door, a low white wall along the street, two trees in the yard and benches in
-    their shade (they are seats: the quietest place to rest). For any bairro. Returns the rectangle it stands on.
+    their shade (they are seats: the quietest place to rest). It is gone into: the door stands open on a hall of
+    pews, the light comes in at the side windows, and one may sit. For any bairro. Returns what `sala` returns.
     """
-    b.at(x, z)
+    # A hall that is gone into (D-5.7): the door in the gable, windows down both sides, the ridge front to back.
+    inside = sala(b, x, z, 1, 9.0, 15.0, height=4.4, ground=ground, wall="paintWhite", floor="concrete", door=0.0, sides=(-4.0, 0.0, 4.0), roof="zincRed", ridge=6.4)
     b.level = BOTH
-    b.box((x, ground + 2.4, z), (9.0, 4.8, 15.0), "paintWhite", top="tarShade")
-    b.box((x, ground + 0.5, z), (9.06, 1.0, 15.06), "zincBlue", top="zincBlue")
+    # The blue skirt outside, a thin band on each wall, broken at the door.
     for side in (-1, 1):
-        b.face([(x, ground + 6.6, z - 7.9), (x, ground + 6.6, z + 7.9), (x + side * 5.1, ground + 4.6, z + 7.9), (x + side * 5.1, ground + 4.6, z - 7.9)], "zincRed", toward=(side * 0.4, 1.0, 0.0), two_sided=True)
-        for k in range(3):
-            b.rect((x + side * 4.52, ground + 2.7, z - 4.0 + k * 4.0), (0.0, 0.0, 1.0), (0.0, 1.0, 0.0), 0.9, 1.9, "window")
-    b.face([(x - 4.5, ground + 4.8, z + 7.51), (x + 4.5, ground + 4.8, z + 7.51), (x, ground + 6.6, z + 7.51)], "paintWhite", toward=(0.0, 0.0, 1.0), two_sided=True)
-    b.rect((x, ground + 1.3, z + 7.53), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.9, 2.6, "wood")
-    b.box((x, ground + 7.5, z + 7.4), (0.16, 1.8, 0.16), "paintWhite", skip_bottom=False)
-    b.box((x, ground + 7.8, z + 7.4), (0.9, 0.16, 0.16), "paintWhite", skip_bottom=False)
+        b.rect((x + side * 4.51, ground + 0.5, z), (0.0, 0.0, -side * 1.0), (0.0, 1.0, 0.0), 15.0, 1.0, "zincBlue")
+        b.rect((x + side * 2.5, ground + 0.5, z + 7.51), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 4.0, 1.0, "zincBlue")
+    b.rect((x, ground + 0.5, z - 7.51), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 9.0, 1.0, "zincBlue")
+    b.box((x, ground + 7.3, z + 7.4), (0.16, 1.8, 0.16), "paintWhite", skip_bottom=False)
+    b.box((x, ground + 7.6, z + 7.4), (0.9, 0.16, 0.16), "paintWhite", skip_bottom=False)
+    # Inside: the pews either side of the aisle, the table at the far end on its step, the cross on the wall behind it.
+    for row in range(5):
+        for side in (-1, 1):
+            kit.bench(b, x + side * 2.2, z + 4.2 - row * 1.9, math.pi, ground)
+    b.box((x, ground + 0.1, z - 5.9), (7.0, 0.2, 2.2), "wood", skip_bottom=False)
+    b.box((x, ground + 0.75, z - 5.9), (2.0, 0.9, 0.8), "paintWhite")
+    b.box((x, ground + 2.9, z - 7.12), (0.14, 1.6, 0.08), "wood", skip_bottom=False)
+    b.box((x, ground + 3.15, z - 7.12), (0.8, 0.14, 0.08), "wood", skip_bottom=False)
     b.box((x, ground + 0.1, z + 8.6), (3.4, 0.2, 2.0), "concrete")
     for wx0, wx1 in ((x - 12.0, x - 2.5), (x + 2.5, x + 12.0)):
         kit.muro(b, wx0, z + 11.0, wx1, z + 11.0, "paintWhite", height=0.9)
@@ -1192,4 +1200,101 @@ def igreja_de_bairro(b, x, z, rng, ground=0.14):
     kit.bench(b, x - 9.0, z + 6.6, 0.0, ground)
     kit.bench(b, x + 9.5, z + 3.6, 0.0, ground)
     b.at(x, z)
-    return (x - 4.6, z - 7.6, x + 4.6, z + 7.6)
+    return inside
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Places that are gone into (Phase 5, D-5.6 and D-5.7). One way of being inside for every kind of place: a shell of
+# real walls with a real doorway and real window openings, standing in the street where the building stands. One
+# walks in through the door; the street is seen through the windows; whoever is inside is seen by whoever is
+# inside. The walk grid takes the walls from what is built (kit.block_solids): nothing is marked by hand.
+
+def sala(b, x, z, front, width, depth, height=2.7, ground=0.0, wall="paintWhite", floor="concrete", door=0.0, windows=(), sides=(), back=(), roof="roofZinc", ridge=None):
+    """
+    The shell of a place that is gone into: a floor, four walls 30 cm thick with a doorway in the front one and
+    window openings where asked, and a roof. Square to the world: `front` is +1 when the door looks to +Z, -1 to -Z.
+    Its outside is `width` by `depth` about (x, z); keep both and the place itself on the half metre, so that the
+    walls fall on the walk grid's cells.
+
+    `door`: where the doorway is along the front wall, from its middle. `windows`: the same for windows in the
+    front wall; `sides`: along each side wall, from its middle; `back`: along the back wall. `roof`: its sheet.
+    `ridge`: None for one slope, higher at the front; a height for two slopes from a ridge that runs front to back
+    (a church, a hall).
+
+    Returns what the pack says of it (`insides` in the manifest): the rectangle one is inside of, the middle of
+    the doorway, the way the door looks, and the height of the walls (for the view from above, with the roof off).
+    """
+    T, hx, hz, f = 0.3, width / 2, depth / 2, front
+    b.at(x, z)
+    b.level = BOTH
+    b.box((x, ground + 0.02, z), (width - 0.3, 0.04, depth - 0.3), floor, skip_bottom=True)
+
+    def piece(a0, a1, y0, y1, fixed, along_x):
+        if a1 - a0 < 0.01 or y1 - y0 < 0.01:
+            return
+        mid, size = (a0 + a1) / 2, a1 - a0
+        b.box((mid, ground + (y0 + y1) / 2, fixed) if along_x else (fixed, ground + (y0 + y1) / 2, mid), (size, y1 - y0, T) if along_x else (T, y1 - y0, size), wall, skip_bottom=y0 == 0)
+
+    def run(a0, a1, fixed, along_x, openings):
+        """A wall from a0 to a1, with its openings (middle, width, sill, lintel) left out of it."""
+        at = a0
+        for centre, wide, y0, y1 in sorted(openings):
+            piece(at, centre - wide / 2, 0.0, height, fixed, along_x)
+            piece(centre - wide / 2, centre + wide / 2, 0.0, y0, fixed, along_x)
+            piece(centre - wide / 2, centre + wide / 2, y1, height, fixed, along_x)
+            at = centre + wide / 2
+        piece(at, a1, 0.0, height, fixed, along_x)
+
+    window = lambda centre: (centre, 1.2, 0.95, 2.05)  # noqa: E731
+    run(x - hx, x + hx, z + f * (hz - T / 2), True, [(x + door, 1.2, 0.0, 2.1)] + [window(x + w) for w in windows])
+    run(x - hx, x + hx, z - f * (hz - T / 2), True, [window(x + w) for w in back])
+    for side in (-1, 1):
+        run(z - hz, z + hz, x + side * (hx - T / 2), False, [window(z + w) for w in sides])
+    # The roof, seen from under it too: it is the ceiling.
+    over = 0.45
+    if ridge is None:
+        hi, lo = height + 0.55, height + 0.05
+        zf, zb = z + f * (hz + over), z - f * (hz + over)
+        b.face([(x - hx - 0.3, ground + hi, zf), (x + hx + 0.3, ground + hi, zf), (x + hx + 0.3, ground + lo, zb), (x - hx - 0.3, ground + lo, zb)], roof, toward=(0.0, 1.0, 0.0), two_sided=True)
+        # What closes the gap under the high edge, and the wedges at the sides.
+        slope = (hi - lo) / (2 * (hz + over))
+        at_front, at_back = hi - slope * over, lo + slope * over
+        b.face([(x - hx, ground + height, z + f * hz), (x + hx, ground + height, z + f * hz), (x + hx, ground + at_front, z + f * hz), (x - hx, ground + at_front, z + f * hz)], wall, toward=(0.0, 0.0, f), two_sided=True)
+        for side in (-1, 1):
+            b.face([(x + side * hx, ground + height, z + f * hz), (x + side * hx, ground + at_front, z + f * hz), (x + side * hx, ground + at_back, z - f * hz), (x + side * hx, ground + height, z - f * hz)], wall, toward=(side, 0.0, 0.0), two_sided=True)
+    else:
+        for side in (-1, 1):
+            b.face([(x, ground + ridge, z - hz - over), (x, ground + ridge, z + hz + over), (x + side * (hx + over), ground + height - 0.1, z + hz + over), (x + side * (hx + over), ground + height - 0.1, z - hz - over)], roof, toward=(side * 0.4, 1.0, 0.0), two_sided=True)
+        for end in (-1, 1):
+            b.face([(x - hx, ground + height, z + end * hz), (x + hx, ground + height, z + end * hz), (x, ground + ridge - 0.05, z + end * hz)], wall, toward=(0.0, 0.0, end), two_sided=True)
+    b.at(x, z)
+    return {"rect": [round(x - hx + T, 2), round(z - hz + T, 2), round(x + hx - T, 2), round(z + hz - T, 2)], "door": [round(x + door, 2), round(z + f * (hz - T / 2), 2)], "front": f, "height": height}
+
+
+def salao_de_beleza(b, x, z, rng, ground=0.0, front=-1):
+    """
+    A salão de beleza that is gone into (the founder, 2026-11-21 and 2026-11-22), seven metres by five, its door to
+    the street: inside, the wide mirror on the back wall, two chairs under hair dryers before it, the shelf of
+    creams, and a bench under the front window where the next ones wait and talk. The chairs and the bench are
+    seats. For any bairro. Returns what `sala` returns.
+    """
+    f = front
+    inside = sala(b, x, z, f, 7.0, 5.0, height=2.7, ground=ground, wall="wall2", floor="paintWhite", door=-2.0, windows=(1.0,), sides=(0.0,), roof="roofZinc")
+    b.level = BOTH
+    # The mirror on the back wall in its white frame, and the shelf under it.
+    zb = z - f * 2.18
+    b.rect((x + 0.6, ground + 1.6, zb), (f * 1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 3.1, 1.1, "paintWhite")
+    b.rect((x + 0.6, ground + 1.6, zb + f * 0.02), (f * 1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 2.9, 0.9, "glassBlue")
+    b.soft = True
+    b.box((x + 0.6, ground + 1.0, zb + f * 0.14), (3.0, 0.05, 0.24), "wood", skip_bottom=False)
+    b.level = FULL
+    for k in range(6):
+        b.tube([(x - 0.5 + k * 0.42, ground + 1.03, zb + f * 0.14), (x - 0.5 + k * 0.42, ground + 1.2, zb + f * 0.14)], [0.045, 0.04], 5, ["muralPink", "paintWhite", "paintMint", "awningGold", "muralPink", "paintWhite"][k])
+    b.level = BOTH
+    # The chairs look at the mirror: their backs to the door.
+    for dx in (-0.2, 1.4):
+        cadeira_de_barbeiro(b, x + dx, z - f * 1.0, ground, colour="muralPink", secador=True, yaw=0.0 if f < 0 else math.pi)
+    b.soft = False
+    kit.bench(b, x + 1.0, z + f * 1.75, 0.0 if f > 0 else math.pi, ground)
+    b.at(x, z)
+    return inside

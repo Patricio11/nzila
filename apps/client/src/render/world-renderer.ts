@@ -244,6 +244,11 @@ export class WorldRenderer {
    * The one material of the world: every model coloured from the palette
    * atlas uses it, so they can be drawn together. Made once and shared.
    */
+  /** Cuts the picture off beyond these planes (none: nothing is cut): the roof off a place seen from above (D-0.41). */
+  cut(planes: unknown[]): void {
+    this.gl.clippingPlanes = planes as never;
+  }
+
   /** What lamps and lit windows glow after dark here: the orange of sodium lamps, or (null) the palette's own warm white. */
   set lamps(kind: string | null | undefined) {
     this.paletteMaterial.emissive.setRGB(1, kind === "sodio" ? 0.56 : 1, kind === "sodio" ? 0.2 : 1);
