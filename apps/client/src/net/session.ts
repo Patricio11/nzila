@@ -14,7 +14,7 @@
 
 import { isGreeting } from "@nzila/i18n";
 import { type Object3D } from "three";
-import { encodeBanco, encodeComer, type TrafficSaid, EMOTE_NAMES, EVENT, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
+import { encodeBanco, encodeComer, type TrafficSaid, A_DOIS_DITOS, EMOTE_NAMES, EVENT, GESTOS_A_DOIS, type GestoADois, type EmoteName, type InputFrame, type Snapshot, type Who, type WorldEvent } from "@nzila/protocol";
 import { PERSON_BODY_MM, type CharacterState, type Obstacle } from "@nzila/sim";
 import { type Named } from "../render/names.ts";
 import { Players } from "../render/players.ts";
@@ -339,7 +339,17 @@ export class Session {
     else if (event.kind === EVENT.CONVITE || event.kind === EVENT.CONVITE_RESPOSTA || event.kind === EVENT.PONTOS) this.convites.push(event);
     else if (event.kind >= EVENT.BISCATO && event.kind <= EVENT.BISCATO_RECUSADO) this.biscatos.push(event);
     else if (event.kind === EVENT.CORRIDA || event.kind === EVENT.CORRIDA_RECUSADA) this.pedidos.push(event);
-    else if (event.kind === EVENT.SAIR) {
+    else if (event.kind === EVENT.A_DOIS) {
+      // Made (a handshake, a hug): both bodies make it, turned to each other; the player's own is the page's.
+      const kind = GESTOS_A_DOIS[event.args[2] ?? -1];
+      if (A_DOIS_DITOS[event.args[0] ?? -1] !== "feito") this.saidas.push(event);
+      else if (kind) {
+        for (const [who, com] of [[event.subject, event.args[1] ?? -1], [event.args[1] ?? -1, event.subject]] as const) {
+          if (who === this.me) this.par = { kind, com };
+          else this.players.gesture(who, kind, com);
+        }
+      }
+    } else if (event.kind === EVENT.SAIR) {
       if (this.saidas.length < 32) this.saidas.push(event);
     }
     else if (event.kind === EVENT.NECESSIDADES) {
@@ -411,6 +421,9 @@ export class Session {
     this.players.vanAt = vanAt;
     this.players.seatAt = seatAt;
   }
+
+  /** A gesture the player has just begun with someone (their number in the channel), until the page has taken it. */
+  par: { kind: GestoADois; com: number } | null = null;
 
   /** A thing the player has just handed over ("dar") or been handed ("tem"), until the page has put it in their hand. */
   handed: { mode: "dar" | "tem"; item: string } | null = null;
@@ -521,8 +534,8 @@ export class Session {
   }
 
   /** Draws the other players where they are now (or where they were last seen), and gives them back as people who may be named. */
-  draw(elapsedMs: number, seconds: number): Named[] {
-    return this.players.update(this.others.at(performance.now()), elapsedMs, seconds);
+  draw(elapsedMs: number, seconds: number, x = 0, z = 0): Named[] {
+    return this.players.update(this.others.at(performance.now()), elapsedMs, seconds, this.me === null ? undefined : { id: this.me, x, z });
   }
 
   /** For the tests and a developer: the line falls, as in a tunnel. */

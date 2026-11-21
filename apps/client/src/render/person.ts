@@ -9,7 +9,7 @@
 // backward and a negative one forward. About z, a negative angle lifts the
 // right arm out and up, a positive one the left.
 
-import { EMOTE_NAMES, type EmoteName } from "@nzila/protocol";
+import { EMOTE_NAMES, type EmoteName, type GestoADois } from "@nzila/protocol";
 import { Bone, Group, Mesh, MeshBasicMaterial, Quaternion, SkinnedMesh, Vector3, type Material } from "three";
 import { type WorldRenderer } from "./world-renderer.ts";
 import { modelLoader } from "./model-loader.ts";
@@ -32,8 +32,25 @@ export interface Gait {
 /** The gestures, as the protocol numbers them: what one phone makes, another must be able to draw. */
 export const EMOTES = EMOTE_NAMES;
 export type Emote = EmoteName;
+/** Any gesture a body is drawn making: one of its own, or one made with someone (a handshake, a hug). */
+export type Gesto = Emote | GestoADois;
 /** How long each lasts, in seconds. */
-export const EMOTE_SECONDS: Readonly<Record<Emote, number>> = { acenar: 2.4, rir: 2.6, aplaudir: 2.6, chamar: 2.2, dancar: 9.6 };
+export const EMOTE_SECONDS: Readonly<Record<Gesto, number>> = { acenar: 2.4, rir: 2.6, aplaudir: 2.6, chamar: 2.2, dancar: 9.6, apertar: 2.4, abracar: 3.2 };
+/** How far apart two stand to make a gesture together, in metres. */
+export const JUNTOS_M: Readonly<Record<GestoADois, number>> = { apertar: 0.95, abracar: 0.46 };
+
+/**
+ * Where a body is drawn, and the way it faces, while it makes a gesture with someone standing at (px, pz): turned
+ * to them, and brought toward them until the two are the gesture's distance apart (each comes half the way). The
+ * zone's places are not moved: only the picture.
+ */
+export function junto(kind: Gesto, x: number, z: number, px: number, pz: number, e: number): { x: number; z: number; facing: number } | null {
+  const want = JUNTOS_M[kind as GestoADois];
+  const far = Math.hypot(px - x, pz - z);
+  if (want === undefined || far < 0.01) return null;
+  const step = (Math.min(1.4, Math.max(0, far - want)) / 2) * e;
+  return { x: x + ((px - x) / far) * step, z: z + ((pz - z) / far) * step, facing: Math.atan2(px - x, pz - z) };
+}
 
 /** What holds a thing in a body's hand: it poses the arm (with `toward`), and puts the thing right once the bones are set. */
 export interface Holding {
@@ -43,7 +60,7 @@ export interface Holding {
 
 export interface Doing {
   /** A gesture under way, and the seconds since it began. */
-  readonly emote?: { readonly kind: Emote; readonly seconds: number };
+  readonly emote?: { readonly kind: Gesto; readonly seconds: number };
   /** 0 standing, 1 seated; between the two while sitting down or getting up. */
   readonly sit?: number;
   /** How far through a jump: above 0 and below 1 in the air. */
@@ -95,7 +112,7 @@ const ease = (u: number): number => {
 };
 
 /** The gestures, once they have been fetched; and the fetching of them. */
-let dance: Record<Emote, (person: Person, e: number, u: number) => number> | null = null;
+let dance: Record<Gesto, (person: Person, e: number, u: number) => number> | null = null;
 let dancing: Promise<void> | null = null;
 
 /** What a body that is only its shadow is painted with: nothing. */

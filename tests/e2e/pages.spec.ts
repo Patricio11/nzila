@@ -2659,6 +2659,54 @@ test.describe("two phones in the same street", () => {
     expect(otherSeen.errors).toEqual([]);
   });
 
+  test("gestures for two (the founder, 2026-11-21): an aperto de mão offered from the card, taken by the other, and both turn to each other and shake; then an abraço", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). Gestures for two were not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(150_000);
+    const seen = watch(page);
+    const myName = await comeIn(page, 131);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const otherName = await comeIn(other, 132);
+    await page.goto("/andar?tier=poupanca&hour=16");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 45_000 });
+    await other.goto("/andar?tier=poupanca&hour=16");
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__andar.players === 1, undefined, { timeout: 45_000 });
+    await page.waitForFunction(() => window.__andar!.players === 1, undefined, { timeout: 20_000 });
+    // A hand held out, from the other's card; the card goes away so that the street is seen.
+    expect(await tapSomeone(page, otherName), "a tap on the other player opened their card").toBe(true);
+    await page.getByRole("dialog", { name: otherName }).getByRole("button", { name: "Aperto de mão" }).click();
+    await expect(page.getByRole("dialog", { name: otherName })).toHaveCount(0);
+    const asked = other.getByRole("dialog", { name: `${myName} estende-te a mão.` });
+    await expect(asked).toBeVisible({ timeout: 10_000 });
+    await other.screenshot({ path: info.outputPath("adois-pedido.png") });
+    await asked.getByRole("button", { name: "Apertar a mão" }).click();
+    // Both make it, each on their own phone and on the other's.
+    await page.waitForFunction(() => window.__andar!.emote === "apertar" && window.__andar!.gestures.includes("apertar"), undefined, { timeout: 10_000 });
+    await other.waitForFunction(() => window.__andar!.emote === "apertar" && window.__andar!.gestures.includes("apertar"), undefined, { timeout: 10_000 });
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: info.outputPath("adois-aperto.png") });
+    await other.screenshot({ path: info.outputPath("adois-aperto-outro.png") });
+    // A handshake is a meeting: each now knows the other.
+    await page.waitForFunction(() => window.__andar!.known >= 1, undefined, { timeout: 10_000 });
+    // And an abraço, the other way, between two adults.
+    await page.waitForFunction(() => window.__andar!.emote === null, undefined, { timeout: 10_000 });
+    expect(await tapSomeone(other, myName), "a tap on the first player opened their card").toBe(true);
+    await other.getByRole("dialog", { name: myName }).getByRole("button", { name: "Abraço" }).click();
+    const hug = page.getByRole("dialog", { name: `${otherName} quer dar-te um abraço.` });
+    await expect(hug).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("adois-pedido-abraco.png") });
+    await hug.getByRole("button", { name: "Abraçar" }).click();
+    await page.waitForFunction(() => window.__andar!.emote === "abracar" && window.__andar!.gestures.includes("abracar"), undefined, { timeout: 10_000 });
+    await page.waitForTimeout(1300);
+    await page.screenshot({ path: info.outputPath("adois-abraco.png") });
+    await other.screenshot({ path: info.outputPath("adois-abraco-outro.png") });
+    expect(seen.errors).toEqual([]);
+  });
+
   test("someone under 18 is never asked out and never asks (D-10.3): on their card and on an adult's, everything else and no \"Convidar para sair\"", async ({ page, browser, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The people are not built (pnpm pack:dev needs Blender). The card of someone under 18 was not checked here." });
@@ -2684,6 +2732,9 @@ test.describe("two phones in the same street", () => {
       await expect(sheet.getByRole("button", { name: "Adicionar", exact: true })).toBeEnabled({ timeout: 10_000 });
       await phone.waitForTimeout(1200);
       await expect(sheet.getByRole("button", { name: "Convidar para sair" })).toHaveCount(0);
+      // A hand may be held out to anyone; an abraço is between two adults.
+      await expect(sheet.getByRole("button", { name: "Aperto de mão" })).toBeVisible();
+      await expect(sheet.getByRole("button", { name: "Abraço" })).toHaveCount(0);
       await phone.screenshot({ path: info.outputPath(phone === page ? "sair-menor-visto.png" : "sair-menor.png") });
     }
     expect(seen.errors).toEqual([]);

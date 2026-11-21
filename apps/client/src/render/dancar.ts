@@ -121,3 +121,29 @@ export function chamar(person: Person, e: number, u: number): number {
   person.toward("chest", e * 0.5, 0.05);
   return 0;
 }
+
+/** Apertar a mão: the right arm out to the other, and the hand going up and down in theirs. */
+export function apertar(person: Person, e: number, u: number): number {
+  const shake = Math.sin(u * 11) * Math.min(1, Math.max(0, (u - 0.4) / 0.3));
+  person.toward("upperArmR", e, -0.95 + 0.06 * shake, 0, 0.12);
+  person.toward("lowerArmR", e, -0.5 + 0.1 * shake);
+  person.toward("handR", e, 0.1);
+  person.toward("chest", e * 0.7, 0.06, 0.08);
+  person.toward("head", e * 0.6, 0.05, 0, 0.03 * shake);
+  return 0;
+}
+
+/** Abraçar: both arms round the other, the body leaning in, the head to one side; a pat on the back. */
+export function abracar(person: Person, e: number, u: number): number {
+  const pat = Math.max(0, Math.sin(u * 7)) * Math.min(1, Math.max(0, (u - 1.0) / 0.4));
+  for (const [tag, side] of [["L", 1], ["R", -1]] as const) {
+    person.toward(`upperArm${tag}`, e, -1.05, 0, -side * 0.34);
+    person.toward(`lowerArm${tag}`, e, -0.75 - (side < 0 ? 0.18 * pat : 0), -side * 0.75);
+    person.toward(`hand${tag}`, e, 0, -side * 0.3);
+  }
+  person.toward("spine", e, 0.1);
+  person.toward("chest", e, 0.1);
+  person.toward("neck", e, 0.04, 0, 0.16);
+  person.toward("head", e, 0.02, 0.22, 0.12);
+  return 0;
+}

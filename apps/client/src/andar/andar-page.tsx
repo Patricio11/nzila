@@ -27,7 +27,7 @@ import { Arrival, Banner, Button, ChatBar, ClockChip, Compass, ContextAction, Em
 import { PointLight, Vector3 } from "three";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DistrictScene } from "../render/district-scene.ts";
-import { EMOTES, EMOTE_SECONDS, RUNS_ABOVE_M_S, loadPerson, strideOf, type Emote, type Person } from "../render/person.ts";
+import { EMOTES, EMOTE_SECONDS, RUNS_ABOVE_M_S, junto, loadPerson, strideOf, type Emote, type Gesto, type Person } from "../render/person.ts";
 import type { Hand } from "../render/presente.ts";
 import { type VanSeen } from "../render/traffic.ts";
 import { account, balanceNow, type KeptOut } from "../world/account.ts";
@@ -217,7 +217,6 @@ export function Andar() {
   const loadSair = (): void => {
     const district = districtRef.current;
     if (sairLoading.current || !district) return;
-    if (!district.manifest.pois.some((one) => one.outing)) return;
     sairLoading.current = true;
     void import("../sair/sair.tsx").then((module) => {
       sairRef.current = new module.Sair(module.lugaresDe(district.manifest.pois, (key) => district.word(key)));
@@ -311,7 +310,7 @@ export function Andar() {
     let phase = 0;
     let speed = 0;
     let carried = 0;
-    let emote: { kind: Emote; began: number } | null = null;
+    let emote: { kind: Gesto; began: number; com?: number } | null = null;
     /** A thing just given or just received, in the player's own hand: fetched the first time there is one. */
     let hand: Hand | null = null;
     let seat: { x: number; y: number; z: number; facing: number; n: number } | null = null;
@@ -786,7 +785,18 @@ export function Andar() {
           // A foot comes down twice in every turn of the stride.
           if (Math.floor(phase / Math.PI) !== stepsBefore && speed > 0.4 && !ride && !seat) sound?.step(speed > RUNS_ABOVE_M_S);
         }
-        const target = seat ? seat.facing : moving ? Math.atan2(ask.dx, ask.dz) : facing;
+        if (session?.par) {
+          emote = { ...session.par, began: seconds };
+          session.par = null;
+        }
+        // A gesture made with someone: turned to them and drawn up to them while it lasts.
+        const com = emote?.com === undefined ? undefined : session?.heads().find((one) => one.id === emote!.com);
+        const near = com && emote ? junto(emote.kind, x, z, com.x, com.z, Math.min(1, (seconds - emote.began) / 0.4)) : null;
+        if (near) {
+          x = near.x;
+          z = near.z;
+        }
+        const target = near ? near.facing : seat ? seat.facing : moving ? Math.atan2(ask.dx, ask.dz) : facing;
         facing += Math.atan2(Math.sin(target - facing), Math.cos(target - facing)) * Math.min(1, elapsed / 90);
         if (sit > 0.001 && seat) {
           // Carried from where they stood to the seat as they sit down.
@@ -893,7 +903,7 @@ export function Andar() {
         }
         renderer.setFocus(x, 0, z);
         // The other players: drawn a moment in the past, named when they stand still, given way to by the vans.
-        district.others = session ? session.draw(elapsed, seconds) : [];
+        district.others = session ? session.draw(elapsed, seconds, state.x / 1000, state.z / 1000) : [];
         // The street by the zone's clock, and its traffic waiting as the zone decided for everyone (F-152).
         if (session?.walking && session.zoneClockAhead !== null) {
           district.followZone(session.zoneClockAhead, session.traffic);
@@ -1200,6 +1210,7 @@ export function Andar() {
               onConvidar={(jogo) => tablesRef.current?.convidar(jogo, met.entity)}
               lugares={sairRef.current?.lugares ?? []}
               onSair={(lugar) => sairRef.current?.convidar(net, met.entity, lugar)}
+              onGesto={sairRef.current ? (gesto) => (sairRef.current?.oferecer(net, met.entity, gesto), setMet(null)) : undefined}
               onEscrever={(bi) => (setMet(null), setAbrirKamba(bi), setPhoneApp("mensagens"), setPhone(true))}
               onTalk={() => (setMet(null), setComposing(true))}
               onClose={() => setMet(null)}

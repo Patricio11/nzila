@@ -12,7 +12,7 @@ import { Vector3, type Object3D } from "three";
 const at = new Vector3();
 import { type Seen } from "../net/others.ts";
 import { type Named } from "./names.ts";
-import { EMOTE_SECONDS, strideOf, type Emote, type Person } from "./person.ts";
+import { EMOTE_SECONDS, junto, strideOf, type Gesto, type Person } from "./person.ts";
 import type { Hand } from "./presente.ts";
 import { FIRST_LOOK, dress } from "./wardrobe.ts";
 import { type WorldRenderer } from "./world-renderer.ts";
@@ -29,7 +29,7 @@ interface Body {
   shown: number;
   air: number;
   /** A gesture under way, and when it began (in the seconds the picture counts). */
-  emote: { kind: Emote; began: number | null } | null;
+  emote: { kind: Gesto; began: number | null; com?: number } | null;
   /** What they hold out or carry: a thing just given or just received (D-10.2). */
   hand: Hand | null;
   x: number;
@@ -77,9 +77,9 @@ export class Players {
   }
 
   /** Someone makes a gesture: their body makes it, from the next frame, for as long as it lasts or until they walk. */
-  gesture(id: number, kind: Emote): void {
+  gesture(id: number, kind: Gesto, com?: number): void {
     const body = this.bodies.get(id);
-    if (body) body.emote = { kind, began: null };
+    if (body) body.emote = { kind, began: null, ...(com === undefined ? {} : { com }) };
   }
 
   /** Someone hands a thing over ("dar") or has just been handed one ("tem"): it is seen in their hand. */
@@ -127,7 +127,7 @@ export class Players {
   }
 
   /** Draws everyone where they are now. Returns them as people who can be named. */
-  update(seen: readonly Seen[], elapsedMs: number, seconds: number): Named[] {
+  update(seen: readonly Seen[], elapsedMs: number, seconds: number, eu?: { readonly id: number; readonly x: number; readonly z: number }): Named[] {
     const here = new Set<number>();
     const named: Named[] = [];
     for (const one of seen) {
@@ -165,6 +165,14 @@ export class Players {
       // A jump is drawn as a hop of the zone's own height at its middle: the zone says "in the air", not how high.
       person.root.position.set(one.x, seated ? one.y - 0.46 * (person.height / 1.7) : one.y + body.air * 0.42, one.z);
       person.root.rotation.y = body.facing;
+      // A gesture made with someone: turned to them and drawn up to them, for as long as it lasts.
+      const com = body.emote?.com === undefined ? undefined : body.emote.com === eu?.id ? eu : seen.find((other) => other.id === body.emote!.com);
+      const near = com && body.emote ? junto(body.emote.kind, one.x, one.z, com.x, com.z, Math.min(1, (seconds - (body.emote.began ?? seconds)) / 0.4)) : null;
+      if (near) {
+        person.root.position.x = near.x;
+        person.root.position.z = near.z;
+        person.root.rotation.y = body.facing = near.facing;
+      }
       person.root.scale.setScalar(0.6 + 0.4 * body.shown);
       person.root.visible = true;
       // A gesture lasts its time, and ends when its maker walks off.

@@ -437,6 +437,9 @@ export function buildApp(deps: Deps): FastifyInstance {
     },
   });
 
+  /** Whether a player's family is of little money: what a neighbour asks them to put by is the least (D-4.26). */
+  const littleMoney = async (playerId: string): Promise<boolean> => (await originOfPlayer(deps.sql, origins, playerId))?.tier === "aperto";
+
   // ------------------------------------------------------------ where a player is (Task 11.2, D-11.1)
   // Which bairros exist is data (content/registry.json). A player is in the bairro the zone last said they stand
   // in; before they have stood anywhere, in the one their family's card wakes them in: families of little money
@@ -1054,7 +1057,7 @@ export function buildApp(deps: Deps): FastifyInstance {
       const [from, to] = weekBounds(day);
       return {
         day,
-        recados: recadosFor(recados, caller.player.id, day).map((one) => ({ ...one, done: has(one.n) })),
+        recados: recadosFor(recados, caller.player.id, day, await littleMoney(caller.player.id)).map((one) => ({ ...one, done: has(one.n) })),
         next: payFor(recados, done.filter((one) => one.n <= 2).length),
         aDois: { item: recados.aDois.item, pay: recados.aDois.pay, done: has(8) },
         familia: { amount: origin ? recados.familia[origin.tier] : 0, done: has(9), mae: origin?.mae ?? null },
@@ -1077,7 +1080,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     perMinute: 30,
     handler: async (body, caller) => {
       const day = dayOf(Date.now());
-      const one = recadosFor(recados, caller.player.id, day).find((each) => each.n === body.n);
+      const one = recadosFor(recados, caller.player.id, day, await littleMoney(caller.player.id)).find((each) => each.n === body.n);
       const notYet = (why: string): { done: false; why: string } => {
         if (body.tentativa) return { done: false, why };
         throw new Refusal(409, why);

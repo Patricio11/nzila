@@ -23,7 +23,7 @@ const REASONS: readonly ReportReason[] = ["insults", "harassment", "sexual", "sc
  * Someone met in the street: their BI, and what can be done. Report, block and mute are here with "Falar", on the
  * one sheet, because a way to talk never comes without them (Rule 11).
  */
-export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClose, onGave = () => {}, jogos = [], onConvidar, onEscrever, lugares = [], onSair }: { met: Met; silenced: boolean; onSilence: (on: boolean) => void; onShutOut: (on: boolean) => void; onTalk: () => void; onClose: () => void; onGave?: () => void; jogos?: readonly string[]; onConvidar?: (jogo: string) => void; onEscrever?: (bi: string) => void; lugares?: readonly { readonly id: string; readonly nome: string; readonly a: string; readonly glyph: string }[]; onSair?: (lugar: number) => void }) {
+export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClose, onGave = () => {}, jogos = [], onConvidar, onEscrever, lugares = [], onSair, onGesto }: { met: Met; silenced: boolean; onSilence: (on: boolean) => void; onShutOut: (on: boolean) => void; onTalk: () => void; onClose: () => void; onGave?: () => void; jogos?: readonly string[]; onConvidar?: (jogo: string) => void; onEscrever?: (bi: string) => void; lugares?: readonly { readonly id: string; readonly nome: string; readonly a: string; readonly glyph: string }[]; onSair?: (lugar: number) => void; onGesto?: ((gesto: number) => void) | undefined }) {
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [shut, setShut] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -260,6 +260,16 @@ export function PlayerSheet({ met, silenced, onSilence, onShutOut, onTalk, onClo
                     {tr.t("convite.abrir")}
                   </Button>
                 </span>
+              ) : null}
+              {onGesto ? (
+                <Button kind="quiet" onPress={() => onGesto(0)}>
+                  {tr.t("adois.apertar")}
+                </Button>
+              ) : null}
+              {onGesto && card?.sair ? (
+                <Button kind="quiet" onPress={() => onGesto(1)}>
+                  {tr.t("adois.abracar")}
+                </Button>
               ) : null}
               {card?.sair && lugares.length > 0 && onSair ? (
                 <span class="cv-convite cv-sair">

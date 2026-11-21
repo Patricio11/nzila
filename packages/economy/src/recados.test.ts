@@ -41,6 +41,25 @@ describe("os recados do dia", () => {
     }
   });
 
+  test("a family of little money is asked to put by the least of the amounts, and nothing else of its day changes (D-4.26)", () => {
+    const least = Math.min(...BASE_RECADOS.guarda);
+    let asked = 0;
+    for (let i = 0; i < 200; i++) {
+      const day = `2026-11-${String(1 + (i % 28)).padStart(2, "0")}`;
+      const usual = recadosFor(BASE_RECADOS, `p-${i}`, day);
+      const little = recadosFor(BASE_RECADOS, `p-${i}`, day, true);
+      expect(little.map((one) => ({ ...one, amount: undefined }))).toEqual(usual.map((one) => ({ ...one, amount: undefined })));
+      for (const one of little) {
+        if (one.kind !== "guarda") continue;
+        asked++;
+        expect(one.amount).toBe(least);
+      }
+    }
+    expect(asked).toBeGreaterThan(50);
+    // And someone better off is still asked for more, some days.
+    expect(Array.from({ length: 200 }, (_, i) => recadosFor(BASE_RECADOS, `p-${i}`, "2026-11-18")).flat().some((one) => one.kind === "guarda" && (one.amount ?? 0) > least)).toBe(true);
+  });
+
   test("with fewer neighbours than errands, the same one asks again rather than nobody", () => {
     const day = recadosFor({ ...BASE_RECADOS, neighbours: 1 }, "p", "2026-11-18");
     expect(day.map((one) => one.who)).toEqual([0, 0, 0]);

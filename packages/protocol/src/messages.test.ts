@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
+  A_DOIS_DITOS,
+  GESTOS_A_DOIS,
+  encodeADois,
   SAIR_LUGARES_MAX,
   CHAT_MAX_CHARS,
   EVENT,
@@ -160,6 +163,13 @@ describe("a nudge", () => {
     }
     expect(() => decodeClientMessage(new Writer().u8(MSG.SAIR).u8(1).uint(7).u8(SAIR_LUGARES_MAX).finish())).toThrow(ProtocolError);
     expect(() => decodeClientMessage(new Writer().u8(MSG.SAIR).u8(9).finish())).toThrow(ProtocolError);
+    // Gestures for two: offered, accepted, declined; a gesture that is not one of them is not read.
+    for (const pedido of [{ op: "oferecer", entidade: 9, gesto: 1 }, { op: "aceitar", entidade: 9 }, { op: "recusar", entidade: 400 }] as const) {
+      expect(decodeClientMessage(encodeADois(pedido))).toEqual({ type: "a_dois", pedido });
+    }
+    expect(() => decodeClientMessage(new Writer().u8(MSG.A_DOIS).u8(1).uint(9).u8(GESTOS_A_DOIS.length).finish())).toThrow(ProtocolError);
+    expect(() => decodeClientMessage(new Writer().u8(MSG.A_DOIS).u8(7).finish())).toThrow(ProtocolError);
+    expect([GESTOS_A_DOIS, A_DOIS_DITOS]).toEqual([["apertar", "abracar"], ["pedido", "nao", "nao_pode", "feito"]]);
     expect([SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS]).toEqual([["convite", "nao", "combinado", "chegaram", "fim", "recusado"], ["terminou", "longe", "tarde", "saiu"], ["nao_pode", "muitos", "cedo", "ocupado", "convite"]]);
     const said = { nowMs: 1_800_000_000_000, rides: [{ vehicle: HIRED_VEHICLE_BASE + 3, kind: 1, fase: 2, fromMs: 1_799_999_990_000, speed: 9000, path: [{ x: 120_000, z: -4_560 }, { x: 180_000, z: 60_000 }] }] };
     expect(decodeZoneMessage(encodeCorridas(said))).toEqual({ type: "corridas", bytes: encodeCorridas(said) });

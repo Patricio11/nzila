@@ -38,6 +38,8 @@ Opened 2026-11-20, when Phase 4 completed (`docs/completed/PHASE_4_COMPLETE.md`)
 
 **D-5.4 Furniture is a thing like any other (delegated).** Bought, carried (or brought by a kupapata), held in the home's own place in `items`, and placed on a grid; what is placed is "à vista", what is stored is not (Phase 7's caps read it). *Recommendation: yes.*
 
+**D-5.5 What a competitor's players ask of a home (founder, 2026-11-21; `docs/reference/MARKET_NOTES.md` §1g).** Four things this phase is held to. **A player wakes where they went to sleep**: indoors is kept by the zone as the street is, and nobody who went home wakes at a paragem. **Two who are in the same home see each other**: a home is a room of the zone, not a screen each has alone. **A party is heard**: its columns play (our own synthesised music, D-0.x, no licence and no megabytes). **Rent is never taken from someone who is not playing** beyond a grace they were told of (D-5.3 already gives notices). And furniture is chosen by room.
+
 ## What "done" means for this phase
 
 From the roadmap: a player has a home that looks like them, friends visit, rent is paid or the home is lost and nothing in it is; the family's house is where they were born. Measured: an interior's weight and its first view on the slow profile, and a full home's frame time on the reference phone.

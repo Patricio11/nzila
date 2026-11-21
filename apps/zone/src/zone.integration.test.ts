@@ -30,6 +30,7 @@ import {
 } from "@nzila/protocol";
 import { decodeCorridas, encodeCorrida, type CorridasSaid } from "@nzila/protocol/corridas";
 import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, encodeSair } from "@nzila/protocol/sair";
+import { A_DOIS_DITOS, encodeADois } from "@nzila/protocol";
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
@@ -676,6 +677,57 @@ describe("where a player was", () => {
     expect(said(a, "fim")[1]!.args).toEqual([4, SAIR_FINS.indexOf("saiu")]);
     await Promise.all([a.leave(), e.leave(), n.leave()]);
   }, 90_000);
+
+  test("gestures for two (the founder, 2026-11-21): a handshake offered and taken is seen by both and by whoever watches, and is a meeting; a no says only no; a hug is between two adults; nothing from afar or unasked", async () => {
+    const [ana, rui, ze] = [await player(), await player(), await player()];
+    const [novo] = await sql<{ id: string }[]>`INSERT INTO players (age_band, name, name_key, bi_number) VALUES ('15_17', 'Novo Gesto', 'novo gesto', '97777777-LA') RETURNING id`;
+    const novoToken = randomBytes(32).toString("base64url");
+    await sql`INSERT INTO player_sessions (player_id, token_hash, expires_at) VALUES (${novo!.id}, ${hashToken(novoToken)}, now() + interval '1 day')`;
+    const a = await phone(ana.token, PROTOCOL_VERSION, "conversa");
+    const r = await phone(rui.token, PROTOCOL_VERSION, "conversa");
+    const n = await phone(novoToken, PROTOCOL_VERSION, "conversa");
+    const far = await phone(ze.token, PROTOCOL_VERSION, "conversa-30");
+    const said = (who: typeof a, what: (typeof A_DOIS_DITOS)[number]): WorldEvent[] => who.state.events.filter((event) => event.kind === EVENT.A_DOIS && event.args[0] === A_DOIS_DITOS.indexOf(what));
+    const id = (who: typeof a): number => who.state.accepted!.entityId;
+    // A yes to nothing is nothing.
+    r.socket.send(encodeADois({ op: "aceitar", entidade: id(a) }));
+    await until(() => said(r, "nao_pode").length === 1);
+    // Ana holds out her hand to Rui: he is asked, and nobody else is told anything yet.
+    a.socket.send(encodeADois({ op: "oferecer", entidade: id(r), gesto: 0 }));
+    await until(() => said(r, "pedido").length === 1);
+    expect(said(r, "pedido")[0]).toMatchObject({ subject: id(a), args: [0, 0] });
+    expect([said(a, "feito"), said(n, "feito")].map((list) => list.length)).toEqual([0, 0]);
+    // He takes it: both, and the one standing by, are told; and the two have met.
+    r.socket.send(encodeADois({ op: "aceitar", entidade: id(a) }));
+    await until(() => said(a, "feito").length === 1 && said(r, "feito").length === 1 && said(n, "feito").length === 1);
+    expect(said(n, "feito")[0]).toMatchObject({ subject: id(a), args: [3, id(r), 0] });
+    await until(() => a.state.events.some((event) => event.kind === EVENT.MET && event.subject === id(r)));
+    // The same yes again takes nothing: the offer was used.
+    r.socket.send(encodeADois({ op: "aceitar", entidade: id(a) }));
+    await until(() => said(r, "nao_pode").length === 2);
+    // A hug between two adults, declined: only "not now" comes back.
+    await pause(1100);
+    r.socket.send(encodeADois({ op: "oferecer", entidade: id(a), gesto: 1 }));
+    await until(() => said(a, "pedido").length === 1);
+    expect(said(a, "pedido")[0]!.args).toEqual([0, 1]);
+    a.socket.send(encodeADois({ op: "recusar", entidade: id(r) }));
+    await until(() => said(r, "nao").length === 1);
+    expect(said(a, "feito")).toHaveLength(1);
+    // Never a hug with someone under 18, whoever offers; a handshake with them is a handshake.
+    await pause(1100);
+    a.socket.send(encodeADois({ op: "oferecer", entidade: id(n), gesto: 1 }));
+    n.socket.send(encodeADois({ op: "oferecer", entidade: id(a), gesto: 1 }));
+    await until(() => said(a, "nao_pode").length === 1 && said(n, "nao_pode").length === 1);
+    expect(said(n, "pedido")).toEqual([]);
+    await pause(1100);
+    n.socket.send(encodeADois({ op: "oferecer", entidade: id(a), gesto: 0 }));
+    await until(() => said(a, "pedido").length === 2);
+    // And not from thirty metres off.
+    far.socket.send(encodeADois({ op: "oferecer", entidade: id(a), gesto: 0 }));
+    await until(() => said(far, "nao_pode").length === 1);
+    expect(said(a, "pedido")).toHaveLength(2);
+    await Promise.all([a.leave(), r.leave(), n.leave(), far.leave()]);
+  }, 30_000);
 
   test("whoever stands at a way out to another bairro is said to be there, with where it leads and where one arrives; nobody else is (Task 11.2)", async () => {
     const [one, other] = [await player(), await player()];

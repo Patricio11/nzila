@@ -5,7 +5,7 @@
 
 import { ptAOTranslator as tr } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
-import { type WorldEvent } from "@nzila/protocol";
+import { A_DOIS_DITOS, EVENT, GESTOS_A_DOIS, encodeADois, type GestoADois, type WorldEvent } from "@nzila/protocol";
 import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, encodeSair } from "@nzila/protocol/sair";
 import { Button, Glyph, type CompassMark, type GlyphName } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
@@ -64,6 +64,8 @@ export class Sair {
   convite: Convite | null = null;
   saida: Saida | null = null;
   aviso: { readonly text: string; readonly bom: boolean; readonly ate: number } | null = null;
+  /** A gesture for two someone offers the player (a handshake, a hug), until it is answered or forgotten. */
+  gesto: { readonly entidade: number; readonly nome: string; readonly kind: GestoADois; readonly ate: number } | null = null;
   /** Where the player stands, for how far the place is. */
   x = 0;
   z = 0;
@@ -97,8 +99,22 @@ export class Sair {
       this.convite = null;
       changed = true;
     }
+    if (this.gesto && this.gesto.ate < now) {
+      this.gesto = null;
+      changed = true;
+    }
     for (const event of session?.saidas.splice(0) ?? []) {
       changed = true;
+      if (event.kind === EVENT.A_DOIS) {
+        // A gesture for two: offered to the player, or their own offer answered with a no.
+        const dito = A_DOIS_DITOS[event.args[0] ?? -1];
+        const quem = session?.who(event.subject)?.name ?? "";
+        const kind = GESTOS_A_DOIS[event.args[1] ?? -1];
+        if (dito === "pedido" && kind) this.gesto = { entidade: event.subject, nome: quem, kind, ate: now + 25_000 };
+        else if (dito === "nao") this.say(tr.t("sair.disse.nao", { nome: quem }), false, 4000);
+        else if (dito === "nao_pode") this.say(tr.t("sair.recusado.nao_pode"), false, 4000);
+        continue;
+      }
       const what = SAIR_DITOS[event.args[0] ?? -1];
       const n = event.args[1] ?? 0;
       const nome = session?.who(event.subject)?.name ?? this.saida?.nome ?? "";
@@ -151,6 +167,19 @@ export class Sair {
     net.current?.post(encodeSair({ op: "outro", entidade: convite.entidade, lugar }));
     this.say(tr.t("sair.enviado", { name: convite.nome, a: this.lugares[lugar]?.a ?? "" }), true, 4000);
     this.convite = null;
+    this.changed();
+  }
+
+  /** Offers someone a gesture for two, from their card: 0 a handshake, 1 a hug. */
+  oferecer(net: Linha, entidade: number, gesto: number): void {
+    net.current?.post(encodeADois({ op: "oferecer", entidade, gesto }));
+  }
+
+  /** Yes or no to the gesture offered. */
+  responderGesto(net: Linha, sim: boolean): void {
+    if (!this.gesto) return;
+    net.current?.post(encodeADois({ op: sim ? "aceitar" : "recusar", entidade: this.gesto.entidade }));
+    this.gesto = null;
     this.changed();
   }
 
@@ -211,6 +240,22 @@ export function Ui({ sair, net }: { sair: Sair; net: Linha }) {
   const convite = sair.convite;
   useEffect(() => void (!convite && setChoosing(false)), [convite === null]);
   const aviso = sair.aviso;
+  const gesto = sair.gesto;
+  if (!convite && gesto) {
+    const pedido = tr.t(`adois.pedido.${gesto.kind}` as "adois.pedido.apertar", { nome: gesto.nome });
+    return (
+      <div class="sr-convite sr-gesto" role="dialog" aria-label={pedido}>
+        <div class="sr-band" aria-hidden="true" />
+        <p class="sr-quem">{pedido}</p>
+        <div class="sr-foot">
+          <Button kind="quiet" onPress={() => sair.responderGesto(net, false)}>
+            {tr.t("sair.nao")}
+          </Button>
+          <Button onPress={() => sair.responderGesto(net, true)}>{tr.t(`adois.sim.${gesto.kind}` as "adois.sim.apertar")}</Button>
+        </div>
+      </div>
+    );
+  }
   if (!convite) {
     return aviso ? (
       <p class={`sr-aviso${aviso.bom ? "" : " sr-aviso-nao"}`} role="status">

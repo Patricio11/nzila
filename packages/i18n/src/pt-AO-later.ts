@@ -599,6 +599,13 @@ export const ptAOLater = {
   "viagem.falta": "Não tens Makuta para a corrida.",
   "viagem.falhou": "A carrinha não sai agora. Tenta daqui a pouco.",
   "viagem.longe": "Chega-te à paragem.",
+  // Gestures for two (the founder, 2026-11-21): a handshake for anyone, a hug between two adults.
+  "adois.apertar": "Aperto de mão",
+  "adois.abracar": "Abraço",
+  "adois.pedido.apertar": "{nome} estende-te a mão.",
+  "adois.pedido.abracar": "{nome} quer dar-te um abraço.",
+  "adois.sim.apertar": "Apertar a mão",
+  "adois.sim.abracar": "Abraçar",
   // Convidar para sair (Task 10.13, D-10.3 to D-10.5). {a} is the place as one goes to it ("ao Pontão"), from the pack.
   "sair.abrir": "Convidar para sair",
   "sair.titulo": "Aonde vão, tu e {name}?",

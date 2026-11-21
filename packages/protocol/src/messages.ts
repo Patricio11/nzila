@@ -41,6 +41,8 @@ export const MSG = {
   CORRIDAS: 22,
   /** Client to zone: what a player asks about going out with someone (Task 10.13). */
   SAIR: 23,
+  /** Client to zone: a gesture for two offered to someone, or their offer answered (the founder, 2026-11-21). */
+  A_DOIS: 24,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -257,6 +259,12 @@ export const EVENT = {
   PRESENTE: 20,
   /** An outing (Task 10.13): args[0] is what is said, its place in SAIR_DITOS (sair.ts); subject is the other of the two. */
   SAIR: 21,
+  /**
+   * A gesture for two (the founder, 2026-11-21): args[0] is what is said, its place in A_DOIS_DITOS. "pedido": subject
+   * offers this player the gesture args[1]. "nao": subject said not now. "nao_pode": what this player asked was not
+   * done. "feito": subject and the body args[1] make the gesture args[2] together, for whoever sees them.
+   */
+  A_DOIS: 22,
 } as const;
 
 /**
@@ -564,6 +572,30 @@ function readCorrida(r: Reader): CorridaPedido {
   throw new ProtocolError("malformed", "corrida");
 }
 
+// ---------------------------------------------------------------- A dois: gestures for two
+
+/** The gestures two make together, by their number on the wire: a handshake, for anyone; a hug, between two adults. Never reordered. */
+export const GESTOS_A_DOIS = ["apertar", "abracar"] as const;
+export type GestoADois = (typeof GESTOS_A_DOIS)[number];
+/** What the zone says of one (an Event of kind A_DOIS). Never reordered. */
+export const A_DOIS_DITOS = ["pedido", "nao", "nao_pode", "feito"] as const;
+
+/** Client to zone: offer someone (by their number in the channel) a gesture for two; or say yes or no to theirs. */
+export type ADoisPedido = { readonly op: "oferecer"; readonly entidade: number; readonly gesto: number } | { readonly op: "aceitar" | "recusar"; readonly entidade: number };
+
+export function encodeADois(m: ADoisPedido): Uint8Array {
+  const w = new Writer().u8(MSG.A_DOIS);
+  if (m.op === "oferecer") return w.u8(1).uint(m.entidade).u8(m.gesto).finish();
+  return w.u8(m.op === "aceitar" ? 2 : 3).uint(m.entidade).finish();
+}
+
+function readADois(r: Reader): ADoisPedido {
+  const op = r.u8();
+  if (op === 1) return { op: "oferecer", entidade: r.uint(), gesto: r.bounded(GESTOS_A_DOIS.length - 1, "gesture for two") };
+  if (op === 2 || op === 3) return { op: op === 2 ? "aceitar" : "recusar", entidade: r.uint() };
+  throw new ProtocolError("malformed", "a dois");
+}
+
 // ---------------------------------------------------------------- Sair (Task 10.13)
 
 /** The most places a district offers for an outing. */
@@ -749,7 +781,8 @@ export type ClientMessage =
   | ({ readonly type: "banco" } & Banco)
   | ({ readonly type: "biscato" } & { readonly pedido: BiscatoPedido })
   | ({ readonly type: "corrida" } & { readonly pedido: CorridaPedido })
-  | ({ readonly type: "sair" } & { readonly pedido: SairPedido });
+  | ({ readonly type: "sair" } & { readonly pedido: SairPedido })
+  | ({ readonly type: "a_dois" } & { readonly pedido: ADoisPedido });
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -772,6 +805,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.BISCATO) return { type: "biscato", pedido: readBiscato(r) };
   if (type === MSG.CORRIDA) return { type: "corrida", pedido: readCorrida(r) };
   if (type === MSG.SAIR) return { type: "sair", pedido: readSair(r) };
+  if (type === MSG.A_DOIS) return { type: "a_dois", pedido: readADois(r) };
   throw new ProtocolError("unknown_type", String(type));
 }
 

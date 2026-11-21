@@ -123,8 +123,9 @@ function rolls(seed: number): () => number {
 /**
  * A player's errands on a day: always the same for the same player and day. Never two of a kind on one day, and
  * never the same neighbour twice; one errand at least is in the street (a thing to take, or a place to see).
+ * `least`: the player's family has little money, and is asked to put by only the least of the amounts (D-4.26).
  */
-export function recadosFor(rules: RecadoRules, playerId: string, day: string): Recado[] {
+export function recadosFor(rules: RecadoRules, playerId: string, day: string, least = false): Recado[] {
   const roll = rolls(hash(`${playerId}|${day}`));
   const pick = <T>(from: readonly T[]): T => from[Math.floor(roll() * from.length)]!;
   const kinds = [...RECADO_KINDS];
@@ -145,7 +146,9 @@ export function recadosFor(rules: RecadoRules, playerId: string, day: string): R
     const place = Math.floor(roll() * 1_000_000);
     if (kind === "traz") out.push({ n, kind, who, item: pick(rules.traz), place });
     else if (kind === "vaiver") out.push({ n, kind, who, place });
-    else if (kind === "guarda") out.push({ n, kind, who, amount: pick(rules.guarda) });
+    // A family of little money is asked for the least of the amounts (D-4.26); the roll is taken either way, so
+    // that everything after it is as it would have been.
+    else if (kind === "guarda") out.push({ n, kind, who, amount: least ? Math.min(pick(rules.guarda), ...rules.guarda) : pick(rules.guarda) });
     else out.push({ n, kind, who });
   }
   return out;

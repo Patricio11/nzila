@@ -21,6 +21,9 @@ import {
   type BiscatoPedido,
   type CorridaPedido,
   type SairPedido,
+  type ADoisPedido,
+  A_DOIS_DITOS,
+  GESTOS_A_DOIS,
   HIRED_VEHICLE_BASE,
   encodeTraffic,
   EVENT,
@@ -390,7 +393,7 @@ export class ChannelRoom {
       return true;
     }
     this.arriving++;
-    const [last, face, apart, against, needs, adult] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk || this.saidas ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId), this.saidas ? adultOf(this.sql, playerId) : false]).finally(() => this.arriving--);
+    const [last, face, apart, against, needs, adult] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk || this.saidas ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId), adultOf(this.sql, playerId)]).finally(() => this.arriving--);
     this.shut.set(playerId, new Set(apart));
     // Whether they are 18 or over is learned once, here (D-10.3, F-113): going out is for two adults.
     if (adult) this.adults.add(playerId);
@@ -449,6 +452,7 @@ export class ChannelRoom {
     const saida = this.saidas?.terminar(held.playerId);
     if (saida) this.tellSair(Saidas.other(saida, held.playerId), held.playerId, "fim", SAIR_FINS.indexOf("saiu"));
     this.saidas?.forget(held.playerId);
+    this.ofertas.delete(held.entityId);
     this.adults.delete(held.playerId);
     // A ride they called drives off.
     const called = this.corridas.of(held.entityId);
@@ -497,6 +501,7 @@ export class ChannelRoom {
       else if (message.type === "biscato") this.biscato(line, held, message.pedido);
       else if (message.type === "corrida") this.corrida(line, held, message.pedido);
       else if (message.type === "sair") this.sair(held, message.pedido);
+      else if (message.type === "a_dois") this.aDois(line, held, message.pedido);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -613,6 +618,53 @@ export class ChannelRoom {
     if (typeof saida === "string") return refuse(saida);
     this.tellSair(me, them, "combinado", saida.lugar);
     this.tellSair(them, me, "combinado", saida.lugar);
+  }
+
+  /** A gesture for two offered and not yet answered: who offered it, to whom, which, and when. One at a time each. */
+  private readonly ofertas = new Map<number, { to: number; gesto: number; at: number }>();
+
+  /**
+   * A gesture for two (the founder, 2026-11-21): a handshake, for anyone; a hug, between two adults. Offered to
+   * someone within arm's reach who has not shut the offerer out; made only when the other says yes, and then seen by
+   * whoever sees them. Checked again at the yes. Why not is never said beyond "not now".
+   */
+  private aDois(line: Line, held: Held, pedido: ADoisPedido): void {
+    const now = Date.now();
+    const tick = this.channel.world.tick;
+    const tell = (to: Line | undefined, subject: number, args: number[]): void => to?.send(encodeEvent({ kind: EVENT.A_DOIS, tick, subject, args, text: "" }));
+    const otherLine = this.lineOfEntity.get(pedido.entidade);
+    const other = otherLine ? this.held.get(otherLine) : undefined;
+    const may = (gesto: number): boolean => {
+      const a = this.channel.placeOf(held.entityId);
+      const c = other ? this.channel.placeOf(other.entityId) : undefined;
+      if (!other || other === held || !a || !c || this.apart(held.entityId, other.entityId)) return false;
+      if (Math.hypot(a.x - c.x, a.z - c.z) > HAND_REACH_MM * 1.5) return false;
+      if (this.channel.ridingOf(held.entityId) || this.channel.ridingOf(other.entityId) || this.channel.sittingOf(held.entityId) || this.channel.sittingOf(other.entityId)) return false;
+      // A hug is between two adults (D-0.34's line: nothing of the kind across the age bands).
+      return GESTOS_A_DOIS[gesto] !== "abracar" || (this.adults.has(held.playerId) && this.adults.has(other.playerId));
+    };
+    if (pedido.op === "oferecer") {
+      if (now - held.gestureAt < GESTURE_GAP_MS) return;
+      held.gestureAt = now;
+      if (!may(pedido.gesto)) return tell(line, pedido.entidade, [A_DOIS_DITOS.indexOf("nao_pode")]);
+      this.ofertas.set(held.entityId, { to: pedido.entidade, gesto: pedido.gesto, at: now });
+      return tell(otherLine, held.entityId, [A_DOIS_DITOS.indexOf("pedido"), pedido.gesto]);
+    }
+    const offer = this.ofertas.get(pedido.entidade);
+    if (!offer || offer.to !== held.entityId || now - offer.at > 30_000) return tell(line, pedido.entidade, [A_DOIS_DITOS.indexOf("nao_pode")]);
+    this.ofertas.delete(pedido.entidade);
+    if (pedido.op === "recusar") return tell(otherLine, held.entityId, [A_DOIS_DITOS.indexOf("nao")]);
+    if (!may(offer.gesto)) return tell(line, pedido.entidade, [A_DOIS_DITOS.indexOf("nao_pode")]);
+    const bytes = encodeEvent({ kind: EVENT.A_DOIS, tick, subject: pedido.entidade, args: [A_DOIS_DITOS.indexOf("feito"), held.entityId, offer.gesto], text: "" });
+    for (const [one, seeing] of this.held) {
+      const sees = this.channel.seenBy(seeing.entityId);
+      if (seeing === held || seeing === other || sees.includes(held.entityId) || sees.includes(pedido.entidade)) one.send(bytes);
+    }
+    // A handshake is a greeting: the two have met, as after a wave answered.
+    if (other) {
+      held.wavedAt = now;
+      this.greets(other, now);
+    }
   }
 
   /** An outing is over: both are told, and why. */
