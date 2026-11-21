@@ -32,7 +32,8 @@ export function Origem() {
   const [onward, setOnward] = useState(params.get("voltar") ?? "/andar?pack=l1");
   const [card, setCard] = useState<Origin | null>(null);
   // The card says where one wakes (D-11.1): the server is asked which bairro that is, so that no other is fetched first.
-  useEffect(() => void (card && askAsPlayer<{ pack: string | null }>("GET", "/v1/me/place").then(({ answer }) => answer?.pack && setOnward((was) => was.replace(/pack=[\w-]+/, `pack=${answer.pack}`)))), [card !== null]);
+  const [wakes, setWakes] = useState("");
+  useEffect(() => void (card && askAsPlayer<{ pack: string | null }>("GET", "/v1/me/place").then(({ answer }) => answer?.pack && (setWakes(answer.pack), setOnward((was) => was.replace(/pack=[\w-]+/, `pack=${answer.pack}`))))), [card !== null]);
   const [turned, setTurned] = useState(params.has("virada"));
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export function Origem() {
                 {tr.t("origin.from", { de: word(`origin.province.${card.province}.de`, card.province) })} {tr.t("origin.grew", { em: word(`origin.bairro.${card.bairro}.em`, card.bairro) })}
               </p>
               <p class="origem-line">{word(`origin.line.${card.family}`, "")}</p>
+              {wakes !== card.bairro ? <p class="origem-line">{word(`origin.wakes.${wakes}`, "")}</p> : null}
               <p class="origem-starts">{tr.t("origin.starts")}</p>
               <p class="origem-makuta">{tr.makuta(card.makuta)}</p>
               <span class="origem-stamp" aria-hidden="true">

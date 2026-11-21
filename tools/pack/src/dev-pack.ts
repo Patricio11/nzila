@@ -94,6 +94,25 @@ export async function buildDevPack(workDir: string, outDir: string) {
 
   const layout = JSON.parse(await readFile(join(src, "layout.json"), "utf8")) as DevLayout;
   const strings: Record<string, string> = { "world.zz-dev.d1.name": "Bairro de Ensaio", "dev.caixa.name": "Caixa de Ensaio", "dev.caixa.line": "Guarda aqui o que não queres perder na rua, e levanta quando precisares.", "dev.cantina.name": "Cantina de Ensaio", "dev.biscato.pratos.name": "Bacia de Ensaio", "dev.biscato.pratos.line": "Lavam-se pratos aqui. A tia paga na hora.", "dev.biscato.carga.name": "Carrinhos de Ensaio", "dev.biscato.carga.line": "Há sempre carga para levar à banca. Paga-se por cada uma.", "dev.biscato.zunga.name": "Bacias de Ensaio", "dev.biscato.zunga.line": "Leva uma bacia e vende a quem passa.", "dev.biscato.carros.name": "Baldes de Ensaio", "dev.biscato.carros.line": "Um balde, uma esponja e carros à espera.", "dev.cantina.line": "Pão, gasosa, arroz, sabão, velas. Tudo pela grade.", "dev.banca.name": "Banca de Ensaio", "dev.banca.line": "Flores, perfume e panos, para oferecer.", "dev.gelados.name": "Geladaria de Ensaio", "dev.gelados.line": "Gelado de múcua e de coco. Senta-te na esplanada.", "dev.gelados.sair": "Os gelados", "dev.gelados.a": "aos gelados", "dev.banca.sair": "A banca das flores", "dev.banca.a": "à banca das flores" };
+  // The ways out of the rehearsal town (F-279): from its last paragem, to every bairro of the registry that is built
+  // and that another bairro already leads to, with the words that bairro uses for it. It is the one paragem that
+  // leads to more than one bairro until a real one does. Nothing of the bairros is written here.
+  const real = JSON.parse(await readFile(join(root, "content", "registry.json"), "utf8")) as Registry & { districts: { id: string; pack?: string }[] };
+  const saida = layout.paragens[layout.paragens.length - 1]!;
+  const ways: SourceManifest["gateways"] = [];
+  for (const from of real.districts) {
+    if (!from.pack) continue;
+    const folder = join(root, "apps", "client", "public", "packs", from.pack);
+    const other = await readFile(join(folder, "manifest.json"), "utf8").then((text) => JSON.parse(text) as SourceManifest, () => null);
+    const said = await readFile(join(folder, (other as { strings?: string } | null)?.strings ?? "strings.pt-AO.json"), "utf8").then((text) => JSON.parse(text) as Record<string, string>, () => ({}) as Record<string, string>);
+    for (const way of other?.gateways ?? []) {
+      const pack = real.districts.find((one) => one.id === way.to)?.pack;
+      if (!pack || !way.nameKey || ways.some((one) => one.to === way.to)) continue;
+      strings[`dev.gateway.${pack}`] = said[way.nameKey] ?? pack;
+      strings[`dev.gateway.${pack}.a`] = said[`${way.nameKey}.a`] ?? pack;
+      ways.push({ id: `para-${pack}`, pos: saida, to: way.to, arrive: way.arrive, mode: "ride", openFlag: "world.open", nameKey: `dev.gateway.${pack}` });
+    }
+  }
   const manifest: SourceManifest = {
     id: "zz-dev/d1",
     province: "zz-dev",
@@ -103,8 +122,8 @@ export async function buildDevPack(workDir: string, outDir: string) {
     bounds: layout.bounds,
     ambient: { set: "dev", soundBeds: [] },
     chunks: chunks.map((chunk) => ({ id: chunk.id, aabb: chunk.aabb, lods: chunk.lods, walkGrid: `chunks/${chunk.id}.walk.json` })),
-    spawns: [{ id: "arrival", pos: layout.spawn, facing: 90, kind: "first_arrival" }],
-    gateways: [],
+    spawns: [{ id: "arrival", pos: layout.spawn, facing: 90, kind: "first_arrival" }, ...(ways.length > 0 ? [{ id: "saida", pos: saida, facing: 180, kind: "gateway" as const }] : [])],
+    gateways: ways,
     pois: [
       ...layout.corners.slice(4, 9).map((pos, n) => {
         strings[`dev.poi.${n}.name`] = `Esquina ${n + 1}`;
@@ -145,7 +164,7 @@ export async function buildDevPack(workDir: string, outDir: string) {
   await writeFile(join(src, "district.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   await writeFile(join(src, "strings.pt-AO.json"), JSON.stringify(strings));
   const built = await buildPack(src, outDir);
-  const problems = await checkPack(outDir, { registry: DEV_REGISTRY, brandTerms: [] });
+  const problems = await checkPack(outDir, { registry: { provinces: [...DEV_REGISTRY.provinces, ...real.provinces], districts: [...DEV_REGISTRY.districts, ...real.districts] }, brandTerms: [] });
   if (problems.length > 0) throw new PackError(problems);
   return built;
 }
@@ -287,6 +306,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         const registry = JSON.parse(await readFile(join(root, "content", "registry.json"), "utf8")) as Registry;
         const brands = (await readFile(join(root, "docs", "legal", "BRAND_TERMS.txt"), "utf8")).split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
         const manifest = await buildDistrict(place.script, join(root, "dist", command), join(root, "apps", "client", "public", "packs", command), registry, brands);
+        // Across packs (F-273): where a way out says one arrives must be a place of the bairro it leads to, when
+        // that bairro is built here. One not built yet is said, not refused: the first of two has nothing to look at.
+        const across: string[] = [];
+        for (const way of manifest.gateways) {
+          const pack = (registry as Registry & { districts: { id: string; pack?: string }[] }).districts.find((one) => one.id === way.to)?.pack;
+          const other = pack ? await readFile(join(root, "apps", "client", "public", "packs", pack, "manifest.json"), "utf8").then((text) => JSON.parse(text) as SourceManifest, () => null) : null;
+          if (!other) console.warn(`pack ${command}: gateways.${way.id} leads to ${way.to}, which is not built here: where one arrives ("${way.arrive}") was not checked.`);
+          else if (![...other.spawns, ...other.paragens].some((one) => one.id === way.arrive)) across.push(`gateways.${way.id}: one arrives at "${way.arrive}", which is no paragem or spawn of ${way.to}`);
+        }
+        if (across.length > 0) throw new PackError(across);
         const mb = (bytes: number): string => (bytes / 1_000_000).toFixed(2);
         const heaviest = Math.max(...manifest.chunks.map((chunk) => chunk.stats.near.tris));
         // The front door states what the first visit costs before a byte of it is fetched (Rule 2): the first

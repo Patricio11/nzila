@@ -16,6 +16,8 @@ Opened 2026-11-20, when Phase 4 completed (`docs/completed/PHASE_4_COMPLETE.md`)
 | 6.6 Driving for a living | 4.5, 6.1, 6.2, 6.5 | The biscatos' path (D-4.22) is the pattern for a shift |
 | 6.7 Wiring, verification, doc convention | 6.1 to 6.6 | |
 
+**D-6.6 The seat on the candongueiro is the cheapest ride (delegated; the founder: "you should handle this", 2026-11-21).** The candongueiro is 200 Mk, the founder's anchor (a corrida in Luanda costs 200 Kz, D-0.9). The moto-táxi was 200 too: a ride to the door, alone and at once, for the price of a shared seat on a fixed line, so nobody had a reason to wait at a paragem, and the van is where people sit together. The founder's ladder of 2026-11-20 (200, 250, 300) keeps its steps, fifty higher: **moto-táxi 250, kupapata 300, táxi 350**. The crossing between bairros stays 300. They are tunables: the Estúdio changes them without a release.
+
 ## Open questions
 
 - **Q1 What a corrida costs and when it is paid.** `fares.candongueiroLocal` is 200 Mk. Paid on boarding, to the cobrador, through the ledger (the `fare` sink); a player who cannot pay is not let on ("Não tens para a corrida"). *Recommendation: yes; the founder's to confirm the price.*

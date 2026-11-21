@@ -1978,12 +1978,12 @@ test.describe("two phones in the same street", () => {
     await map.click({ position: { x: (paragem[0] / manifest.bounds.maxX) * box.width, y: (paragem[2] / manifest.bounds.maxZ) * box.height } });
     await expect(phone.locator(".tm-place")).toBeVisible();
     await expect(phone.locator(".tm-ir")).toContainText("Ir até lá");
-    await expect(phone.getByRole("button", { name: /^De moto-táxi · 200\sMk$/ })).toBeVisible();
-    await expect(phone.getByRole("button", { name: /^De kupapata · 250\sMk$/ })).toBeVisible();
-    await expect(phone.getByRole("button", { name: /^De táxi · 300\sMk$/ })).toBeVisible();
+    await expect(phone.getByRole("button", { name: /^De moto-táxi · 250\sMk$/ })).toBeVisible();
+    await expect(phone.getByRole("button", { name: /^De kupapata · 300\sMk$/ })).toBeVisible();
+    await expect(phone.getByRole("button", { name: /^De táxi · 350\sMk$/ })).toBeVisible();
     await phone.locator(".tm-ir").scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath("corrida-mapa.png") });
-    await phone.getByRole("button", { name: /^De moto-táxi · 200\sMk$/ }).click();
+    await phone.getByRole("button", { name: /^De moto-táxi · 250\sMk$/ }).click();
     // Asked: the phone goes down, and the chip under the wallet says it is coming.
     await expect(page.getByRole("dialog", { name: "Telemóvel" })).toHaveCount(0);
     await expect(page.locator(".cd-chip")).toContainText("A moto vem a caminho.", { timeout: 10_000 });
@@ -2021,7 +2021,7 @@ test.describe("two phones in the same street", () => {
       const token = (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token;
       return (await (await fetch("/api/v1/me/wallet", { headers: { authorization: `Bearer ${token}` } })).json()) as { cashLines: { amount: number; reason: string }[] };
     });
-    expect(wallet.cashLines[0]).toMatchObject({ reason: "fare", amount: -200 });
+    expect(wallet.cashLines[0]).toMatchObject({ reason: "fare", amount: -250 });
     // The chip goes a little after the end.
     await expect(page.locator(".cd-chip")).toHaveCount(0, { timeout: 10_000 });
     expect(seen.errors).toEqual([]);
@@ -2636,13 +2636,13 @@ test.describe("two phones in the same street", () => {
     // A táxi for two, from the chip, at the táxi's fare, paid by whoever calls it.
     const before = ((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash;
     await page.locator(".sr-chip-face").click();
-    await expect(page.locator(".sr-menu").getByRole("button", { name: /^Táxi para dois · 300\sMk$/ })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".sr-menu").getByRole("button", { name: /^Táxi para dois · 350\sMk$/ })).toBeVisible({ timeout: 10_000 });
     await expect(page.locator(".sr-menu").getByRole("button", { name: "Terminar a saída" })).toBeVisible();
     await page.screenshot({ path: info.outputPath("sair-menu.png") });
     await page.locator(".sr-menu").getByRole("button", { name: /^Táxi para dois/ }).click();
     await expect(page.locator(".cd-chip")).toContainText("O táxi vem a caminho.", { timeout: 10_000 });
     await expect(other.locator(".cd-chip")).toContainText("O táxi vem a caminho.", { timeout: 10_000 });
-    expect(((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash).toBe(before - 300);
+    expect(((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash).toBe(before - 350);
     // It waits at the kerb; both walk up to it and get in; only then it goes.
     for (const phone of [page, other]) {
       await phone.waitForFunction(() => window.__andar?.hired?.fase === "espera", undefined, { timeout: 45_000 });
@@ -2836,6 +2836,40 @@ test.describe("two phones in the same street", () => {
     expect(seen.errors).toEqual([]);
   });
 
+  test("a paragem that leads to more than one bairro (F-279): the sheet asks where to, with the price, before anything else; the one chosen is where one arrives", async ({ page, request }, info) => {
+    const dev = (await request.get("/packs/dev/manifest.json")).ok() ? ((await (await request.get("/packs/dev/manifest.json")).json()) as { gateways: { id: string }[] }) : null;
+    if (!dev || dev.gateways.length < 2 || !(await request.get("/packs/zango/manifest.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built (the rehearsal town borrows its ways out from the bairros). The choice of where to go was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(240_000);
+    const seen = watch(page);
+    await comeIn(page, 127);
+    await page.goto("/andar?tier=poupanca&hour=16&paragem=saida");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    const token = await page.evaluate(() => (JSON.parse(localStorage.getItem("nzila.conta") ?? "{}") as { token: string }).token);
+    await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${token}` }, data: {} });
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "viajar", undefined, { timeout: 30_000 });
+    await page.waitForTimeout(1500);
+    await page.keyboard.press("e");
+    // Two candongueiros leave from here: where to, and what it costs, before anything else.
+    const where = page.getByRole("dialog", { name: "Para onde vais?" });
+    await expect(where).toContainText(/por conta da casa|A corrida custa 300\sMk\./, { timeout: 10_000 });
+    await expect(where.getByRole("button", { name: "Zango" })).toBeVisible();
+    await expect(where.getByRole("button", { name: "Marginal e Baixa" })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("onde-folha.png") });
+    await where.getByRole("button", { name: "Zango" }).click();
+    // Then the sheet of that corrida, as at a paragem with one way out.
+    const sheet = page.getByRole("dialog", { name: "Candongueiro para o Zango" });
+    await expect(sheet).toContainText(/\d(,\d)? MB para carregar o bairro\./, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("onde-zango.png") });
+    await sheet.getByRole("button", { name: "Ir para o Zango" }).click();
+    await page.waitForURL(/\/andar\?pack=zango&paragem=mangueira/, { timeout: 20_000 });
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    expect(seen.errors).toEqual([]);
+  });
+
   test("the ball on Zango's campo (2026-11-21): it lies in the middle; walked into, it rolls away the way the player was going", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The packs are not built. The ball on the campo was not checked here." });
@@ -2887,14 +2921,18 @@ test.describe("two phones in the same street", () => {
     test.setTimeout(180_000);
     // Cards are dealt by chance: guests are made until one is of a family of little money (most are).
     let kept: Record<string, unknown> | null = null;
-    for (let n = 0; n < 12 && !kept; n++) {
+    for (let n = 0; n < 30 && !kept; n++) {
       const deviceId = `zango-born-${n}-${Date.now()}-abcdefgh`;
       const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string };
-      const dealt = (await (await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: { tier: string } };
-      if (dealt.origin.tier === "aperto") kept = { deviceId, ageBand: "18_plus", ...guest };
+      const dealt = (await (await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: { tier: string; bairro: string } };
+      // One who grew up somewhere else: their card must say why they wake in Zango (D-11.9).
+      if (dealt.origin.tier === "aperto" && dealt.origin.bairro !== "zango") kept = { deviceId, ageBand: "18_plus", ...guest };
     }
-    expect(kept, "a family of little money was dealt in twelve tries").not.toBeNull();
+    expect(kept, "a family of little money from another bairro was dealt in thirty tries").not.toBeNull();
     await page.addInitScript((account) => localStorage.setItem("nzila.conta", JSON.stringify(account)), kept);
+    await page.goto("/origem?virada");
+    await expect(page.locator(".origem-face")).toContainText("A família foi realojada no Zango. É lá que acordas.", { timeout: 20_000 });
+    await page.screenshot({ path: info.outputPath("zango-carta.png") });
     await page.goto("/andar?pack=l1&tier=poupanca&hour=16");
     await page.waitForURL(/\/andar\?pack=zango/, { timeout: 60_000 });
     await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });

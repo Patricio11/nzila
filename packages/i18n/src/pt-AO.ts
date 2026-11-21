@@ -56,6 +56,7 @@ export const ptAO = {
   "origin.mae": "Mãe",
   "origin.from": "A família veio {de}.",
   "origin.grew": "Cresceste {em}.",
+  "origin.wakes.zango": "A família foi realojada no Zango. É lá que acordas.",
   "origin.starts": "Começas a vida com",
   "origin.go": "Começar a vida",
   "origin.tier.aperto": "No aperto",

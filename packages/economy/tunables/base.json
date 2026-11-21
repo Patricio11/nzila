@@ -1,13 +1,13 @@
 {
-  "version": 8,
+  "version": 9,
   "player": {
     "startingFloor": 1500
   },
   "fares": {
     "candongueiroLocal": 200,
-    "motoTaxi": 200,
-    "kupapata": 250,
-    "taxi": 300,
+    "motoTaxi": 250,
+    "kupapata": 300,
+    "taxi": 350,
     "entreBairros": 300
   },
   "transfers": {
