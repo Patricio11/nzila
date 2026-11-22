@@ -8,7 +8,7 @@ import { readFile } from "node:fs/promises";
 import { inflateRawSync } from "node:zlib";
 import { type Ground, type Obstacle } from "@nzila/sim";
 import { zoneRoomOf } from "@nzila/protocol";
-import { decodeWalkGrid, groundOf, seatObstacles, tableObstacles, vanRoute, type CrowdActor, type CrowdFile, type RoamerPlan, type SeatPlace } from "@nzila/world";
+import { errandPlaces, decodeWalkGrid, groundOf, seatObstacles, tableObstacles, vanRoute, type CrowdActor, type CrowdFile, type RoamerPlan, type SeatPlace } from "@nzila/world";
 import { type Route } from "@nzila/sim";
 import { type Place } from "./channel.ts";
 import { type TablePlace } from "./mesas.ts";
@@ -124,7 +124,7 @@ export async function loadDistrict(packDir: URL): Promise<District> {
   // A place whose sign is a shop's is one: a player standing at it may buy what it sells.
   const shops = (manifest.pois ?? []).filter((one) => SHOP_GLYPHS.includes(one.glyph ?? "")).map((one) => ({ id: one.id, x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   // A biscato's place is no errand's: adding work to a street does not move the errands.
-  const places = (manifest.pois ?? []).filter((one) => !/^(biscato|servico)-/.test(one.id)).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
+  const places = errandPlaces(manifest.pois ?? []).map((one) => ({ x: Math.round(one.pos[0] * 1000), z: Math.round(one.pos[2] * 1000) }));
   // A seat at a table is where the body sits: its height is the seat's, and the sitter faces the table.
   const mm = (metres: number): number => Math.round(metres * 1000);
   const tables = (manifest.tables ?? []).map((one): TablePlace => ({

@@ -7,6 +7,7 @@ import { Button } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { Kambas } from "./kambas.tsx";
 import { novidadesAgora, onNovidades } from "./rede-kambas.ts";
+import { errandPlaces } from "@nzila/world/lugares";
 import { familia, feito, messageOf, onToday, placeIn, today, whoOf, type FeitoSaid, type Recado, type Today } from "../recados/recados.ts";
 import { type WorldProvider } from "../world/provider.ts";
 import type { Marked } from "./telemovel.tsx";
@@ -60,7 +61,7 @@ function Bairro({ world, marked, onMark }: { world: WorldProvider; marked: Marke
   }, []);
   const manifest = world.district();
   const placeOf = (one: Recado): Marked | null => {
-    const poi = placeIn(manifest?.pois ?? [], one.place);
+    const poi = placeIn(errandPlaces(manifest?.pois ?? []), one.place);
     return poi ? { x: poi.pos[0], z: poi.pos[2], name: world.word(poi.nameKey) } : null;
   };
   const done = async (one: Recado): Promise<void> => {

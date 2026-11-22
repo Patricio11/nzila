@@ -1060,6 +1060,32 @@ test.describe("two phones in the same street", () => {
    * Walks a player to a point with the keys, as a thumb would: straight at it, and when something stands in the way (a
    * person of the street on their timetable, a bench, a kiosk) a step aside and on. Returns when within `within` metres.
    */
+  /**
+   * Waits until the gold button offers `wanted` and goes on offering it. A place may also be where one of the day's
+   * errands is done, and the errand's word comes first; said done, the place's own word shows while the server is
+   * asked, and the errand's comes back when the server said "not yet" (the zone had not yet said the player was
+   * there): seeing the wanted word once is not enough (F-284). The errand is done here as many times as it takes.
+   */
+  const offered = async (page: Page, wanted: string, withinMs = 45_000): Promise<void> => {
+    const until = Date.now() + withinMs;
+    let since = 0;
+    while (Date.now() < until) {
+      const now = await page.evaluate(() => ({ action: window.__andar!.action ?? "", still: window.__andar!.speed < 0.05 }));
+      if (now.action === wanted && now.still) {
+        since ||= Date.now();
+        if (Date.now() - since > 2500) return;
+      } else {
+        since = 0;
+        if (now.still && (now.action === "procurar" || now.action === "entregar")) {
+          await page.waitForTimeout(1300);
+          await page.keyboard.press("e");
+        }
+      }
+      await page.waitForTimeout(250);
+    }
+    throw new Error(`the gold button did not settle on "${wanted}" in ${withinMs / 1000} s`);
+  };
+
   const walkTo = async (page: Page, x: number, z: number, within: number, tries = 300): Promise<void> => {
     let stuck = 0;
     let was = { x: Number.NaN, z: Number.NaN };
@@ -2464,12 +2490,7 @@ test.describe("two phones in the same street", () => {
     // Keys pressed before the page has the keyboard move nobody: once more if so.
     if (await page.evaluate(() => window.__andar!.shop === null)) await walkTo(page, banca.pos[0], banca.pos[2], 1.2);
     // The banca is one of the places errands are done at: today's may be here, and its button comes first (F-263).
-    await page.waitForFunction(() => window.__andar!.speed < 0.05 && ["buy", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 });
-    if (await page.evaluate(() => window.__andar!.action !== "buy")) {
-      await page.waitForTimeout(1200);
-      await page.keyboard.press("e");
-      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 15_000 });
-    }
+    await offered(page, "buy");
     await page.screenshot({ path: info.outputPath("banca-rua.png") });
     const stall = page.getByRole("dialog", { name: "Banca de Ensaio" });
     for (let tries = 0; tries < 3 && !(await stall.isVisible()); tries++) {
@@ -2543,12 +2564,7 @@ test.describe("two phones in the same street", () => {
     await walkTo(page, place.pos[0], place.pos[2], 1.2, 80);
     if (await page.evaluate(() => window.__andar!.shop === null)) await walkTo(page, place.pos[0], place.pos[2], 1.0);
     // The geladaria is one of the places errands are done at: today's may be here, and its button comes first (F-263).
-    await page.waitForFunction(() => window.__andar!.speed < 0.05 && ["buy", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 });
-    if (await page.evaluate(() => window.__andar!.action !== "buy")) {
-      await page.waitForTimeout(1200);
-      await page.keyboard.press("e");
-      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 15_000 });
-    }
+    await offered(page, "buy");
     await page.screenshot({ path: info.outputPath("geladaria-rua.png") });
     const shop = page.getByRole("dialog", { name: "Geladaria de Ensaio" });
     for (let tries = 0; tries < 3 && !(await shop.isVisible()); tries++) {
@@ -2782,16 +2798,7 @@ test.describe("two phones in the same street", () => {
     test.setTimeout(240_000);
     const seen = watch(page);
     // The paragem is one of the places errands are done at: today's may be here, and its button comes first (F-263).
-    const atTheWayOut = async (phone: Page): Promise<void> => {
-      await phone.waitForFunction(() => window.__andar!.speed < 0.05 && ["viajar", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 20_000 });
-      // An errand here may take more than one press (found, then handed over), and its button comes first each time.
-      for (let tries = 0; tries < 5 && (await phone.evaluate(() => window.__andar!.action !== "viajar")); tries++) {
-        await phone.waitForTimeout(1200);
-        await phone.keyboard.press("e");
-        await phone.waitForFunction(() => window.__andar!.speed < 0.05 && ["viajar", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 }).catch(() => {});
-      }
-      await phone.waitForFunction(() => window.__andar!.action === "viajar", undefined, { timeout: 15_000 });
-    };
+    const atTheWayOut = (phone: Page): Promise<void> => offered(phone, "viajar");
     await comeIn(page, 121);
     // Off a van at the Mutamba, where the vans for Zango stand.
     await page.goto("/andar?pack=l1&tier=poupanca&hour=16&paragem=mutamba");
@@ -3149,12 +3156,7 @@ test.describe("two phones in the same street", () => {
     const bar = pois.find((one) => one.id === "bar-zango")!;
     await walkTo(page, bar.pos[0], bar.pos[2] + 3, 1.5, 200);
     await walkTo(page, bar.pos[0], bar.pos[2], 1.0, 80);
-    await page.waitForFunction(() => window.__andar!.speed < 0.05 && ["buy", "procurar", "entregar"].includes(window.__andar!.action ?? ""), undefined, { timeout: 15_000 });
-    if (await page.evaluate(() => window.__andar!.action !== "buy")) {
-      await page.waitForTimeout(1200);
-      await page.keyboard.press("e");
-      await page.waitForFunction(() => window.__andar!.action === "buy", undefined, { timeout: 15_000 });
-    }
+    await offered(page, "buy");
     await page.waitForTimeout(1500);
     await page.screenshot({ path: info.outputPath("bar-rua.png") });
     const shop = page.getByRole("dialog", { name: "Bar da Mangueira" });

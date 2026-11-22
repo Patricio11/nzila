@@ -315,6 +315,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
           if (!other) console.warn(`pack ${command}: gateways.${way.id} leads to ${way.to}, which is not built here: where one arrives ("${way.arrive}") was not checked.`);
           else if (![...other.spawns, ...other.paragens].some((one) => one.id === way.arrive)) across.push(`gateways.${way.id}: one arrives at "${way.arrive}", which is no paragem or spawn of ${way.to}`);
         }
+        // One gold button (F-284): a place errands are done at may not stand within an errand's reach of a way out,
+        // or whoever is sent there could not take the candongueiro until the errand was done.
+        for (const way of manifest.gateways) {
+          for (const place of manifest.pois) {
+            if (!/^(biscato|servico)-/.test(place.id) && Math.hypot(place.pos[0] - way.pos[0], place.pos[2] - way.pos[2]) < 4.5) across.push(`pois.${place.id}: stands within an errand's reach (4,5 m) of gateways.${way.id}; the gold button could offer only one of them`);
+          }
+        }
         if (across.length > 0) throw new PackError(across);
         const mb = (bytes: number): string => (bytes / 1_000_000).toFixed(2);
         const heaviest = Math.max(...manifest.chunks.map((chunk) => chunk.stats.near.tris));

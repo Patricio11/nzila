@@ -567,7 +567,7 @@ poi("servico-corte-largo", barbeiro_x, barbeiro_z - 1.7, "O barbeiro do Largo", 
 poi("xadrez", lx0 + 15.5, z0 + 14.5, "As mesas do Largo", "Xadrez, damas e Não te irrites. Os kotas jogam aqui desde manhã, e quem perde paga o café.")
 paragem("mutamba", lx0 + 48.0, z0 + 2.0, "Mutamba", STREET_A[1] - 1.4, "na Mutamba")
 largo = (lx0, z0, lx1, z1)  # kept: these names are used again further down
-poi("cobrador", lx0 + 44.0, z0 + 4.5, "A paragem da Mutamba", "Diz-se que o cobrador daqui se ouve na Ilha.")
+poi("cobrador", lx0 + 42.5, z0 + 7.0, "A paragem da Mutamba", "Diz-se que o cobrador daqui se ouve na Ilha.")
 # A biscato (Task 4.5): the roboteiros wait with their carrinhos a little along from the paragem, for what the vans set down.
 # A biscato (Task 4.5): the lavadores wait with their buckets on the other side of the paragem, where cars stop.
 poi("biscato-carros-baixa", lx0 + 34.0, z0 + 4.5, "Os lavadores da Baixa", "Um balde, uma esponja e a fila de carros. O dono paga na hora.")

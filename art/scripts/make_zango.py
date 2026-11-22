@@ -252,7 +252,9 @@ block(PARAGEM[0] + 1.5, PARAGEM[1] - 4.5, 0.5)
 words["zango.paragem.mangueira"] = "Paragem da Mangueira"
 words["zango.paragem.mangueira.em"] = "na Mangueira"
 places["paragens"].append({"id": "mangueira", "pos": [round(PARAGEM[0], 2), G, round(PARAGEM[1], 2)], "nameKey": "zango.paragem.mangueira"})
-poi("paragem-mangueira", PARAGEM[0] + 3.0, PARAGEM[1] - 1.0, "A Mangueira", "Não há placa nem abrigo: é a mangueira. Daqui sai-se para todo o lado, e o cobrador diz para onde.")
+# Under the tree, and more than an errand's reach from where the candongueiro is taken: someone sent here on an
+# errand must still be able to leave the bairro, and the gold button is one button (F-284).
+poi("paragem-mangueira", PARAGEM[0] + 1.5, PARAGEM[1] - 6.6, "A Mangueira", "Não há placa nem abrigo: é a mangueira. Daqui sai-se para todo o lado, e o cobrador diz para onde.")
 # Carts wait where the vans unload (a biscato, Task 4.5).
 for k in range(3):
     cx_, cz_ = PARAGEM[0] + 1.0 + k * 1.5, PARAGEM[1] - 10.5
