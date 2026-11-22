@@ -157,6 +157,43 @@ const PICTURES: Readonly<Record<string, readonly Shape[]>> = {
     ["", "M22 5l3-1.5 M22.5 8h3"],
   ],
   // The cloth folded in four, its border showing.
+  // What a house is furnished with (Task 5.3).
+  cadeira: [
+    ["k-luz", "M9 4h14v12H9z"],
+    ["k-luz", "M7 15h18v4H7z"],
+    ["k-prata", "M8 19h2.5l-1 9H7z M21.5 19H24l1 9h-2.5z"],
+    ["", "M12 7v6 M16 7v6 M20 7v6"],
+  ],
+  mesa: [
+    ["k-luz", "M3 10h26v4H3z"],
+    ["k-prata", "M6 14h3l-1.5 14H5z M23 14h3l1 14h-2.5z"],
+    ["", "M9 18h14"],
+  ],
+  colchao: [
+    ["k-luz", "M3 14h26v9H3z"],
+    ["k-azul", "M7 14h2v9H7z M12 14h2v9h-2z M17 14h2v9h-2z M22 14h2v9h-2z"],
+    ["k-papel", "M4 10h9v5H4z"],
+  ],
+  cama: [
+    ["k-chocolate", "M3 6h3v22H3z M26 14h3v14h-3z M3 19h26v4H3z"],
+    ["k-luz", "M6 14h20v5H6z"],
+    ["k-ouro", "M13 14h13v5H13z"],
+    ["k-papel", "M7 11h6v4H7z"],
+  ],
+  sofa: [
+    ["k-vermelho", "M5 8h22v10H5z"],
+    ["k-vermelho", "M2 14h5v11H2z M25 14h5v11h-5z"],
+    ["k-laranja", "M7 17h18v6H7z"],
+    ["k-chocolate", "M5 25h3v3H5z M24 25h3v3h-3z"],
+    ["", "M13 17v6 M19 17v6"],
+  ],
+  televisao: [
+    ["k-noite", "M3 4h26v16H3z"],
+    ["k-azul", "M5.5 6.5h21v11h-21z"],
+    ["k-chocolate", "M6 22h20v6H6z"],
+    ["k-noite", "M14 20h4v2h-4z"],
+    ["k-luz", "M8 9l5 0-5 5z"],
+  ],
   pano: [
     ["k-chocolate", "M5 24h22l-2 4H7z"],
     ["k-vermelho", "M4 9h24v15H4z"],

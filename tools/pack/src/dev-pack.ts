@@ -262,11 +262,12 @@ export async function buildCasas(workDir: string, outDir: string): Promise<{ kin
   await rm(workDir, { recursive: true, force: true });
   const palette = await writePalette(join(root, "art"));
   await blender(join(scripts, "make_casas.py"), [workDir, palette.json, palette.png]);
-  const list = JSON.parse(await readFile(join(workDir, "casas.json"), "utf8")) as { kinds: { id: string; model: string; triangles: number }[] };
+  const list = JSON.parse(await readFile(join(workDir, "casas.json"), "utf8")) as { kinds: { id: string; model: string; triangles: number }[]; moveis: { id: string; model: string; triangles: number }[] };
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   let bytes = 0;
-  for (const kind of list.kinds) {
+  // The insides, and what they are furnished with (Task 5.3): each a model of its own, fetched when it is first seen.
+  for (const kind of [...list.kinds, ...list.moveis]) {
     const model = await optimiseGlb(await readFile(join(workDir, kind.model)));
     bytes += model.length;
     await writeFile(join(outDir, kind.model), model);

@@ -90,3 +90,73 @@ def interior_de_realojamento(b):
 
 # Every kind of home there is, by its name in a bairro's `homes`.
 KINDS = {"realojamento": interior_de_realojamento}
+
+
+# ====================================================================== what a house is furnished with (Task 5.3)
+# Each thing is drawn alone, standing on the floor about the origin, its front to +Z, inside the floor the
+# catalogue gives it (packages/economy/tunables/items.json: `chao`, in cells of half a metre): the game sets it
+# down on those cells and turns it by quarters. Things a family in Luanda has: the plastic chair and table of every
+# yard, a mattress before there is a bed, the sofa and the television that say the house is a home.
+
+def cadeira(b):
+    """The white plastic chair: on four splayed legs, with its curved back. Half a metre square."""
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            b.tube([(sx * 0.19, 0.0, sz * 0.19), (sx * 0.16, 0.42, sz * 0.15)], [0.02, 0.022], 4, "paintWhite", cap=False)
+    b.box((0.0, 0.44, 0.0), (0.4, 0.04, 0.38), "paintWhite", skip_bottom=False)
+    b.box((0.0, 0.66, -0.19), (0.38, 0.42, 0.03), "paintWhite", skip_bottom=False)
+    for sx in (-1, 1):
+        b.box((sx * 0.2, 0.58, -0.02), (0.03, 0.03, 0.34), "paintWhite", skip_bottom=False)
+
+
+def mesa(b):
+    """The plastic table of the yard, a metre square less a hand: white, on four legs."""
+    b.box((0.0, 0.72, 0.0), (0.9, 0.04, 0.9), "paintWhite", skip_bottom=False)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            b.tube([(sx * 0.38, 0.0, sz * 0.38), (sx * 0.34, 0.7, sz * 0.34)], [0.025, 0.03], 4, "paintWhite", cap=False)
+
+
+def colchao(b):
+    """A mattress on the floor, a metre by two: striped ticking, and a pillow at its head."""
+    b.box((0.0, 0.09, 0.0), (0.94, 0.18, 1.94), "kerb", skip_bottom=True)
+    for k in range(6):
+        b.box((-0.4 + k * 0.16, 0.183, 0.0), (0.04, 0.004, 1.94), "zincBlue", skip_bottom=True)
+    b.box((0.0, 0.23, -0.74), (0.6, 0.1, 0.34), "paintWhite", skip_bottom=True)
+
+
+def cama(b):
+    """A bed of wood, a metre and a half by two: the frame, its headboard, the mattress, a cloth over it and two pillows."""
+    b.box((0.0, 0.2, 0.0), (1.46, 0.16, 1.96), "wood", skip_bottom=False)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            b.box((sx * 0.68, 0.06, sz * 0.93), (0.08, 0.12, 0.08), "acaciaTrunk", skip_bottom=True)
+    b.box((0.0, 0.62, -0.955), (1.46, 0.84, 0.05), "wood", skip_bottom=False)
+    b.box((0.0, 0.37, 0.02), (1.38, 0.18, 1.86), "kerb", skip_bottom=True)
+    b.box((0.0, 0.47, 0.3), (1.4, 0.02, 1.3), "cloth", skip_bottom=True)
+    for sx in (-1, 1):
+        b.box((sx * 0.34, 0.51, -0.68), (0.52, 0.1, 0.32), "paintWhite", skip_bottom=True)
+
+
+def sofa(b):
+    """The sofa of the sala, two metres by one: dark red, deep, with fat arms and three cushions, its back to the wall."""
+    b.box((0.0, 0.2, 0.05), (1.94, 0.4, 0.86), "carRed", skip_bottom=True)
+    b.box((0.0, 0.6, -0.36), (1.94, 0.5, 0.22), "carRed", skip_bottom=True)
+    for sx in (-1, 1):
+        b.box((sx * 0.86, 0.42, 0.05), (0.22, 0.34, 0.86), "zincRed", skip_bottom=True)
+    for k in (-1, 0, 1):
+        b.box((k * 0.5, 0.45, 0.1), (0.46, 0.1, 0.6), "zincRed", skip_bottom=True)
+        b.box((k * 0.5, 0.62, -0.22), (0.44, 0.34, 0.1), "roof", skip_bottom=True)
+
+
+def televisao(b):
+    """A television on its low stand, a metre wide: the stand of wood with a shelf, the set dark, its screen to the room."""
+    b.box((0.0, 0.25, 0.0), (0.96, 0.5, 0.42), "wood", skip_bottom=True)
+    b.box((0.0, 0.26, 0.2), (0.86, 0.3, 0.03), "acaciaTrunk", skip_bottom=True)
+    b.box((0.0, 0.53, 0.0), (0.3, 0.04, 0.2), "tarShade", skip_bottom=True)
+    b.box((0.0, 0.84, 0.0), (0.92, 0.56, 0.05), "tarShade", skip_bottom=False)
+    b.rect((0.0, 0.84, 0.028), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.84, 0.48, "window")
+
+
+# Every thing a house is furnished with, by its name in the catalogue.
+MOVEIS = {"cadeira": cadeira, "mesa": mesa, "colchao": colchao, "cama": cama, "sofa": sofa, "televisao": televisao}

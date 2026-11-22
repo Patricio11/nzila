@@ -8,9 +8,9 @@
 // make them from nothing). Every byte is ours (packages/protocol).
 
 import { isGreeting } from "@nzila/i18n";
-import { TrafficRules, actorAt, nearestPavement } from "@nzila/world";
-import { adultOf, eatOne, faceOf, familyHomeOf, keepChatLines, keepNeeds, needsOf, presenteEntre, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
-import { BASE_CATALOGUE, BASE_TUNABLES, type Tunables } from "@nzila/economy";
+import { TrafficRules, actorAt, cellsOf, mayStand, nearestPavement, type HomeKind, type SetDown } from "@nzila/world";
+import { adultOf, eatOne, faceOf, familyHomeOf, moveThing, setDown, takeUp, thingsOf, type HomeThing, keepChatLines, keepNeeds, needsOf, presenteEntre, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
+import { BASE_CATALOGUE, BASE_TUNABLES, unitsCarried, type Tunables } from "@nzila/economy";
 import { BASE_BISCATOS, isBiscatoKind } from "@nzila/economy/biscatos";
 import { randomInt } from "node:crypto";
 import { decayNeeds, eatNeeds, restNeeds, spendEffort, tooTired, type NeedsState } from "@nzila/sim";
@@ -42,6 +42,7 @@ import {
   type MesaPedido,
   CHAT_REFUSAL,
 } from "@nzila/protocol";
+import { MOVEIS_AT_MOST, MOVEL_OPS, MOVEL_RECUSAS } from "@nzila/protocol/casa";
 import { CORRIDA_FASES, CORRIDA_KINDS, encodeCorridas } from "@nzila/protocol/corridas";
 import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, type SairDito, type SairRecusa } from "@nzila/protocol/sair";
 import { Saidas, type Fim, type Saida } from "./saidas.ts";
@@ -418,9 +419,12 @@ export class ChannelRoom {
     // theirs alone. Someone who went to sleep in it wakes where they lay. Someone who has not stood here wakes in a
     // public place of the bairro, among people, and walks home from there (the founder, 2026-11-22, D-5.10).
     const house = given && given.districtId === district.id ? given.house : 0;
-    const home = house ? (district.homes?.(house, playerId, () => this.doors.has(house)) ?? null) : null;
-    if (home) this.homes.set(playerId, { house, door: home.door });
-    else this.homes.delete(playerId);
+    const home = house ? (district.homes?.(house, playerId, () => this.doors.has(house), (cx, cz) => this.under.get(playerId)?.has(`${cx},${cz}`) === true) ?? null) : null;
+    if (home) {
+      this.homes.set(playerId, { house, door: home.door, kind: home.kind, cellAt: home.cellAt });
+      // What they have set down in it (Task 5.3): where it stands, nobody walks.
+      this.furnish(playerId, await thingsOf(this.sql, playerId));
+    } else this.homes.delete(playerId);
     this.shut.set(playerId, new Set(apart));
     // Whether they are 18 or over is learned once, here (D-10.3, F-113): going out is for two adults.
     if (adult) this.adults.add(playerId);
@@ -460,6 +464,9 @@ export class ChannelRoom {
   /** What a newcomer is told beyond where they are: that talk is open here, when it is. */
   private welcome(line: Line): void {
     if (this.talk) line.send(encodeEvent({ kind: EVENT.CHAT_OPEN, tick: this.channel.world.tick, subject: 0, args: [], text: "" }));
+    // What they have set down in their house, when it is in this bairro.
+    const whose = this.held.get(line)?.playerId;
+    if (whose && this.homes.get(whose)?.kind) this.tellThings(line, whose);
     // The doors that stand open, as they were left.
     for (const house of this.doors) line.send(encodeEvent({ kind: EVENT.PORTA, tick: this.channel.world.tick, subject: 0, args: [house, 1], text: "" }));
     // Back on a new line while out with someone: told again, so that the phone shows it.
@@ -541,6 +548,7 @@ export class ChannelRoom {
       // Over to the other side of a campo's match: the ball's own rules say whether, and its next step tells everyone.
       else if (message.type === "lado") this.bolas[message.campo]?.trocar(held.playerId, Date.now());
       else if (message.type === "porta") this.porta(held, message.open);
+      else if (message.type === "movel") this.movel(line, held, message);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -1047,7 +1055,67 @@ export class ChannelRoom {
   /** The houses whose door stands open (D-5.9). A door is as it was left; a room that is opened anew has them all shut. */
   private readonly doors = new Set<number>();
   /** Whose house is which, of those here who have one in this bairro: its number, and the middle of its doorway. */
-  private readonly homes = new Map<string, { house: number; door: { x: number; z: number } }>();
+  private readonly homes = new Map<string, { house: number; door: { x: number; z: number }; kind?: HomeKind; cellAt?: (x: number, z: number) => [number, number] }>();
+  /** What each of them has set down in their house (Task 5.3), and the cells of its plan those things stand on. */
+  private readonly things = new Map<string, HomeThing[]>();
+  private readonly under = new Map<string, Set<string>>();
+  private readonly moving = new Set<string>();
+
+  private furnish(playerId: string, things: HomeThing[]): void {
+    this.things.set(playerId, things);
+    this.under.set(playerId, new Set(things.flatMap((thing) => cellsOf(this.standing(thing))).map(([x, z]) => `${x},${z}`)));
+  }
+
+  private standing(thing: { item: string; cx: number; cz: number; rot: number }): SetDown {
+    return { cx: thing.cx, cz: thing.cz, rot: thing.rot, chao: BASE_CATALOGUE.items.get(thing.item)?.chao ?? [1, 1] };
+  }
+
+  /** Says to someone what is set down in their house, whole; and why what they last asked was not done, when it was not. */
+  private tellThings(line: Line, playerId: string, why = 0): void {
+    const things = this.things.get(playerId) ?? [];
+    const tick = this.channel.world.tick;
+    if (things.length === 0) line.send(encodeEvent({ kind: EVENT.MOVEIS, tick, subject: 0, args: [0, 0, 0, 0, 0, why], text: "" }));
+    for (const [n, thing] of things.entries()) line.send(encodeEvent({ kind: EVENT.MOVEIS, tick, subject: thing.id, args: [thing.cx, thing.cz, thing.rot, n, things.length, why], text: thing.item }));
+  }
+
+  /**
+   * A thing set down in one's own house, taken up, or put elsewhere in it (Task 5.3). Only standing in one's own
+   * house; only where the house's plan has floor and nothing and nobody is; out of the Mochila and back into it
+   * through the database, one asking at a time. What is so is then said whole.
+   */
+  private movel(line: Line, held: Held, asked: { op: number; id: number; item: string; cx: number; cz: number; rot: number }): void {
+    const playerId = held.playerId;
+    const home = this.homes.get(playerId);
+    const refuse = (why: (typeof MOVEL_RECUSAS)[number]): void => this.tellThings(line, playerId, MOVEL_RECUSAS.indexOf(why));
+    if (!home?.kind || this.channel.withinOf(held.entityId) !== playerId) return refuse("fora");
+    if (this.moving.has(playerId)) return;
+    const things = this.things.get(playerId) ?? [];
+    const op = MOVEL_OPS[asked.op];
+    const thing = things.find((one) => one.id === asked.id);
+    const item = op === "por" ? asked.item : thing?.item;
+    const sort = item ? BASE_CATALOGUE.items.get(item) : undefined;
+    if (op !== "por" && !thing) return refuse("foi");
+    if (!item || sort?.kind !== "mobilia") return refuse("nao_tens");
+    // Where it would stand: floor of the house, clear of every other thing, and of the feet of whoever is inside.
+    const there = this.standing({ item, cx: asked.cx, cz: asked.cz, rot: asked.rot });
+    const feet = [...this.held.values()].filter((one) => this.channel.withinOf(one.entityId) === playerId).map((one) => this.channel.placeOf(one.entityId)!).map((at) => home.cellAt!(at.x, at.z).join(","));
+    const clear = (): boolean => mayStand(home.kind!, things.filter((one) => one !== thing).map((one) => this.standing(one)), there) && !cellsOf(there).some(([x, z]) => feet.includes(`${x},${z}`));
+    if (op !== "guardar" && (!clear() || (op === "por" && things.length >= MOVEIS_AT_MOST))) return refuse("lugar");
+    this.moving.add(playerId);
+    const done =
+      op === "por"
+        ? setDown(this.sql, playerId, { item, cx: asked.cx, cz: asked.cz, rot: asked.rot }).then((set) => (set ? (this.furnish(playerId, [...things, set]), "") : "nao_tens"))
+        : op === "guardar"
+          ? takeUp(this.sql, playerId, thing!.id, (carried, taken) => unitsCarried(BASE_CATALOGUE, carried) + (BASE_CATALOGUE.items.get(taken)?.size ?? 0) <= BASE_CATALOGUE.carryUnits).then((took) => (took === "full" ? "cheia" : (this.furnish(playerId, things.filter((one) => one !== thing)), took === "gone" ? "foi" : "")))
+          : moveThing(this.sql, playerId, thing!.id, { cx: asked.cx, cz: asked.cz, rot: asked.rot }).then((moved) => (moved ? (this.furnish(playerId, things.map((one) => (one === thing ? { ...one, cx: asked.cx, cz: asked.cz, rot: asked.rot } : one))), "") : "foi"));
+    void done
+      .then((why) => refuse(why as (typeof MOVEL_RECUSAS)[number]))
+      .catch((error: unknown) => {
+        this.log(`zone: a thing of ${playerId}'s house could not be ${op}: ${String(error)}`);
+        refuse("foi");
+      })
+      .finally(() => this.moving.delete(playerId));
+  }
 
   /**
    * Someone opens the door of their house, or shuts it: standing at it, on either side. Shut, it is a wall to

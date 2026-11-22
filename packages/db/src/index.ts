@@ -20,3 +20,4 @@ export * from "./biscatos.ts";
 export * from "./tunables.ts";
 export * from "./economia.ts";
 export * from "./casas.ts";
+export * from "./moveis.ts";

@@ -20,6 +20,7 @@ import { useEffect, useState } from "preact/hooks";
 import { Casas, type Bairro, type Cena, type Rede } from "./casa.ts";
 // For a page that draws a bairro without a player in it (the team's scenes): the doors are hung there too.
 export { Casas };
+import { Painel, type Moveis } from "./moveis.tsx";
 import "./dentro.css";
 
 // The words of this came with it.
@@ -107,6 +108,10 @@ export class Dentro {
   private net: Rede | null = null;
   private said = "";
   private since = performance.now();
+  /** What the player has set down in their house, and what they may do with it. */
+  get moveis(): Moveis | null {
+    return this.casas.moveis;
+  }
   /** A hand to the door. */
   mexer(): void {
     this.casas.porta(this.net);
@@ -145,7 +150,7 @@ export class Dentro {
    */
   camera(quadro: Quadro, eu: Eu, riding: boolean): boolean {
     this.net = eu.net;
-    this.casas.frame(quadro, eu.x, eu.z, eu.net);
+    this.casas.frame(quadro, eu.x, eu.z, eu.net, eu.y, eu.body.rotation.y);
     const casa = this.casas.casa;
     // Put inside their house, not walked into it (they woke there: the zone set them down, or the house was only
     // now known to be theirs): they are turned to their door, and the camera goes behind them, so that what they see
@@ -237,6 +242,7 @@ export function Ui({ dentro }: { dentro: Dentro }) {
           </Button>
         ) : null}
         {dentro.onde && vista === "olhos" && !dentro.sentado ? <p role="status">{tr.t("dentro.olhos.senta")}</p> : null}
+        {dentro.onde?.id === "casa" && dentro.moveis ? <Painel moveis={dentro.moveis} /> : null}
         {dentro.aviso ? (
           <p role="status" class="dentro-aviso">
             {tr.t(dentro.aviso as MessageKey, { em: dentro.longe ? tr.t(`origin.bairro.${dentro.longe}.em` as MessageKey) : "" })}

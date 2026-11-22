@@ -376,7 +376,7 @@ export class Session {
       } catch {
         // Storage is off: they are known for this visit.
       }
-    } else if (this.mais.length < 64) this.mais.push(event);
+    } else if (this.mais.length < 256) this.mais.push(event);
   }
 
   /** What the zone said that the way in has no place for: read by whatever is fetched later and knows what it is (a door, D-5.9). */

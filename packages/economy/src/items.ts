@@ -9,8 +9,11 @@ import itemsFile from "../tunables/items.json" with { type: "json" };
 import shopsFile from "../tunables/shops.json" with { type: "json" };
 import { type Mk } from "./ledger.ts";
 
-/** What a thing is for. A `presente` is bought to be given (the banca by the mercado, D-10.1). */
-export const ITEM_KINDS = ["comida", "bebida", "mimo", "cozinha", "casa", "presente"] as const;
+/**
+ * What a thing is for. A `presente` is bought to be given (the banca by the mercado, D-10.1). `mobilia` is what a
+ * house is furnished with (Task 5.3): bought, carried home, and put where the player wants it.
+ */
+export const ITEM_KINDS = ["comida", "bebida", "mimo", "cozinha", "casa", "presente", "mobilia"] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 export const ITEM_USES = ["comer", "beber"] as const;
 export type ItemUse = (typeof ITEM_USES)[number];
@@ -25,6 +28,11 @@ export interface ItemType {
   /** What eating or drinking it gives back, in points of a 10 000 point bar (Task 4.4). */
   readonly fome: number;
   readonly energia: number;
+  /**
+   * For `mobilia`, and for nothing else: the floor it stands on, in cells of the walk grid (half a metre), across
+   * and deep as it is first set down. Turned a quarter, the two change places.
+   */
+  readonly chao?: readonly [number, number];
 }
 
 export interface Catalogue {
@@ -59,6 +67,8 @@ export function parseCatalogue(input: unknown): Catalogue {
     if (!whole(item.size, 0, 100)) errors.push(`${at}.size: a whole number from 0 to 100`);
     if (item.use !== null && !ITEM_USES.includes(item.use as ItemUse)) errors.push(`${at}.use: comer, beber or null`);
     if (!whole(item.fome, 0, 10_000) || !whole(item.energia, 0, 10_000)) errors.push(`${at}: fome and energia are points from 0 to 10 000`);
+    const floor = item.chao as unknown;
+    if ((item.kind === "mobilia") !== (floor !== undefined) || (floor !== undefined && !(Array.isArray(floor) && floor.length === 2 && whole(floor[0], 1, 12) && whole(floor[1], 1, 12)))) errors.push(`${at}.chao: for mobilia and nothing else, [cells across, cells deep], each from 1 to 12`);
     if (typeof item.id === "string") items.set(item.id, item as ItemType);
   }
   if (errors.length > 0) throw new Error(`invalid catalogue:\n${errors.join("\n")}`);

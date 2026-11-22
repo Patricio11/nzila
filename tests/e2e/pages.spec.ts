@@ -3350,6 +3350,104 @@ test.describe("two phones in the same street", () => {
     expect(await page.evaluate(() => window.__dentro!.aviso)).toBeNull();
   });
 
+  test("things in the house (Task 5.3, D-5.11): a plastic chair is bought at the furniture seller's and carried home in the Mochila; set down before the player, it stands on the floor; it is turned, taken up and set down again; and it is where it was left when the game is opened again", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok() || !(await request.get("/packs/casas/casas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. Things in the house were not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(360_000);
+    const seen = watch(page);
+    const deviceId = `moveis-${Date.now()}-abcdefghijkl`;
+    const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string };
+    const dealt = (await (await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: unknown };
+    await page.addInitScript((account) => localStorage.setItem("nzila.conta", JSON.stringify(account)), { deviceId, ageBand: "18_plus", ...guest, origin: dealt.origin });
+    const headers = { authorization: `Bearer ${guest.token}` };
+    const cashNow = async (): Promise<number> => ((await (await page.request.get("/api/v1/me/wallet", { headers })).json()) as { cash: number }).cash;
+    // The furniture seller's, by the road: a chair is what the least of families can buy on its first day.
+    await page.goto(`${ZANGO_STREET}&hour=10`);
+    await toZangoStreet(page);
+    const stall = ((await (await page.request.get("/packs/zango/manifest.json")).json()) as { pois: { id: string; pos: [number, number, number] }[] }).pois.find((one) => one.id === "moveis-zango")!;
+    await walkTo(page, stall.pos[0], stall.pos[2] + 3, 1.5, 300);
+    await walkTo(page, stall.pos[0], stall.pos[2], 1.0, 80);
+    await offered(page, "buy");
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: info.outputPath("moveis-banca.png") });
+    const shop = page.getByRole("dialog", { name: "Móveis do Kota Beto" });
+    for (let tries = 0; tries < 3 && !(await shop.isVisible()); tries++) {
+      await page.getByRole("button", { name: "Comprar" }).click();
+      await shop.waitFor({ timeout: 3000 }).catch(() => {});
+    }
+    await expect(shop.locator(".ct-grille")).toContainText("Bom dia, freguês.", { timeout: 10_000 });
+    await expect(shop.locator('.ct-pick[data-item="cadeira"]')).toContainText(/Cadeira de plástico.*1\.500\sMk/s);
+    await expect(shop.locator('.ct-pick[data-item="sofa"]')).toContainText(/Sofá.*45\.000\sMk/s);
+    await page.screenshot({ path: info.outputPath("moveis-loja.png") });
+    const before = await cashNow();
+    await shop.locator('.ct-pick[data-item="cadeira"]').click();
+    await shop.getByRole("button", { name: /^Pagar 1\.500\sMk$/ }).click();
+    await expect(shop.locator(".n-receipt")).toBeVisible({ timeout: 10_000 });
+    await shop.getByRole("button", { name: "Já está" }).click();
+    expect(await cashNow()).toBe(before - 1500);
+    expect(seen.errors).toEqual([]);
+
+    // Home (the walk is a player's; the tests' zone sets them down before their door): in, the door shut behind them.
+    await page.goto("/andar?pack=zango&paragem=casa&tier=poupanca&hour=10");
+    await page.waitForFunction(() => window.__andar?.linked === true && window.__dentro?.casa != null, undefined, { timeout: 60_000 });
+    const casa = (await page.evaluate(() => window.__dentro!.casa))!;
+    const inward = Math.sign(casa.wake[1] - casa.door[1]);
+    const hand = page.locator(".dentro-porta").getByRole("button");
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 1.7, 0.5, 120);
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.aberta === false && window.__dentro!.onde === "casa", undefined, { timeout: 10_000 });
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 2.9, 0.4, 120);
+    // What they carry to furnish with is offered: "Pôr aqui" sets the chair down a pace before them, on the floor.
+    await page.waitForFunction(() => window.__moveis?.levo.includes("cadeira") === true && window.__moveis.postos.length === 0, undefined, { timeout: 15_000 });
+    const panel = page.locator(".dentro-moveis");
+    await panel.getByRole("button", { name: "Móveis" }).click();
+    await panel.getByRole("button", { name: "Pôr aqui: Cadeira de plástico" }).click();
+    await page.waitForFunction(() => window.__moveis!.postos.length === 1 && window.__moveis!.levo.length === 0, undefined, { timeout: 10_000 });
+    const set = (await page.evaluate(() => window.__moveis!.postos[0]))!;
+    expect(set.item).toBe("cadeira");
+    await expect(panel.getByRole("button", { name: /^Pôr aqui/ })).toHaveCount(0);
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: info.outputPath("moveis-cadeira.png") });
+    // It is the thing before them: turned a quarter where it stands, and it stays set down.
+    await page.waitForFunction(() => window.__moveis!.frente !== null, undefined, { timeout: 10_000 });
+    await panel.getByRole("button", { name: "Rodar" }).click();
+    await page.waitForFunction((was) => window.__moveis!.postos[0]?.rot === (was + 1) % 4, set.rot, { timeout: 10_000 });
+    // Walked at, it is in the way: nobody walks through their own chair.
+    const at = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    const forward = inward > 0 ? "s" : "w";
+    await page.keyboard.down(forward);
+    await page.waitForTimeout(1600);
+    await page.keyboard.up(forward);
+    const stopped = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    expect(Math.hypot(stopped.x - at.x, stopped.z - at.z), "the chair stood in the way").toBeLessThan(0.9);
+    // Seen from above, with the roof off: the room, and the chair in it.
+    const view = page.locator(".dentro-vista").getByRole("button", { name: /^Vista/ });
+    await view.click();
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: info.outputPath("moveis-de-cima.png") });
+    await view.click();
+    await view.click();
+    // Taken up, it is in the Mochila again; set down again, on the floor.
+    await panel.getByRole("button", { name: "Guardar na Mochila" }).click();
+    await page.waitForFunction(() => window.__moveis!.postos.length === 0 && window.__moveis!.levo.includes("cadeira"), undefined, { timeout: 10_000 });
+    await panel.getByRole("button", { name: "Pôr aqui: Cadeira de plástico" }).click();
+    await page.waitForFunction(() => window.__moveis!.postos.length === 1, undefined, { timeout: 10_000 });
+    const left = (await page.evaluate(() => window.__moveis!.postos[0]))!;
+    expect(seen.errors).toEqual([]);
+    // The game opened again: they wake at home, and the chair is exactly where it was left.
+    await page.waitForTimeout(6000);
+    await page.goto("/andar?pack=zango&tier=poupanca&hour=16");
+    await page.waitForFunction(() => window.__andar?.linked === true && window.__dentro?.onde === "casa" && window.__moveis?.postos.length === 1, undefined, { timeout: 60_000 });
+    expect(await page.evaluate(() => window.__moveis!.postos[0])).toEqual(left);
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: info.outputPath("moveis-de-volta.png") });
+  });
+
   test("every family's house is in Zango (D-5.9, D-5.10): a family whose card names a richer bairro wakes in Zango too, in a public place; the family's message gives the house's number; after dark, away from home, they are told it is late and that whoever sleeps in the street can be robbed", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok() || !(await request.get("/packs/casas/casas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The packs are not built. A house for every family was not checked here." });

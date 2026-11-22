@@ -31,10 +31,11 @@ import {
 import { decodeCorridas, encodeCorrida, type CorridasSaid } from "@nzila/protocol/corridas";
 import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, encodeSair } from "@nzila/protocol/sair";
 import { A_DOIS_DITOS, encodeADois } from "@nzila/protocol";
-import { encodePorta } from "@nzila/protocol/casa";
+import { MOVEL_RECUSAS, encodeMovel, encodePorta } from "@nzila/protocol/casa";
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
+import { homeGround, type HomeKind } from "@nzila/world";
 import { scoreCarga } from "@nzila/sim/carga";
 import { zungaRound } from "@nzila/sim/zunga";
 import { carrosRound } from "@nzila/sim/carros";
@@ -55,7 +56,23 @@ const onRoad = (cx: number, cz: number): boolean => (cz >= 100 && cz < 110) || (
 // And a house of five metres by five in a far corner (Phase 5, D-5.8): a wall to the street, open to its families.
 const inHouse = (cx: number, cz: number): boolean => cx >= -170 && cx < -160 && cz >= -170 && cz < -160;
 const ground: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz === 60 || Math.abs(cx) > 200 || Math.abs(cz) > 200 || inHouse(cx, cz) ? 0 : onRoad(cx, cz) ? 3 : 1), heightAt: () => 0 };
-const atHome: Ground = { cellMm: 500, flagsAt: (cx, cz) => (inHouse(cx, cz) ? 1 : ground.flagsAt(cx, cz)), heightAt: () => 0 };
+// Its plan, as the pack of homes would give it: a wall all round, floor inside, its doorway in the middle of the wall
+// that looks to +Z (a wall to its families too while the door is shut, D-5.9), and the step before the door.
+const casa: HomeKind = {
+  id: "casa",
+  model: "casa.glb",
+  cellMm: 500,
+  cellX0: -6,
+  cellZ0: -6,
+  rows: ["------------", "-##########-", ...Array.from({ length: 8 }, () => "-#........#-"), "-####dd####-", "-----..-----"],
+  rect: [-2, -2, 2, 2],
+  height: 2.6,
+  floor: 0,
+  door: [0, 2.5],
+  wake: [0, 0],
+  leaf: { hinge: [-0.5, 2.5], wide: 1, high: 2.1, sill: 0 },
+};
+const casaSite = { pos: [-82.5, 0, -82.5], facing: 0, kind: "casa" } as const;
 const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obstacles: [], paragens: new Map([
     ["mutamba", { x: 40_000, y: 0, z: -20_000, yaw: 0 }],
     // Three places along a line, for talk: together, ten metres off (seen to speak, not read), and thirty (out of hearing).
@@ -97,10 +114,15 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
   // Two ways out at one paragem (a paragem may lead to more than one bairro), and one far from it.
   gateways: [{ id: "para-fora", x: 40_000, z: -20_000, to: "ao-lua/outro", arrive: "chegada" }, { id: "para-longe", x: 41_000, z: -20_000, to: "ao-lua/longe", arrive: "largo" }, { id: "para-la", x: -90_000, z: 90_000, to: "ao-lua/la", arrive: "ali" }],
   // The one house families are given here: its inside is all of it but a hand's breadth of wall.
-  // Its door is in the middle of the wall that looks to +Z: a wall to its families too while it is shut (D-5.9).
-  homes: (house, family, open) =>
+  homes: (house, family, open, taken) =>
     house === 1
-      ? { own: { ground: { cellMm: 500, flagsAt: (cx, cz) => (inHouse(cx, cz) && cz === -161 && !open() ? 0 : atHome.flagsAt(cx, cz)), heightAt: () => 0 }, rect: [-84_800, -84_800, -80_200, -80_200], key: family }, wake: { x: -82_500, y: 0, z: -82_500, yaw: 0 }, door: { x: -82_500, z: -80_000 } }
+      ? {
+          own: { ground: homeGround(ground, casaSite, casa, open, taken), rect: [-84_500, -84_500, -80_500, -80_500], key: family },
+          wake: { x: -82_500, y: 0, z: -82_500, yaw: 0 },
+          door: { x: -82_500, z: -80_000 },
+          kind: casa,
+          cellAt: (x, z) => [Math.floor((x + 82_500) / 500), Math.floor((z + 82_500) / 500)],
+        }
       : null,
   // A campo of forty metres by twenty-six, far from everything else, with its ball.
   campos: [{ x0: 58_000, z0: -96_000, x1: 98_000, z1: -70_000, goal: 2600 }] };
@@ -1487,6 +1509,8 @@ describe("the family's house (Phase 5, D-5.8 to D-5.10)", () => {
     const south: InputFrame = { dx: 0, dz: -127, run: false, brake: false };
     const doors = (of: typeof a) => of.state.events.filter((event) => event.kind === EVENT.PORTA).map((event) => [event.subject, ...event.args]);
     const inTo = async (of: typeof a): Promise<void> => {
+      // To the middle of the doorway first (it is a metre wide), then in.
+      for (let n = 0; n < 60 && Math.abs(of.me().x + 82_500) > 150; n++) await of.walk(2, { dx: of.me().x > -82_500 ? -127 : 127, dz: 0, run: false, brake: false });
       for (let n = 0; n < 80 && of.me().z > -81_300; n++) await of.walk(2, south);
     };
     expect(a.me().z).toBeGreaterThan(-80_000);
@@ -1520,6 +1544,46 @@ describe("the family's house (Phase 5, D-5.8 to D-5.10)", () => {
     expect(doors(c)[1]).toEqual([aId, 1, 0]);
     await a.walk(50);
     expect(a.me().z).toBeLessThan(-80_500);
+    // Things in the house (Task 5.3). She carries a chair and a mattress home in her Mochila; the list is said whole each time.
+    await sql`INSERT INTO items (owner_id, place, item, quantity) VALUES (${mae.id}, 'mochila', 'cadeira', 1), (${mae.id}, 'mochila', 'colchao', 1)`;
+    const said = (of: typeof a) => {
+      const events = of.state.events.filter((event) => event.kind === EVENT.MOVEIS);
+      const last = events.at(-1)!;
+      const count = last.args[4]!;
+      return { why: MOVEL_RECUSAS[last.args[5]!], things: events.slice(events.length - Math.max(1, count)).filter(() => count > 0).map((event) => [event.text, event.args[0], event.args[1], event.args[2]]) };
+    };
+    const asks = async (of: typeof a, movel: Parameters<typeof encodeMovel>[0]): Promise<ReturnType<typeof said>> => {
+      const before = of.state.events.length;
+      of.socket.send(encodeMovel(movel));
+      await until(() => of.state.events.length > before && of.state.events.at(-1)!.kind === EVENT.MOVEIS && (of.state.events.at(-1)!.args[4] === 0 || of.state.events.at(-1)!.args[3] === of.state.events.at(-1)!.args[4]! - 1));
+      return said(of);
+    };
+    const idOf = (item: string): number => a.state.events.filter((event) => event.kind === EVENT.MOVEIS && event.text === item).at(-1)!.subject;
+    // Into a wall, into the doorway, or where she stands herself: it cannot stand there, and stays in the Mochila.
+    expect(await asks(a, { op: "por", id: 0, item: "cadeira", cx: -5, cz: 0, rot: 0 })).toEqual({ why: "lugar", things: [] });
+    expect(await asks(a, { op: "por", id: 0, item: "cadeira", cx: 0, cz: 4, rot: 0 })).toEqual({ why: "lugar", things: [] });
+    const feet = [Math.floor((a.me().x + 82_500) / 500), Math.floor((a.me().z + 82_500) / 500)] as const;
+    expect(await asks(a, { op: "por", id: 0, item: "cadeira", cx: feet[0], cz: feet[1], rot: 0 })).toEqual({ why: "lugar", things: [] });
+    // On the floor: it is there, and out of the Mochila. What she does not carry is not set down.
+    expect(await asks(a, { op: "por", id: 0, item: "cadeira", cx: -4, cz: -4, rot: 0 })).toEqual({ why: "", things: [["cadeira", -4, -4, 0]] });
+    expect(await asks(a, { op: "por", id: 0, item: "cadeira", cx: 2, cz: -4, rot: 0 })).toMatchObject({ why: "nao_tens" });
+    expect((await sql`SELECT item FROM items WHERE owner_id = ${mae.id} AND place = 'mochila' ORDER BY item`).map((row) => row.item)).toEqual(["colchao"]);
+    // The mattress (a metre by two) does not go on the chair; beside it, it does; turned a quarter where it would then reach into the wall, it does not.
+    expect(await asks(a, { op: "por", id: 0, item: "colchao", cx: -4, cz: -4, rot: 0 })).toMatchObject({ why: "lugar" });
+    expect(await asks(a, { op: "por", id: 0, item: "colchao", cx: 2, cz: -4, rot: 0 })).toEqual({ why: "", things: [["cadeira", -4, -4, 0], ["colchao", 2, -4, 0]] });
+    expect(await asks(a, { op: "mudar", id: idOf("colchao"), item: "colchao", cx: 2, cz: -4, rot: 1 })).toMatchObject({ why: "lugar" });
+    expect(await asks(a, { op: "mudar", id: idOf("colchao"), item: "colchao", cx: -2, cz: -4, rot: 1 })).toEqual({ why: "", things: [["cadeira", -4, -4, 0], ["colchao", -2, -4, 1]] });
+    // Where a thing stands, she does not walk: the chair is in the far corner, and she walks into it and stops.
+    // Her neighbour of the same house has an inside of her own, with nothing in it: she is told of none of this.
+    expect(b.state.events.filter((event) => event.kind === EVENT.MOVEIS && event.args[4]! > 0)).toEqual([]);
+    // Someone outside their own house sets nothing down, in it or anywhere.
+    await sql`INSERT INTO items (owner_id, place, item, quantity) VALUES (${estranho.id}, 'mochila', 'cadeira', 1)`;
+    expect(await asks(c, { op: "por", id: 0, item: "cadeira", cx: 0, cz: 0, rot: 0 })).toEqual({ why: "fora", things: [] });
+    // Taken up again, it is in the Mochila; a thing that is not there cannot be taken.
+    const chair = idOf("cadeira");
+    expect(await asks(a, { op: "guardar", id: chair, item: "cadeira", cx: 0, cz: 0, rot: 0 })).toEqual({ why: "", things: [["colchao", -2, -4, 1]] });
+    expect(await asks(a, { op: "guardar", id: chair, item: "cadeira", cx: 0, cz: 0, rot: 0 })).toMatchObject({ why: "foi" });
+    expect((await sql`SELECT item FROM items WHERE owner_id = ${mae.id} AND place = 'mochila' ORDER BY item`).map((row) => row.item)).toEqual(["cadeira"]);
     // She says goodnight inside, and wakes where she lay: not in a public place this time, and not put out into the street.
     const lay = { x: a.me().x, z: a.me().z };
     await pause(5200);
@@ -1528,6 +1592,9 @@ describe("the family's house (Phase 5, D-5.8 to D-5.10)", () => {
     const again = await phone(mae.token);
     expect(Math.hypot(again.me().x - lay.x, again.me().z - lay.z)).toBeLessThan(600);
     expect(again.me().z).toBeLessThan(-80_200);
+    // And what she set down is where she left it: said as she comes in.
+    await until(() => again.state.events.some((event) => event.kind === EVENT.MOVEIS));
+    expect(said(again).things).toEqual([["colchao", -2, -4, 1]]);
     await Promise.all([again.leave(), b.leave(), c.leave()]);
-  }, 50_000);
+  }, 70_000);
 });

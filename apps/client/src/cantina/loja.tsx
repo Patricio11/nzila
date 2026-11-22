@@ -25,7 +25,7 @@ tr.extend(ptAOLater);
 const MOST_OF_ONE = 20;
 const THANKS = 3;
 /** Each kind of shop speaks for itself (the first word of the place's name in the pack): how many things its keeper says. */
-const KEEPERS: Readonly<Record<string, number>> = { cantina: 6, banca: 4, gelados: 4, bar: 4 };
+const KEEPERS: Readonly<Record<string, number>> = { cantina: 6, banca: 4, gelados: 4, bar: 4, moveis: 4 };
 /** The shelves, in the order the dona keeps them, and which kinds of thing sit on each. */
 const SHELVES = [
   { id: "presentes", kinds: ["presente"] },
@@ -33,6 +33,7 @@ const SHELVES = [
   { id: "beber", kinds: ["bebida"] },
   { id: "cozinha", kinds: ["cozinha"] },
   { id: "casa", kinds: ["casa"] },
+  { id: "moveis", kinds: ["mobilia"] },
 ] as const;
 
 const nameOf = (item: string): string => tr.t(`item.${item}` as "item.pao");

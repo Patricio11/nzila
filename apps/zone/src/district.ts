@@ -69,7 +69,19 @@ export interface District {
    * its own family too (D-5.9). Null for a number that is no house here. Absent when the pack has no houses, or
    * the pack of homes is not built.
    */
-  readonly homes?: (house: number, family: string, open: () => boolean) => { readonly own: Own; readonly wake: Place; readonly door: { readonly x: number; readonly z: number } } | null;
+  readonly homes?: (
+    house: number,
+    family: string,
+    open: () => boolean,
+    taken?: (cx: number, cz: number) => boolean,
+  ) => {
+    readonly own: Own;
+    readonly wake: Place;
+    readonly door: { readonly x: number; readonly z: number };
+    /** The house's kind (its plan, for what may be set down where), and the cell of that plan a point of the bairro is in (millimetres). */
+    readonly kind: HomeKind;
+    readonly cellAt: (x: number, z: number) => [number, number];
+  } | null;
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -178,7 +190,7 @@ async function homesOf(manifest: ManifestRead, packDir: URL, street: Ground): Pr
   if (sites.length === 0 || !existsSync(file)) return undefined;
   const kinds = new Map((JSON.parse(await readFile(file, "utf8")) as { kinds: HomeKind[] }).kinds.map((kind) => [kind.id, kind]));
   const mm = (metres: number): number => Math.round(metres * 1000);
-  return (house, family, open) => {
+  return (house, family, open, taken) => {
     const site = sites[house - 1];
     const kind = site ? kinds.get(site.kind) : undefined;
     if (!site || !kind) return null;
@@ -186,7 +198,13 @@ async function homesOf(manifest: ManifestRead, packDir: URL, street: Ground): Pr
     const [wx, wz] = homeToWorld(site, kind.wake);
     const [dx, dz] = homeToWorld(site, kind.door);
     return {
-      own: { ground: homeGround(street, site, kind, open), rect: [mm(minX), mm(minZ), mm(maxX), mm(maxZ)], key: family },
+      own: { ground: homeGround(street, site, kind, open, taken), rect: [mm(minX), mm(minZ), mm(maxX), mm(maxZ)], key: family },
+      kind,
+      cellAt: (x, z) => {
+        const turn = site.facing === 180 ? -1 : 1;
+        const cell = kind.cellMm;
+        return [Math.floor((turn * (site.flip ? -1 : 1) * (x - site.pos[0] * 1000)) / cell), Math.floor((turn * (z - site.pos[2] * 1000)) / cell)];
+      },
       // They wake looking at their door.
       wake: { x: mm(wx), y: mm(site.pos[1] + kind.floor), z: mm(wz), yaw: site.facing * 100 },
       door: { x: mm(dx), z: mm(dz) },

@@ -358,6 +358,17 @@ export const familyHomes = pgTable("family_homes", {
   givenAt: at("given_at").notNull().defaultNow(),
 });
 
+/** What a player has set down in their house (Task 5.3): the thing, the cell of the house's plan it begins at, and how it is turned. */
+export const homeThings = pgTable("home_things", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  ownerId: uuid("owner_id").notNull(),
+  item: text("item").notNull(),
+  cx: integer("cx").notNull(),
+  cz: integer("cz").notNull(),
+  rot: smallint("rot").notNull(),
+  placedAt: at("placed_at").notNull().defaultNow(),
+});
+
 export const staffRoles = pgTable(
   "staff_roles",
   {
@@ -455,6 +466,7 @@ export const tables = {
   presentes,
   viagens,
   familyHomes,
+  homeThings,
   staffRoles,
   auditLog,
   featureFlags,

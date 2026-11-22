@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { CELL_WALK, type Ground } from "@nzila/sim";
-import { homeGround, homeRect, homeToWorld, type HomeKind } from "./casas.ts";
+import { cellsOf, homeGround, homeRect, homeToWorld, mayStand, type HomeKind } from "./casas.ts";
 
 // A house of two metres by two, a wall all round, its door in the middle of the wall that looks to +Z and off to
 // one side of it, and a cell in front of the door that is the family's whatever the street says.
@@ -68,4 +68,33 @@ test("a house that looks the other way, or is built as its mirror image, has its
 
 test("a house drawn in other cells than the street's is refused", () => {
   expect(() => homeGround({ ...street, cellMm: 250 }, { pos: [0, 0, 0], facing: 0, kind: "quarto" }, kind)).toThrow(/cells/);
+});
+
+test("a thing set down stands on the floor of the house: never in a wall, in the doorway or in another thing; and where it stands nobody walks", () => {
+  // The same house, a metre longer: three rows of floor, two cells across.
+  const sala: HomeKind = { ...kind, rows: ["####", "#..#", "#..#", "#..#", "##d#", "--.-"], rect: [-0.5, -0.5, 0.5, 1] };
+  const stool = { cx: -1, cz: -1, rot: 0, chao: [1, 1] as const };
+  const bench = { cx: -1, cz: 0, rot: 0, chao: [1, 2] as const };
+  expect(cellsOf(bench)).toEqual([[-1, 0], [-1, 1]]);
+  // Turned a quarter it lies across.
+  expect(cellsOf({ ...bench, rot: 1 })).toEqual([[-1, 0], [0, 0]]);
+  expect(mayStand(sala, [], stool)).toBe(true);
+  expect(mayStand(sala, [], bench)).toBe(true);
+  // Into the wall, into the doorway, out into the street: refused.
+  expect(mayStand(sala, [], { ...stool, cx: -2 })).toBe(false);
+  expect(mayStand(sala, [], { ...bench, cz: 1, cx: 0 })).toBe(false);
+  expect(mayStand(sala, [], { ...stool, cx: 0, cz: 3 })).toBe(false);
+  expect(mayStand(sala, [], { ...stool, cx: 9, cz: 9 })).toBe(false);
+  // On another thing, or with a turn that is no turn: refused.
+  expect(mayStand(sala, [stool], { ...bench, cz: -1 })).toBe(false);
+  expect(mayStand(sala, [stool], bench)).toBe(true);
+  expect(mayStand(sala, [], { ...stool, rot: 4 })).toBe(false);
+  expect(mayStand(sala, [], { ...stool, rot: 0.5 })).toBe(false);
+  // Where it stands, its own family does not walk; beside it, they do.
+  const site = { pos: [10, 0.2, 20], facing: 0, kind: "quarto" } as const;
+  const under = new Set(cellsOf(stool).map(([x, z]) => `${x},${z}`));
+  const ground = homeGround(street, site, sala, () => true, (x, z) => under.has(`${x},${z}`));
+  expect(ground.flagsAt(19, 39)).toBe(0);
+  expect(ground.flagsAt(20, 39)).toBe(CELL_WALK);
+  expect(homeGround(street, site, sala).flagsAt(19, 39)).toBe(CELL_WALK);
 });

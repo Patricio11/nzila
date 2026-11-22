@@ -18,6 +18,7 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { meteredFetch } from "../net/data-meter.ts";
 import { askAsPlayer } from "../world/account.ts";
+import { Moveis } from "./moveis.tsx";
 
 /** Where the pack of homes is served. */
 const CASAS = "/packs/casas/";
@@ -70,6 +71,8 @@ export interface Casa {
 interface Pack {
   readonly kinds: readonly HomeKind[];
   readonly paint: Readonly<Record<string, readonly [number, number]>>;
+  /** What a house is furnished with (Task 5.3): each thing's model, and the floor it stands on in cells. */
+  readonly moveis?: readonly { readonly id: string; readonly model: string; readonly chao: readonly [number, number] }[];
 }
 
 type Turned = (x: number, y: number, z: number) => [number, number, number];
@@ -136,6 +139,9 @@ export class Casas {
   private readonly backs = new Map<number, Mesh>();
   /** The inside's own paint: lit by its bulb after dark. */
   private lit: MeshLambertMaterial | null = null;
+  /** What the player has set down in their house, once its inside is there (Task 5.3). */
+  moveis: Moveis | null = null;
+  private pack: Pack | null = null;
   private readonly sites: readonly (HomeSite & { readonly door: string })[];
   private kinds = new Map<string, HomeKind>();
   private paints: Pack["paint"] = {};
@@ -169,6 +175,7 @@ export class Casas {
         const pack = JSON.parse(new TextDecoder().decode(await meteredFetch(`${CASAS}casas.json`))) as Pack;
         this.kinds = new Map(pack.kinds.map((kind) => [kind.id, kind]));
         this.paints = pack.paint;
+        this.pack = pack;
         this.hang(cena);
       }
       const { answer } = await askAsPlayer<{ home: { districtId: string; pack: string; house: number } | null }>("GET", "/v1/me/casa");
@@ -262,6 +269,7 @@ export class Casas {
     inside.rotation.y = site.facing === 180 ? Math.PI : 0;
     inside.scale.x = site.flip ? -1 : 1;
     cena.scene.add(inside);
+    this.moveis = new Moveis(inside, kind, lit, this.pack?.moveis ?? []);
     // The ground the player walks is the street's with their house open in it: laid again whenever the street's
     // own changes (a chunk arriving), and the same rule the zone walks them by.
     const chunks = this.bairro.chunks;
@@ -271,7 +279,8 @@ export class Casas {
       const now = street();
       if (!now) return null;
       // Its doorway is theirs to walk only while the door stands open, as the zone has it.
-      if (laid?.of !== now) laid = { of: now, own: homeGround(now, site, kind, () => this.abertas.has(house - 1)) };
+      // And where a thing is set down, they do not walk.
+      if (laid?.of !== now) laid = { of: now, own: homeGround(now, site, kind, () => this.abertas.has(house - 1), (cx, cz) => this.moveis?.taken(cx, cz) === true) };
       return laid.own;
     };
     // A small gold sign over its roof, turning: one house among many that are the same.
@@ -302,19 +311,26 @@ export class Casas {
    * Each picture: what the zone said of doors is taken in, every door that is not as it was left swings towards it,
    * the bulb is lit after dark, and the sign over the player's roof turns.
    */
-  frame(cena: Cena, x: number, z: number, net: Rede | null): void {
+  frame(cena: Cena, x: number, z: number, net: Rede | null, y = 0, facing = 0): void {
     if (!this.begun) this.begin(cena);
     const now = performance.now();
     const seconds = Math.min(0.1, (now - (this.last || now)) / 1000);
     this.last = now;
-    for (let n = (net?.mais.length ?? 0) - 1; n >= 0; n--) {
-      const event = net!.mais[n]!;
-      if (event.kind !== EVENT.PORTA) continue;
-      net!.mais.splice(n, 1);
-      const house = (event.args[0] ?? 0) - 1;
-      if (event.args[1] === 1) this.abertas.add(house);
-      else this.abertas.delete(house);
-      if (!this.angles.has(house)) this.angles.set(house, event.args[1] === 1 ? 0 : OPEN);
+    // What the zone said that is this's to hear, in the order it was said; the rest is left for whoever it is for.
+    // What is set down waits until the house's inside is there to set it in.
+    if (net && net.mais.length > 0) {
+      const left: WorldEvent[] = [];
+      for (const event of net.mais) {
+        if (event.kind === EVENT.PORTA) {
+          const house = (event.args[0] ?? 0) - 1;
+          if (event.args[1] === 1) this.abertas.add(house);
+          else this.abertas.delete(house);
+          if (!this.angles.has(house)) this.angles.set(house, event.args[1] === 1 ? 0 : OPEN);
+        } else if (event.kind === EVENT.MOVEIS && this.moveis) this.moveis.hear(event);
+        else left.push(event);
+      }
+      net.mais.length = 0;
+      net.mais.push(...left);
     }
     const hour = this.hour;
     this.tarde = between(hour, LATE);
@@ -326,6 +342,7 @@ export class Casas {
       this.mark.visible = !(x > casa.rect[0] && x < casa.rect[2] && z > casa.rect[1] && z < casa.rect[3]);
     }
     this.perto = casa !== null && Math.hypot(x - casa.door[0], z - casa.door[1]) < NEAR_M;
+    this.moveis?.frame(net, x, y, z, facing, casa !== null && x > casa.rect[0] && x < casa.rect[2] && z > casa.rect[1] && z < casa.rect[3]);
     this.destrancada = this.abertas.has(this.mine);
     if (casa && this.destrancada && !this.angles.has(this.mine)) this.angles.set(this.mine, 0);
     if (!this.doors) return;

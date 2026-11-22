@@ -94,7 +94,7 @@ for iz in range(DOWN * CELLS):
 places = {"pois": [], "paragens": []}
 words = {"world.ao-lua.zango.name": "Zango", "zango.gateway.marginal": "Marginal e Baixa", "zango.gateway.marginal.a": "para a Marginal"}
 OUTINGS = {"bar-zango": ("O bar", "ao bar"), "gelados-zango": ("Os gelados", "aos gelados"), "campo": ("O campo", "ao campo"), "damas": ("As damas", "às damas"), "mercado": ("O mercado", "ao mercado")}
-POI_GLYPHS = {"bar-zango": "cantina", "gelados-zango": "gelado", "banca-zango": "flores", "cantina-zango": "cantina", "mercado": "fruta", "damas": "xadrez", "paragem-mangueira": "megafone", "caixa-zango": "banco",
+POI_GLYPHS = {"moveis-zango": "cantina", "bar-zango": "cantina", "gelados-zango": "gelado", "banca-zango": "flores", "cantina-zango": "cantina", "mercado": "fruta", "damas": "xadrez", "paragem-mangueira": "megafone", "caixa-zango": "banco",
               "biscato-carga-zango": "biscatos", "biscato-zunga-zango": "biscatos", "biscato-carga-chafariz": "biscatos", "biscato-pratos-geladaria": "biscatos"}
 
 
@@ -308,6 +308,10 @@ for k in range(3):
     block(sx, sz - 0.3, 1.2)
 poi("mercado", MERCADO[0] + 13.0, MERCADO[1] + 2.4, "O mercado da estrada", "Fruta, peixe seco, fuba, carvão, sabão. Regateia-se a tudo, e ninguém leva a mal.")
 poi("biscato-zunga-zango", MERCADO[0] + 3.0, MERCADO[1] + 2.4, "As kitandeiras da estrada", "Há sempre uma bacia a mais. Pega nela e vende a quem passa.")
+# Where the bairro buys what it furnishes its houses with (Task 5.3): by the road, west of the middle street.
+MOVEIS = (160.0, 113.5)
+kb.banca_de_moveis(b, MOVEIS[0], MOVEIS[1], rng, 0.0)
+poi("moveis-zango", MOVEIS[0], MOVEIS[1] + 2.6, "Móveis do Kota Beto", "Cadeiras, mesas, colchões, e um sofá que é uma beleza. Leva-se às costas.")
 banca_x, banca_z = MERCADO[0] + 5 * 6.4 + 1.4, MERCADO[1] + 0.2
 block(banca_x, banca_z, kb.banca_de_presentes(b, banca_x, banca_z, rng, 0.0))
 poi("banca-zango", banca_x, banca_z + 1.7, "Banca da Tia Minga", "Flores, perfume e panos. Para a namorada, para a mãe, ou só porque sim.")

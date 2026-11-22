@@ -70,5 +70,9 @@
   {
     "id": "0018_casas",
     "sha256": "4f013e2ad18bffc84285f3102038a25258d353089ad9a5e3e05953614e21f595"
+  },
+  {
+    "id": "0019_moveis",
+    "sha256": "80dbb1201f6ea3e77117ed362161a9b3b6276045aff94bad8af17f8efd0eea41"
   }
 ]

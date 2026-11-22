@@ -19,6 +19,13 @@ describe("the catalogue of things", () => {
     expect(() => parseCatalogue({ version: 1, carryUnits: 10, items: "nada" })).toThrow(/items: a list/);
     expect(() => parseCatalogue({ version: 1, carryUnits: 10, items: [{ id: 5, kind: "comida", size: 1, use: null, fome: 0, energia: 0 }] })).toThrow(/items\[0\]\.id/);
     expect(() => parseCatalogue(null)).toThrow(/version/);
+    // Furniture says the floor it stands on, and nothing else does (Task 5.3).
+    const thing = { size: 8, use: null, fome: 0, energia: 0 };
+    expect(parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "cadeira", kind: "mobilia", ...thing, chao: [1, 2] }] }).items.get("cadeira")!.chao).toEqual([1, 2]);
+    expect(() => parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "cadeira", kind: "mobilia", ...thing }] })).toThrow(/items\[0\]\.chao/);
+    expect(() => parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "pao", kind: "comida", ...thing, chao: [1, 1] }] })).toThrow(/items\[0\]\.chao/);
+    for (const chao of [[0, 1], [1, 13], [1], "1x1", [1.5, 1]]) expect(() => parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "cadeira", kind: "mobilia", ...thing, chao }] }), JSON.stringify(chao)).toThrow(/chao/);
+    expect([...BASE_CATALOGUE.items.values()].filter((item) => item.kind === "mobilia").every((item) => BASE_SHOPS.shops.get("moveis")!.some((line) => line.item === item.id))).toBe(true);
   });
 
   test("a price list with faults says every one of them", () => {

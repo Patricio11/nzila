@@ -47,6 +47,8 @@ export const MSG = {
   LADO: 25,
   /** Client to zone: the player opens or shuts the door of their own house, standing at it (D-5.9). Written in casa.ts. */
   PORTA: 26,
+  /** Client to zone: a thing set down in the player's own house, taken up, or put elsewhere in it (Task 5.3). Written in casa.ts. */
+  MOVEL: 27,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -277,6 +279,13 @@ export const EVENT = {
   LADO: 25,
   /** The door of a house was opened or shut (D-5.9): subject is whoever did it (0: it stood so when the client came in); args are the house's number in the bairro, and 1 open or 0 shut. */
   PORTA: 26,
+  /**
+   * What is set down in the client's own house (Task 5.3), said whole whenever it changes and as they come in: one
+   * event a thing. Subject is the thing's id, `text` what it is, and args its cell in the house's own plan (cx,
+   * cz), its turn in quarters, its place in the list and how many the list has (a list of none is one event with a
+   * count of 0), and why what the client last asked was refused (MOVEL_RECUSAS; 0: nothing was).
+   */
+  MOVEIS: 27,
 } as const;
 
 /**
@@ -796,7 +805,8 @@ export type ClientMessage =
   | ({ readonly type: "sair" } & { readonly pedido: SairPedido })
   | ({ readonly type: "a_dois" } & { readonly pedido: ADoisPedido })
   | { readonly type: "lado"; readonly campo: number }
-  | { readonly type: "porta"; readonly open: boolean };
+  | { readonly type: "porta"; readonly open: boolean }
+  | { readonly type: "movel"; readonly op: number; readonly id: number; readonly item: string; readonly cx: number; readonly cz: number; readonly rot: number };
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -822,6 +832,12 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.A_DOIS) return { type: "a_dois", pedido: readADois(r) };
   if (type === MSG.LADO) return { type: "lado", campo: r.u8() };
   if (type === MSG.PORTA) return { type: "porta", open: r.u8() === 1 };
+  if (type === MSG.MOVEL) {
+    // Cells are sent 64 up, so that the cells before the middle of a house's plan travel as a byte.
+    const movel = { type: "movel" as const, op: r.u8(), id: r.uint(), item: r.text(32), cx: r.u8() - 64, cz: r.u8() - 64, rot: r.u8() };
+    if (movel.op > 2 || movel.rot > 3 || !ITEM_NAME.test(movel.item)) throw new ProtocolError("malformed", "movel");
+    return movel;
+  }
   throw new ProtocolError("unknown_type", String(type));
 }
 

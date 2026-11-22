@@ -1274,6 +1274,47 @@ def sala(b, x, z, front, width, depth, height=2.7, ground=0.0, wall="paintWhite"
     return {"rect": [round(x - hx + T, 2), round(z - hz + T, 2), round(x + hx - T, 2), round(z + hz - T, 2)], "door": [round(x + door, 2), round(z + f * (hz - T / 2), 2)], "front": f, "height": height}
 
 
+def banca_de_moveis(b, x, z, rng, ground=0.0):
+    """
+    Where a bairro buys what it furnishes its houses with (Task 5.3): a lean-to of zinc on four posts, open to +Z,
+    and under it and before it the goods as they are sold in the street: plastic chairs in a stack, a plastic
+    table with more chairs upside down on it, mattresses stood on edge against a post, a sofa under its plastic,
+    a bed frame, a television in its box. No counter: the seller stands among his things. For any bairro; five
+    metres by three and a half. The place to buy at is before it.
+    """
+    b.at(x, z)
+    b.level = BOTH
+    for sx in (-2.3, 2.3):
+        for sz, high in ((-1.5, 2.2), (1.5, 2.7)):
+            b.tube([(x + sx, ground, z + sz), (x + sx, ground + high, z + sz)], [0.05, 0.05], 4, "pole", cap=False)
+    b.face([(x - 2.6, ground + 2.15, z - 1.8), (x + 2.6, ground + 2.15, z - 1.8), (x + 2.6, ground + 2.78, z + 1.9), (x - 2.6, ground + 2.78, z + 1.9)], rng.choice(kit.ZINC), toward=(0.0, 1.0, 0.0), two_sided=True)
+    b.face([(x - 2.3, ground, z - 1.5), (x + 2.3, ground, z - 1.5), (x + 2.3, ground + 2.2, z - 1.5), (x - 2.3, ground + 2.2, z - 1.5)], "zincRust", toward=(0.0, 0.0, 1.0), two_sided=True)
+    # The sofa, at the back, under a sheet of plastic; a bed frame beside it with its mattress.
+    b.box((x - 1.1, ground + 0.22, z - 0.95), (1.9, 0.44, 0.85), "carRed")
+    b.box((x - 1.1, ground + 0.62, z - 1.28), (1.9, 0.44, 0.2), "carRed")
+    b.box((x - 1.1, ground + 0.66, z - 0.95), (1.96, 0.02, 0.9), "glassBlue", skip_bottom=False)
+    b.box((x + 1.25, ground + 0.2, z - 0.7), (1.4, 0.16, 1.5), "wood", skip_bottom=False)
+    b.box((x + 1.25, ground + 0.37, z - 0.7), (1.32, 0.18, 1.42), "kerb")
+    # Mattresses on edge against the post, each in its own ticking.
+    for k, colour in enumerate(["zincBlue", "kerb", "paintMint"]):
+        b.box((x + 2.05 - k * 0.2, ground + 0.95, z + 0.9), (0.17, 1.9, 0.9), colour)
+    # The table, with a stack of chairs on the ground before it and two more upside down on its top.
+    b.box((x - 1.3, ground + 0.72, z + 0.75), (0.9, 0.04, 0.9), "paintWhite", skip_bottom=False)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            b.tube([(x - 1.3 + sx * 0.38, ground, z + 0.75 + sz * 0.38), (x - 1.3 + sx * 0.34, ground + 0.7, z + 0.75 + sz * 0.34)], [0.025, 0.03], 4, "paintWhite", cap=False)
+    b.level = FULL
+    for k in range(5):
+        b.box((x - 0.25, ground + 0.44 + k * 0.09, z + 0.9), (0.4, 0.04, 0.38), "paintWhite", skip_bottom=False)
+        b.box((x - 0.25, ground + 0.66 + k * 0.09, z + 0.72), (0.38, 0.4, 0.03), "paintWhite", skip_bottom=False)
+    b.box((x - 1.3, ground + 0.98, z + 0.75), (0.4, 0.42, 0.38), "paintWhite", skip_bottom=False)
+    # A television in its box, the picture of it on the side.
+    b.box((x + 0.6, ground + 0.3, z + 1.1), (0.9, 0.6, 0.3), "mucua")
+    b.rect((x + 0.6, ground + 0.3, z + 1.26), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.6, 0.36, "tarShade")
+    b.level = BOTH
+    b.at(x, z)
+
+
 def salao_de_beleza(b, x, z, rng, ground=0.0, front=-1):
     """
     A salão de beleza that is gone into (the founder, 2026-11-21 and 2026-11-22), seven metres by five, its door to

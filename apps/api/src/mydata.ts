@@ -7,7 +7,7 @@
 // and the card of origin go. The history of consents stays for its period:
 // it is the proof that they agreed. The audit log records that it was done.
 
-import { audit, blockedBy, classificacaoDoJogador, familyHomeOf, kambasDe, mensagensDoJogador, presentesDoJogador, consentsOf, statementOf, walletOf } from "@nzila/db";
+import { audit, blockedBy, classificacaoDoJogador, familyHomeOf, thingsOf, kambasDe, mensagensDoJogador, presentesDoJogador, consentsOf, statementOf, walletOf } from "@nzila/db";
 import { accountId } from "@nzila/economy";
 import { type OriginTable } from "@nzila/economy";
 import { settleLook } from "@nzila/protocol";
@@ -37,6 +37,7 @@ export async function exportOf(sql: Sql, origins: OriginTable, playerId: string)
     look: avatar ? { ...settleLook(avatar.spec), updatedAt: avatar.updated_at } : null,
     origin: await originOfPlayer(sql, origins, playerId),
     home: await familyHomeOf(sql, playerId),
+    homeThings: await thingsOf(sql, playerId),
     consents: consents.map((row) => ({ purpose: row.purpose, version: row.version, granted: row.granted, at: row.at })),
     devices: devices.map((row) => ({ platform: row.platform, firstSeen: row.first_seen_at, lastSeen: row.last_seen_at })),
     sessions: sessions.map((row) => ({ opened: row.created_at, lastUsed: row.last_seen_at, expires: row.expires_at, ended: row.revoked_at })),
@@ -82,6 +83,7 @@ export async function deleteAccount(sql: Sql, playerId: string, biNumber: string
     await tx`DELETE FROM avatars WHERE player_id = ${playerId}`;
     await tx`DELETE FROM player_origins WHERE player_id = ${playerId}`;
     await tx`DELETE FROM family_homes WHERE player_id = ${playerId}`;
+    await tx`DELETE FROM home_things WHERE owner_id = ${playerId}`;
     // Whom they shut out, and who shut them out: nobody is left to hear. What they said stays its thirty days, and
     // what was reported stays with the moderators, under a player who is now nobody (docs/legal/RETENTION.md).
     await tx`DELETE FROM player_blocks WHERE player_id = ${playerId} OR blocked_id = ${playerId}`;
