@@ -9,7 +9,8 @@
     "./corridas": "./src/corridas.ts",
     "./mesa": "./src/mesa.ts",
     "./sair": "./src/sair.ts",
-    "./bola": "./src/bola.ts"
+    "./bola": "./src/bola.ts",
+    "./casa": "./src/casa.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

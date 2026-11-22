@@ -2,7 +2,7 @@
 // family's word in the morning, the errand for two, what the bairro has today, and its festa. Each is a message
 // from somebody, the way the chat everyone uses looks. Fetched when first opened (F-188).
 
-import { ptAOTranslator as tr } from "@nzila/i18n";
+import { ptAOTranslator as tr, type MessageKey } from "@nzila/i18n";
 import { Button } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { Kambas } from "./kambas.tsx";
@@ -85,6 +85,7 @@ function Bairro({ world, marked, onMark }: { world: WorldProvider; marked: Marke
         <div class="ms-body">
           <b>{tr.t("recado.familia.who")}</b>
           <p class="ms-bubble">{tr.t("recado.familia")}</p>
+          {day.familia.casa ? <p class="ms-bubble">{tr.t(day.familia.casa.here ? "recado.familia.casa" : "recado.familia.casa.longe", { n: day.familia.casa.house, em: tr.t(`origin.bairro.${day.familia.casa.pack}.em` as MessageKey) })}</p> : null}
           {day.familia.done ? (
             <small class="ms-done">{tr.t("recado.feito", { amount: tr.makuta(day.familia.amount) })}</small>
           ) : (

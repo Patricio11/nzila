@@ -64,7 +64,7 @@ for name, draw in kit_casas.KINDS.items():
 # Where in the palette's picture each paint a door or a sign is given is, as a model counts it (from the top left):
 # the game colours the doors it hangs from these, without carrying the palette's own list for it.
 cells = palette["cells"]
-paint = {name: [round((palette["squares"][name] % cells + 0.5) / cells, 5), round((palette["squares"][name] // cells + 0.5) / cells, 5)] for name in [*kit.DOOR_PAINTS, "flagYellow"]}
+paint = {name: [round((palette["squares"][name] % cells + 0.5) / cells, 5), round((palette["squares"][name] // cells + 0.5) / cells, 5)] for name in [*kit.DOOR_PAINTS, "flagYellow", "tarShade"]}
 with open(os.path.join(out_dir, "casas.json"), "w", encoding="utf-8") as handle:
     json.dump({"kinds": kinds, "paint": paint}, handle, ensure_ascii=False)
 print(f"nzila: {len(kinds)} kind(s) of home: " + ", ".join(f"{k['id']} {k['triangles']} triangles" for k in kinds))

@@ -15,6 +15,8 @@ import { type WorldRenderer } from "./world-renderer.ts";
 
 /** Nobody further than this from the viewer is given a body, in metres. */
 const REACH_M = 70;
+/** How near someone is for their whole body to be worth its triangles: beyond it, the light one cannot be told from it on a phone. */
+const WHOLE_M = 16;
 /** How many of them cast a real shadow. */
 const SHADOWS = 3;
 
@@ -92,7 +94,10 @@ export class Crowd {
     // 5.500 triangles each since the people were rebuilt, and one that casts a shadow is drawn twice, F-215).
     // Everyone else the tier allows wears the light one, some 800 triangles and no shadow: 9, 18 or 30 people
     // in all, which leaves the busiest view of L1 inside the triangle budget.
-    const wholes = Math.max(3, Math.round(this.renderer.tier.crowd / 6));
+    // And only those near enough for it to be seen (WHOLE_M): at Zango's crossroads four whole bodies stood up to
+    // forty metres off, and with the rest of the street's people they were a third of a picture that was over the
+    // budget (F-288).
+    const few = Math.max(3, Math.round(this.renderer.tier.crowd / 6));
     const most = Math.round(this.renderer.tier.crowd * 0.75);
     const near: { walker: Walker; at: ActorMoment; far: number }[] = [];
     for (const walker of this.walkers) {
@@ -110,6 +115,7 @@ export class Crowd {
       else walker.shown = false;
     }
     near.sort((a, b) => a.far - b.far);
+    const wholes = Math.min(few, near.filter(({ far }) => WHOLE_M > far).length);
     const seen: PersonSeen[] = [];
     for (const [n, { walker, at }] of near.entries()) {
       if (n >= most) {

@@ -376,8 +376,11 @@ export class Session {
       } catch {
         // Storage is off: they are known for this visit.
       }
-    }
+    } else if (this.mais.length < 64) this.mais.push(event);
   }
+
+  /** What the zone said that the way in has no place for: read by whatever is fetched later and knows what it is (a door, D-5.9). */
+  mais: WorldEvent[] = [];
 
   /** "Silenciar", and its undoing: at once, on this phone, and remembered here by the number of their BI. */
   silence(entity: number, on: boolean): void {

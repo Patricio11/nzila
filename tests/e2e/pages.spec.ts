@@ -3277,20 +3277,36 @@ test.describe("two phones in the same street", () => {
     await view.click();
     await view.click();
     await expect(view).toHaveText("Vista: à altura dos olhos");
-    // To the door: it swings open before them, and they walk out into their yard; behind them it shuts.
+    // To the door. It is shut, and a wall to them too: a hand opens it ("Abrir a porta"), it swings on its hinge, and
+    // they walk out into their yard and shut it behind them.
+    const hand = page.locator(".dentro-porta").getByRole("button");
+    await expect(hand).toHaveCount(0);
     const inward = Math.sign(casa.wake[1] - casa.door[1]);
     // They woke looking at their door: where it looks to +Z, the camera is turned about, and the keys with it.
     let turned = Math.abs(Math.cos((await page.evaluate(() => window.__dentro!.olhar))! / 2)) < 0.5;
     expect(turned).toBe(inward < 0);
     await walkTo(page, casa.door[0], casa.door[1] + inward * 1.6, 0.5, 120, turned);
-    await page.waitForFunction(() => window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
+    await expect(hand).toHaveText("Abrir a porta");
+    await page.screenshot({ path: info.outputPath("casa-porta-fechada.png") });
+    // Walked at, shut, it does not let them through.
+    await page.keyboard.down("w");
+    await page.waitForTimeout(1800);
+    await page.keyboard.up("w");
+    expect(await page.evaluate(() => window.__dentro!.onde)).toBe("casa");
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.aberta === true && window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
+    await expect(hand).toHaveText("Fechar a porta");
     await page.waitForTimeout(500);
     await page.screenshot({ path: info.outputPath("casa-porta-aberta.png") });
+    await walkTo(page, casa.door[0], casa.door[1] - inward * 1.5, 0.5, 120, turned);
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.aberta === false && window.__dentro!.porta === 0, undefined, { timeout: 10_000 });
     // Far enough for the door to shut behind them, and no farther than every yard is sure to let them: each run is
     // dealt another house, and each yard has its own things in it.
     await walkTo(page, casa.door[0], casa.door[1] - inward * 3.6, 1.2, 160, turned);
     await page.waitForFunction(() => window.__dentro!.onde === null && window.__dentro!.porta === 0, undefined, { timeout: 10_000 });
     await expect(view).toHaveCount(0);
+    await expect(hand).toHaveCount(0);
     // Seen from its yard: a house of the row with its door shut, and the sign over the roof that says which is theirs.
     // The thumb turns the view about, to look back at the house: half a turn, in three strokes across the screen.
     // (They walked out looking away from it, whichever way it faces.)
@@ -3327,10 +3343,14 @@ test.describe("two phones in the same street", () => {
     await telemovel.getByRole("button", { name: "Fechar" }).click();
     // Home again: the door opens for its family, and they are inside.
     await walkTo(page, casa.door[0], casa.door[1] - inward * 1.2, 0.5, 120, turned);
+    await expect(hand).toHaveText("Abrir a porta");
+    await hand.click();
     await page.waitForFunction(() => window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
     await page.screenshot({ path: info.outputPath("casa-a-entrar.png") });
-    await walkTo(page, casa.door[0], casa.door[1] + inward * 2.4, 0.6, 120, turned);
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 1.7, 0.5, 120, turned);
     await page.waitForFunction(() => window.__dentro!.onde === "casa", undefined, { timeout: 10_000 });
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.aberta === false && window.__dentro!.porta === 0, undefined, { timeout: 10_000 });
     // Whoever goes to sleep at home wakes at home: the game opened again, they stand where they lay.
     const lay = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
     // Nothing went wrong on the page so far. (Asked here, before the game is opened again, for the same reason.)
@@ -3341,7 +3361,47 @@ test.describe("two phones in the same street", () => {
     const back = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
     expect(Math.hypot(back.x - lay.x, back.z - lay.z)).toBeLessThan(1.2);
     await page.waitForTimeout(1500);
+    // After dark the bulb lights the room; and at home nobody is told to go home.
     await page.screenshot({ path: info.outputPath("casa-a-noite.png") });
+    expect(await page.evaluate(() => window.__dentro!.aviso)).toBeNull();
+  });
+
+  test("a family that wakes on the Marginal has its house in Zango (D-5.9): arriving, they are told where home is; after dark, that it is late and that whoever sleeps in the street can be robbed; and the family's message gives the house's number", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/casas/casas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. A house away from where one wakes was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(180_000);
+    // Guests are made until one is of a family that does not wake in Zango.
+    let kept: Record<string, unknown> | null = null;
+    for (let n = 0; n < 40 && !kept; n++) {
+      const deviceId = `marginal-casa-${n}-${Date.now()}-abcdefgh`;
+      const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string };
+      const dealt = (await (await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: { tier: string } };
+      if (dealt.origin.tier !== "aperto") kept = { deviceId, ageBand: "18_plus", ...guest, origin: dealt.origin };
+    }
+    expect(kept, "a family that wakes on the Marginal was dealt in forty tries").not.toBeNull();
+    await page.addInitScript((account) => localStorage.setItem("nzila.conta", JSON.stringify(account)), kept);
+    const home = ((await (await page.request.get("/api/v1/me/casa", { headers: { authorization: `Bearer ${(kept as { token: string }).token}` } })).json()) as { home: { pack: string; house: number } }).home;
+    expect(home.pack).toBe("zango");
+    // By day: where home is, said as they arrive.
+    await page.goto("/andar?pack=l1&tier=poupanca&hour=11");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    await expect(page.locator(".dentro-aviso")).toHaveText("A tua casa é no Zango. Para ir para casa, apanha o candongueiro.", { timeout: 20_000 });
+    await page.screenshot({ path: info.outputPath("casa-longe-dia.png") });
+    // The family's message says which house.
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    const telemovel = page.getByRole("dialog", { name: "Telemóvel" });
+    await telemovel.getByRole("button", { name: "Mensagens" }).click();
+    await expect(telemovel.locator(".ms-familia")).toContainText(`A nossa casa é no Zango, a número ${home.house}. Apanha o candongueiro para lá; o Mapa diz de que paragem sai.`, { timeout: 15_000 });
+    await page.screenshot({ path: info.outputPath("casa-longe-mensagem.png") });
+    // After dark: it is late, home is far, and the street is no place to sleep.
+    await page.goto("/andar?pack=l1&tier=poupanca&hour=21");
+    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
+    await expect(page.locator(".dentro-aviso")).toHaveText("Já é tarde, e a tua casa é no Zango. Apanha o candongueiro: quem dorme na rua pode ser roubado.", { timeout: 20_000 });
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: info.outputPath("casa-longe-noite.png") });
   });
 
   test("a tap on someone opens their BI with everything that can be done about them: talk, stop hearing, shut out, report", async ({ page, browser, request }, info) => {

@@ -1,4 +1,10 @@
 /* The button that changes the way a place is seen from inside: under the wallet, out of the way of the thumb. */
 .dentro-vista { position: absolute; left: var(--s-3); top: calc(84px + env(safe-area-inset-top)); z-index: 5; display: flex; flex-direction: column; gap: var(--s-1); align-items: flex-start; }
 .dentro-vista .n-button { margin: 0; }
+.dentro-vista { max-width: min(78vw, 320px); }
+/* What the family says when it is late: in the cloth's red, so that it is read. */
+.dentro-vista .dentro-aviso { background: var(--n-vermelho); line-height: 1.3; }
+/* The hand to one's own door: in the middle, over the place where words are written, where a thumb finds it. */
+.dentro-porta { position: absolute; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 5; }
+.dentro-porta .n-button { margin: 0; white-space: nowrap; }
 .dentro-vista p { margin: 0; padding: var(--s-1) var(--s-2); border-radius: 10px; background: var(--n-noite); color: var(--n-luz); font: var(--type-small); }

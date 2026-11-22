@@ -15,8 +15,9 @@ CELL = 0.5
 def _walked(b, half_x, half_z, floor, door):
     """
     Where the family walks, from what was built: the cells of the house and one more all round it, "." walked, "#" a
-    wall, "-" as the street has it. The cells before the doorway are the family's whatever the street says of them
-    (the street has the whole house shut, and what stands against its front wall with it).
+    wall, "-" as the street has it, "d" the doorway (the family's while the door stands open). The cells before the
+    doorway are the family's whatever the street says of them (the street has the whole house shut, and what
+    stands against its front wall with it).
     """
     nx, nz = int(half_x / CELL) + 1, int(half_z / CELL) + 1
     rows = [["." if -nx < ix < nx - 1 and -nz < iz < nz - 1 else "-" for ix in range(-nx, nx)] for iz in range(-nz, nz)]
@@ -32,17 +33,18 @@ def _walked(b, half_x, half_z, floor, door):
     for ix in (int(door // CELL) - 1, int(door // CELL)):
         if rows[nz - 2 + nz][ix + nx] != ".":
             raise SystemExit(f"nzila: the doorway of a home is shut at cell {ix}")
+        rows[nz - 2 + nz][ix + nx] = "d"
         rows[nz - 1 + nz][ix + nx] = "."
     return {"cellMm": int(CELL * 1000), "cellX0": -nx, "cellZ0": -nz, "rows": ["".join(row) for row in rows]}
 
 
 def interior_de_realojamento(b):
     """
-    Inside the house of a resettlement bairro (kit.casa_de_realojamento: eight metres by six): one room as the
-    State delivered it, bare: a cement floor level with the veranda's step, white walls, the door between two
-    windows, one window in the side wall on the right hand, and the zinc of the roof overhead (the roof is the
-    house's own, drawn with its outside). The family gives it empty (D-3.13): there is an esteira on the floor to
-    wake on, and nothing else.
+    Inside the house of a resettlement bairro (kit.casa_de_realojamento: eight metres by six), as the State
+    delivered it, bare: a sala and a quarto with a wall between them, a cement floor level with the veranda's
+    step, white walls, the door between two windows, one window in the side wall on the right hand, and the zinc
+    of the roof overhead (the roof is the house's own, drawn with its outside). The family gives it empty
+    (D-3.13): a bulb on its wire in the sala, an esteira on the quarto's floor to wake on, and nothing else.
     """
     width, depth, height, floor = 8.0, 6.0, 2.6, kit.DOOR_SILL
     # A hair inside the house's own walls, so that the two are never drawn in the same place.
@@ -54,13 +56,23 @@ def interior_de_realojamento(b):
     zi = d / 2 - 0.3
     for z, top, toward in ((zi, 3.10, -1.0), (-zi, 3.02, 1.0)):
         b.face([(-w / 2, floor + 2.76, z), (w / 2, floor + 2.76, z), (w / 2, top, z), (-w / 2, top, z)], "paintWhite", toward=(0.0, 0.0, toward))
-    # The esteira: woven palm, along the wall on the left hand of the door. Whoever wakes stands up beside it, in the
-    # middle of the room's depth: the camera has the room behind them to stand in, and before them their door.
-    wake = (-3.0, 0.2)
+    # The wall between the sala and the quarto, with a doorway in it and no door: the sala has the front door and
+    # one window, the quarto the other window and the one in the side wall.
+    top = floor + 2.76
+    px = 1.15
+    for z0, z1, y0 in ((-zi, 0.4, floor), (1.7, zi, floor), (0.4, 1.7, floor + 2.1)):
+        b.box((px, (y0 + top) / 2, (z0 + z1) / 2), (0.2, top - y0, z1 - z0), "paintWhite", skip_bottom=y0 == floor)
+    # A bulb on its wire over the middle of the sala: it glows after dark, and the game lights the room by it.
     b.soft = True
-    b.box((wake[0], floor + 0.05, wake[1]), (0.9, 0.02, 1.9), "mucua", skip_bottom=True)
+    b.tube([(-1.3, 3.25, 0.0), (-1.3, 2.62, 0.0)], [0.012, 0.012], 3, "tarShade", cap=False)
+    b.box((-1.3, 2.58, 0.0), (0.07, 0.08, 0.07), "metal", skip_bottom=False)
+    b.box((-1.3, 2.48, 0.0), (0.11, 0.13, 0.11), "lamp", skip_bottom=False)
+    # The esteira: woven palm, in the quarto along its back wall. Whoever wakes stands up beside it, with their
+    # window before them.
+    wake = (2.45, -2.15)
+    b.box((wake[0], floor + 0.05, wake[1]), (1.9, 0.02, 0.9), "mucua", skip_bottom=True)
     for k in range(5):
-        b.box((wake[0], floor + 0.062, wake[1] - 0.8 + k * 0.4), (0.9, 0.004, 0.05), "khaki", skip_bottom=True)
+        b.box((wake[0] - 0.8 + k * 0.4, floor + 0.062, wake[1]), (0.05, 0.004, 0.9), "khaki", skip_bottom=True)
     b.soft = False
     return {
         "id": "realojamento",
@@ -72,7 +84,7 @@ def interior_de_realojamento(b):
         "door": [0.0, depth / 2],
         # The door the game hangs: its hinge on the left hand of someone going in, the leaf's size, and the step it stands on.
         "leaf": {"hinge": [-kit.DOOR_WIDE / 2, depth / 2], "wide": kit.DOOR_WIDE, "high": kit.DOOR_HIGH, "sill": kit.DOOR_SILL},
-        "wake": [round(wake[0] + 1.0, 2), wake[1]],
+        "wake": [wake[0], round(wake[1] + 1.15, 2)],
     }
 
 

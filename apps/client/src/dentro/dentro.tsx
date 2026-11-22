@@ -12,12 +12,12 @@
 // The family's house is one of these places (D-5.8), and the only one that is the player's alone: casa.ts hangs the
 // bairro's doors, sets the inside of the player's own house in it, and says when it is there to be gone into.
 
-import { ptAOTranslator as tr } from "@nzila/i18n";
+import { ptAOTranslator as tr, type MessageKey } from "@nzila/i18n";
 import { ptAOLater } from "@nzila/i18n/later";
 import { Button } from "@nzila/ui";
 import { Vector3, type Object3D, type PerspectiveCamera } from "three";
 import { useEffect, useState } from "preact/hooks";
-import { Casas, type Bairro, type Cena } from "./casa.ts";
+import { Casas, type Bairro, type Cena, type Rede } from "./casa.ts";
 // For a page that draws a bairro without a player in it (the team's scenes): the doors are hung there too.
 export { Casas };
 import "./dentro.css";
@@ -38,7 +38,7 @@ export type Vista = (typeof VISTAS)[number];
 declare global {
   interface Window {
     /** For the tests: the place the player is inside of, how it is seen, and where the camera stands; the player's own house here, and how far its door stands open (0 to 1). */
-    __dentro?: { onde: string | null; vista: Vista; sentado: boolean; camera: [number, number, number]; casa?: { house: number; door: readonly [number, number]; wake: readonly [number, number] } | null; porta?: number; olhar?: number };
+    __dentro?: { onde: string | null; vista: Vista; sentado: boolean; camera: [number, number, number]; casa?: { house: number; door: readonly [number, number]; wake: readonly [number, number] } | null; porta?: number; olhar?: number; aviso?: string | null; aberta?: boolean };
   }
 }
 
@@ -62,6 +62,8 @@ export interface Eu {
   readonly sit: number;
   readonly height: number;
   readonly body: Object3D;
+  /** The line to the zone; null walking alone. */
+  readonly net: Rede | null;
 }
 
 const KEY = "nzila.dentro";
@@ -92,6 +94,23 @@ export class Dentro {
   private was = { known: false, at: false, x: 0, z: 0 };
   onde: Lugar | null = null;
   sentado = false;
+  /** What is said under the wallet now: it is late and the player is not at home, or their house is in another bairro. A key of the words, or null. */
+  aviso: string | null = null;
+  /** The bairro the player's house is in, as its pack names it, when it is not this one. */
+  get longe(): string | null {
+    return this.casas.longe;
+  }
+  /** Whether the player stands at their own door, and whether it is open. */
+  get porta(): { perto: boolean; aberta: boolean } {
+    return { perto: this.casas.perto, aberta: this.casas.destrancada };
+  }
+  private net: Rede | null = null;
+  private said = "";
+  private since = performance.now();
+  /** A hand to the door. */
+  mexer(): void {
+    this.casas.porta(this.net);
+  }
   private readonly listeners = new Set<() => void>();
 
   constructor(bairro: Bairro & { readonly manifest: { readonly insides?: readonly Lugar[] | undefined } }) {
@@ -125,7 +144,8 @@ export class Dentro {
    * Places the camera for someone inside. False when the street's own camera is to be used: outside, or riding.
    */
   camera(quadro: Quadro, eu: Eu, riding: boolean): boolean {
-    this.casas.frame(quadro, eu.x, eu.z);
+    this.net = eu.net;
+    this.casas.frame(quadro, eu.x, eu.z, eu.net);
     const casa = this.casas.casa;
     // Put inside their house, not walked into it (they woke there: the zone set them down, or the house was only
     // now known to be theirs): they are turned to their door, and the camera goes behind them, so that what they see
@@ -136,7 +156,16 @@ export class Dentro {
       eu.cam.face = casa.look + Math.PI;
     }
     this.was = { known: casa !== null, at, x: eu.x, z: eu.z };
-    const home = { casa, porta: this.casas.aberta, olhar: eu.cam.yaw };
+    // Late, and not at home: the family worries, and says why (D-5.9). Early in a visit to a bairro that is not
+    // theirs, where home is, said once for a quarter of a minute.
+    const fresh = performance.now() - this.since < 15_000;
+    this.aviso = this.casas.tem && this.casas.tarde && !at ? (this.casas.longe ? "dentro.tarde.longe" : "dentro.tarde") : this.casas.longe && fresh ? "dentro.longe" : null;
+    const home = { casa, porta: this.casas.aberta, olhar: eu.cam.yaw, aviso: this.aviso, aberta: this.casas.destrancada };
+    const saying = `${this.aviso}|${this.casas.perto}|${this.casas.destrancada}`;
+    if (saying !== this.said) {
+      this.said = saying;
+      for (const listener of this.listeners) listener();
+    }
     const onde = riding ? null : (this.lugares.find((one) => eu.x > one.rect[0] && eu.x < one.rect[2] && eu.z > one.rect[1] && eu.z < one.rect[3]) ?? null);
     const sentado = eu.sit > 0.9;
     if (onde !== this.onde || sentado !== this.sentado) {
@@ -189,19 +218,36 @@ export class Dentro {
   }
 }
 
-/** The button that changes the view, with the name of the view the player has. */
+/**
+ * What being inside, and having a home, put on the screen: the button that changes the view (inside a place), the
+ * hand to one's own door (standing at it), and what the family says when it is late or home is far.
+ */
 export function Ui({ dentro }: { dentro: Dentro }) {
   const [, redraw] = useState(0);
   useEffect(() => dentro.listen(() => redraw((n) => n + 1)), [dentro]);
-  if (!dentro.onde) return null;
   const vista = dentro.vista;
+  const porta = dentro.porta;
   return (
-    <div class="dentro-vista">
-      {dentro.onde.id === "casa" ? <p>{tr.t("dentro.casa")}</p> : null}
-      <Button kind="quiet" onPress={() => dentro.mudar()}>
-        {tr.t(vista === "porta" ? "dentro.vista.porta" : vista === "cima" ? "dentro.vista.cima" : "dentro.vista.olhos")}
-      </Button>
-      {vista === "olhos" && !dentro.sentado ? <p role="status">{tr.t("dentro.olhos.senta")}</p> : null}
-    </div>
+    <>
+      <div class="dentro-vista">
+        {dentro.onde?.id === "casa" ? <p>{tr.t("dentro.casa")}</p> : null}
+        {dentro.onde ? (
+          <Button kind="quiet" onPress={() => dentro.mudar()}>
+            {tr.t(vista === "porta" ? "dentro.vista.porta" : vista === "cima" ? "dentro.vista.cima" : "dentro.vista.olhos")}
+          </Button>
+        ) : null}
+        {dentro.onde && vista === "olhos" && !dentro.sentado ? <p role="status">{tr.t("dentro.olhos.senta")}</p> : null}
+        {dentro.aviso ? (
+          <p role="status" class="dentro-aviso">
+            {tr.t(dentro.aviso as MessageKey, { em: dentro.longe ? tr.t(`origin.bairro.${dentro.longe}.em` as MessageKey) : "" })}
+          </p>
+        ) : null}
+      </div>
+      {porta.perto ? (
+        <div class="dentro-porta">
+          <Button onPress={() => dentro.mexer()}>{tr.t(porta.aberta ? "dentro.porta.fechar" : "dentro.porta.abrir")}</Button>
+        </div>
+      ) : null}
+    </>
   );
 }

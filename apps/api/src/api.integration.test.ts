@@ -1251,10 +1251,20 @@ describe("two bairros (Task 11.2, D-11.1 and D-11.2)", () => {
     expect((await street(0).inject({ method: "POST", url: "/v1/play/join", headers: as(poor[4]!.token), payload: { districtId: "ao-lua/zango" } })).json()).toMatchObject({ room: "ao-lua.zango" });
     expect((await sql`SELECT house FROM family_homes WHERE player_id = ${poor[4]!.playerId}`).map((row) => ({ ...row }))).toEqual([{ house: 1 }]);
     await presence.retire("zona-casas");
-    // A family that wakes where no houses are built has none yet.
+    // A family that wakes where no houses are built is given one where houses are: they go home by the road, and
+    // the family's message says where home is.
     const rich = await newGuest(1530);
     await dealing(0.9999).inject({ method: "POST", url: "/v1/me/origin", headers: as(rich.token), payload: {} });
-    expect(await homeOf(rich.token, 0)).toBeNull();
+    expect(await homeOf(rich.token, 0.99)).toEqual({ districtId: "ao-lua/zango", pack: "zango", house: 3, kind: "realojamento" });
+    await presence.stand(rich.playerId, { districtId: "ao-lua/l1", x: 0, y: 0, z: 0, yaw: 0 });
+    expect(((await street(0).inject({ method: "GET", url: "/v1/recados", headers: as(rich.token) })).json() as { familia: { casa: unknown } }).familia.casa).toEqual({ pack: "zango", house: 3, here: false });
+    await presence.stand(rich.playerId, { districtId: "ao-lua/zango", x: 0, y: 0, z: 0, yaw: 0 });
+    expect(((await street(0).inject({ method: "GET", url: "/v1/recados", headers: as(rich.token) })).json() as { familia: { casa: unknown } }).familia.casa).toEqual({ pack: "zango", house: 3, here: true });
+    // Where no bairro has houses, nobody is given one.
+    const bare = buildApp({ guests: true, sql, pepper, keyring, mailer, limiter: { allow: () => true }, presence, world: { ...world, districts: world.districts.map((one) => ({ id: one.id, provinceId: one.provinceId, nameKey: one.nameKey, open: true, pack: one.pack })) } });
+    const late = await newGuest(1531);
+    await dealing(0).inject({ method: "POST", url: "/v1/me/origin", headers: as(late.token), payload: {} });
+    expect(((await bare.inject({ method: "GET", url: "/v1/me/casa", headers: as(late.token) })).json() as { home: unknown }).home).toBeNull();
     // It is theirs: in what the game holds of them, and gone when they go.
     expect(((await street(0).inject({ method: "GET", url: "/v1/me/data", headers: as(poor[1]!.token) })).json() as { home: unknown }).home).toEqual({ districtId: "ao-lua/zango", house: 2, kind: "realojamento" });
     expect((await street(0).inject({ method: "DELETE", url: "/v1/me", headers: as(poor[1]!.token), payload: { biNumber: poor[1]!.biNumber } })).statusCode).toBe(200);

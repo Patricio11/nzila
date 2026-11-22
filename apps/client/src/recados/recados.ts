@@ -24,7 +24,8 @@ export interface Today {
   /** What the next errand done will pay. */
   readonly next: number;
   readonly aDois: { readonly item: string; readonly pay: number; readonly done: boolean };
-  readonly familia: { readonly amount: number; readonly done: boolean };
+  /** `casa`: the house the family gave, when there is one: the pack of its bairro, its number, and whether the player is in that bairro now. */
+  readonly familia: { readonly amount: number; readonly done: boolean; readonly casa?: { readonly pack: string; readonly house: number; readonly here: boolean } | null };
   readonly apagao: boolean;
   /** When in the game's day the light goes, on a day it goes (seconds). */
   readonly apagaoHoras: readonly [number, number];

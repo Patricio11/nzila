@@ -464,8 +464,11 @@ export function buildApp(deps: Deps): FastifyInstance {
   };
 
   // ------------------------------------------------------------ the family's house (Phase 5; D-3.13, D-5.8)
-  // With the card of origin comes a house, in the bairro the card wakes the player in, when that bairro has houses
-  // to give (the registry says how many). It is given the first time it is asked for, and it is never lost (D-5.2).
+  // With the card of origin comes a house. Houses are given only where houses are built (the founder, 2026-11-22):
+  // in the bairro the card wakes the player in when it has houses to give (the registry says how many), and
+  // otherwise in a bairro that has, of the same province first. Someone who wakes on the Marginal has their house
+  // in Zango, and goes home by the road. Nothing here names a bairro: provinces and countries to come are given
+  // houses by the same rule (D-5.9). It is given the first time it is asked for, and it is never lost (D-5.2).
   // Which house: the one with the fewest families. The zone reads it and opens that house to them alone.
   const homeOf = async (playerId: string): Promise<{ districtId: string; pack: string; house: number; kind: string } | null> => {
     const packOf = async (districtId: string): Promise<string | undefined> => (await world).districts.find((one) => one.id === districtId)?.pack;
@@ -476,7 +479,9 @@ export function buildApp(deps: Deps): FastifyInstance {
     }
     // Nobody has a family before their card is dealt.
     const card = await originOfPlayer(deps.sql, origins, playerId);
-    const wakes = card ? await wakesIn(card.tier) : null;
+    const woken = card ? await wakesIn(card.tier) : null;
+    const built = (await world).districts.filter((one) => one.pack && one.homes);
+    const wakes = woken?.homes ? woken : (built.find((one) => one.provinceId === woken?.provinceId) ?? (woken ? built[0] : undefined));
     if (!wakes?.homes) return null;
     const given = await giveFamilyHome(deps.sql, playerId, { districtId: wakes.id, houses: wakes.homes.count, kind: wakes.homes.kind }, roll);
     return { districtId: given.districtId, pack: wakes.pack!, house: given.house, kind: given.kind };
@@ -1129,7 +1134,8 @@ export function buildApp(deps: Deps): FastifyInstance {
         recados: recadosFor(recados, caller.player.id, day, await littleMoney(caller.player.id)).map((one) => ({ ...one, done: has(one.n) })),
         next: payFor(recados, done.filter((one) => one.n <= 2).length),
         aDois: { item: recados.aDois.item, pay: recados.aDois.pay, done: has(8) },
-        familia: { amount: origin ? recados.familia[origin.tier] : 0, done: has(9), mae: origin?.mae ?? null },
+        // The family says where the house is, to whoever is not in its bairro: one goes home by the road (D-5.9).
+        familia: { amount: origin ? recados.familia[origin.tier] : 0, done: has(9), mae: origin?.mae ?? null, casa: await homeOf(caller.player.id).then((home) => (home ? { pack: home.pack, house: home.house, here: home.districtId === districtId } : null)) },
         apagao: districtId ? apagaoOn(recados, day, districtId) : false,
         apagaoHoras: [recados.apagao.fromGameS, recados.apagao.toGameS],
         festa: { week: weekOf(day), done: districtId ? await doneInDistrict(deps.sql, districtId, from, to) : 0, goal: recados.festa.goal },

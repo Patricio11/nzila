@@ -425,7 +425,8 @@ describe("a place of one's own (the family's house, Phase 5)", () => {
     expect(channel.placeOf(estranho)!.z).toBeLessThan(10_000);
     expect(channel.withinOf(mae)).toBe("familia-1");
     expect(channel.withinOf(estranho)).toBeNull();
-    expect(seenBy(channel, mae)).toEqual([mae, filho]);
+    // From inside, the street is seen through the window, and who is in it; the street does not see in.
+    expect(seenBy(channel, mae)).toEqual([mae, filho, vizinho, estranho]);
     expect(seenBy(channel, estranho)).toEqual([vizinho, estranho]);
     // Another family of the same house walks into the same walls and is in a room of their own: nobody is in their
     // way, though the first family stands where they walk, and neither sees the other.
@@ -435,8 +436,8 @@ describe("a place of one's own (the family's house, Phase 5)", () => {
     }
     expect(channel.placeOf(vizinho)!.z).toBeGreaterThan(12_000);
     expect(channel.withinOf(vizinho)).toBe("familia-2");
-    expect(seenBy(channel, vizinho)).toEqual([vizinho]);
-    expect(seenBy(channel, mae)).toEqual([mae, filho]);
+    expect(seenBy(channel, vizinho)).toEqual([vizinho, estranho]);
+    expect(seenBy(channel, mae)).toEqual([mae, filho, estranho]);
     expect(channel.withinOf(999)).toBeNull();
   });
 

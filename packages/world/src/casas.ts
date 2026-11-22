@@ -18,7 +18,10 @@ export interface HomeKind {
   /** The first cell of `rows`, counted from the middle of the house. */
   readonly cellX0: number;
   readonly cellZ0: number;
-  /** One string a row along Z, one character a cell along X: "." the family walks here, "#" nobody does, "-" as the street has it. */
+  /**
+   * One string a row along Z, one character a cell along X: "." the family walks here, "#" nobody does, "-" as the
+   * street has it, "d" the doorway: the family's while the door stands open, a wall while it is shut.
+   */
   readonly rows: readonly string[];
   /** Being inside: [minX, minZ, maxX, maxZ]. */
   readonly rect: readonly [number, number, number, number];
@@ -59,9 +62,10 @@ export function homeRect(site: HomeSite, kind: HomeKind): [number, number, numbe
 
 /**
  * The ground as the family of this house walks it: the house's own where the house is, the street's everywhere
- * else. A house stands on the walk grid's lines (the pack's build refuses one that does not).
+ * else. A house stands on the walk grid's lines (the pack's build refuses one that does not). `open`: whether its
+ * door stands open now; asked at every step, so that a door shut is a wall from that step on.
  */
-export function homeGround(street: Ground, site: HomeSite, kind: HomeKind): Ground {
+export function homeGround(street: Ground, site: HomeSite, kind: HomeKind, open: () => boolean = () => true): Ground {
   if (kind.cellMm !== street.cellMm) throw new Error(`the home "${kind.id}" is drawn in cells of ${kind.cellMm} mm and the street in ${street.cellMm}`);
   const cell = kind.cellMm / 1000;
   const turn = site.facing === 180 ? -1 : 1;
@@ -77,8 +81,8 @@ export function homeGround(street: Ground, site: HomeSite, kind: HomeKind): Grou
     cellMm: street.cellMm,
     flagsAt: (cx, cz) => {
       const here = said(cx, cz);
-      return here === "." ? CELL_WALK : here === "#" ? 0 : street.flagsAt(cx, cz);
+      return here === "." || (here === "d" && open()) ? CELL_WALK : here === "#" || here === "d" ? 0 : street.flagsAt(cx, cz);
     },
-    heightAt: (cx, cz) => (said(cx, cz) === "." ? floorMm : street.heightAt(cx, cz)),
+    heightAt: (cx, cz) => (".d".includes(said(cx, cz)) ? floorMm : street.heightAt(cx, cz)),
   };
 }

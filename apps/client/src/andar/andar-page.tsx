@@ -894,11 +894,11 @@ export function Andar() {
         const mySeat = session?.myRide?.seat;
         const place = (mySeat !== undefined ? district.traffic?.seats[mySeat] : undefined) ?? district.traffic?.seats.find((s) => s.who === "jogador");
         const bairro = district;
-        if (dentro.current === null && bairro.manifest.insides?.length) {
+        if (dentro.current === null) {
           dentro.current = 0;
           void import("../dentro/dentro.tsx").then((module) => ((dentro.current = new module.Dentro(bairro)), setDentroM(() => module)), () => {});
         }
-        if (dentro.current && dentro.current.camera(renderer, { x, y, z, cam: camera, sit, height: person.height, body: person.root }, Boolean(ride))) {
+        if (dentro.current && dentro.current.camera(renderer, { x, y, z, cam: camera, sit, height: person.height, body: person.root, net: session }, Boolean(ride))) {
           // Inside a place: seen as the player chose to see it (D-0.41).
         } else if (ride && van && place) {
           // From the seat: the eyes of someone sitting there, turned by the thumb.

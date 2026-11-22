@@ -45,6 +45,8 @@ export const MSG = {
   A_DOIS: 24,
   /** Client to zone: the player goes over to the other side of a campo's match (D-11.12). Written in bola.ts. */
   LADO: 25,
+  /** Client to zone: the player opens or shuts the door of their own house, standing at it (D-5.9). Written in casa.ts. */
+  PORTA: 26,
 } as const;
 
 /** Why a zone closed a connection that had been let in. A client treats one it does not know as a dropped line. */
@@ -273,6 +275,8 @@ export const EVENT = {
   GOLO: 24,
   /** Subject is on a side of a campo's match, or has left it: args are the campo, the side (1, 2; 0 left), and the score of each side. */
   LADO: 25,
+  /** The door of a house was opened or shut (D-5.9): subject is whoever did it (0: it stood so when the client came in); args are the house's number in the bairro, and 1 open or 0 shut. */
+  PORTA: 26,
 } as const;
 
 /**
@@ -791,7 +795,8 @@ export type ClientMessage =
   | ({ readonly type: "corrida" } & { readonly pedido: CorridaPedido })
   | ({ readonly type: "sair" } & { readonly pedido: SairPedido })
   | ({ readonly type: "a_dois" } & { readonly pedido: ADoisPedido })
-  | { readonly type: "lado"; readonly campo: number };
+  | { readonly type: "lado"; readonly campo: number }
+  | { readonly type: "porta"; readonly open: boolean };
 
 /**
  * Decodes a message from a client. Throws ProtocolError on anything that is
@@ -816,6 +821,7 @@ export function decodeClientMessage(bytes: Uint8Array): ClientMessage {
   if (type === MSG.SAIR) return { type: "sair", pedido: readSair(r) };
   if (type === MSG.A_DOIS) return { type: "a_dois", pedido: readADois(r) };
   if (type === MSG.LADO) return { type: "lado", campo: r.u8() };
+  if (type === MSG.PORTA) return { type: "porta", open: r.u8() === 1 };
   throw new ProtocolError("unknown_type", String(type));
 }
 

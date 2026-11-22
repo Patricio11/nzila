@@ -693,6 +693,13 @@ export const ptAOLater = {
   "dentro.vista.olhos": "Vista: pelos teus olhos",
   "dentro.olhos.senta": "Senta-te para veres pelos teus olhos.",
   "dentro.casa": "A casa da tua família",
+  "dentro.porta.abrir": "Abrir a porta",
+  "dentro.porta.fechar": "Fechar a porta",
+  "dentro.tarde": "Já é tarde. Vai para casa: quem dorme na rua pode ser roubado.",
+  "dentro.tarde.longe": "Já é tarde, e a tua casa é {em}. Apanha o candongueiro: quem dorme na rua pode ser roubado.",
+  "dentro.longe": "A tua casa é {em}. Para ir para casa, apanha o candongueiro.",
+  "recado.familia.casa": "A nossa casa é a número {n}. No Mapa está marcada: «A tua casa».",
+  "recado.familia.casa.longe": "A nossa casa é {em}, a número {n}. Apanha o candongueiro para lá; o Mapa diz de que paragem sai.",
   // The match (D-11.11): amarelos and vermelhos, the first to three.
   "campo.lado.1": "Jogas pelos amarelos. Defende a baliza amarela.",
   "campo.lado.2": "Jogas pelos vermelhos. Defende a baliza vermelha.",

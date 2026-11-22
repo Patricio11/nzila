@@ -183,6 +183,10 @@ interface NeedsKept {
 /** The rates of the needs: tunables (Rule 14). */
 /** How near a bench's seat a player must stand to sit on it, and how far in front of it they stand up. Millimetres. */
 const BENCH_REACH_MM = 2500;
+/** How near the middle of their doorway someone stands to open or shut their door; and the doorway itself, where nobody may be when it shuts. */
+export const DOOR_REACH_MM = 2500;
+const DOORWAY_HALF_MM = 700;
+const DOORWAY_DEEP_MM = 550;
 const BENCH_STEP_MM = 600;
 /** How long the zone's note of a stay at the hospital lasts for the API to ask its bill, in seconds. */
 const HOSPITAL_NOTE_S = 600;
@@ -405,7 +409,10 @@ export class ChannelRoom {
     const [last, face, apart, against, needs, adult, given] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk || this.saidas ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId), adultOf(this.sql, playerId), district.homes ? familyHomeOf(this.sql, playerId) : null]).finally(() => this.arriving--);
     // The family's house, when it is in this bairro (Phase 5, D-5.8): open to them and to nobody else, its inside
     // theirs alone. Someone who has never stood here wakes in it; someone who went to sleep in it wakes where they lay.
-    const home = given && given.districtId === district.id ? (district.homes?.(given.house, playerId) ?? null) : null;
+    const house = given && given.districtId === district.id ? given.house : 0;
+    const home = house ? (district.homes?.(house, playerId, () => this.doors.has(house)) ?? null) : null;
+    if (home) this.homes.set(playerId, { house, door: home.door });
+    else this.homes.delete(playerId);
     this.shut.set(playerId, new Set(apart));
     // Whether they are 18 or over is learned once, here (D-10.3, F-113): going out is for two adults.
     if (adult) this.adults.add(playerId);
@@ -439,6 +446,8 @@ export class ChannelRoom {
   /** What a newcomer is told beyond where they are: that talk is open here, when it is. */
   private welcome(line: Line): void {
     if (this.talk) line.send(encodeEvent({ kind: EVENT.CHAT_OPEN, tick: this.channel.world.tick, subject: 0, args: [], text: "" }));
+    // The doors that stand open, as they were left.
+    for (const house of this.doors) line.send(encodeEvent({ kind: EVENT.PORTA, tick: this.channel.world.tick, subject: 0, args: [house, 1], text: "" }));
     // Back on a new line while out with someone: told again, so that the phone shows it.
     const held = this.held.get(line);
     const saida = held ? this.saidas?.of(held.playerId) : null;
@@ -517,6 +526,7 @@ export class ChannelRoom {
       else if (message.type === "a_dois") this.aDois(line, held, message.pedido);
       // Over to the other side of a campo's match: the ball's own rules say whether, and its next step tells everyone.
       else if (message.type === "lado") this.bolas[message.campo]?.trocar(held.playerId, Date.now());
+      else if (message.type === "porta") this.porta(held, message.open);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -1010,12 +1020,42 @@ export class ChannelRoom {
     this.channel.sit(held.entityId, place);
   }
 
-  /** Whether two bodies have shut each other out: either blocked the other. */
+  /**
+   * Whether two bodies are nothing to each other: either has shut the other out, or a wall of a home is between
+   * them (one is inside a house and the other is not inside it with them: seen through the window, not reached).
+   */
   private apart = (a: number, b: number): boolean => {
     const one = this.playerOf(a);
     const other = this.playerOf(b);
-    return one !== null && other !== null && (this.shut.get(one)?.has(other) === true || this.shut.get(other)?.has(one) === true);
+    return (one !== null && other !== null && (this.shut.get(one)?.has(other) === true || this.shut.get(other)?.has(one) === true)) || this.channel.withinOf(a) !== this.channel.withinOf(b);
   };
+
+  /** The houses whose door stands open (D-5.9). A door is as it was left; a room that is opened anew has them all shut. */
+  private readonly doors = new Set<number>();
+  /** Whose house is which, of those here who have one in this bairro: its number, and the middle of its doorway. */
+  private readonly homes = new Map<string, { house: number; door: { x: number; z: number } }>();
+
+  /**
+   * Someone opens the door of their house, or shuts it: standing at it, on either side. Shut, it is a wall to
+   * them too from the next step, so it is not shut on anyone standing in the doorway. Everyone here is told.
+   */
+  private porta(held: Held, open: boolean): void {
+    const home = this.homes.get(held.playerId);
+    const at = this.channel.placeOf(held.entityId);
+    if (!home || !at || this.doors.has(home.house) === open || Math.hypot(at.x - home.door.x, at.z - home.door.z) > DOOR_REACH_MM) return;
+    if (!open) {
+      for (const [other, theirs] of this.homes) {
+        if (theirs.house !== home.house) continue;
+        const line = this.lineOf(other);
+        const there = line ? this.channel.placeOf(this.held.get(line)!.entityId) : null;
+        if (there && Math.abs(there.x - home.door.x) < DOORWAY_HALF_MM && Math.abs(there.z - home.door.z) < DOORWAY_DEEP_MM) return;
+      }
+    }
+    if (open) this.doors.add(home.house);
+    else this.doors.delete(home.house);
+    const bytes = encodeEvent({ kind: EVENT.PORTA, tick: this.channel.world.tick, subject: held.entityId, args: [home.house, open ? 1 : 0], text: "" });
+    for (const line of this.held.keys()) line.send(bytes);
+  }
 
   private playerOf(entityId: number): string | null {
     const line = this.lineOfEntity.get(entityId);

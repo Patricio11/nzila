@@ -10,7 +10,7 @@ const kind: HomeKind = {
   cellMm: 500,
   cellX0: -2,
   cellZ0: -2,
-  rows: ["####", "#..#", "#..#", "##.#", "--.-"],
+  rows: ["####", "#..#", "#..#", "##d#", "--.-"],
   rect: [-0.5, -0.5, 0.5, 0.5],
   height: 2.6,
   floor: 0.1,
@@ -40,6 +40,15 @@ test("a house is open to its family where it is a wall to the street, and the st
   expect(ground.heightAt(30, 30)).toBe(100);
   expect(homeRect(site, kind)).toEqual([9.5, 19.5, 10.5, 20.5]);
   expect(homeToWorld(site, kind.door)).toEqual([10.25, 21]);
+  // The door shut: the doorway is a wall to its own family too, from that step on; the step before it is still theirs.
+  let open = false;
+  const doored = homeGround(street, site, kind, () => open);
+  expect(doored.flagsAt(20, 41)).toBe(0);
+  expect(doored.flagsAt(20, 42)).toBe(CELL_WALK);
+  expect(doored.flagsAt(19, 39)).toBe(CELL_WALK);
+  open = true;
+  expect(doored.flagsAt(20, 41)).toBe(CELL_WALK);
+  expect(doored.heightAt(20, 41)).toBe(300);
 });
 
 test("a house that looks the other way, or is built as its mirror image, has its door where it is drawn", () => {

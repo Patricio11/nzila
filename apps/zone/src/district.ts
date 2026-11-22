@@ -59,10 +59,12 @@ export interface District {
   readonly biscatos?: readonly { readonly kind: string; readonly x: number; readonly z: number }[];
   /**
    * The houses families are given here (Phase 5, D-5.8), by their number: the house as its family walks it, under
-   * the family's own key (many families are given one house, and each has its own inside), and where they wake in
-   * it. Null for a number that is no house here. Absent when the pack has no houses, or the pack of homes is not built.
+   * the family's own key (many families are given one house, and each has its own inside), where they wake in it,
+   * and the middle of its doorway (millimetres). `open` says whether its door stands open: a door shut is a wall to
+   * its own family too (D-5.9). Null for a number that is no house here. Absent when the pack has no houses, or
+   * the pack of homes is not built.
    */
-  readonly homes?: (house: number, family: string) => { readonly own: Own; readonly wake: Place } | null;
+  readonly homes?: (house: number, family: string, open: () => boolean) => { readonly own: Own; readonly wake: Place; readonly door: { readonly x: number; readonly z: number } } | null;
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -160,29 +162,28 @@ export async function loadDistrict(packDir: URL): Promise<District> {
 
 /**
  * The houses of the district as their families walk them. The kinds of house belong to the game, not to a district:
- * served beside the districts' packs, as the vehicles are. Each house's ground is laid once, the first time someone
- * of it comes in.
+ * served beside the districts' packs, as the vehicles are. A house's ground is laid for each of its people as they
+ * come in.
  */
 async function homesOf(manifest: ManifestRead, packDir: URL, street: Ground): Promise<District["homes"]> {
   const sites = manifest.homes ?? [];
   const file = new URL("../casas/casas.json", packDir);
   if (sites.length === 0 || !existsSync(file)) return undefined;
   const kinds = new Map((JSON.parse(await readFile(file, "utf8")) as { kinds: HomeKind[] }).kinds.map((kind) => [kind.id, kind]));
-  const laid = new Map<number, { ground: Ground; rect: readonly [number, number, number, number]; wake: Place } | null>();
   const mm = (metres: number): number => Math.round(metres * 1000);
-  return (house, family) => {
-    if (!laid.has(house)) {
-      const site = sites[house - 1];
-      const kind = site ? kinds.get(site.kind) : undefined;
-      if (site && kind) {
-        const [minX, minZ, maxX, maxZ] = homeRect(site, kind);
-        const [wx, wz] = homeToWorld(site, kind.wake);
-        // They wake looking at their door.
-        laid.set(house, { ground: homeGround(street, site, kind), rect: [mm(minX), mm(minZ), mm(maxX), mm(maxZ)], wake: { x: mm(wx), y: mm(site.pos[1] + kind.floor), z: mm(wz), yaw: site.facing * 100 } });
-      } else laid.set(house, null);
-    }
-    const one = laid.get(house);
-    return one ? { own: { ground: one.ground, rect: one.rect, key: family }, wake: one.wake } : null;
+  return (house, family, open) => {
+    const site = sites[house - 1];
+    const kind = site ? kinds.get(site.kind) : undefined;
+    if (!site || !kind) return null;
+    const [minX, minZ, maxX, maxZ] = homeRect(site, kind);
+    const [wx, wz] = homeToWorld(site, kind.wake);
+    const [dx, dz] = homeToWorld(site, kind.door);
+    return {
+      own: { ground: homeGround(street, site, kind, open), rect: [mm(minX), mm(minZ), mm(maxX), mm(maxZ)], key: family },
+      // They wake looking at their door.
+      wake: { x: mm(wx), y: mm(site.pos[1] + kind.floor), z: mm(wz), yaw: site.facing * 100 },
+      door: { x: mm(dx), z: mm(dz) },
+    };
   };
 }
 

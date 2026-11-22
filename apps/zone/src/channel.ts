@@ -424,8 +424,9 @@ export class Channel {
   snapshotFor(id: number, all: readonly EntityState[] = this.entities()): Uint8Array | null {
     const seat = this.seats.get(id);
     if (!seat) return null;
-    // A home is its family's: whoever is inside one sees who is inside with them, and the street sees the street.
-    const together = this.indoors ? all.filter((one) => this.seats.get(one.id)?.within === seat.within) : all;
+    // A home is its family's: the street does not see in, and no family sees into another's. From inside, the
+    // street is seen through the door and the windows, and whoever passes in it (D-5.9).
+    const together = this.indoors ? all.filter((one) => [seat.within, null].includes(this.seats.get(one.id)?.within ?? null)) : all;
     const snapshot: Snapshot = { tick: this.world.tick, lastInputSeq: seat.lastInputSeq, entities: selectVisible(together, id, SIGHT_MM, SEEN_AT_MOST) };
     seat.seen = snapshot.entities.map((entity) => entity.id);
     const bytes = encodeSnapshot(snapshot, seat.sent.get(seat.ackTick) ?? null);
