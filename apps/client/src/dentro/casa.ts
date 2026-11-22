@@ -13,12 +13,12 @@ import { encodePorta } from "@nzila/protocol/casa";
 import { type Ground } from "@nzila/sim";
 // Only what the street already draws with: anything else of the renderer's library would be added to the first
 // download of every player (it is one file, F-270), so the doors are made here corner by corner.
-import { BufferAttribute, BufferGeometry, Mesh, Vector3, type Material, type MeshLambertMaterial, type Scene } from "three";
+import { BufferAttribute, BufferGeometry, Mesh, Vector3, type Material, type MeshLambertMaterial, type Object3D, type Scene } from "three";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { meteredFetch } from "../net/data-meter.ts";
 import { askAsPlayer } from "../world/account.ts";
-import { Moveis } from "./moveis.tsx";
+import { Moveis, type Assento } from "./moveis.tsx";
 
 /** Where the pack of homes is served. */
 const CASAS = "/packs/casas/";
@@ -37,7 +37,7 @@ const THICK = 0.045;
 
 /** What of the district this needs. */
 export interface Bairro {
-  readonly manifest: { readonly id: string; readonly homes?: readonly (HomeSite & { readonly door: string })[] | undefined };
+  readonly manifest: { readonly id: string; readonly homes?: readonly (HomeSite & { readonly door: string })[] | undefined; readonly seats: Assento[] };
   readonly chunks: { ground(): Ground | null };
 }
 
@@ -72,7 +72,7 @@ interface Pack {
   readonly kinds: readonly HomeKind[];
   readonly paint: Readonly<Record<string, readonly [number, number]>>;
   /** What a house is furnished with (Task 5.3): each thing's model, and the floor it stands on in cells. */
-  readonly moveis?: readonly { readonly id: string; readonly model: string; readonly chao: readonly [number, number] }[];
+  readonly moveis?: readonly { readonly id: string; readonly model: string; readonly chao: readonly [number, number]; readonly lugares?: number }[];
 }
 
 type Turned = (x: number, y: number, z: number) => [number, number, number];
@@ -269,7 +269,7 @@ export class Casas {
     inside.rotation.y = site.facing === 180 ? Math.PI : 0;
     inside.scale.x = site.flip ? -1 : 1;
     cena.scene.add(inside);
-    this.moveis = new Moveis(inside, kind, lit, this.pack?.moveis ?? []);
+    this.moveis = new Moveis(inside, site, kind, lit, this.pack?.moveis ?? [], this.bairro.manifest.seats, this.paints);
     // The ground the player walks is the street's with their house open in it: laid again whenever the street's
     // own changes (a chunk arriving), and the same rule the zone walks them by.
     const chunks = this.bairro.chunks;
@@ -311,7 +311,7 @@ export class Casas {
    * Each picture: what the zone said of doors is taken in, every door that is not as it was left swings towards it,
    * the bulb is lit after dark, and the sign over the player's roof turns.
    */
-  frame(cena: Cena, x: number, z: number, net: Rede | null, y = 0, facing = 0): void {
+  frame(cena: Cena, x: number, z: number, net: Rede | null, y = 0, body: Object3D | null = null, sit = 0): void {
     if (!this.begun) this.begin(cena);
     const now = performance.now();
     const seconds = Math.min(0.1, (now - (this.last || now)) / 1000);
@@ -342,7 +342,7 @@ export class Casas {
       this.mark.visible = !(x > casa.rect[0] && x < casa.rect[2] && z > casa.rect[1] && z < casa.rect[3]);
     }
     this.perto = casa !== null && Math.hypot(x - casa.door[0], z - casa.door[1]) < NEAR_M;
-    this.moveis?.frame(net, x, y, z, facing, casa !== null && x > casa.rect[0] && x < casa.rect[2] && z > casa.rect[1] && z < casa.rect[3]);
+    if (body) this.moveis?.frame(net, x, y, z, body.rotation.y, casa !== null && x > casa.rect[0] && x < casa.rect[2] && z > casa.rect[1] && z < casa.rect[3], body, sit);
     this.destrancada = this.abertas.has(this.mine);
     if (casa && this.destrancada && !this.angles.has(this.mine)) this.angles.set(this.mine, 0);
     if (!this.doors) return;

@@ -33,6 +33,11 @@ export interface ItemType {
    * and deep as it is first set down. Turned a quarter, the two change places.
    */
   readonly chao?: readonly [number, number];
+  /**
+   * For `mobilia` that holds a body: how many sit on it side by side (a chair one, a sofa three), or lie on it (a
+   * bed, a mattress: -1). Left out: it is looked at, and is in the way.
+   */
+  readonly lugares?: number;
 }
 
 export interface Catalogue {
@@ -68,6 +73,7 @@ export function parseCatalogue(input: unknown): Catalogue {
     if (item.use !== null && !ITEM_USES.includes(item.use as ItemUse)) errors.push(`${at}.use: comer, beber or null`);
     if (!whole(item.fome, 0, 10_000) || !whole(item.energia, 0, 10_000)) errors.push(`${at}: fome and energia are points from 0 to 10 000`);
     const floor = item.chao as unknown;
+    if (item.lugares !== undefined && !(item.kind === "mobilia" && (item.lugares === -1 || whole(item.lugares, 1, 4)))) errors.push(`${at}.lugares: for mobilia, how many sit (1 to 4) or -1 to lie`);
     if ((item.kind === "mobilia") !== (floor !== undefined) || (floor !== undefined && !(Array.isArray(floor) && floor.length === 2 && whole(floor[0], 1, 12) && whole(floor[1], 1, 12)))) errors.push(`${at}.chao: for mobilia and nothing else, [cells across, cells deep], each from 1 to 12`);
     if (typeof item.id === "string") items.set(item.id, item as ItemType);
   }

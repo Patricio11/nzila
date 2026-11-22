@@ -83,6 +83,16 @@ Opened 2026-11-20, when Phase 4 completed (`docs/completed/PHASE_4_COMPLETE.md`)
 - **Each thing is a model of its own** in the pack of homes (3 to 4 KB each, drawn in `art/scripts/kit_casas.py`), fetched the first time one of its kind is seen. The pack's build refuses a thing of the catalogue with no model, a model with no thing, and a model wider than its floor.
 - **Measured.** The first download: 299,6 KB of 300. Being inside, with the house, its doors and its things: 6,6 KB, fetched once. The pack of homes: 25 KB with all six things.
 
+**D-5.12 A chair is sat on and a bed is lain on, as a bench in the street is (built 2026-11-22; the founder: "make the magic").** What was decided in building it.
+
+- **A seat is a seat wherever it is.** The street's page already offers the gold button at every seat of the pack, seats the body, and lets a seated player look through their own eyes (D-0.41). The house's seats are added to the end of that same list on the phone, and the zone counts them the same way after the bairro's own (`homeSeats` in `packages/world/src/casas.ts`, asked by both): **the esteira the house came with, then each thing that holds a body in the order it was set down**: a chair's one seat, a sofa's three side by side, a bed or a mattress. Nothing new was put in the first download for it. A seat of a house is taken only by someone standing in that house.
+- **What holds a body is data.** The catalogue says how many sit on a thing, or that one lies on it (`lugares` in `items.json`: a chair 1, a sofa 3, a mattress and a bed -1).
+- **Lying down.** On a bed, a mattress or the esteira the seated body is laid out by the phone: every bone as it stands at rest, the whole of it on its back, its head to the head of the bed, along the bed. **Lying rests four times as fast as sitting** (the zone's count of rest): one goes home to sleep because sleeping there is worth it. There is no night that is skipped: the bairro's hour is everyone's.
+- **Up again, in the house.** The zone stands a player up a step from the seat, on their own ground: in their house, not outside it.
+- **Nothing is moved from under somebody**, and nothing is set down that would shut the floor off from the door: with a thing where it is asked to stand, every cell of floor must still be walked to from the doorway (`mayStand`). A sofa across the way between the sala and the quarto is refused; the player cannot shut themselves in.
+- **The television is on.** Its screen is a small lit picture that changes colour, the same on every set of the house. It is a picture that moves and no more: what is on it, and its sound, are 5.7's.
+- **From above, from the side that has the room.** Lying against a wall, the view from above looked over that wall's cut edge and the wall hid the bed: with a wall close behind the player, the camera goes over to the other side.
+
 ## What "done" means for this phase
 
 From the roadmap: a player has a home that looks like them, friends visit, rent is paid or the home is lost and nothing in it is; the family's house is where they were born. Measured: an interior's weight and its first view on the slow profile, and a full home's frame time on the reference phone.

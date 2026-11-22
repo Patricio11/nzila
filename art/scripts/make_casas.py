@@ -65,7 +65,8 @@ for name, draw in kit_casas.KINDS.items():
 # are and the floor each stands on; a thing with no model, a model with no thing, or a model wider than its floor
 # is refused here, so that nothing set down ever reaches into the cell beside it.
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "packages", "economy", "tunables", "items.json"), encoding="utf-8") as handle:
-    floors = {item["id"]: item["chao"] for item in json.load(handle)["items"] if item["kind"] == "mobilia"}
+    things = {item["id"]: item for item in json.load(handle)["items"] if item["kind"] == "mobilia"}
+floors = {name: item["chao"] for name, item in things.items()}
 if set(floors) != set(kit_casas.MOVEIS):
     raise SystemExit(f"nzila: the catalogue's furniture and the models drawn for it differ: {sorted(set(floors) ^ set(kit_casas.MOVEIS))}")
 moveis = []
@@ -98,12 +99,12 @@ for name, draw in kit_casas.MOVEIS.items():
     for obj in bpy.data.objects:
         obj.select_set(obj.type == "MESH")
     bpy.ops.export_scene.gltf(filepath=os.path.join(out_dir, f"{name}.glb"), export_format="GLB", use_selection=True, export_apply=True, export_yup=True, export_cameras=False, export_lights=False, export_animations=False, export_extras=False, export_normals=True)
-    moveis.append({"id": name, "model": f"{name}.glb", "chao": floors[name], "high": round(high, 2), "triangles": triangles})
+    moveis.append({"id": name, "model": f"{name}.glb", "chao": floors[name], **({"lugares": things[name]["lugares"]} if "lugares" in things[name] else {}), "high": round(high, 2), "triangles": triangles})
 
 # Where in the palette's picture each paint a door or a sign is given is, as a model counts it (from the top left):
 # the game colours the doors it hangs from these, without carrying the palette's own list for it.
 cells = palette["cells"]
-paint = {name: [round((palette["squares"][name] % cells + 0.5) / cells, 5), round((palette["squares"][name] // cells + 0.5) / cells, 5)] for name in [*kit.DOOR_PAINTS, "flagYellow", "tarShade"]}
+paint = {name: [round((palette["squares"][name] % cells + 0.5) / cells, 5), round((palette["squares"][name] // cells + 0.5) / cells, 5)] for name in [*kit.DOOR_PAINTS, "flagYellow", "tarShade", "glassBlue", "muralPink", "muralGreen", "paintWhite"]}
 with open(os.path.join(out_dir, "casas.json"), "w", encoding="utf-8") as handle:
     json.dump({"kinds": kinds, "paint": paint, "moveis": moveis}, handle, ensure_ascii=False)
 print(f"nzila: {len(kinds)} kind(s) of home: " + ", ".join(f"{k['id']} {k['triangles']} triangles" for k in kinds))

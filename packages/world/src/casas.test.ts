@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { CELL_WALK, type Ground } from "@nzila/sim";
-import { cellsOf, homeGround, homeRect, homeToWorld, mayStand, type HomeKind } from "./casas.ts";
+import { cellsOf, homeGround, homeRect, homeSeats, homeToWorld, mayStand, type HomeKind } from "./casas.ts";
 
 // A house of two metres by two, a wall all round, its door in the middle of the wall that looks to +Z and off to
 // one side of it, and a cell in front of the door that is the family's whatever the street says.
@@ -90,6 +90,11 @@ test("a thing set down stands on the floor of the house: never in a wall, in the
   expect(mayStand(sala, [stool], bench)).toBe(true);
   expect(mayStand(sala, [], { ...stool, rot: 4 })).toBe(false);
   expect(mayStand(sala, [], { ...stool, rot: 0.5 })).toBe(false);
+  // Across the way in: the floor behind it could not be walked to from the door, and it is refused; a stool that
+  // leaves a way round is not, until a second one shuts the way.
+  expect(mayStand(sala, [], { cx: -1, cz: 1, rot: 1, chao: [1, 2] })).toBe(false);
+  expect(mayStand(sala, [], { cx: -1, cz: 0, rot: 0, chao: [1, 1] })).toBe(true);
+  expect(mayStand(sala, [{ cx: -1, cz: 0, rot: 0, chao: [1, 1] }], { cx: 0, cz: 0, rot: 0, chao: [1, 1] })).toBe(false);
   // Where it stands, its own family does not walk; beside it, they do.
   const site = { pos: [10, 0.2, 20], facing: 0, kind: "quarto" } as const;
   const under = new Set(cellsOf(stool).map(([x, z]) => `${x},${z}`));
@@ -97,4 +102,33 @@ test("a thing set down stands on the floor of the house: never in a wall, in the
   expect(ground.flagsAt(19, 39)).toBe(0);
   expect(ground.flagsAt(20, 39)).toBe(CELL_WALK);
   expect(homeGround(street, site, sala).flagsAt(19, 39)).toBe(CELL_WALK);
+});
+
+test("where one sits or lies in a house: the esteira it came with, a chair's seat, a sofa's three side by side, a bed lain on; counted in the order things were set down, and turned with the house", () => {
+  const site = { pos: [10, 0, 20], facing: 0, kind: "quarto" } as const;
+  const house = { ...kind, esteira: [0.25, -0.25] as const };
+  const chair = { cx: 0, cz: 0, rot: 0, chao: [1, 1] as const, lugares: 1 };
+  const sofa = { cx: -2, cz: 2, rot: 0, chao: [4, 2] as const, lugares: 3 };
+  const bed = { cx: 4, cz: 0, rot: 1, chao: [2, 4] as const, lugares: -1 };
+  const table = { cx: 6, cz: 6, rot: 0, chao: [2, 2] as const };
+  const seats = homeSeats(site, house, [chair, table, sofa, bed]);
+  // The esteira first, lain on; then the chair; then the sofa's three; then the bed. The table holds nobody.
+  expect(seats.map((one) => one.deita)).toEqual([true, false, false, false, false, true]);
+  expect(seats[0]!.pos).toEqual([10.25, 0.18, 19.75]);
+  expect(seats[1]).toEqual({ pos: [10.25, 0.56, 20.25], facing: 0, deita: false });
+  // The sofa is two metres wide about x = 10: its three sit at a spread of it, all at its depth's middle.
+  expect(seats.slice(2, 5).map((one) => [Math.round(one.pos[0] * 100) / 100, one.pos[2]])).toEqual([[9.47, 21.5], [10, 21.5], [10.53, 21.5]]);
+  // The bed, turned a quarter, lies along X: its middle, and its front to +X.
+  expect(seats[5]).toEqual({ pos: [13, 0.4, 20.5], facing: 90, deita: true });
+  // A house that looks the other way has its seats on the other side of its middle, facing the other way; mirrored, a quarter turn is to the other hand.
+  const north = homeSeats({ ...site, facing: 180 }, house, [chair, bed]);
+  expect(north[1]).toEqual({ pos: [9.75, 0.56, 19.75], facing: 180, deita: false });
+  expect(north[2]!.facing).toBe(270);
+  expect(homeSeats({ ...site, flip: true }, house, [bed])[1]).toMatchObject({ pos: [7, 0.4, 20.5], facing: 270 });
+  // An esteira that lies across the room is lain on along it.
+  expect(homeSeats(site, { ...kind, esteira: [0.25, -0.25, 1] }, [])[0]!.facing).toBe(90);
+  // Turned the other ways, a sofa's three keep their order across it.
+  expect(homeSeats(site, kind, [{ ...sofa, rot: 2 }]).map((one) => Math.round(one.pos[0] * 100) / 100)).toEqual([10.53, 10, 9.47]);
+  expect(homeSeats(site, kind, [{ ...sofa, cx: 0, cz: 0, rot: 1 }]).map((one) => Math.round(one.pos[2] * 100) / 100)).toEqual([21.53, 21, 20.47]);
+  expect(homeSeats(site, kind, [{ ...sofa, cx: 0, cz: 0, rot: 3 }]).map((one) => Math.round(one.pos[2] * 100) / 100)).toEqual([20.47, 21, 21.53]);
 });

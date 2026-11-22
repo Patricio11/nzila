@@ -8,7 +8,7 @@
 // make them from nothing). Every byte is ours (packages/protocol).
 
 import { isGreeting } from "@nzila/i18n";
-import { TrafficRules, actorAt, cellsOf, mayStand, nearestPavement, type HomeKind, type SetDown } from "@nzila/world";
+import { TrafficRules, actorAt, cellsOf, mayStand, nearestPavement, type Holds, type HomeKind, type HomeSeat, type SetDown } from "@nzila/world";
 import { adultOf, eatOne, faceOf, familyHomeOf, moveThing, setDown, takeUp, thingsOf, type HomeThing, keepChatLines, keepNeeds, needsOf, presenteEntre, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_TUNABLES, unitsCarried, type Tunables } from "@nzila/economy";
 import { BASE_BISCATOS, isBiscatoKind } from "@nzila/economy/biscatos";
@@ -193,6 +193,8 @@ const BENCH_REACH_MM = 2500;
 export const DOOR_REACH_MM = 2500;
 const DOORWAY_HALF_MM = 700;
 const DOORWAY_DEEP_MM = 550;
+/** How many steps of sitting a step of lying down is worth, in rest. */
+const SLEEP_RESTS = 4;
 const BENCH_STEP_MM = 600;
 /** How long the zone's note of a stay at the hospital lasts for the API to ask its bill, in seconds. */
 const HOSPITAL_NOTE_S = 600;
@@ -421,7 +423,7 @@ export class ChannelRoom {
     const house = given && given.districtId === district.id ? given.house : 0;
     const home = house ? (district.homes?.(house, playerId, () => this.doors.has(house), (cx, cz) => this.under.get(playerId)?.has(`${cx},${cz}`) === true) ?? null) : null;
     if (home) {
-      this.homes.set(playerId, { house, door: home.door, kind: home.kind, cellAt: home.cellAt });
+      this.homes.set(playerId, { house, door: home.door, kind: home.kind, cellAt: home.cellAt, seatsOf: home.seatsOf });
       // What they have set down in it (Task 5.3): where it stands, nobody walks.
       this.furnish(playerId, await thingsOf(this.sql, playerId));
     } else this.homes.delete(playerId);
@@ -1028,10 +1030,16 @@ export class ChannelRoom {
     const atTable = this.mesas?.seatOf(held.playerId) !== null && this.mesas?.seatOf(held.playerId) !== undefined;
     if (!sim) {
       // Up, a step in front of the bench, or as near it as there is room.
+      this.lying.delete(held.entityId);
       if (sat && !atTable) this.channel.standUp(held.entityId, { ...sat, x: sat.x + Math.round(Math.sin((sat.yaw / 18_000) * Math.PI) * BENCH_STEP_MM), z: sat.z + Math.round(Math.cos((sat.yaw / 18_000) * Math.PI) * BENCH_STEP_MM) });
       return;
     }
-    const place = this.district.benches?.[seat];
+    // A seat past the bairro's own is one of the player's house (D-5.12): a chair, a sofa, a bed, the esteira,
+    // counted as the phone counts them. Only standing in their own house.
+    const own = seat - (this.district.benches?.length ?? 0);
+    const home = this.homes.get(held.playerId);
+    const theirs = own >= 0 && home?.seatsOf && this.channel.withinOf(held.entityId) === held.playerId ? home.seatsOf((this.things.get(held.playerId) ?? []).map((thing) => ({ ...this.standing(thing), lugares: BASE_CATALOGUE.items.get(thing.item)?.lugares })))[own] : undefined;
+    const place = theirs ? { x: Math.round(theirs.pos[0] * 1000), y: Math.round(theirs.pos[1] * 1000), z: Math.round(theirs.pos[2] * 1000), yaw: Math.round(theirs.facing * 100) } : this.district.benches?.[seat];
     const here = this.channel.placeOf(held.entityId);
     if (!place || !here || sat || atTable || this.channel.ridingOf(held.entityId)) return;
     if (Math.hypot(place.x - here.x, place.z - here.z) > BENCH_REACH_MM) return;
@@ -1039,7 +1047,7 @@ export class ChannelRoom {
       const theirs = other === held ? null : this.channel.sittingOf(other.entityId);
       if (theirs && theirs.x === place.x && theirs.z === place.z) return;
     }
-    this.channel.sit(held.entityId, place);
+    if (this.channel.sit(held.entityId, place) && theirs?.deita) this.lying.add(held.entityId);
   }
 
   /**
@@ -1055,7 +1063,9 @@ export class ChannelRoom {
   /** The houses whose door stands open (D-5.9). A door is as it was left; a room that is opened anew has them all shut. */
   private readonly doors = new Set<number>();
   /** Whose house is which, of those here who have one in this bairro: its number, and the middle of its doorway. */
-  private readonly homes = new Map<string, { house: number; door: { x: number; z: number }; kind?: HomeKind; cellAt?: (x: number, z: number) => [number, number] }>();
+  private readonly homes = new Map<string, { house: number; door: { x: number; z: number }; kind?: HomeKind; cellAt?: (x: number, z: number) => [number, number]; seatsOf?: (things: readonly Holds[]) => HomeSeat[] }>();
+  /** Who lies on a bed, a mattress or their esteira: they rest as one who sleeps (D-5.12). */
+  private readonly lying = new Set<number>();
   /** What each of them has set down in their house (Task 5.3), and the cells of its plan those things stand on. */
   private readonly things = new Map<string, HomeThing[]>();
   private readonly under = new Map<string, Set<string>>();
@@ -1088,7 +1098,8 @@ export class ChannelRoom {
     const home = this.homes.get(playerId);
     const refuse = (why: (typeof MOVEL_RECUSAS)[number]): void => this.tellThings(line, playerId, MOVEL_RECUSAS.indexOf(why));
     if (!home?.kind || this.channel.withinOf(held.entityId) !== playerId) return refuse("fora");
-    if (this.moving.has(playerId)) return;
+    // Nothing is moved from under somebody: the seats of the house are counted by what is set down.
+    if (this.moving.has(playerId) || this.channel.sittingOf(held.entityId)) return;
     const things = this.things.get(playerId) ?? [];
     const op = MOVEL_OPS[asked.op];
     const thing = things.find((one) => one.id === asked.id);
@@ -1426,7 +1437,8 @@ export class ChannelRoom {
     // A step of play for everyone here: their needs wear with it, and whoever sits or rides rests (Task 4.4).
     for (const held of this.held.values()) {
       held.needs.steps++;
-      if (this.channel.sittingOf(held.entityId) || this.channel.ridingOf(held.entityId)) held.needs.rest++;
+      // Lying down rests four times as fast as sitting: a bed is what a bed is for.
+      if (this.channel.sittingOf(held.entityId) || this.channel.ridingOf(held.entityId)) held.needs.rest += this.lying.has(held.entityId) ? SLEEP_RESTS : 1;
     }
     if (tick % STEPS_A_SNAPSHOT === 0) {
       const everyone = this.channel.entities();

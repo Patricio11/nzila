@@ -35,7 +35,7 @@ import { MOVEL_RECUSAS, encodeMovel, encodePorta } from "@nzila/protocol/casa";
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
-import { homeGround, type HomeKind } from "@nzila/world";
+import { homeGround, homeSeats, type HomeKind } from "@nzila/world";
 import { scoreCarga } from "@nzila/sim/carga";
 import { zungaRound } from "@nzila/sim/zunga";
 import { carrosRound } from "@nzila/sim/carros";
@@ -70,6 +70,7 @@ const casa: HomeKind = {
   floor: 0,
   door: [0, 2.5],
   wake: [0, 0],
+  esteira: [1, 1],
   leaf: { hinge: [-0.5, 2.5], wide: 1, high: 2.1, sill: 0 },
 };
 const casaSite = { pos: [-82.5, 0, -82.5], facing: 0, kind: "casa" } as const;
@@ -121,6 +122,7 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
           wake: { x: -82_500, y: 0, z: -82_500, yaw: 0 },
           door: { x: -82_500, z: -80_000 },
           kind: casa,
+          seatsOf: (things) => homeSeats(casaSite, casa, things),
           cellAt: (x, z) => [Math.floor((x + 82_500) / 500), Math.floor((z + 82_500) / 500)],
         }
       : null,
@@ -1544,6 +1546,19 @@ describe("the family's house (Phase 5, D-5.8 to D-5.10)", () => {
     expect(doors(c)[1]).toEqual([aId, 1, 0]);
     await a.walk(50);
     expect(a.me().z).toBeLessThan(-80_500);
+    // A place to lie (D-5.12): the esteira the house came with is the first seat past the bairro's own bench. She
+    // lies on it, where it is; the stranger, who asks for the same seat from the street, is not let onto it; and
+    // up again she stands in her house, not put out of it.
+    a.socket.send(encodeBanco({ seat: 1, sim: true }));
+    await until(() => a.me().anim === DOING.sit);
+    expect(a.me()).toMatchObject({ x: -81_500, z: -81_500 });
+    c.socket.send(encodeBanco({ seat: 1, sim: true }));
+    await pause(250);
+    expect(c.me().anim).not.toBe(DOING.sit);
+    a.socket.send(encodeBanco({ seat: 1, sim: false }));
+    await until(() => a.me().anim !== DOING.sit);
+    expect(a.me().z).toBeLessThan(-80_500);
+    expect(a.me().x).toBeGreaterThan(-84_500);
     // Things in the house (Task 5.3). She carries a chair and a mattress home in her Mochila; the list is said whole each time.
     await sql`INSERT INTO items (owner_id, place, item, quantity) VALUES (${mae.id}, 'mochila', 'cadeira', 1), (${mae.id}, 'mochila', 'colchao', 1)`;
     const said = (of: typeof a) => {

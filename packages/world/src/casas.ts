@@ -32,6 +32,8 @@ export interface HomeKind {
   readonly door: readonly [number, number];
   /** Where its family wakes. */
   readonly wake: readonly [number, number];
+  /** The esteira the house came with, when it has one, lain on as a bed is: its middle, and the quarters it is turned (0: one lies along Z, head to -Z). */
+  readonly esteira?: readonly [number, number, number?];
   /** The door hung in the doorway: where its hinge is, the leaf's size, and how high the step it stands on. */
   readonly leaf: { readonly hinge: readonly [number, number]; readonly wide: number; readonly high: number; readonly sill: number };
 }
@@ -110,13 +112,82 @@ export function cellsOf(thing: SetDown): [number, number][] {
 
 /**
  * Whether a thing may stand where it is asked to: every cell of it is floor of the inside that the family walks (not
- * a wall, not the doorway, not the step before the door, not the street's), and none is under another thing. This is what keeps a thing from sinking into a wall
- * or standing in another: it is the zone's to ask, and the phone asks it first so as not to offer what will be refused.
+ * a wall, not the doorway, not the step before the door, not the street's), and none is under another thing; and
+ * with it there, every part of the floor can still be walked to from the door (nobody shuts themselves in, or a
+ * room off, with a sofa). This is what keeps a thing from sinking into a wall or standing in another: it is the
+ * zone's to ask, and the phone asks it first so as not to offer what will be refused.
  */
 export function mayStand(kind: HomeKind, others: readonly SetDown[], thing: SetDown): boolean {
   if (!Number.isInteger(thing.rot) || thing.rot < 0 || thing.rot > 3) return false;
   const under = new Set(others.flatMap(cellsOf).map(([x, z]) => `${x},${z}`));
   const cell = kind.cellMm / 1000;
   const inside = (x: number, z: number): boolean => (x + 0.5) * cell > kind.rect[0] && (x + 0.5) * cell < kind.rect[2] && (z + 0.5) * cell > kind.rect[1] && (z + 0.5) * cell < kind.rect[3];
-  return cellsOf(thing).every(([x, z]) => inside(x, z) && kind.rows[z - kind.cellZ0]?.[x - kind.cellX0] === "." && !under.has(`${x},${z}`));
+  if (!cellsOf(thing).every(([x, z]) => inside(x, z) && kind.rows[z - kind.cellZ0]?.[x - kind.cellX0] === "." && !under.has(`${x},${z}`))) return false;
+  // The floor that is left, walked from the doorway: all of it must be reached.
+  for (const [x, z] of cellsOf(thing)) under.add(`${x},${z}`);
+  const free = new Set<string>();
+  const edge: [number, number][] = [];
+  for (const [rz, row] of kind.rows.entries()) {
+    for (let rx = 0; rx < row.length; rx++) {
+      const [x, z] = [rx + kind.cellX0, rz + kind.cellZ0];
+      if (row[rx] === "d") edge.push([x, z]);
+      else if (row[rx] === "." && inside(x, z) && !under.has(`${x},${z}`)) free.add(`${x},${z}`);
+    }
+  }
+  while (edge.length > 0) {
+    const [x, z] = edge.pop()!;
+    for (const [nx, nz] of [[x + 1, z], [x - 1, z], [x, z + 1], [x, z - 1]] as const) if (free.delete(`${nx},${nz}`)) edge.push([nx, nz]);
+  }
+  return free.size === 0;
+}
+
+/** A thing set down that holds a body: how many sit on it side by side, or -1 for one that is lain on. */
+export interface Holds extends SetDown {
+  readonly lugares?: number | undefined;
+}
+
+/** A place to sit or lie in a house, in the bairro: metres, the way a sitter faces in degrees clockwise from +Z, and whether one lies there. */
+export interface HomeSeat {
+  readonly pos: [number, number, number];
+  readonly facing: number;
+  readonly deita: boolean;
+}
+
+/** How high a body sits on a chair or a sofa, and lies on a bed or a mattress, above the floor: metres. */
+const SEAT_HIGH_M = 0.46;
+const BED_HIGH_M = 0.3;
+
+/**
+ * Where one sits or lies in a house, in the order of what is set down (the zone and the phone count them the same
+ * way: a seat is named by its number). First the esteira the house came with, when it has one; then each thing that
+ * holds a body: a chair's one seat, a sofa's three side by side, a bed or a mattress lain on along its length.
+ */
+export function homeSeats(site: HomeSite, kind: HomeKind, things: readonly Holds[]): HomeSeat[] {
+  const cell = kind.cellMm / 1000;
+  const turn = site.facing === 180 ? 180 : 0;
+  const mirror = site.flip ? -1 : 1;
+  const seats: HomeSeat[] = [];
+  const seat = (lx: number, lz: number, high: number, quarters: number, deita: boolean): void => {
+    const [x, z] = homeToWorld(site, [lx, lz]);
+    // A quarter turn of a thing turns its front from +Z to +X; mirrored, to -X.
+    seats.push({ pos: [x, site.pos[1] + kind.floor + high, z], facing: (((quarters * 90 * mirror + turn) % 360) + 360) % 360, deita });
+  };
+  if (kind.esteira) seat(kind.esteira[0], kind.esteira[1], 0.08, kind.esteira[2] ?? 0, true);
+  for (const thing of things) {
+    if (!thing.lugares) continue;
+    const [wide, deep] = thing.rot % 2 === 1 ? [thing.chao[1], thing.chao[0]] : thing.chao;
+    const [mx, mz] = [(thing.cx + wide / 2) * cell, (thing.cz + deep / 2) * cell];
+    if (thing.lugares < 0) {
+      seat(mx, mz, BED_HIGH_M, thing.rot, true);
+      continue;
+    }
+    // Side by side across the thing's own width, which lies along X until it is turned.
+    const across = thing.chao[0] * cell;
+    for (let n = 0; n < thing.lugares; n++) {
+      const off = ((n + 0.5) / thing.lugares - 0.5) * across * 0.8;
+      const [ox, oz] = thing.rot % 2 === 1 ? [0, thing.rot === 1 ? -off : off] : [thing.rot === 0 ? off : -off, 0];
+      seat(mx + ox, mz + oz, SEAT_HIGH_M, thing.rot, false);
+    }
+  }
+  return seats;
 }

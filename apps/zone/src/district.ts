@@ -8,7 +8,7 @@ import { readFile } from "node:fs/promises";
 import { inflateRawSync } from "node:zlib";
 import { type Ground, type Obstacle } from "@nzila/sim";
 import { zoneRoomOf } from "@nzila/protocol";
-import { errandPlaces, decodeWalkGrid, groundOf, homeGround, homeRect, homeToWorld, seatObstacles, tableObstacles, vanRoute, type CrowdActor, type CrowdFile, type HomeKind, type HomeSite, type RoamerPlan, type SeatPlace } from "@nzila/world";
+import { errandPlaces, decodeWalkGrid, groundOf, homeGround, homeRect, homeSeats, homeToWorld, type Holds, type HomeSeat, seatObstacles, tableObstacles, vanRoute, type CrowdActor, type CrowdFile, type HomeKind, type HomeSite, type RoamerPlan, type SeatPlace } from "@nzila/world";
 import { type Route } from "@nzila/sim";
 import { type Own, type Place } from "./channel.ts";
 import { type TablePlace } from "./mesas.ts";
@@ -81,6 +81,8 @@ export interface District {
     /** The house's kind (its plan, for what may be set down where), and the cell of that plan a point of the bairro is in (millimetres). */
     readonly kind: HomeKind;
     readonly cellAt: (x: number, z: number) => [number, number];
+    /** Where one sits or lies in it, with these things set down: in the order the phone counts them too. */
+    readonly seatsOf: (things: readonly Holds[]) => HomeSeat[];
   } | null;
 }
 
@@ -200,6 +202,7 @@ async function homesOf(manifest: ManifestRead, packDir: URL, street: Ground): Pr
     return {
       own: { ground: homeGround(street, site, kind, open, taken), rect: [mm(minX), mm(minZ), mm(maxX), mm(maxZ)], key: family },
       kind,
+      seatsOf: (things) => homeSeats(site, kind, things),
       cellAt: (x, z) => {
         const turn = site.facing === 180 ? -1 : 1;
         const cell = kind.cellMm;

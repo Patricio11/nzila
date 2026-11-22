@@ -85,6 +85,8 @@ def interior_de_realojamento(b):
         # The door the game hangs: its hinge on the left hand of someone going in, the leaf's size, and the step it stands on.
         "leaf": {"hinge": [-kit.DOOR_WIDE / 2, depth / 2], "wide": kit.DOOR_WIDE, "high": kit.DOOR_HIGH, "sill": kit.DOOR_SILL},
         "wake": [wake[0], round(wake[1] + 1.15, 2)],
+        # It lies along the back wall: whoever lies on it lies along it (a quarter turned).
+        "esteira": [wake[0], wake[1], 1],
     }
 
 

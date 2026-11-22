@@ -3425,6 +3425,14 @@ test.describe("two phones in the same street", () => {
     await page.keyboard.up(forward);
     const stopped = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
     expect(Math.hypot(stopped.x - at.x, stopped.z - at.z), "the chair stood in the way").toBeLessThan(0.9);
+    // It is a seat (D-5.12): the gold button offers it as it offers a bench in the street, and seated on their own
+    // chair they may look through their own eyes. Up again, they stand in their house.
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "sit", undefined, { timeout: 15_000 });
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__andar!.seated === true && window.__dentro!.sentado === true, undefined, { timeout: 10_000 });
+    expect(await page.evaluate(() => window.__moveis!.deitado)).toBe(false);
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: info.outputPath("moveis-sentado.png") });
     // Seen from above, with the roof off: the room, and the chair in it.
     const view = page.locator(".dentro-vista").getByRole("button", { name: /^Vista/ });
     await view.click();
@@ -3432,18 +3440,46 @@ test.describe("two phones in the same street", () => {
     await page.screenshot({ path: info.outputPath("moveis-de-cima.png") });
     await view.click();
     await view.click();
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__andar!.seated === false, undefined, { timeout: 10_000 });
+    expect(await page.evaluate(() => window.__dentro!.onde)).toBe("casa");
+    // Beside it again, it is the thing at their hand.
+    const stands = (await page.evaluate(() => window.__moveis!.postos[0]))!;
+    await walkTo(page, stands.x, stands.z, 1.1, 80);
+    await page.waitForFunction(() => window.__moveis!.frente !== null, undefined, { timeout: 10_000 });
     // Taken up, it is in the Mochila again; set down again, on the floor.
     await panel.getByRole("button", { name: "Guardar na Mochila" }).click();
     await page.waitForFunction(() => window.__moveis!.postos.length === 0 && window.__moveis!.levo.includes("cadeira"), undefined, { timeout: 10_000 });
+    // Back to the middle of the sala, looking into it: there is floor before them there.
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 2.4, 0.4, 120);
+    await page.keyboard.down(forward);
+    await page.waitForTimeout(350);
+    await page.keyboard.up(forward);
+    await page.waitForTimeout(300);
     await panel.getByRole("button", { name: "Pôr aqui: Cadeira de plástico" }).click();
     await page.waitForFunction(() => window.__moveis!.postos.length === 1, undefined, { timeout: 10_000 });
     const left = (await page.evaluate(() => window.__moveis!.postos[0]))!;
+    // To bed: the esteira in the quarto is lain on. Through the doorway between the two rooms, onto it, and down:
+    // the body lies along it, where a seated one would sit.
+    const mat = (await page.evaluate(() => window.__moveis!.assentos.find((one) => one.deita)))!;
+    const side = Math.sign(mat.x - casa.door[0]);
+    await walkTo(page, casa.door[0] + side * 0.2, casa.door[1] + inward * 1.95, 0.4, 160);
+    await walkTo(page, casa.door[0] + side * 2.1, casa.door[1] + inward * 1.95, 0.5, 160);
+    await walkTo(page, mat.x, mat.z - inward * 0.9, 0.5, 160);
+    await page.waitForFunction(() => window.__andar!.speed < 0.05 && window.__andar!.action === "sit", undefined, { timeout: 15_000 });
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__moveis!.deitado === true, undefined, { timeout: 10_000 });
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: info.outputPath("moveis-deitado.png") });
+    await view.click();
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: info.outputPath("moveis-deitado-de-cima.png") });
     expect(seen.errors).toEqual([]);
     // The game opened again: they wake at home, and the chair is exactly where it was left.
     await page.waitForTimeout(6000);
     await page.goto("/andar?pack=zango&tier=poupanca&hour=16");
     await page.waitForFunction(() => window.__andar?.linked === true && window.__dentro?.onde === "casa" && window.__moveis?.postos.length === 1, undefined, { timeout: 60_000 });
-    expect(await page.evaluate(() => window.__moveis!.postos[0])).toEqual(left);
+    expect(await page.evaluate(() => window.__moveis!.postos[0])).toMatchObject({ id: left.id, item: left.item, cx: left.cx, cz: left.cz, rot: left.rot });
     await page.waitForTimeout(1500);
     await page.screenshot({ path: info.outputPath("moveis-de-volta.png") });
   });

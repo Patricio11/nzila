@@ -25,6 +25,12 @@ describe("the catalogue of things", () => {
     expect(() => parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "cadeira", kind: "mobilia", ...thing }] })).toThrow(/items\[0\]\.chao/);
     expect(() => parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "pao", kind: "comida", ...thing, chao: [1, 1] }] })).toThrow(/items\[0\]\.chao/);
     for (const chao of [[0, 1], [1, 13], [1], "1x1", [1.5, 1]]) expect(() => parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "cadeira", kind: "mobilia", ...thing, chao }] }), JSON.stringify(chao)).toThrow(/chao/);
+    // What holds a body says how many sit on it, or that one lies on it; nothing else says so.
+    expect(BASE_CATALOGUE.items.get("sofa")!.lugares).toBe(3);
+    expect(BASE_CATALOGUE.items.get("cama")!.lugares).toBe(-1);
+    expect(BASE_CATALOGUE.items.get("mesa")!.lugares).toBeUndefined();
+    for (const lugares of [0, 5, -2, 1.5]) expect(() => parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "cadeira", kind: "mobilia", ...thing, chao: [1, 1], lugares }] }), String(lugares)).toThrow(/lugares/);
+    expect(() => parseCatalogue({ version: 1, carryUnits: 24, items: [{ id: "pao", kind: "comida", ...thing, lugares: 1 }] })).toThrow(/lugares/);
     expect([...BASE_CATALOGUE.items.values()].filter((item) => item.kind === "mobilia").every((item) => BASE_SHOPS.shops.get("moveis")!.some((line) => line.item === item.id))).toBe(true);
   });
 

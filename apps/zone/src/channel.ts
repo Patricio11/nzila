@@ -131,8 +131,12 @@ export class Channel {
    */
   private free(x: number, z: number, own: Own | null = null): boolean {
     const ground = own?.ground ?? this.ground;
-    const cell = ground.flagsAt(Math.floor(x / ground.cellMm), Math.floor(z / ground.cellMm));
-    if ((cell & 1) === 0) return false;
+    // The whole of the body, not its middle alone: set down with a shoulder in a wall, a body cannot take a step
+    // (found standing up from a chair beside a wall of one's own house, F-292).
+    const r = DEFAULT_CHARACTER.radiusMm;
+    for (const [dx, dz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]] as const) {
+      if ((ground.flagsAt(Math.floor((x + dx) / ground.cellMm), Math.floor((z + dz) / ground.cellMm)) & 1) === 0) return false;
+    }
     const within = insideOf(own, x, z);
     return !this.world.characters.some((other) => this.seats.get(other.id)!.within === within && Math.hypot(other.state.x - x, other.state.z - z) < DEFAULT_CHARACTER.radiusMm * 2);
   }
@@ -275,14 +279,14 @@ export class Channel {
         const angle = (k / round) * Math.PI * 2;
         const x = Math.round(at.x + Math.sin(angle) * ring);
         const z = Math.round(at.z + Math.cos(angle) * ring);
-        if (!this.free(x, z)) continue;
-        const y = this.ground.heightAt(Math.floor(x / this.ground.cellMm), Math.floor(z / this.ground.cellMm));
+        // On their own ground, when they have a place of their own: up from a chair in their house, they stand in it.
+        const seat = this.seats.get(id)!;
+        if (!this.free(x, z, seat.own)) continue;
+        const y = (seat.own?.ground ?? this.ground).heightAt(Math.floor(x / this.ground.cellMm), Math.floor(z / this.ground.cellMm));
         Object.assign(body.state, { x, y, z, yaw: at.yaw });
         this.riding.delete(id);
         this.sitting.delete(id);
-        const seat = this.seats.get(id)!;
-        // Set down in the street: out of any place of their own.
-        Object.assign(seat, { wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle, within: null });
+        Object.assign(seat, { wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle, within: insideOf(seat.own, x, z) });
         seat.waiting.length = 0;
         return true;
       }

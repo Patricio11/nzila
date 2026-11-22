@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "carryUnits": 24,
   "items": [
     { "id": "pao", "kind": "comida", "size": 1, "use": "comer", "fome": 900, "energia": 0 },
@@ -33,11 +33,11 @@
     { "id": "flores", "kind": "presente", "size": 1, "use": null, "fome": 0, "energia": 0 },
     { "id": "perfume", "kind": "presente", "size": 1, "use": null, "fome": 0, "energia": 0 },
     { "id": "pano", "kind": "presente", "size": 1, "use": null, "fome": 0, "energia": 0 },
-    { "id": "cadeira", "kind": "mobilia", "size": 8, "use": null, "fome": 0, "energia": 0, "chao": [1, 1] },
+    { "id": "cadeira", "kind": "mobilia", "size": 8, "use": null, "fome": 0, "energia": 0, "chao": [1, 1], "lugares": 1 },
     { "id": "mesa", "kind": "mobilia", "size": 16, "use": null, "fome": 0, "energia": 0, "chao": [2, 2] },
-    { "id": "colchao", "kind": "mobilia", "size": 20, "use": null, "fome": 0, "energia": 0, "chao": [2, 4] },
-    { "id": "cama", "kind": "mobilia", "size": 24, "use": null, "fome": 0, "energia": 0, "chao": [3, 4] },
-    { "id": "sofa", "kind": "mobilia", "size": 24, "use": null, "fome": 0, "energia": 0, "chao": [4, 2] },
+    { "id": "colchao", "kind": "mobilia", "size": 20, "use": null, "fome": 0, "energia": 0, "chao": [2, 4], "lugares": -1 },
+    { "id": "cama", "kind": "mobilia", "size": 24, "use": null, "fome": 0, "energia": 0, "chao": [3, 4], "lugares": -1 },
+    { "id": "sofa", "kind": "mobilia", "size": 24, "use": null, "fome": 0, "energia": 0, "chao": [4, 2], "lugares": 3 },
     { "id": "televisao", "kind": "mobilia", "size": 14, "use": null, "fome": 0, "energia": 0, "chao": [2, 1] }
   ]
 }

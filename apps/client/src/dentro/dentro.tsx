@@ -150,7 +150,7 @@ export class Dentro {
    */
   camera(quadro: Quadro, eu: Eu, riding: boolean): boolean {
     this.net = eu.net;
-    this.casas.frame(quadro, eu.x, eu.z, eu.net, eu.y, eu.body.rotation.y);
+    this.casas.frame(quadro, eu.x, eu.z, eu.net, eu.y, eu.body, eu.sit);
     const casa = this.casas.casa;
     // Put inside their house, not walked into it (they woke there: the zone set them down, or the house was only
     // now known to be theirs): they are turned to their door, and the camera goes behind them, so that what they see
@@ -195,7 +195,11 @@ export class Dentro {
       // The roof off just under the top of the walls: the room, and whoever is in it, whole.
       this.plane.constant = eu.y + Math.min(onde.height, 2.4);
       const high = Math.min(ABOVE_M, 4.2 + Math.max(onde.rect[2] - onde.rect[0], onde.rect[3] - onde.rect[1]) * 0.36);
-      camera.position.set(eu.x + backX * ABOVE_BACK_M, eu.y + high, eu.z + backZ * ABOVE_BACK_M);
+      // From the side that has the room in it: with a wall close behind the player (lying on a bed against it), the
+      // camera would look over that wall's cut edge and the wall would hide them. It goes over to the other side.
+      const behind = Math.min(backX > 0.001 ? (onde.rect[2] - eu.x) / backX : backX < -0.001 ? (onde.rect[0] - eu.x) / backX : 99, backZ > 0.001 ? (onde.rect[3] - eu.z) / backZ : backZ < -0.001 ? (onde.rect[1] - eu.z) / backZ : 99);
+      const from = behind < 1.6 ? -1 : 1;
+      camera.position.set(eu.x + backX * ABOVE_BACK_M * from, eu.y + high, eu.z + backZ * ABOVE_BACK_M * from);
       camera.lookAt(eu.x, eu.y + 0.9, eu.z);
     } else if (vista === "olhos" && sentado) {
       // Through the player's own eyes: their own body is not in the way of them.

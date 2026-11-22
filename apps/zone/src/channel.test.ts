@@ -398,6 +398,16 @@ describe("what a client is told", () => {
   });
 });
 
+test("nobody is set down with a shoulder in a wall: the place asked for is a hand from one, and they stand clear of it, and can walk (F-292)", () => {
+  const channel = new Channel(ground);
+  // The wall is the row of cells from z = 10 m: a body's middle at 9,9 m would have its shoulder in it.
+  const id = channel.join("perto", { x: 0, y: 0, z: 9900, yaw: 0 })!;
+  expect(channel.placeOf(id)!.z).toBeLessThanOrEqual(10_000 - 230);
+  const from = channel.placeOf(id)!;
+  walking(channel, id, 1, 20, { dx: 127, dz: 0, run: false, brake: false });
+  expect(channel.placeOf(id)!.x).toBeGreaterThan(from.x + 500);
+});
+
 describe("a place of one's own (the family's house, Phase 5)", () => {
   // A row of houses stands from z = 10 m to z = 16,5 m, a wall to the street. One of them is two metres wide and
   // open to its families from its front wall to its back one.
@@ -456,6 +466,11 @@ describe("a place of one's own (the family's house, Phase 5)", () => {
     // With no house of their own here, the same place is a wall: they are put where there is ground, outside.
     const stranger = channel.join("stranger", bed)!;
     expect(channel.placeOf(stranger)!.z).toBeLessThan(10_000);
+    // Seated in her house (a chair of her own), and up again a step from it: she stands in her house, not put out of it.
+    expect(channel.sit(second, { x: 0, y: 460, z: 13_000, yaw: 0 })).toBe(true);
+    expect(channel.standUp(second, { x: 0, y: 0, z: 13_600, yaw: 0 })).toBe(true);
+    expect(channel.placeOf(second)).toMatchObject({ x: 0, z: 13_600 });
+    expect(channel.withinOf(second)).toBe("b");
     // Taken to the hospital from their bed: in the street at once, and seen there.
     expect(channel.put(first, here)).toBe(true);
     expect(channel.withinOf(first)).toBeNull();
