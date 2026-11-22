@@ -639,7 +639,11 @@ with open(os.path.join(out_dir, "mapa.json"), "w", encoding="utf-8") as handle:
 ARRIVAL = [round((MID[0] + MID[1]) / 2, 2), G, 104.0]
 # Where people arrive must be open ground on every side: carts once stood on this very spot, and whoever woke in
 # Zango could not take a step (found by the browser test of the ball, 2026-11-21).
-for _name, (_ax, _az) in (("arrival", (ARRIVAL[0], ARRIVAL[2])), ("mangueira", (PARAGEM[0], PARAGEM[1] - 0.5))):
+# Where someone wakes who has not slept at home (the founder, 2026-11-22, D-5.10): in a public place, among people,
+# never alone in a room. Before the geladaria, by the kiosk bar, on the largo of the cantina; the middle of the
+# bairro is the first of them. From any of them one walks home.
+WAKES = [("geladaria", 200.5, 130.5), ("bar", 187.0, 115.0), ("largo", 138.0, 131.5)]
+for _name, (_ax, _az) in (("arrival", (ARRIVAL[0], ARRIVAL[2])), ("mangueira", (PARAGEM[0], PARAGEM[1] - 0.5)), *((_n, (_x, _z)) for _n, _x, _z in WAKES)):
     for _iz in range(math.floor((_az - 1.5) / CELL), math.ceil((_az + 1.5) / CELL)):
         for _ix in range(math.floor((_ax - 1.5) / CELL), math.ceil((_ax + 1.5) / CELL)):
             if flags[(_ix // CELLS, _iz // CELLS)][_iz % CELLS][_ix % CELLS] == "#":
@@ -653,7 +657,7 @@ partial = {
     "bounds": {"minX": 0, "minZ": 0, "maxX": WIDE, "maxZ": DEEP},
     # Its streets are lit orange after dark, as Zango's are (the founder's picture, D-11.6).
     "ambient": {"set": "l1", "soundBeds": [], "lamps": "sodio"},
-    "spawns": [{"id": "arrival", "pos": ARRIVAL, "facing": 180, "kind": "first_arrival"}, {"id": "mangueira", "pos": [round(PARAGEM[0], 2), G, round(PARAGEM[1] - 0.5, 2)], "facing": 180, "kind": "gateway"}],
+    "spawns": [{"id": "arrival", "pos": ARRIVAL, "facing": 180, "kind": "first_arrival"}, *({"id": _n, "pos": [_x, G, _z], "facing": 180, "kind": "first_arrival"} for _n, _x, _z in WAKES), {"id": "mangueira", "pos": [round(PARAGEM[0], 2), G, round(PARAGEM[1] - 0.5, 2)], "facing": 180, "kind": "gateway"}],
     # The way to the Marginal: the vans at the Mangueira (D-11.2). One arrives at the Mutamba.
     "gateways": [{"id": "para-marginal", "pos": [round(PARAGEM[0], 2), G, round(PARAGEM[1], 2)], "to": "ao-lua/l1", "arrive": "mutamba", "mode": "ride", "openFlag": "world.open", "nameKey": "zango.gateway.marginal"}],
     "pois": places["pois"],

@@ -21,6 +21,11 @@ export interface District {
   readonly obstacles: readonly Obstacle[];
   /** Where a first arrival stands. */
   readonly arrival: Place;
+  /**
+   * The public places someone wakes in who did not go to sleep at home (D-5.10): among people, by the geladaria or
+   * a bar, never alone in a room. `arrival` is the first of them. Absent: the arrival alone.
+   */
+  readonly wakes?: readonly Place[];
   /** The paragens, by id: where someone who got off a van comes back into the street. */
   readonly paragens: ReadonlyMap<string, Place>;
   /**
@@ -115,6 +120,8 @@ export async function loadDistrict(packDir: URL): Promise<District> {
   const grids = await Promise.all(files.map(async (file) => decodeWalkGrid(new Uint8Array(inflateRawSync(await readFile(new URL(file, packDir)))))));
   const spawn = manifest.spawns.find((one) => one.kind === "first_arrival") ?? manifest.spawns[0];
   if (!spawn) throw new Error(`pack ${manifest.id} has nowhere to arrive`);
+  const placed = (one: typeof spawn): Place => ({ x: Math.round(one.pos[0] * 1000), y: Math.round(one.pos[1] * 1000), z: Math.round(one.pos[2] * 1000), yaw: Math.round((one.facing ?? 0) * 100) });
+  const wakes = manifest.spawns.filter((one) => one.kind === "first_arrival").map(placed);
   const arrival: Place = {
     x: Math.round(spawn.pos[0] * 1000),
     y: Math.round(spawn.pos[1] * 1000),
@@ -157,7 +164,7 @@ export async function loadDistrict(packDir: URL): Promise<District> {
   });
   const ground = groundOf(grids);
   const homes = await homesOf(manifest, packDir, ground);
-  return { ...(homes ? { homes } : {}), id: manifest.id, provinceId: manifest.province, ground, obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, gateways, campos, servicos, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
+  return { ...(homes ? { homes } : {}), ...(wakes.length > 1 ? { wakes } : {}), id: manifest.id, provinceId: manifest.province, ground, obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, gateways, campos, servicos, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
 }
 
 /**

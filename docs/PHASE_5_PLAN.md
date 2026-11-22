@@ -65,6 +65,13 @@ Opened 2026-11-20, when Phase 4 completed (`docs/completed/PHASE_4_COMPLETE.md`)
 - **A sala and a quarto, and a bulb.** The inside has a wall between a sala (the front door, one window) and a quarto (the other window, the side window, the esteira), with a doorway between them. A bulb hangs in the sala: after dark the room is lit by it.
 - **The button is not the one gold button.** The hand to the door is a button of its own, in the middle over the place where words are written: the gold button's choice is made in the way in, which has 0,6 KB left (F-287). One hand for everything is the right end; it waits for room there.
 
+**D-5.10 One wakes in a public place of the bairro one lives in, until one has slept at home (the founder, 2026-11-22).** His words, asked whether a family of the Marginal should wake at home in Zango: *"Yes, they should wake at their home in Zango, or actually in a public place, you know, and they can go to their home. That way they can meet and see other players: they can wake by the geladaria or next to a restaurant. But if they go home, next time they should wake up where they slept."* What is built:
+
+- **Everyone wakes in the bairro their house is in.** Before a player has stood anywhere, they are where their house is (`bairroOf` in the API), not where the card of origin says: a phone that opens the Marginal is taken to Zango. With no house built anywhere, the card's rule stands (D-11.1).
+- **In a public place, among people.** A bairro's pack names its waking places (`spawns` of the kind `first_arrival`: Zango's are the middle of the bairro, before the geladaria, by the kiosk bar and on the largo of the cantina); the zone sets each newcomer down at one of them, the same one for the same player. Nobody's first sight of the game is an empty room. From there the Mapa shows the way home (D-5.8).
+- **Whoever sleeps at home wakes at home.** The zone already keeps where a player stood when they closed the game: at home, that is where they wake, turned to their door. It is the same rule for the street: one wakes where one stopped. (Sleep as a thing one does, on a bed, is 5.2 and 5.3.)
+- This reverses D-5.8's "someone who has never stood in their bairro wakes in their house", the same day, on the founder's word.
+
 ## What "done" means for this phase
 
 From the roadmap: a player has a home that looks like them, friends visit, rent is paid or the home is lost and nothing in it is; the family's house is where they were born. Measured: an interior's weight and its first view on the slow profile, and a full home's frame time on the reference phone.

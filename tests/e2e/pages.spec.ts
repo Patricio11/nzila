@@ -3257,19 +3257,63 @@ test.describe("two phones in the same street", () => {
     // and one browser's engine says so as errors of the page that was left.
     seen.errors.length = 0;
 
-    // The family's house (Phase 5, D-5.8): they wake inside it, on the esteira, the door shut.
-    await page.waitForFunction(() => window.__dentro?.casa != null && window.__dentro.onde === "casa", undefined, { timeout: 30_000 });
+    // They have a house, and they do not wake in it (D-5.10): never having slept at home, they wake in a public
+    // place of the bairro, among people, and the Mapa says where home is.
+    await page.waitForFunction(() => window.__dentro?.casa != null, undefined, { timeout: 30_000 });
     const casa = (await page.evaluate(() => window.__dentro!.casa))!;
-    const zango = (await (await request.get("/packs/zango/manifest.json")).json()) as { homes: unknown[] };
+    const zango = (await (await request.get("/packs/zango/manifest.json")).json()) as { homes: { pos: [number, number, number] }[]; spawns: { pos: [number, number, number]; kind: string }[]; bounds: { maxX: number; maxZ: number } };
     expect(casa.house).toBeGreaterThanOrEqual(1);
     expect(casa.house).toBeLessThanOrEqual(zango.homes.length);
-    const woke = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
-    expect(Math.hypot(woke.x - casa.wake[0], woke.z - casa.wake[1])).toBeLessThan(1.5);
-    expect(await page.evaluate(() => window.__dentro!.porta)).toBe(0);
-    await expect(page.locator(".dentro-vista p").first()).toHaveText("A casa da tua família");
+    const woke = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z, onde: window.__dentro!.onde }));
+    expect(woke.onde).toBeNull();
+    expect(Math.min(...zango.spawns.filter((one) => one.kind === "first_arrival").map((one) => Math.hypot(one.pos[0] - woke.x, one.pos[2] - woke.z))), "woke in one of the bairro's public places").toBeLessThan(6);
+    await page.getByRole("button", { name: "Telemóvel" }).click();
+    const telemovel = page.getByRole("dialog", { name: "Telemóvel" });
+    await telemovel.getByRole("button", { name: "Mapa" }).click();
+    const map = telemovel.locator(".tm-map-canvas");
+    await expect.poll(() => map.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBeGreaterThan(400);
+    await expect(telemovel.locator(".tm-map-key")).toContainText("A tua casa", { timeout: 10_000 });
+    const box = (await map.boundingBox())!;
+    await map.click({ position: { x: (zango.homes[casa.house - 1]!.pos[0] / zango.bounds.maxX) * box.width, y: (zango.homes[casa.house - 1]!.pos[2] / zango.bounds.maxZ) * box.height } });
+    await expect(telemovel.locator(".tm-place")).toContainText(`A casa número ${casa.house}, que a tua família te deu.`, { timeout: 10_000 });
+    await telemovel.locator(".tm-place").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath("casa-mapa.png") });
+    await telemovel.getByRole("button", { name: "Fechar" }).click();
+    expect(seen.errors).toEqual([]);
+
+    // At their door (the walk home is a player's; the tests' zone sets them down before it). It is shut, and a wall
+    // to them too: a hand opens it ("Abrir a porta"), it swings on its hinge, and they walk in and shut it behind them.
+    await page.goto("/andar?pack=zango&paragem=casa&tier=poupanca&hour=16");
+    await page.waitForFunction(() => window.__andar?.linked === true && window.__dentro?.casa != null, undefined, { timeout: 60_000 });
+    const inward = Math.sign(casa.wake[1] - casa.door[1]);
+    const towards = inward > 0 ? "s" : "w";
+    const hand = page.locator(".dentro-porta").getByRole("button");
     const view = page.locator(".dentro-vista").getByRole("button");
+    await expect(hand).toHaveText("Abrir a porta");
+    await expect(view).toHaveCount(0);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: info.outputPath("casa-de-fora.png") });
+    // Walked at, shut, it does not let them through.
+    await page.keyboard.down(towards);
+    await page.waitForTimeout(1800);
+    await page.keyboard.up(towards);
+    expect(await page.evaluate(() => window.__dentro!.onde)).toBeNull();
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.aberta === true && window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
+    await expect(hand).toHaveText("Fechar a porta");
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: info.outputPath("casa-a-entrar.png") });
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 1.7, 0.5, 120);
+    await page.waitForFunction(() => window.__dentro!.onde === "casa", undefined, { timeout: 10_000 });
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.aberta === false && window.__dentro!.porta === 0, undefined, { timeout: 10_000 });
+    // Inside: the family's house, seen at eye level, and from above with the roof off (a sala and a quarto).
+    await expect(page.locator(".dentro-vista p").first()).toHaveText("A casa da tua família");
     await expect(view).toHaveText("Vista: à altura dos olhos");
-    await page.screenshot({ path: info.outputPath("casa-acordar.png") });
+    // Straight in from the door: the sala is before it whichever way the house is turned (to one side is the quarto's wall).
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 3.5, 0.7, 120);
+    await expect(hand).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath("casa-dentro.png") });
     await view.click();
     await expect(view).toHaveText("Vista: de cima");
     await page.waitForTimeout(900);
@@ -3277,131 +3321,67 @@ test.describe("two phones in the same street", () => {
     await view.click();
     await view.click();
     await expect(view).toHaveText("Vista: à altura dos olhos");
-    // To the door. It is shut, and a wall to them too: a hand opens it ("Abrir a porta"), it swings on its hinge, and
-    // they walk out into their yard and shut it behind them.
-    const hand = page.locator(".dentro-porta").getByRole("button");
-    await expect(hand).toHaveCount(0);
-    const inward = Math.sign(casa.wake[1] - casa.door[1]);
-    // They woke looking at their door: where it looks to +Z, the camera is turned about, and the keys with it.
-    let turned = Math.abs(Math.cos((await page.evaluate(() => window.__dentro!.olhar))! / 2)) < 0.5;
-    expect(turned).toBe(inward < 0);
-    await walkTo(page, casa.door[0], casa.door[1] + inward * 1.6, 0.5, 120, turned);
-    await expect(hand).toHaveText("Abrir a porta");
-    await page.screenshot({ path: info.outputPath("casa-porta-fechada.png") });
-    // Walked at, shut, it does not let them through.
-    await page.keyboard.down("w");
-    await page.waitForTimeout(1800);
-    await page.keyboard.up("w");
-    expect(await page.evaluate(() => window.__dentro!.onde)).toBe("casa");
-    await hand.click();
-    await page.waitForFunction(() => window.__dentro!.aberta === true && window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
-    await expect(hand).toHaveText("Fechar a porta");
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: info.outputPath("casa-porta-aberta.png") });
-    await walkTo(page, casa.door[0], casa.door[1] - inward * 1.5, 0.5, 120, turned);
-    await hand.click();
-    await page.waitForFunction(() => window.__dentro!.aberta === false && window.__dentro!.porta === 0, undefined, { timeout: 10_000 });
-    // Far enough for the door to shut behind them, and no farther than every yard is sure to let them: each run is
-    // dealt another house, and each yard has its own things in it.
-    await walkTo(page, casa.door[0], casa.door[1] - inward * 3.6, 1.2, 160, turned);
-    await page.waitForFunction(() => window.__dentro!.onde === null && window.__dentro!.porta === 0, undefined, { timeout: 10_000 });
-    await expect(view).toHaveCount(0);
-    await expect(hand).toHaveCount(0);
-    // Seen from its yard: a house of the row with its door shut, and the sign over the roof that says which is theirs.
-    // The thumb turns the view about, to look back at the house: half a turn, in three strokes across the screen.
-    // (They walked out looking away from it, whichever way it faces.)
-    // High on the screen, clear of the buttons of every phone's layout (on the iPhone's, a stroke lower down began
-    // on a button and turned nothing: the full gate, 2026-11-22). Which way the keys go is then read, not assumed.
-    for (let n = 0; n < 3; n++) {
-      await page.mouse.move(300, 290);
-      await page.mouse.down();
-      await page.mouse.move(125.5, 290, { steps: 6 });
-      await page.mouse.up();
-    }
-    await page.waitForTimeout(200);
-    const was = turned;
-    turned = Math.cos((await page.evaluate(() => window.__dentro!.olhar))!) < 0;
-    expect(turned, "three strokes of the thumb turned the view half way round").toBe(!was);
-    await page.keyboard.down("w");
-    await page.waitForTimeout(150);
-    await page.keyboard.up("w");
-    await page.waitForTimeout(1200);
-    await page.screenshot({ path: info.outputPath("casa-de-fora.png") });
-    // One house among many that are the same: the Mapa says which is theirs, by its number.
-    await page.getByRole("button", { name: "Telemóvel" }).click();
-    const telemovel = page.getByRole("dialog", { name: "Telemóvel" });
-    await telemovel.getByRole("button", { name: "Mapa" }).click();
-    const map = telemovel.locator(".tm-map-canvas");
-    await expect.poll(() => map.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBeGreaterThan(400);
-    await expect(telemovel.locator(".tm-map-key")).toContainText("A tua casa", { timeout: 10_000 });
-    const sites = (zango as unknown as { homes: { pos: [number, number, number] }[]; bounds: { maxX: number; maxZ: number } });
-    const box = (await map.boundingBox())!;
-    await map.click({ position: { x: (sites.homes[casa.house - 1]!.pos[0] / sites.bounds.maxX) * box.width, y: (sites.homes[casa.house - 1]!.pos[2] / sites.bounds.maxZ) * box.height } });
-    await expect(telemovel.locator(".tm-place")).toContainText(`A casa número ${casa.house}, que a tua família te deu.`, { timeout: 10_000 });
-    await telemovel.locator(".tm-place").scrollIntoViewIfNeeded();
-    await page.screenshot({ path: info.outputPath("casa-mapa.png") });
-    await telemovel.getByRole("button", { name: "Fechar" }).click();
-    // Home again: the door opens for its family, and they are inside.
-    await walkTo(page, casa.door[0], casa.door[1] - inward * 1.2, 0.5, 120, turned);
-    await expect(hand).toHaveText("Abrir a porta");
+    // Out again by their own hand, the door shut behind them: in the yard the house is a house of the row.
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 1.6, 0.5, 120);
     await hand.click();
     await page.waitForFunction(() => window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
-    await page.screenshot({ path: info.outputPath("casa-a-entrar.png") });
-    await walkTo(page, casa.door[0], casa.door[1] + inward * 1.7, 0.5, 120, turned);
-    await page.waitForFunction(() => window.__dentro!.onde === "casa", undefined, { timeout: 10_000 });
+    await page.screenshot({ path: info.outputPath("casa-porta-aberta.png") });
+    await walkTo(page, casa.door[0], casa.door[1] - inward * 1.5, 0.5, 120);
     await hand.click();
-    await page.waitForFunction(() => window.__dentro!.aberta === false && window.__dentro!.porta === 0, undefined, { timeout: 10_000 });
-    // Whoever goes to sleep at home wakes at home: the game opened again, they stand where they lay.
+    await page.waitForFunction(() => window.__dentro!.aberta === false && window.__dentro!.porta === 0 && window.__dentro!.onde === null, undefined, { timeout: 10_000 });
+    // And home to sleep: in, the door shut, and the game closed there.
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 1.7, 0.5, 120);
+    await hand.click();
+    await page.waitForFunction(() => window.__dentro!.aberta === false && window.__dentro!.onde === "casa", undefined, { timeout: 10_000 });
     const lay = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
-    // Nothing went wrong on the page so far. (Asked here, before the game is opened again, for the same reason.)
     expect(seen.errors).toEqual([]);
+    // Whoever goes to sleep at home wakes at home: the game opened again, they stand where they lay, turned to their
+    // door; after dark the bulb lights the room, and at home nobody is told to go home.
     await page.waitForTimeout(6000);
     await page.goto("/andar?pack=zango&tier=poupanca&hour=21");
     await page.waitForFunction(() => window.__andar?.linked === true && window.__dentro?.onde === "casa", undefined, { timeout: 60_000 });
     const back = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
     expect(Math.hypot(back.x - lay.x, back.z - lay.z)).toBeLessThan(1.2);
+    expect(Math.abs(Math.cos((await page.evaluate(() => window.__dentro!.olhar))! / 2)) < 0.5, "they wake looking at their door").toBe(inward < 0);
     await page.waitForTimeout(1500);
-    // After dark the bulb lights the room; and at home nobody is told to go home.
     await page.screenshot({ path: info.outputPath("casa-a-noite.png") });
     expect(await page.evaluate(() => window.__dentro!.aviso)).toBeNull();
   });
 
-  test("a family that wakes on the Marginal has its house in Zango (D-5.9): arriving, they are told where home is; after dark, that it is late and that whoever sleeps in the street can be robbed; and the family's message gives the house's number", async ({ page, request }, info) => {
-    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/l1/manifest.json")).ok() || !(await request.get("/packs/casas/casas.json")).ok()) {
-      info.annotations.push({ type: "skipped", description: "The packs are not built. A house away from where one wakes was not checked here." });
+  test("every family's house is in Zango (D-5.9, D-5.10): a family whose card names a richer bairro wakes in Zango too, in a public place; the family's message gives the house's number; after dark, away from home, they are told it is late and that whoever sleeps in the street can be robbed", async ({ page, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok() || !(await request.get("/packs/casas/casas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. A house for every family was not checked here." });
       test.skip();
       return;
     }
     test.setTimeout(180_000);
-    // Guests are made until one is of a family that does not wake in Zango.
+    // Guests are made until one is of a family that is not of little money.
     let kept: Record<string, unknown> | null = null;
     for (let n = 0; n < 40 && !kept; n++) {
-      const deviceId = `marginal-casa-${n}-${Date.now()}-abcdefgh`;
+      const deviceId = `casa-de-todos-${n}-${Date.now()}-abcdefgh`;
       const guest = (await (await page.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string };
       const dealt = (await (await page.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: { tier: string } };
       if (dealt.origin.tier !== "aperto") kept = { deviceId, ageBand: "18_plus", ...guest, origin: dealt.origin };
     }
-    expect(kept, "a family that wakes on the Marginal was dealt in forty tries").not.toBeNull();
+    expect(kept, "a family that is not of little money was dealt in forty tries").not.toBeNull();
     await page.addInitScript((account) => localStorage.setItem("nzila.conta", JSON.stringify(account)), kept);
     const home = ((await (await page.request.get("/api/v1/me/casa", { headers: { authorization: `Bearer ${(kept as { token: string }).token}` } })).json()) as { home: { pack: string; house: number } }).home;
     expect(home.pack).toBe("zango");
-    // By day: where home is, said as they arrive.
-    await page.goto("/andar?pack=l1&tier=poupanca&hour=11");
+    // A phone that opens the Marginal is taken to where they live. After dark, in the street: it is late.
+    await page.goto("/andar?pack=l1&tier=poupanca&hour=21");
+    await page.waitForURL(/\/andar\?pack=zango/, { timeout: 60_000 });
     await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
-    await expect(page.locator(".dentro-aviso")).toHaveText("A tua casa é no Zango. Para ir para casa, apanha o candongueiro.", { timeout: 20_000 });
-    await page.screenshot({ path: info.outputPath("casa-longe-dia.png") });
+    await expect(page.locator(".dentro-aviso")).toHaveText("Já é tarde. Vai para casa: quem dorme na rua pode ser roubado.", { timeout: 20_000 });
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: info.outputPath("casa-tarde.png") });
     // The family's message says which house.
     await page.getByRole("button", { name: "Telemóvel" }).click();
     const telemovel = page.getByRole("dialog", { name: "Telemóvel" });
     await telemovel.getByRole("button", { name: "Mensagens" }).click();
-    await expect(telemovel.locator(".ms-familia")).toContainText(`A nossa casa é no Zango, a número ${home.house}. Apanha o candongueiro para lá; o Mapa diz de que paragem sai.`, { timeout: 15_000 });
-    await page.screenshot({ path: info.outputPath("casa-longe-mensagem.png") });
-    // After dark: it is late, home is far, and the street is no place to sleep.
-    await page.goto("/andar?pack=l1&tier=poupanca&hour=21");
-    await page.waitForFunction(() => window.__andar?.linked === true, undefined, { timeout: 60_000 });
-    await expect(page.locator(".dentro-aviso")).toHaveText("Já é tarde, e a tua casa é no Zango. Apanha o candongueiro: quem dorme na rua pode ser roubado.", { timeout: 20_000 });
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: info.outputPath("casa-longe-noite.png") });
+    await expect(telemovel.locator(".ms-familia")).toContainText(`A nossa casa é a número ${home.house}. No Mapa está marcada: «A tua casa».`, { timeout: 15_000 });
+    await page.screenshot({ path: info.outputPath("casa-mensagem.png") });
   });
 
   test("a tap on someone opens their BI with everything that can be done about them: talk, stop hearing, shut out, report", async ({ page, browser, request }, info) => {

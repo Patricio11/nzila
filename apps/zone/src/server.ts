@@ -62,6 +62,8 @@ export interface ZoneOptions {
   readonly tunables?: () => Tunables;
   /** How long a dropped line's place is kept, and how often lines are asked whether they are there: the defaults unless a test brings shorter ones. */
   readonly holdMs?: number;
+  /** For the tests: see ZoneDeps.doorstep. */
+  readonly doorstep?: boolean;
   /** How long a quick game at a table lasts (three minutes; the browser tests' zone shortens it). */
   readonly rapidaMs?: number;
   readonly askEveryMs?: number;
@@ -93,7 +95,7 @@ export async function startZone(options: ZoneOptions, port: number): Promise<Zon
   const running = new Map<string, Running>();
   for (const { district, remember } of options.districts) {
     running.set(roomNameOf(district.id), {
-      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.tunables ? { tunables: options.tunables } : {}), ...(options.holdMs ? { holdMs: options.holdMs } : {}), ...(options.rapidaMs ? { rapidaMs: options.rapidaMs } : {}), ...(options.filter ? { filter: options.filter } : {}), ...(options.log ? { log: options.log } : {}) },
+      deps: { sql, district, ...(remember === undefined ? {} : { remember }), ...(presence ? { presence } : {}), ...(options.holds ? { holds: options.holds } : {}), ...(options.tunables ? { tunables: options.tunables } : {}), ...(options.holdMs ? { holdMs: options.holdMs } : {}), ...(options.doorstep ? { doorstep: true } : {}), ...(options.rapidaMs ? { rapidaMs: options.rapidaMs } : {}), ...(options.filter ? { filter: options.filter } : {}), ...(options.log ? { log: options.log } : {}) },
       channels: [],
     });
   }

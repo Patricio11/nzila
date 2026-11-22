@@ -1197,6 +1197,11 @@ describe("two bairros (Task 11.2, D-11.1 and D-11.2)", () => {
   const dealing = (roll: number) => buildApp({ guests: true, sql, pepper, keyring, mailer, limiter: { allow: () => true }, presence, roll: () => roll });
 
   test("a family of little money wakes in the bairro that takes them, the others in the first; a phone that opens the wrong one is told which is theirs", async () => {
+    // Where no bairro has houses to give, the card alone says where one wakes (with houses, one wakes where one's
+    // house is: the next test).
+    const bare = buildApp({ guests: true, sql, pepper, keyring, mailer, limiter: { allow: () => true }, presence, world: { provinces: [{ id: "ao-lua", nameKey: "world.ao-lua.name", open: true }], districts: [{ id: "ao-lua/l1", provinceId: "ao-lua", nameKey: "world.ao-lua.l1.name", open: true, pack: "l1" }, { id: "ao-lua/zango", provinceId: "ao-lua", nameKey: "world.ao-lua.zango.name", open: true, pack: "zango", wakes: ["aperto"] }] } });
+    const get = (token: string, url: string) => bare.inject({ method: "GET", url, headers: as(token) });
+    const post = (token: string, url: string, payload: Record<string, unknown> = {}) => bare.inject({ method: "POST", url, headers: as(token), payload });
     const poor = await newGuest(1500);
     const rich = await newGuest(1501);
     // Before a card is dealt, the first bairro.
@@ -1256,6 +1261,8 @@ describe("two bairros (Task 11.2, D-11.1 and D-11.2)", () => {
     const rich = await newGuest(1530);
     await dealing(0.9999).inject({ method: "POST", url: "/v1/me/origin", headers: as(rich.token), payload: {} });
     expect(await homeOf(rich.token, 0.99)).toEqual({ districtId: "ao-lua/zango", pack: "zango", house: 3, kind: "realojamento" });
+    // And they wake where their house is (D-5.10), in a public place of that bairro: a phone that opens the Marginal is told so.
+    expect((await street(0).inject({ method: "GET", url: "/v1/me/place", headers: as(rich.token) })).json()).toEqual({ districtId: "ao-lua/zango", pack: "zango" });
     await presence.stand(rich.playerId, { districtId: "ao-lua/l1", x: 0, y: 0, z: 0, yaw: 0 });
     expect(((await street(0).inject({ method: "GET", url: "/v1/recados", headers: as(rich.token) })).json() as { familia: { casa: unknown } }).familia.casa).toEqual({ pack: "zango", house: 3, here: false });
     await presence.stand(rich.playerId, { districtId: "ao-lua/zango", x: 0, y: 0, z: 0, yaw: 0 });

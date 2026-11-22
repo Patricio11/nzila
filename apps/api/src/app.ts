@@ -459,6 +459,10 @@ export function buildApp(deps: Deps): FastifyInstance {
     const known = (id: string | undefined): (typeof districts)[number] | undefined => districts.find((one) => one.id === id);
     const standing = known((await presence.standing(playerId))?.districtId) ?? known((await whereaboutsOf(deps.sql, playerId))?.districtId);
     if (standing) return { districtId: standing.id, pack: standing.pack! };
+    // Before they have stood anywhere, they are where their house is (D-5.10: everyone wakes in the bairro they
+    // live in, in a public place of it); with no house, where the card wakes them.
+    const home = await homeOf(playerId);
+    if (home) return { districtId: home.districtId, pack: home.pack };
     const wakes = await wakesIn((await originOfPlayer(deps.sql, origins, playerId))?.tier);
     return wakes ? { districtId: wakes.id, pack: wakes.pack! } : null;
   };

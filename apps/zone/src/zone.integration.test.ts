@@ -120,7 +120,7 @@ beforeAll(async () => {
   sql = connect(url.toString(), 10);
   await migrate(sql, await loadMigrations());
   await seed(sql, await loadWorldSeed());
-  zone = await startZone({ sql, districts: [{ district }, { district: rehearsal, remember: false }], presence, sessions: true, filter: createChatFilter(["palavrao"]), log: (line) => void said.push(line) }, port);
+  zone = await startZone({ sql, districts: [{ district }, { district: rehearsal, remember: false }], presence, sessions: true, doorstep: true, filter: createChatFilter(["palavrao"]), log: (line) => void said.push(line) }, port);
 }, 60_000);
 
 afterAll(async () => {
@@ -1471,54 +1471,56 @@ describe("a client that misbehaves", () => {
   });
 });
 
-describe("the family's house (Phase 5, D-5.8 and D-5.9)", () => {
-  test("someone who has never stood in their bairro wakes in their family's house, its door shut; a stranger meets a wall there; two families given the same house each have an inside of their own; from inside the street is seen, and the street does not see in; the door is opened and shut by hand, and is a wall while it is shut; whoever went to sleep at home wakes where they lay", async () => {
+describe("the family's house (Phase 5, D-5.8 to D-5.10)", () => {
+  test("someone who has not slept at home wakes in a public place of the bairro, not in their house; at their door, it is shut, and a wall to them too until their own hand opens it; a stranger meets a wall whatever the door does; two families given the same house each have an inside of their own; from inside the street is seen, and the street does not see in; whoever went to sleep at home wakes where they lay", async () => {
     const [mae, vizinha, estranho] = [await player(), await player(), await player()];
     await sql`INSERT INTO family_homes (player_id, district_id, house, kind) VALUES (${mae.id}, 'ao-lua/l1', 1, 'casa'), (${vizinha.id}, 'ao-lua/l1', 1, 'casa')`;
-    const a = await phone(mae.token);
-    const b = await phone(vizinha.token);
-    const [aId, bId] = [a.state.accepted!.entityId, b.state.accepted!.entityId];
+    // Never having stood here, she wakes where the bairro's people arrive: far from her house, among whoever is there.
+    const first = await phone(mae.token);
+    expect(Math.hypot(first.me().x, first.me().z)).toBeLessThan(4000);
+    await first.leave();
+    // (The tests' zone sets someone down before their own door when asked: the walk home is the browser's to test.)
+    const a = await phone(mae.token, PROTOCOL_VERSION, "casa");
+    const b = await phone(vizinha.token, PROTOCOL_VERSION, "casa");
+    const c = await phone(estranho.token, PROTOCOL_VERSION, "casa");
+    const [aId, bId, cId] = [a.state.accepted!.entityId, b.state.accepted!.entityId, c.state.accepted!.entityId];
     const south: InputFrame = { dx: 0, dz: -127, run: false, brake: false };
     const doors = (of: typeof a) => of.state.events.filter((event) => event.kind === EVENT.PORTA).map((event) => [event.subject, ...event.args]);
-    // Both wake on the same spot of the same house, each in her own inside: neither is in the other's way, nor seen.
-    expect(a.me()).toMatchObject({ x: -82_500, z: -82_500 });
-    expect(b.me()).toMatchObject({ x: -82_500, z: -82_500 });
-    await pause(400);
-    expect(a.state.latest!.entities.map((one) => one.id)).toEqual([aId]);
-    expect(b.state.latest!.entities.map((one) => one.id)).toEqual([bId]);
-    // A stranger in the street before the house walks into a wall. He sees nobody in it; those inside see him pass.
-    const c = await phone(estranho.token, PROTOCOL_VERSION, "casa");
-    const cId = c.state.accepted!.entityId;
-    await c.walk(70, south);
-    await until(() => c.me().z < -79_000 && a.seen(cId) !== undefined && b.seen(cId) !== undefined);
+    const inTo = async (of: typeof a): Promise<void> => {
+      for (let n = 0; n < 80 && of.me().z > -81_300; n++) await of.walk(2, south);
+    };
+    expect(a.me().z).toBeGreaterThan(-80_000);
+    // The door is shut: its own family walks into it, as the stranger does. He cannot open it.
+    await Promise.all([a.walk(45, south), c.walk(45, south)]);
+    expect(a.me().z).toBeGreaterThan(-80_000);
     expect(c.me().z).toBeGreaterThan(-80_000);
-    expect(c.state.latest!.entities.map((one) => one.id)).toEqual([cId]);
-    // The door is shut: its own family walks into it. A stranger cannot open it, nor she from across the room.
-    await a.walk(50);
-    expect(a.me().z).toBeLessThan(-80_500);
     c.socket.send(encodePorta(true));
     await pause(200);
     expect(doors(a)).toEqual([]);
-    // At the door she opens it: everyone here is told whose hand it was, and she walks out into the street, where
-    // she and the stranger see each other; the one still inside sees both through the open door.
+    // Her hand opens it: everyone here is told whose hand it was. She and her neighbour of the same house walk in,
+    // each into her own inside: neither sees the other. The stranger still meets a wall, and sees nobody in it;
+    // both of them see him through the open door.
     a.socket.send(encodePorta(true));
     await until(() => doors(c).length === 1);
     expect(doors(c)).toEqual([[aId, 1, 1]]);
-    await a.walk(70);
-    await until(() => a.me().z > -79_800 && a.seen(cId) !== undefined && c.seen(aId) !== undefined && b.seen(aId) !== undefined);
+    await inTo(a);
+    await inTo(b);
+    await c.walk(30, south);
+    await until(() => a.me().z < -81_000 && b.me().z < -81_000 && c.seen(aId) === undefined && c.seen(bId) === undefined && a.seen(bId) === undefined && b.seen(aId) === undefined);
+    expect(c.me().z).toBeGreaterThan(-80_000);
+    expect(a.seen(cId)).toBeDefined();
+    expect(b.seen(cId)).toBeDefined();
     // Someone who comes into the street now is told the door stands open, as it was left.
     const d = await phone((await player()).token, PROTOCOL_VERSION, "casa");
     expect(doors(d)).toEqual([[0, 1, 1]]);
     await d.leave();
-    // Back in, and she shuts it behind her: gone from the street, and the doorway is a wall again.
-    for (let n = 0; n < 60 && a.me().z > -81_300; n++) await a.walk(2, south);
-    await until(() => a.me().z < -81_000 && a.me().z > -82_400 && c.seen(aId) === undefined);
+    // She shuts it behind her, and the doorway is a wall again, to her too.
     a.socket.send(encodePorta(false));
     await until(() => doors(c).length === 2);
     expect(doors(c)[1]).toEqual([aId, 1, 0]);
     await a.walk(50);
     expect(a.me().z).toBeLessThan(-80_500);
-    // She says goodnight inside, and wakes where she lay: not at the bairro's door, and not put out into the street.
+    // She says goodnight inside, and wakes where she lay: not in a public place this time, and not put out into the street.
     const lay = { x: a.me().x, z: a.me().z };
     await pause(5200);
     await a.leave();
@@ -1527,5 +1529,5 @@ describe("the family's house (Phase 5, D-5.8 and D-5.9)", () => {
     expect(Math.hypot(again.me().x - lay.x, again.me().z - lay.z)).toBeLessThan(600);
     expect(again.me().z).toBeLessThan(-80_200);
     await Promise.all([again.leave(), b.leave(), c.leave()]);
-  }, 40_000);
+  }, 50_000);
 });

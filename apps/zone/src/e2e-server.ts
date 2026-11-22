@@ -29,5 +29,6 @@ const presence = await redisPresence(redisUrl(), "nzila-e2e");
 // A fallen line's place is kept eight seconds here, not sixty: long enough for the test that comes back to it,
 // short enough that a test which fails does not leave a body standing in the next test's street.
 // A quick game at a table lasts 40 seconds here, not three minutes: the test that plays one to its end waits that long.
-const zone = await startZone({ sql, districts, presence, filter: loadChatFilter(), holdMs: 8000, rapidaMs: 40_000 }, port);
+// And someone who says they got off at "casa" stands before their own door: a house is a walk away from where one wakes.
+const zone = await startZone({ sql, districts, presence, filter: loadChatFilter(), holdMs: 8000, rapidaMs: 40_000, doorstep: true }, port);
 console.log(`zone for the browser tests: ${zone.roomNames.join(", ")} on ${port}`);

@@ -106,6 +106,11 @@ export interface ZoneDeps {
   readonly holds?: number;
   /** The game's numbers in play (Task 4.6): read as they are needed, so that a change reaches a running zone. The file's when not given. */
   readonly tunables?: () => Tunables;
+  /**
+   * For the tests, and for nothing that players reach: someone who says they got off at "casa" is set down before
+   * their own door. A phone is otherwise believed as far as a paragem and no farther.
+   */
+  readonly doorstep?: boolean;
   /** How long a dropped line's place is kept (HOLD_MS; a test brings a shorter one). */
   readonly holdMs?: number;
   /** How long a quick game at a table lasts: three minutes; the browser tests' zone makes it short. */
@@ -224,6 +229,7 @@ export class ChannelRoom {
   /** Players whose line dropped: their bodies stand in the street until they come back or their time runs out. */
   private readonly away = new Map<string, { held: Held; timer: ReturnType<typeof setTimeout> }>();
   private readonly holdMs: number;
+  private readonly doorstep: boolean;
   /** Talk, when it is open here; who is on which line by their number; who has shut whom out; and lines waiting to be written down. */
   private readonly talk: Talk | null;
   private readonly lineOfEntity = new Map<number, Line>();
@@ -260,6 +266,7 @@ export class ChannelRoom {
   constructor(deps: ZoneDeps, number: number, changed: () => void = () => {}) {
     this.changed = changed;
     this.holdMs = deps.holdMs ?? HOLD_MS;
+    this.doorstep = deps.doorstep === true;
     this.talk = deps.filter ? new Talk(deps.filter) : null;
     this.sql = deps.sql;
     this.district = deps.district;
@@ -408,7 +415,8 @@ export class ChannelRoom {
     this.arriving++;
     const [last, face, apart, against, needs, adult, given] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk || this.saidas ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId), adultOf(this.sql, playerId), district.homes ? familyHomeOf(this.sql, playerId) : null]).finally(() => this.arriving--);
     // The family's house, when it is in this bairro (Phase 5, D-5.8): open to them and to nobody else, its inside
-    // theirs alone. Someone who has never stood here wakes in it; someone who went to sleep in it wakes where they lay.
+    // theirs alone. Someone who went to sleep in it wakes where they lay. Someone who has not stood here wakes in a
+    // public place of the bairro, among people, and walks home from there (the founder, 2026-11-22, D-5.10).
     const house = given && given.districtId === district.id ? given.house : 0;
     const home = house ? (district.homes?.(house, playerId, () => this.doors.has(house)) ?? null) : null;
     if (home) this.homes.set(playerId, { house, door: home.door });
@@ -420,12 +428,18 @@ export class ChannelRoom {
     // Silenced by a moderator before they came in: silent from their first word.
     if (against.some((one) => one.kind === "mute")) this.muted.add(playerId);
     else this.muted.delete(playerId);
-    let at: Place = last ?? home?.wake ?? district.arrival;
+    const wakes = district.wakes ?? [district.arrival];
+    let at: Place = last ?? wakes[[...playerId].reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % wakes.length]!;
     // Off a van at a paragem: the vans are each phone's own until the zone runs them (F-152), so the phone says
     // which paragem and the zone puts them beside it. It is believed that far and no farther: a paragem, never a place.
     const stop = paragem === undefined ? undefined : district.paragens.get(paragem);
     if (stop) at = stop;
     if (standing) at = standing;
+    // Before their own door, a pace and a half out from it: for the tests alone.
+    if (this.doorstep && paragem === "casa" && home) {
+      // Houses look up or down the bairro: out of the door is along Z, away from where its family wakes.
+      at = { x: home.door.x, y: home.wake.y, z: Math.round(home.door.z + Math.sign(home.door.z - home.wake.z) * 1500), yaw: home.wake.yaw };
+    }
     const entityId = this.channel.join(playerId, at, home?.own) ?? this.channel.join(playerId, district.arrival, home?.own);
     if (entityId === null) return false;
     // The look is sent as it would be accepted today: what was stored under an older catalogue is not passed on blind.
