@@ -90,14 +90,13 @@ export class Crowd {
   /** Gives the nearest people their bodies and poses them for this moment. */
   update(nowMs: number, elapsedMs: number, viewerX: number, viewerZ: number, ground: Ground | null): void {
     const seconds = nowMs / 1000;
-    // The nearest few wear their whole body (three on the reference phone and at Normal, five at Alta: some
-    // 5.500 triangles each since the people were rebuilt, and one that casts a shadow is drawn twice, F-215).
-    // Everyone else the tier allows wears the light one, some 800 triangles and no shadow: 9, 18 or 30 people
-    // in all, which leaves the busiest view of L1 inside the triangle budget.
+    // The nearest few wear their whole body (two on the reference phone and at Normal, four at Alta: some 5.500
+    // triangles each since the people were rebuilt, and one that casts a shadow is drawn twice, F-215). Everyone
+    // else the tier allows wears the light one, some 800 triangles and no shadow: 9, 18 or 30 people in all.
     // And only those near enough for it to be seen (WHOLE_M): at Zango's crossroads four whole bodies stood up to
     // forty metres off, and with the rest of the street's people they were a third of a picture that was over the
-    // budget (F-288).
-    const few = Math.max(3, Math.round(this.renderer.tier.crowd / 6));
+    // budget (F-290).
+    const few = Math.max(2, Math.round(this.renderer.tier.crowd / 10));
     const most = Math.round(this.renderer.tier.crowd * 0.75);
     const near: { walker: Walker; at: ActorMoment; far: number }[] = [];
     for (const walker of this.walkers) {
