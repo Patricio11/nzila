@@ -3253,6 +3253,9 @@ test.describe("two phones in the same street", () => {
     await page.screenshot({ path: info.outputPath("zango-acordar.png") });
     await expect(page.locator(".n-arrival")).toContainText("Zango").catch(() => {});
     if (!(await request.get("/packs/casas/casas.json")).ok()) return;
+    // What is watched from here is Zango's page: being taken there cut off what the Marginal's page was fetching,
+    // and one browser's engine says so as errors of the page that was left.
+    seen.errors.length = 0;
 
     // The family's house (Phase 5, D-5.8): they wake inside it, on the esteira, the door shut.
     await page.waitForFunction(() => window.__dentro?.casa != null && window.__dentro.onde === "casa", undefined, { timeout: 30_000 });
@@ -3283,19 +3286,26 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
     await page.waitForTimeout(500);
     await page.screenshot({ path: info.outputPath("casa-porta-aberta.png") });
-    await walkTo(page, casa.door[0], casa.door[1] - inward * 3.3, 0.8, 160, turned);
+    // Far enough for the door to shut behind them, and no farther than every yard is sure to let them: each run is
+    // dealt another house, and each yard has its own things in it.
+    await walkTo(page, casa.door[0], casa.door[1] - inward * 3.6, 1.2, 160, turned);
     await page.waitForFunction(() => window.__dentro!.onde === null && window.__dentro!.porta === 0, undefined, { timeout: 10_000 });
     await expect(view).toHaveCount(0);
     // Seen from its yard: a house of the row with its door shut, and the sign over the roof that says which is theirs.
     // The thumb turns the view about, to look back at the house: half a turn, in three strokes across the screen.
     // (They walked out looking away from it, whichever way it faces.)
+    // High on the screen, clear of the buttons of every phone's layout (on the iPhone's, a stroke lower down began
+    // on a button and turned nothing: the full gate, 2026-11-22). Which way the keys go is then read, not assumed.
     for (let n = 0; n < 3; n++) {
-      await page.mouse.move(330, 420);
+      await page.mouse.move(300, 290);
       await page.mouse.down();
-      await page.mouse.move(155.5, 420, { steps: 6 });
+      await page.mouse.move(125.5, 290, { steps: 6 });
       await page.mouse.up();
     }
-    turned = !turned;
+    await page.waitForTimeout(200);
+    const was = turned;
+    turned = Math.cos((await page.evaluate(() => window.__dentro!.olhar))!) < 0;
+    expect(turned, "three strokes of the thumb turned the view half way round").toBe(!was);
     await page.keyboard.down("w");
     await page.waitForTimeout(150);
     await page.keyboard.up("w");
@@ -3323,6 +3333,8 @@ test.describe("two phones in the same street", () => {
     await page.waitForFunction(() => window.__dentro!.onde === "casa", undefined, { timeout: 10_000 });
     // Whoever goes to sleep at home wakes at home: the game opened again, they stand where they lay.
     const lay = await page.evaluate(() => ({ x: window.__andar!.x, z: window.__andar!.z }));
+    // Nothing went wrong on the page so far. (Asked here, before the game is opened again, for the same reason.)
+    expect(seen.errors).toEqual([]);
     await page.waitForTimeout(6000);
     await page.goto("/andar?pack=zango&tier=poupanca&hour=21");
     await page.waitForFunction(() => window.__andar?.linked === true && window.__dentro?.onde === "casa", undefined, { timeout: 60_000 });
@@ -3330,7 +3342,6 @@ test.describe("two phones in the same street", () => {
     expect(Math.hypot(back.x - lay.x, back.z - lay.z)).toBeLessThan(1.2);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: info.outputPath("casa-a-noite.png") });
-    expect(seen.errors).toEqual([]);
   });
 
   test("a tap on someone opens their BI with everything that can be done about them: talk, stop hearing, shut out, report", async ({ page, browser, request }, info) => {
