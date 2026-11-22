@@ -8,9 +8,9 @@ import { readFile } from "node:fs/promises";
 import { inflateRawSync } from "node:zlib";
 import { type Ground, type Obstacle } from "@nzila/sim";
 import { zoneRoomOf } from "@nzila/protocol";
-import { errandPlaces, decodeWalkGrid, groundOf, seatObstacles, tableObstacles, vanRoute, type CrowdActor, type CrowdFile, type RoamerPlan, type SeatPlace } from "@nzila/world";
+import { errandPlaces, decodeWalkGrid, groundOf, homeGround, homeRect, homeToWorld, seatObstacles, tableObstacles, vanRoute, type CrowdActor, type CrowdFile, type HomeKind, type HomeSite, type RoamerPlan, type SeatPlace } from "@nzila/world";
 import { type Route } from "@nzila/sim";
-import { type Place } from "./channel.ts";
+import { type Own, type Place } from "./channel.ts";
 import { type TablePlace } from "./mesas.ts";
 
 export interface District {
@@ -57,6 +57,12 @@ export interface District {
   readonly servicos?: readonly { readonly kind: string; readonly x: number; readonly z: number }[];
   /** Where biscatos are taken on the spot (Task 4.5): each place named `biscato-<kind>-<where>`, by its kind. Millimetres. */
   readonly biscatos?: readonly { readonly kind: string; readonly x: number; readonly z: number }[];
+  /**
+   * The houses families are given here (Phase 5, D-5.8), by their number: the house as its family walks it, under
+   * the family's own key (many families are given one house, and each has its own inside), and where they wake in
+   * it. Null for a number that is no house here. Absent when the pack has no houses, or the pack of homes is not built.
+   */
+  readonly homes?: (house: number, family: string) => { readonly own: Own; readonly wake: Place } | null;
 }
 
 /** What the zone reads of a pack's manifest. The rest is the phone's business. */
@@ -72,6 +78,7 @@ interface ManifestRead {
   readonly spawns: readonly { readonly id?: string; readonly pos: readonly [number, number, number]; readonly facing?: number; readonly kind: string }[];
   readonly gateways?: readonly { readonly id: string; readonly pos: readonly [number, number, number]; readonly to: string; readonly arrive: string }[];
   readonly campos?: readonly { readonly rect: readonly [number, number, number, number]; readonly goal: number }[];
+  readonly homes?: readonly HomeSite[];
   readonly tables?: readonly { readonly game: "xadrez" | "damas" | "ludo"; readonly pos: readonly [number, number, number]; readonly facing: number; readonly seats: readonly { readonly pos: readonly [number, number, number]; readonly facing: number }[] }[];
 }
 
@@ -146,7 +153,37 @@ export async function loadDistrict(packDir: URL): Promise<District> {
     const kind = /^biscato-([a-z]+)-/.exec(one.id)?.[1];
     return kind ? [{ kind, x: mm(one.pos[0]), z: mm(one.pos[2]) }] : [];
   });
-  return { id: manifest.id, provinceId: manifest.province, ground: groundOf(grids), obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, gateways, campos, servicos, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
+  const ground = groundOf(grids);
+  const homes = await homesOf(manifest, packDir, ground);
+  return { ...(homes ? { homes } : {}), id: manifest.id, provinceId: manifest.province, ground, obstacles: [...seatObstacles(manifest.seats ?? []), ...tableObstacles(manifest.tables ?? [])], arrival, paragens, caixas, shops, places, outings, gateways, campos, servicos, tables, benches, ...(hospital ? { hospital } : {}), ...(biscatos.length > 0 ? { biscatos } : {}), ...(await trafficOf(manifest, packDir)) };
+}
+
+/**
+ * The houses of the district as their families walk them. The kinds of house belong to the game, not to a district:
+ * served beside the districts' packs, as the vehicles are. Each house's ground is laid once, the first time someone
+ * of it comes in.
+ */
+async function homesOf(manifest: ManifestRead, packDir: URL, street: Ground): Promise<District["homes"]> {
+  const sites = manifest.homes ?? [];
+  const file = new URL("../casas/casas.json", packDir);
+  if (sites.length === 0 || !existsSync(file)) return undefined;
+  const kinds = new Map((JSON.parse(await readFile(file, "utf8")) as { kinds: HomeKind[] }).kinds.map((kind) => [kind.id, kind]));
+  const laid = new Map<number, { ground: Ground; rect: readonly [number, number, number, number]; wake: Place } | null>();
+  const mm = (metres: number): number => Math.round(metres * 1000);
+  return (house, family) => {
+    if (!laid.has(house)) {
+      const site = sites[house - 1];
+      const kind = site ? kinds.get(site.kind) : undefined;
+      if (site && kind) {
+        const [minX, minZ, maxX, maxZ] = homeRect(site, kind);
+        const [wx, wz] = homeToWorld(site, kind.wake);
+        // They wake looking at their door.
+        laid.set(house, { ground: homeGround(street, site, kind), rect: [mm(minX), mm(minZ), mm(maxX), mm(maxZ)], wake: { x: mm(wx), y: mm(site.pos[1] + kind.floor), z: mm(wz), yaw: site.facing * 100 } });
+      } else laid.set(house, null);
+    }
+    const one = laid.get(house);
+    return one ? { own: { ground: one.ground, rect: one.rect, key: family }, wake: one.wake } : null;
+  };
 }
 
 /** The district's traffic, read exactly as the phone reads it (apps/client/src/render/traffic.ts), so that both name the same vehicles the same way. */

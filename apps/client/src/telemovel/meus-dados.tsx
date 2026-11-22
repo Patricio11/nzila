@@ -10,6 +10,7 @@ import { Button, Toggle } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { changePassword } from "./conta.ts";
 import { type WorldProvider } from "../world/provider.ts";
+import "./telemovel.css";
 
 // Its words come with it, and with the BI that opens it (F-202).
 tr.extend(ptAOLater);

@@ -9,7 +9,7 @@
 
 import { isGreeting } from "@nzila/i18n";
 import { TrafficRules, actorAt, nearestPavement } from "@nzila/world";
-import { adultOf, eatOne, faceOf, keepChatLines, keepNeeds, needsOf, presenteEntre, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
+import { adultOf, eatOne, faceOf, familyHomeOf, keepChatLines, keepNeeds, needsOf, presenteEntre, recordPartida, keepWhereabouts, shutOutOf, standingAgainst, whereaboutsOf, type ChatLine } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_TUNABLES, type Tunables } from "@nzila/economy";
 import { BASE_BISCATOS, isBiscatoKind } from "@nzila/economy/biscatos";
 import { randomInt } from "node:crypto";
@@ -402,7 +402,10 @@ export class ChannelRoom {
       return true;
     }
     this.arriving++;
-    const [last, face, apart, against, needs, adult] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk || this.saidas ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId), adultOf(this.sql, playerId)]).finally(() => this.arriving--);
+    const [last, face, apart, against, needs, adult, given] = await Promise.all([this.remember ? this.lastPlace(playerId) : null, faceOf(this.sql, playerId), this.talk || this.saidas ? shutOutOf(this.sql, playerId) : [], this.talk ? standingAgainst(this.sql, [playerId]) : [], needsOf(this.sql, playerId), adultOf(this.sql, playerId), district.homes ? familyHomeOf(this.sql, playerId) : null]).finally(() => this.arriving--);
+    // The family's house, when it is in this bairro (Phase 5, D-5.8): open to them and to nobody else, its inside
+    // theirs alone. Someone who has never stood here wakes in it; someone who went to sleep in it wakes where they lay.
+    const home = given && given.districtId === district.id ? (district.homes?.(given.house, playerId) ?? null) : null;
     this.shut.set(playerId, new Set(apart));
     // Whether they are 18 or over is learned once, here (D-10.3, F-113): going out is for two adults.
     if (adult) this.adults.add(playerId);
@@ -410,13 +413,13 @@ export class ChannelRoom {
     // Silenced by a moderator before they came in: silent from their first word.
     if (against.some((one) => one.kind === "mute")) this.muted.add(playerId);
     else this.muted.delete(playerId);
-    let at: Place = last ?? district.arrival;
+    let at: Place = last ?? home?.wake ?? district.arrival;
     // Off a van at a paragem: the vans are each phone's own until the zone runs them (F-152), so the phone says
     // which paragem and the zone puts them beside it. It is believed that far and no farther: a paragem, never a place.
     const stop = paragem === undefined ? undefined : district.paragens.get(paragem);
     if (stop) at = stop;
     if (standing) at = standing;
-    const entityId = this.channel.join(playerId, at) ?? this.channel.join(playerId, district.arrival);
+    const entityId = this.channel.join(playerId, at, home?.own) ?? this.channel.join(playerId, district.arrival, home?.own);
     if (entityId === null) return false;
     // The look is sent as it would be accepted today: what was stored under an older catalogue is not passed on blind.
     // One who has not chosen yet is given a look of their own, from who they are: a street of newcomers is not one person many times.

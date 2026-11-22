@@ -2,6 +2,6 @@
   "provinces": [{"id": "ao-lua", "nameKey": "world.ao-lua.name", "open": true}],
   "districts": [
     {"id": "ao-lua/l1", "provinceId": "ao-lua", "nameKey": "world.ao-lua.l1.name", "open": true, "pack": "l1", "script": "make_l1.py"},
-    {"id": "ao-lua/zango", "provinceId": "ao-lua", "nameKey": "world.ao-lua.zango.name", "open": true, "pack": "zango", "wakes": ["aperto"], "script": "make_zango.py"}
+    {"id": "ao-lua/zango", "provinceId": "ao-lua", "nameKey": "world.ao-lua.zango.name", "open": true, "pack": "zango", "wakes": ["aperto"], "script": "make_zango.py", "homes": {"kind": "realojamento", "count": 116}}
   ]
 }

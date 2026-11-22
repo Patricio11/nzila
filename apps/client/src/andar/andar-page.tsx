@@ -316,7 +316,8 @@ export function Andar() {
     const before = { x: 0, y: 0, z: 0 };
     const stick = { x: 0, y: 0, originX: 0, originY: 0, active: false };
     const keys = new Set<string>();
-    const camera = { yaw: ((Number(params.get("cam")) || 0) * Math.PI) / 180, pitch: 0.2, distance: 4.4, held: 4.4 };
+    // `face`: the way the player's body is to be turned, once, by whoever knows better than the stick (waking at home, D-5.8).
+    const camera: { yaw: number; pitch: number; distance: number; held: number; face?: number | undefined } = { yaw: ((Number(params.get("cam")) || 0) * Math.PI) / 180, pitch: 0.2, distance: 4.4, held: 4.4 };
     let facing = 0;
     let phase = 0;
     let speed = 0;
@@ -808,7 +809,8 @@ export function Andar() {
           z = near.z;
         }
         const target = near ? near.facing : seat ? seat.facing : moving ? Math.atan2(ask.dx, ask.dz) : facing;
-        facing += Math.atan2(Math.sin(target - facing), Math.cos(target - facing)) * Math.min(1, elapsed / 90);
+        facing = camera.face ?? facing + Math.atan2(Math.sin(target - facing), Math.cos(target - facing)) * Math.min(1, elapsed / 90);
+        camera.face = undefined;
         if (sit > 0.001 && seat) {
           // Carried from where they stood to the seat as they sit down.
           const k = Math.min(1, sit * 1.4);
@@ -891,12 +893,12 @@ export function Andar() {
         // The seat the zone gave the player, or the player's own seat when walking alone.
         const mySeat = session?.myRide?.seat;
         const place = (mySeat !== undefined ? district.traffic?.seats[mySeat] : undefined) ?? district.traffic?.seats.find((s) => s.who === "jogador");
-        const insides = district.manifest.insides;
-        if (dentro.current === null && insides?.length) {
+        const bairro = district;
+        if (dentro.current === null && bairro.manifest.insides?.length) {
           dentro.current = 0;
-          void import("../dentro/dentro.tsx").then((module) => ((dentro.current = new module.Dentro(insides)), setDentroM(() => module)), () => {});
+          void import("../dentro/dentro.tsx").then((module) => ((dentro.current = new module.Dentro(bairro)), setDentroM(() => module)), () => {});
         }
-        if (dentro.current && dentro.current.camera(renderer, { x, y, z, yaw: camera.yaw, pitch: camera.pitch, sit, height: person.height, body: person.root }, Boolean(ride))) {
+        if (dentro.current && dentro.current.camera(renderer, { x, y, z, cam: camera, sit, height: person.height, body: person.root }, Boolean(ride))) {
           // Inside a place: seen as the player chose to see it (D-0.41).
         } else if (ride && van && place) {
           // From the seat: the eyes of someone sitting there, turned by the thumb.

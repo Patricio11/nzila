@@ -51,7 +51,10 @@ const port = 21_000 + (process.pid % 20_000);
 // A square of open ground 200 m across, with a wall along z = 30 m; a road across it from z = 50 to 55 m, and one up
 // from it at x = 50 to 55 m (Task 6.2: rides go by road).
 const onRoad = (cx: number, cz: number): boolean => (cz >= 100 && cz < 110) || (cx >= 100 && cx < 110 && cz > 60);
-const ground: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz === 60 || Math.abs(cx) > 200 || Math.abs(cz) > 200 ? 0 : onRoad(cx, cz) ? 3 : 1), heightAt: () => 0 };
+// And a house of five metres by five in a far corner (Phase 5, D-5.8): a wall to the street, open to its families.
+const inHouse = (cx: number, cz: number): boolean => cx >= -170 && cx < -160 && cz >= -170 && cz < -160;
+const ground: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz === 60 || Math.abs(cx) > 200 || Math.abs(cz) > 200 || inHouse(cx, cz) ? 0 : onRoad(cx, cz) ? 3 : 1), heightAt: () => 0 };
+const atHome: Ground = { cellMm: 500, flagsAt: (cx, cz) => (inHouse(cx, cz) ? 1 : ground.flagsAt(cx, cz)), heightAt: () => 0 };
 const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obstacles: [], paragens: new Map([
     ["mutamba", { x: 40_000, y: 0, z: -20_000, yaw: 0 }],
     // Three places along a line, for talk: together, ten metres off (seen to speak, not read), and thirty (out of hearing).
@@ -72,6 +75,8 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
     ["moto", { x: 20_000, y: 0, z: 57_000, yaw: 0 }],
     // Five metres west of the middle of a campo, where its ball lies.
     ["campo", { x: 73_000, y: 0, z: -83_000, yaw: 0 }],
+    // In the street before the house, a little to one side of its middle.
+    ["casa", { x: -81_000, y: 0, z: -78_000, yaw: 0 }],
     // And at the side of the same campo, out of the way of whoever goes for the ball.
     ["campo-lado", { x: 73_000, y: 0, z: -92_000, yaw: 0 }],
   ]), arrival: { x: 0, y: 0, z: 0, yaw: 9000 },
@@ -90,6 +95,8 @@ const district: District = { id: "ao-lua/l1", provinceId: "ao-lua", ground, obst
   // A way out to another bairro, at the paragem of the Mutamba (Task 11.2).
   // Two ways out at one paragem (a paragem may lead to more than one bairro), and one far from it.
   gateways: [{ id: "para-fora", x: 40_000, z: -20_000, to: "ao-lua/outro", arrive: "chegada" }, { id: "para-longe", x: 41_000, z: -20_000, to: "ao-lua/longe", arrive: "largo" }, { id: "para-la", x: -90_000, z: 90_000, to: "ao-lua/la", arrive: "ali" }],
+  // The one house families are given here: its inside is all of it but a hand's breadth of wall.
+  homes: (house, family) => (house === 1 ? { own: { ground: atHome, rect: [-84_800, -84_800, -80_200, -80_200], key: family }, wake: { x: -82_500, y: 0, z: -82_500, yaw: 0 } } : null),
   // A campo of forty metres by twenty-six, far from everything else, with its ball.
   campos: [{ x0: 58_000, z0: -96_000, x1: 98_000, z1: -70_000, goal: 2600 }] };
 // A town the database has never heard of: played in, and nobody's place in it is kept.
@@ -1457,4 +1464,43 @@ describe("a client that misbehaves", () => {
   test("and through all of it the zone had nothing to complain of", () => {
     expect(said).toEqual([]);
   });
+});
+
+describe("the family's house (Phase 5, D-5.8)", () => {
+  test("someone who has never stood in their bairro wakes in their family's house; a stranger meets a wall there; two families given the same house each have an inside of their own, and neither is seen from the street; whoever went to sleep at home wakes where they lay", async () => {
+    const [mae, vizinha, estranho] = [await player(), await player(), await player()];
+    await sql`INSERT INTO family_homes (player_id, district_id, house, kind) VALUES (${mae.id}, 'ao-lua/l1', 1, 'casa'), (${vizinha.id}, 'ao-lua/l1', 1, 'casa')`;
+    const a = await phone(mae.token);
+    const b = await phone(vizinha.token);
+    const [aId, bId] = [a.state.accepted!.entityId, b.state.accepted!.entityId];
+    // Both wake on the same spot of the same house, each in her own inside: neither is in the other's way, nor seen.
+    expect(a.me()).toMatchObject({ x: -82_500, z: -82_500 });
+    expect(b.me()).toMatchObject({ x: -82_500, z: -82_500 });
+    await pause(400);
+    expect(a.state.latest!.entities.map((one) => one.id)).toEqual([aId]);
+    expect(b.state.latest!.entities.map((one) => one.id)).toEqual([bId]);
+    // A stranger in the street before the house sees nobody in it, and walks into a wall.
+    const c = await phone(estranho.token, PROTOCOL_VERSION, "casa");
+    const cId = c.state.accepted!.entityId;
+    await c.walk(70, { dx: 0, dz: -127, run: false, brake: false });
+    await until(() => c.me().z < -79_000);
+    expect(c.me().z).toBeGreaterThan(-80_000);
+    expect(c.state.latest!.entities.map((one) => one.id)).toEqual([cId]);
+    // The first walks out at her door: in the street she and the stranger see each other, and the one still inside sees neither.
+    await a.walk(70);
+    await until(() => a.me().z > -79_800 && a.seen(cId) !== undefined && c.seen(aId) !== undefined);
+    expect(b.state.latest!.entities.map((one) => one.id)).toEqual([bId]);
+    // And back in: gone from the street.
+    await a.walk(70, { dx: 0, dz: -127, run: false, brake: false });
+    await until(() => a.me().z < -81_000 && c.seen(aId) === undefined && a.seen(cId) === undefined);
+    // She says goodnight inside, and wakes where she lay: not at the bairro's door, and not put out into the street.
+    const lay = { x: a.me().x, z: a.me().z };
+    await pause(5200);
+    await a.leave();
+    await pause(300);
+    const again = await phone(mae.token);
+    expect(Math.hypot(again.me().x - lay.x, again.me().z - lay.z)).toBeLessThan(600);
+    expect(again.me().z).toBeLessThan(-80_200);
+    await Promise.all([again.leave(), b.leave(), c.leave()]);
+  }, 30_000);
 });

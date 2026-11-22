@@ -254,6 +254,27 @@ export async function buildVehicles(workDir: string, outDir: string): Promise<{ 
   return { ...list, bytes };
 }
 
+/**
+ * Builds the pack of homes (Phase 5, D-5.8): the inside of each kind of house a family is given, each alone as one
+ * model, and what the zone and the phone read of them (casas.json: where the family walks, the doorway, the bed).
+ */
+export async function buildCasas(workDir: string, outDir: string): Promise<{ kinds: { id: string; triangles: number }[]; bytes: number }> {
+  await rm(workDir, { recursive: true, force: true });
+  const palette = await writePalette(join(root, "art"));
+  await blender(join(scripts, "make_casas.py"), [workDir, palette.json, palette.png]);
+  const list = JSON.parse(await readFile(join(workDir, "casas.json"), "utf8")) as { kinds: { id: string; model: string; triangles: number }[] };
+  await rm(outDir, { recursive: true, force: true });
+  await mkdir(outDir, { recursive: true });
+  let bytes = 0;
+  for (const kind of list.kinds) {
+    const model = await optimiseGlb(await readFile(join(workDir, kind.model)));
+    bytes += model.length;
+    await writeFile(join(outDir, kind.model), model);
+  }
+  await writeFile(join(outDir, "casas.json"), JSON.stringify(list));
+  return { ...list, bytes };
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const command = process.argv[2] ?? "";
   // The bairros that can be built: those the registry gives a pack and a script (11.1: nothing of them is written here).
@@ -276,6 +297,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         const people = await buildPeople(join(root, "dist", "dev-people"), join(root, "apps", "client", "public", "packs", "dev-people"));
         const vehicles = await buildVehicles(join(root, "dist", "dev-vehicles"), join(root, "apps", "client", "public", "packs", "dev-vehicles"));
         console.log(`pack dev: ${vehicles.vehicles.map((v) => `${v.name} ${v.triangles} triangles`).join(", ")}, ${(vehicles.bytes / 1024).toFixed(0)} KB together.`);
+        const casas = await buildCasas(join(root, "dist", "casas"), join(root, "apps", "client", "public", "packs", "casas"));
+        console.log(`pack dev: the insides of ${casas.kinds.map((k) => `${k.id} ${k.triangles} triangles`).join(", ")}, ${(casas.bytes / 1024).toFixed(1)} KB together.`);
         const wardrobe = await buildWardrobe(join(root, "dist", "dev-wardrobe"), join(root, "apps", "client", "public", "packs", "guarda-roupa"));
         console.log(`pack dev: a wardrobe of ${wardrobe.pieces} pieces, ${(wardrobe.bytes / 1024).toFixed(0)} KB on disk; a player fetches one body and one head of hair.`);
         console.log(`pack dev: ${people.people.length} people, about ${people.each} triangles each (${(people as { light?: number }).light ?? 0} in the light body), ${(people.bytes / 1024).toFixed(0)} KB together. Shown at /corpo.`);
@@ -286,6 +309,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         for (const problem of error.problems) console.error(`  - ${problem}`);
         process.exitCode = 1;
       }
+    }
+  } else if (command === "casas") {
+    // The insides of the homes alone: after a change to art/scripts/kit_casas.py.
+    if (!findBlender() || !findKtx()) console.warn("pack casas: SKIPPED, Blender or KTX-Software not installed. The homes were not built.");
+    else {
+      const casas = await buildCasas(join(root, "dist", "casas"), join(root, "apps", "client", "public", "packs", "casas"));
+      console.log(`pack casas: ${casas.kinds.map((k) => `${k.id} ${k.triangles} triangles`).join(", ")}, ${(casas.bytes / 1024).toFixed(1)} KB together. Served at /packs/casas/.`);
     }
   } else if (command === "bairros") {
     // Every bairro of the registry, one after another: what the full gate runs.
@@ -322,6 +352,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
             if (!/^(biscato|servico)-/.test(place.id) && Math.hypot(place.pos[0] - way.pos[0], place.pos[2] - way.pos[2]) < 4.5) across.push(`pois.${place.id}: stands within an errand's reach (4,5 m) of gateways.${way.id}; the gold button could offer only one of them`);
           }
         }
+        // The houses families are given (D-5.8): the API gives them by number from what the registry says the bairro
+        // has, so the pack must have that many, of that kind, and the pack of homes must know the kind.
+        const given = (registry as Registry).districts.find((one) => one.pack === command)?.homes;
+        const homes = manifest.homes ?? [];
+        if ((given?.count ?? 0) !== homes.length) across.push(`homes: the pack has ${homes.length} house(s) and content/registry.json gives ${given?.count ?? 0}`);
+        if (given && homes.some((one) => one.kind !== given.kind)) across.push(`homes: not every house is of the kind the registry gives ("${given.kind}")`);
+        const casas = await readFile(join(root, "apps", "client", "public", "packs", "casas", "casas.json"), "utf8").then((text) => JSON.parse(text) as { kinds: { id: string }[] }, () => null);
+        if (homes.length > 0 && !casas) console.warn(`pack ${command}: the pack of homes is not built here (pnpm pack:casas): the kinds of its houses were not checked.`);
+        else for (const kind of new Set(homes.map((one) => one.kind))) if (!casas!.kinds.some((one) => one.id === kind)) across.push(`homes: no home of the kind "${kind}" in the pack of homes`);
         if (across.length > 0) throw new PackError(across);
         const mb = (bytes: number): string => (bytes / 1_000_000).toFixed(2);
         const heaviest = Math.max(...manifest.chunks.map((chunk) => chunk.stats.near.tris));
@@ -350,7 +389,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       }
     }
   } else {
-    console.error(`usage: dev-pack.ts palette | dev | bairros | ${bairros.map((one) => one.pack).join(" | ")}`);
+    console.error(`usage: dev-pack.ts palette | dev | casas | bairros | ${bairros.map((one) => one.pack).join(" | ")}`);
     process.exitCode = 1;
   }
 }

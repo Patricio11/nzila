@@ -12,7 +12,6 @@ import { type AgeBand } from "@nzila/protocol";
 import { Button, Wordmark } from "@nzila/ui";
 import { useEffect, useState } from "preact/hooks";
 import { Guardar } from "../telemovel/guardar.tsx";
-import "../telemovel/telemovel.css";
 import { account, comeIn, ensureGuest, wasPutOut } from "../world/account.ts";
 import { LocalWorld } from "../world/provider.ts";
 import { AgeGate, turnedAway } from "./age.tsx";

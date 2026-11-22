@@ -349,6 +349,15 @@ export const viagens = pgTable("viagens", {
   at: at("at").notNull().defaultNow(),
 });
 
+/** The house a player's family gave them (D-3.13, D-5.8): one a player; many families to a house, each with its own inside. */
+export const familyHomes = pgTable("family_homes", {
+  playerId: uuid("player_id").primaryKey(),
+  districtId: text("district_id").notNull(),
+  house: integer("house").notNull(),
+  kind: text("kind").notNull(),
+  givenAt: at("given_at").notNull().defaultNow(),
+});
+
 export const staffRoles = pgTable(
   "staff_roles",
   {
@@ -445,6 +454,7 @@ export const tables = {
   mensagens,
   presentes,
   viagens,
+  familyHomes,
   staffRoles,
   auditLog,
   featureFlags,

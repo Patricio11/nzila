@@ -1,0 +1,16 @@
+/* Keeping a BI and coming back into an account: the form at the door, and the same form in the Telemóvel. The only
+   part of the Telemóvel's styles that every new player needs before they have a phone to take out (F-287). Tokens only. */
+.tm-hint, .tm-note { margin: 0; font: var(--type-small); color: var(--n-luz-suave); }
+.tm-keys { display: flex; justify-content: center; gap: var(--s-3); }
+.tm-name-label { font: var(--type-label); color: var(--n-luz); }
+.tm-name-input { box-sizing: border-box; width: 100%; min-height: var(--target); padding: 0 var(--s-3); border: 0; border-radius: var(--r-paper); background: var(--n-papel); color: var(--n-tinta); font: var(--type-title); box-shadow: inset 0 0 0 2px var(--n-luz-fundo), 0 4px 0 var(--n-luz-fundo); }
+.tm-name-input:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 2px; }
+.tm-data-title { margin: 0; font: var(--type-title); color: var(--n-luz); }
+.tm-data-end { min-height: var(--target); padding: 0; border: 0; background: none; cursor: pointer; color: var(--n-luz-suave); font: var(--type-label); text-decoration: underline; text-underline-offset: 4px; }
+.tm-data-end:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 3px; }
+.tm-save { width: min(100%, 340px); margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-2); }
+.tm-save-code { letter-spacing: 0.35em; text-align: center; font: var(--type-number-l); }
+.tm-save-said { margin: 0; min-height: 2.7em; font: var(--type-small); color: var(--n-dourado-claro); }
+.frontdoor .tm-save { text-align: left; }
+.tm-save-small { font: var(--type-label); font-size: 17px; }
+.tm-save .n-choice { margin-bottom: var(--s-2); }

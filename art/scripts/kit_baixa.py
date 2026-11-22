@@ -1209,7 +1209,7 @@ def igreja_de_bairro(b, x, z, rng, ground=0.14):
 # walks in through the door; the street is seen through the windows; whoever is inside is seen by whoever is
 # inside. The walk grid takes the walls from what is built (kit.block_solids): nothing is marked by hand.
 
-def sala(b, x, z, front, width, depth, height=2.7, ground=0.0, wall="paintWhite", floor="concrete", door=0.0, windows=(), sides=(), back=(), roof="roofZinc", ridge=None):
+def sala(b, x, z, front, width, depth, height=2.7, ground=0.0, wall="paintWhite", floor="concrete", door=0.0, windows=(), sides=(), back=(), roof="roofZinc", ridge=None, only_side=0, door_wide=1.2):
     """
     The shell of a place that is gone into: a floor, four walls 30 cm thick with a doorway in the front one and
     window openings where asked, and a roof. Square to the world: `front` is +1 when the door looks to +Z, -1 to -Z.
@@ -1217,9 +1217,10 @@ def sala(b, x, z, front, width, depth, height=2.7, ground=0.0, wall="paintWhite"
     walls fall on the walk grid's cells.
 
     `door`: where the doorway is along the front wall, from its middle. `windows`: the same for windows in the
-    front wall; `sides`: along each side wall, from its middle; `back`: along the back wall. `roof`: its sheet.
-    `ridge`: None for one slope, higher at the front; a height for two slopes from a ridge that runs front to back
-    (a church, a hall).
+    front wall; `sides`: along each side wall, from its middle (`only_side`: 1 or -1 for the wall on that side of X
+    alone); `back`: along the back wall. `roof`: its sheet, or None for walls and a floor with nothing over them
+    (the inside of a house whose roof is drawn with its outside). `ridge`: None for one slope, higher at the
+    front; a height for two slopes from a ridge that runs front to back (a church, a hall).
 
     Returns what the pack says of it (`insides` in the manifest): the rectangle one is inside of, the middle of
     the doorway, the way the door looks, and the height of the walls (for the view from above, with the roof off).
@@ -1246,13 +1247,15 @@ def sala(b, x, z, front, width, depth, height=2.7, ground=0.0, wall="paintWhite"
         piece(at, a1, 0.0, height, fixed, along_x)
 
     window = lambda centre: (centre, 1.2, 0.95, 2.05)  # noqa: E731
-    run(x - hx, x + hx, z + f * (hz - T / 2), True, [(x + door, 1.2, 0.0, 2.1)] + [window(x + w) for w in windows])
+    run(x - hx, x + hx, z + f * (hz - T / 2), True, [(x + door, door_wide, 0.0, 2.1)] + [window(x + w) for w in windows])
     run(x - hx, x + hx, z - f * (hz - T / 2), True, [window(x + w) for w in back])
     for side in (-1, 1):
-        run(z - hz, z + hz, x + side * (hx - T / 2), False, [window(z + w) for w in sides])
+        run(z - hz, z + hz, x + side * (hx - T / 2), False, [window(z + w) for w in sides] if only_side in (0, side) else [])
     # The roof, seen from under it too: it is the ceiling.
     over = 0.45
-    if ridge is None:
+    if roof is None:
+        pass
+    elif ridge is None:
         hi, lo = height + 0.55, height + 0.05
         zf, zb = z + f * (hz + over), z - f * (hz + over)
         b.face([(x - hx - 0.3, ground + hi, zf), (x + hx + 0.3, ground + hi, zf), (x + hx + 0.3, ground + lo, zb), (x - hx - 0.3, ground + lo, zb)], roof, toward=(0.0, 1.0, 0.0), two_sided=True)

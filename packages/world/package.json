@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./estrada": "./src/estrada.ts",
-    "./lugares": "./src/lugares.ts"
+    "./lugares": "./src/lugares.ts",
+    "./casas": "./src/casas.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

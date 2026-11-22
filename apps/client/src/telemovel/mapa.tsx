@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { type DistrictMap, type MapLine, type WorldProvider } from "../world/provider.ts";
 import type { Ir, Marked } from "./telemovel.tsx";
 import { ptAOLater } from "@nzila/i18n/later";
+import "./telemovel.css";
 
 // The words of this app came with it (F-195).
 tr.extend(ptAOLater);
@@ -19,7 +20,7 @@ interface Place {
   readonly z: number;
   readonly name: string;
   readonly line: string | null;
-  readonly kind: "paragem" | "ponto";
+  readonly kind: "paragem" | "ponto" | "casa";
 }
 
 const css = (colour: readonly [number, number, number]): string => `#${colour.map((part) => part.toString(16).padStart(2, "0")).join("")}`;
@@ -52,8 +53,16 @@ export function Mapa({ world, marked, onMark, ir }: { world: WorldProvider; mark
   const [drawn, setDrawn] = useState<{ map: DistrictMap | null; lines: MapLine[] } | null>(null);
   const [chosen, setChosen] = useState<Place | null>(null);
   const manifest = world.district();
+  // The house the player's family gave them, when it is in this bairro (D-5.8): one of many that are the same, so
+  // the Mapa says which, and the way home can be marked as any place can.
+  const [house, setHouse] = useState(0);
+  useEffect(() => {
+    void askAsPlayer<{ home: { districtId: string; house: number } | null }>("GET", "/v1/me/casa").then(({ answer }) => setHouse(answer?.home && answer.home.districtId === manifest?.id ? answer.home.house : 0));
+  }, []);
+  const home = manifest?.homes?.[house - 1];
   const places: Place[] = manifest
     ? [
+        ...(home ? [{ x: home.pos[0], z: home.pos[2], name: tr.t("map.casa"), line: tr.t("map.casa.linha", { n: house }), kind: "casa" as const }] : []),
         // A paragem the candongueiro leaves another bairro from says where to (F-273).
         ...manifest.paragens.map((p) => {
           const ways = manifest.gateways.filter((g) => g.nameKey && Math.hypot(g.pos[0] - p.pos[0], g.pos[2] - p.pos[2]) < 7).map((g) => world.word(`${g.nameKey}.a`));
@@ -127,7 +136,7 @@ export function Mapa({ world, marked, onMark, ir }: { world: WorldProvider; mark
         pen.stroke();
       }
       pen.setLineDash([]);
-      for (const place of places) dot(place.x, place.z, place.kind === "paragem" ? 9 : 6.5, css(place.kind === "paragem" ? WORLD.vanBlue : WORLD.adBoard), css(WORLD.vanWhite));
+      for (const place of places) dot(place.x, place.z, place.kind === "ponto" ? 6.5 : 9, css(place.kind === "paragem" ? WORLD.vanBlue : place.kind === "casa" ? WORLD.flagYellow : WORLD.adBoard), css(place.kind === "casa" ? WORLD.flagBlack : WORLD.vanWhite));
       for (const van of world.vans()) dot(van.x, van.z, 5, css(WORLD.vanWhite), css(WORLD.vanBlue));
       if (marked) {
         // The place the compass points to: a ring round it, so that what is there is still seen.
@@ -165,7 +174,7 @@ export function Mapa({ world, marked, onMark, ir }: { world: WorldProvider; mark
     paint();
     const timer = window.setInterval(paint, 500);
     return () => window.clearInterval(timer);
-  }, [drawn, marked]);
+  }, [drawn, marked, house]);
 
   /** A touch on the map chooses the nearest place within reach of a thumb. */
   const choose = (event: MouseEvent): void => {
@@ -197,6 +206,11 @@ export function Mapa({ world, marked, onMark, ir }: { world: WorldProvider; mark
         {world.channel() !== null ? (
           <Key word={tr.t("map.gente")}>
             <circle cx="9" cy="8" r="5" fill={css(WORLD.flagRed)} stroke={css(WORLD.vanWhite)} stroke-width="2" />
+          </Key>
+        ) : null}
+        {home ? (
+          <Key word={tr.t("map.casa")}>
+            <circle cx="9" cy="8" r="5.5" fill={css(WORLD.flagYellow)} stroke={css(WORLD.flagBlack)} stroke-width="2" />
           </Key>
         ) : null}
         <Key word={tr.t("map.paragens")}>

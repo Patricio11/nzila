@@ -175,6 +175,8 @@ b.level = kit.BOTH
 tables = []
 houses = 0
 shops = 0
+# The houses families are given, in the order of their numbers (Phase 5, D-5.8).
+homes = []
 
 
 def plot(px, pz, face_north, on_corner=False, paint=kit.REALOJAMENTO[0]):
@@ -182,10 +184,11 @@ def plot(px, pz, face_north, on_corner=False, paint=kit.REALOJAMENTO[0]):
     global houses, shops
     sign = -1.0 if face_north else 1.0  # the way to the street, along Z
     yaw = math.pi if face_north else 0.0
-    house_z = pz - sign * 3.2
+    # On the half metre: a house a family is given stands on the walk grid's lines.
+    house_x, house_z = round((px - 1.5) * 2) / 2, round((pz - sign * 3.2) * 2) / 2
     shop = on_corner and rng.random() < 0.5
     # The house the State delivered, the same down the row and in the row's paint; what follows is the owner's.
-    kit.casa_de_realojamento(b, px - 1.5, house_z, yaw, rng, ground=0.0, paint=paint, shop=shop)
+    homes.append(kit.casa_de_realojamento(b, house_x, house_z, yaw, rng, ground=0.0, paint=paint, shop=shop))
     houses += 1
     shops += 1 if shop else 0
     grown = rng.random()
@@ -206,7 +209,9 @@ def plot(px, pz, face_north, on_corner=False, paint=kit.REALOJAMENTO[0]):
     if rng.random() < 0.8:
         kit.muro(b, px + PLOT / 2, pz - PLOT / 2 + 0.3, px + PLOT / 2, pz + PLOT / 2 - 0.3, wall, height=rng.choice([1.7, 1.4]))
     if rng.random() < 0.75:
-        kit.quintal(b, px + rng.uniform(-3.0, 1.0), pz + sign * rng.uniform(1.6, 4.2), rng, 0.0)
+        # The yard's things stand towards the street, clear of the veranda: a family walks from its gate to its door
+        # (the build refuses a house that cannot be walked home to).
+        kit.quintal(b, px + rng.uniform(-3.0, 1.0), pz + sign * (4.1 + (rng.uniform(1.6, 4.2) - 1.6) * 0.42), rng, 0.0)
     if rng.random() < 0.3:
         kit.tree(b, px - 5.0 + rng.uniform(-1.0, 1.0), pz + sign * rng.uniform(2.0, 5.0), rng, 0.0, shade="sandDark", mix=("mangueira", "acacia", "mangueira"), paved=False)
 
@@ -447,7 +452,9 @@ for lo, hi in STREETS:
         if rng.random() < 0.8:
             tx, tz = lo - 2.5, zh + 2.6
             block(tx, tz, kit.tree(b, tx, tz, rng, 0.0, shade="sandDark", mix=("mangueira", "acacia"), paved=False))
-block(60.0, 110.0, kit.imbondeiro(b, 60.0, 110.0, random.Random(5), 0.0, shade="sandDark"))
+# In the yard of the house it was left to, clear of its door and its veranda (it stood through the veranda's step,
+# and the family could not have walked home: F-286).
+block(64.5, 113.0, kit.imbondeiro(b, 64.5, 113.0, random.Random(5), 0.0, shade="sandDark"))
 # Shade in the heart of the bairro: mangueiras and acácias where people stop, each with something under it.
 for tx, tz in [(116.0, 132.0), (180.0, 146.0), (228.0, 131.0), (114.5, 108.0), (228.5, 96.0), (150.0, 112.5), (97.0, 131.0), (247.0, 114.0), (60.0, 131.0), (281.0, 131.0)]:
     block(tx, tz, kit.tree(b, tx, tz, rng, 0.0, shade="sandDark", mix=("mangueira", "acacia", "mangueira"), paved=False))
@@ -479,6 +486,25 @@ _blocked = kit.block_solids(b, CELL, _flag_at, _height_at, _block_cell)
 _blocked_faces = kit.block_built(b, CELL, _flag_at, _height_at, _block_cell)
 with open(os.path.join(out_dir, "solids.txt"), "w", encoding="utf-8") as _handle:
     _handle.write(f"{_blocked} cells blocked by what was built on them, of {len(b.solids)} boxes; {_blocked_faces} more by the {len(b.built)} faces themselves")
+# A family must be able to walk home (Phase 5, D-5.8): the ground before every house's door (beyond the two cells
+# at the doorway, which are the family's own) is open, and is reached from where people arrive.
+_reached = kit.reached(_flag_at, ((MID[0] + MID[1]) / 2, 104.0), CELL)
+_walled = []
+for _n, _home in enumerate(homes):
+    _turn = -1.0 if _home["facing"] == 180 else 1.0
+    if any(_home["pos"][k] % CELL for k in (0, 2)):
+        raise SystemExit(f"nzila: house {_n + 1} does not stand on the walk grid's lines: {_home['pos']}")
+    if not any((math.floor((_home["pos"][0] + _lx) / CELL), math.floor((_home["pos"][2] + _turn * 3.75) / CELL)) in _reached for _lx in (-0.25, 0.25)):
+        _walled.append(_n + 1)
+if _walled and os.environ.get("NZILA_SHOW"):
+    for _n in _walled:
+        _home = homes[_n - 1]
+        _hx, _hz = _home["pos"][0], _home["pos"][2]
+        print(f"house {_n} at {_hx}, {_hz} facing {_home['facing']}")
+        for _iz in range(math.floor((_hz - 11) / CELL), math.floor((_hz + 11) / CELL)):
+            print("".join(("o" if (_ix, _iz) in _reached else (_flag_at(_ix, _iz) or " ")) for _ix in range(math.floor((_hx - 9) / CELL), math.floor((_hx + 12) / CELL))))
+if _walled:
+    raise SystemExit(f"nzila: {len(_walled)} house(s) cannot be walked home to from where people arrive: {_walled}")
 stray = sorted({chunk for (chunk, level) in b.groups if not (0 <= chunk[0] < ACROSS and 0 <= chunk[1] < DOWN)})
 if stray:
     raise SystemExit(f"nzila: something was built outside the district, in chunk(s) {stray}")
@@ -644,6 +670,7 @@ partial = {
     "seats": [{"id": f"seat-{n + 1}", "pos": [round(sx, 2), round(sy, 2), round(sz, 2)], "facing": round(math.degrees(yaw) % 360, 1)} for n, (sx, sy, sz, yaw) in enumerate(b.seats)],
     "tables": [{"id": f"mesa-{n + 1}", "game": t["game"], "pos": [round(v, 3) for v in t["pos"]], "facing": round(math.degrees(t["facing"]) % 360, 1), "size": t["size"], "seats": [{"pos": [round(sx, 3), round(sy, 3), round(sz, 3)], "facing": round(math.degrees(yaw) % 360, 1)} for sx, sy, sz, yaw in t["seats"]]} for n, t in enumerate(tables)],
     "insides": insides,
+    "homes": homes,
     "campos": [{"id": "campo", "rect": [CAMPO[0] - CW / 2, CAMPO[1] - CD / 2, CAMPO[0] + CW / 2, CAMPO[1] + CD / 2], "goal": 2.6}],
     "water": [],
     "strings": "strings.pt-AO.json",

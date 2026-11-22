@@ -12,3 +12,4 @@ export * from "./crowd-plan.ts";
 export * from "./traffic-rules.ts";
 export * from "./estrada.ts";
 export * from "./lugares.ts";
+export * from "./casas.ts";

@@ -674,6 +674,8 @@ export const ptAOLater = {
   "viagem.onde": "Para onde vais?",
   "map.sai": "Daqui sai o candongueiro {a}.",
   "map.sai.e": " e ",
+  "map.casa": "A tua casa",
+  "map.casa.linha": "A casa número {n}, que a tua família te deu. É aqui que acordas.",
   "viagem.ir": "Ir {a}",
   "viagem.ficar": "Ficar",
   "viagem.caminho": "A sair {a}.",
@@ -690,6 +692,7 @@ export const ptAOLater = {
   "dentro.vista.cima": "Vista: de cima",
   "dentro.vista.olhos": "Vista: pelos teus olhos",
   "dentro.olhos.senta": "Senta-te para veres pelos teus olhos.",
+  "dentro.casa": "A casa da tua família",
   // The match (D-11.11): amarelos and vermelhos, the first to three.
   "campo.lado.1": "Jogas pelos amarelos. Defende a baliza amarela.",
   "campo.lado.2": "Jogas pelos vermelhos. Defende a baliza vermelha.",

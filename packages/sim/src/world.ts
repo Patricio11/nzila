@@ -80,12 +80,19 @@ export interface StepRules {
    * The zone says yes. Left out, people pass through each other, as the first worlds did.
    */
   readonly solidPeople?: boolean;
+  /**
+   * The ground that is one person's alone, when they have one: a home of their own laid over the street (Phase 5),
+   * open to them where it is a wall to everyone else. The map's ground when this gives none.
+   */
+  readonly groundOf?: (id: number) => Ground | undefined;
+  /** Whether two people are in places that share the same ground and are not the same place (each in a home of their own): they are not solid to each other. */
+  readonly apart?: (a: number, b: number) => boolean;
 }
 
 /** What one person cannot walk into: what is given, and, when the rules say so, everyone else where they stand now. */
 function solidFor(world: SimWorld, person: SimWorld["characters"][number], solid: Obstacle[], rules: StepRules): Obstacle[] {
   return rules.solidPeople
-    ? solid.concat(world.characters.filter((other) => other !== person).map((other): Obstacle => ({ kind: "circle", x: other.state.x, z: other.state.z, radiusMm: PERSON_BODY_MM })))
+    ? solid.concat(world.characters.filter((other) => other !== person && !rules.apart?.(person.id, other.id)).map((other): Obstacle => ({ kind: "circle", x: other.state.x, z: other.state.z, radiusMm: PERSON_BODY_MM })))
     : solid;
 }
 
@@ -98,7 +105,7 @@ export function stepPerson(world: SimWorld, map: SimMap, id: number, move: MoveI
   const person = world.characters.find((one) => one.id === id);
   if (!person) return;
   const solid = map.obstacles.concat(world.vehicles.map((vehicle) => vehicleObstacle(vehicle.state, VEHICLES[vehicle.kind])));
-  stepCharacter(person.state, move, map.ground, solidFor(world, person, solid, rules), character);
+  stepCharacter(person.state, move, rules.groundOf?.(id) ?? map.ground, solidFor(world, person, solid, rules), character);
 }
 
 /**
@@ -125,7 +132,7 @@ export function stepWorld(
   }
   const solid = map.obstacles.concat(bodies);
   for (const person of world.characters) {
-    stepCharacter(person.state, inputs.moves?.get(person.id) ?? NO_MOVE, map.ground, solidFor(world, person, solid, rules), character);
+    stepCharacter(person.state, inputs.moves?.get(person.id) ?? NO_MOVE, rules.groundOf?.(person.id) ?? map.ground, solidFor(world, person, solid, rules), character);
   }
 }
 

@@ -1,0 +1,80 @@
+# The insides of the houses a family is given (Phase 5, D-5.8). A house stands in its bairro as a house that is
+# shut (kit.casa_de_realojamento and those to come); its inside is drawn here once, at the origin with its door
+# looking to +Z, and the game sets it in whichever house of that kind the player's family was given. Every house of
+# a kind has the same rooms: what makes one somebody's is what they put in it (5.3).
+#
+# Each returns what the pack of homes says of the kind (casas.json): see packages/world/src/casas.ts.
+
+import kit
+import kit_baixa as kb
+from kit import FULL
+
+CELL = 0.5
+
+
+def _walked(b, half_x, half_z, floor, door):
+    """
+    Where the family walks, from what was built: the cells of the house and one more all round it, "." walked, "#" a
+    wall, "-" as the street has it. The cells before the doorway are the family's whatever the street says of them
+    (the street has the whole house shut, and what stands against its front wall with it).
+    """
+    nx, nz = int(half_x / CELL) + 1, int(half_z / CELL) + 1
+    rows = [["." if -nx < ix < nx - 1 and -nz < iz < nz - 1 else "-" for ix in range(-nx, nx)] for iz in range(-nz, nz)]
+
+    def flag_at(ix, iz):
+        return rows[iz + nz][ix + nx] if -nx <= ix < nx and -nz <= iz < nz else None
+
+    def block(ix, iz):
+        rows[iz + nz][ix + nx] = "#"
+
+    kit.block_solids(b, CELL, flag_at, lambda ix, iz: floor, block, walked=".")
+    kit.block_built(b, CELL, flag_at, lambda ix, iz: floor, block, walked=".")
+    for ix in (int(door // CELL) - 1, int(door // CELL)):
+        if rows[nz - 2 + nz][ix + nx] != ".":
+            raise SystemExit(f"nzila: the doorway of a home is shut at cell {ix}")
+        rows[nz - 1 + nz][ix + nx] = "."
+    return {"cellMm": int(CELL * 1000), "cellX0": -nx, "cellZ0": -nz, "rows": ["".join(row) for row in rows]}
+
+
+def interior_de_realojamento(b):
+    """
+    Inside the house of a resettlement bairro (kit.casa_de_realojamento: eight metres by six): one room as the
+    State delivered it, bare: a cement floor level with the veranda's step, white walls, the door between two
+    windows, one window in the side wall on the right hand, and the zinc of the roof overhead (the roof is the
+    house's own, drawn with its outside). The family gives it empty (D-3.13): there is an esteira on the floor to
+    wake on, and nothing else.
+    """
+    width, depth, height, floor = 8.0, 6.0, 2.6, kit.DOOR_SILL
+    # A hair inside the house's own walls, so that the two are never drawn in the same place.
+    w, d = width - 0.04, depth - 0.04
+    b.level = FULL
+    # The walls go up past the top of the outside ones, to just under the roof where it is lowest.
+    inside = kb.sala(b, 0.0, 0.0, 1, w, d, height=2.76, ground=floor, wall="paintWhite", floor="concrete", door=0.0, windows=(-2.45, 2.45), sides=(0.0,), only_side=1, roof=None)
+    # What closes the gap between the top of the long walls and the roof's slopes, seen from inside only.
+    zi = d / 2 - 0.3
+    for z, top, toward in ((zi, 3.10, -1.0), (-zi, 3.02, 1.0)):
+        b.face([(-w / 2, floor + 2.76, z), (w / 2, floor + 2.76, z), (w / 2, top, z), (-w / 2, top, z)], "paintWhite", toward=(0.0, 0.0, toward))
+    # The esteira: woven palm, along the wall on the left hand of the door. Whoever wakes stands up beside it, in the
+    # middle of the room's depth: the camera has the room behind them to stand in, and before them their door.
+    wake = (-3.0, 0.2)
+    b.soft = True
+    b.box((wake[0], floor + 0.05, wake[1]), (0.9, 0.02, 1.9), "mucua", skip_bottom=True)
+    for k in range(5):
+        b.box((wake[0], floor + 0.062, wake[1] - 0.8 + k * 0.4), (0.9, 0.004, 0.05), "khaki", skip_bottom=True)
+    b.soft = False
+    return {
+        "id": "realojamento",
+        "model": "realojamento.glb",
+        **_walked(b, width / 2, depth / 2, floor, 0.0),
+        "rect": inside["rect"],
+        "height": height,
+        "floor": floor,
+        "door": [0.0, depth / 2],
+        # The door the game hangs: its hinge on the left hand of someone going in, the leaf's size, and the step it stands on.
+        "leaf": {"hinge": [-kit.DOOR_WIDE / 2, depth / 2], "wide": kit.DOOR_WIDE, "high": kit.DOOR_HIGH, "sill": kit.DOOR_SILL},
+        "wake": [round(wake[0] + 1.0, 2), wake[1]],
+    }
+
+
+# Every kind of home there is, by its name in a bairro's `homes`.
+KINDS = {"realojamento": interior_de_realojamento}

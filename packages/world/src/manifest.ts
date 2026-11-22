@@ -153,6 +153,13 @@ export const manifestSchema = z.strictObject({
    * its walls (the view from above takes the roof off there).
    */
   insides: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), door: z.tuple([z.number(), z.number()]), front: z.union([z.literal(1), z.literal(-1)]), height: z.number().positive() })).optional(),
+  /**
+   * The houses a family may be given here (Phase 5, D-5.8), in the order of their numbers (the first is house 1):
+   * the middle of the house and the height of its floor, the way its door looks (0 to +Z, 180 to -Z), which kind
+   * of house of the pack of homes it is, whether it was built as its mirror image, and the paint of its door (a
+   * colour of the palette). Each stands in the street as a house that is shut; its inside is its family's.
+   */
+  homes: z.array(z.strictObject({ pos, facing: z.union([z.literal(0), z.literal(180)]), kind: id, flip: z.boolean().optional(), door: z.string().min(1) })).optional(),
   /** Sheets of water: the bay, a lagoon. [minX, minZ, maxX, maxZ] in metres, and the height of the surface. */
   // `shore`: how far each metre of it is from land, as a small greyscale picture the pack builder makes (built, not written).
   water: z.array(z.strictObject({ id, rect: z.tuple([z.number(), z.number(), z.number(), z.number()]), level: z.number(), shore: z.string().optional() })),
@@ -183,8 +190,12 @@ export type TierBytes = z.infer<typeof tierBytes>;
 export const registrySchema = z.strictObject({
   provinces: z.array(z.strictObject({ id: provinceIdSchema, nameKey: key, open: z.boolean() })),
   // `pack`: the folder its built pack is served from. `wakes`: the tiers of family that wake there (D-11.1).
-  // `script`: the file of art/scripts that draws it (`pnpm pack:bairro <pack>`).
-  districts: z.array(z.strictObject({ id: districtIdSchema, provinceId: provinceIdSchema, nameKey: key, open: z.boolean(), pack: id.optional(), wakes: z.array(id).optional(), script: z.string().regex(/^make_[a-z0-9_-]+\.py$/).optional() })),
+  // `script`: the file of art/scripts that draws it (`pnpm pack:bairro <pack>`). `homes`: the houses a family may
+  // be given there (D-5.8): how many its pack has, and of which kind of the pack of homes; the pack's build refuses
+  // a bairro that does not have that many.
+  districts: z.array(
+    z.strictObject({ id: districtIdSchema, provinceId: provinceIdSchema, nameKey: key, open: z.boolean(), pack: id.optional(), wakes: z.array(id).optional(), script: z.string().regex(/^make_[a-z0-9_-]+\.py$/).optional(), homes: z.strictObject({ kind: id, count: z.number().int().min(1) }).optional() }),
+  ),
 });
 export type Registry = z.infer<typeof registrySchema>;
 

@@ -731,6 +731,19 @@ def block_built(b, cell, flag_at, height_at, set_flag, walked=".=", knee=0.3, he
     return blocked
 
 
+def reached(flag_at, start, cell, walked="._="):
+    """Every cell of a walk grid that can be walked to from a point (x, z), as a set of (ix, iz): to check that a door, a place or a way out is not walled in."""
+    first = (math.floor(start[0] / cell), math.floor(start[1] / cell))
+    seen, edge = {first}, [first]
+    while edge:
+        ix, iz = edge.pop()
+        for nx, nz in ((ix + 1, iz), (ix - 1, iz), (ix, iz + 1), (ix, iz - 1)):
+            if (nx, nz) not in seen and (flag_at(nx, nz) or "#") in walked:
+                seen.add((nx, nz))
+                edge.append((nx, nz))
+    return seen
+
+
 def block_solids(b, cell, flag_at, height_at, set_flag, walked="._=^", knee=0.5, head=1.5):
     """
     Marks on a walk grid everything that was built and stands in a person's way.
@@ -1051,6 +1064,12 @@ def casa(b, x, z, yaw, rng, kind="bloco", width=8.0, depth=6.0, ground=0.0, shop
     return max(width, depth) / 2
 
 
+# The doorway of a house a family is given, and the door the game hangs in it: metres. The step it stands on is the
+# veranda's, and the floor inside is level with it.
+DOOR_WIDE, DOOR_HIGH, DOOR_SILL = 1.0, 2.1, 0.16
+# The paints a front door comes in. The game hangs the doors, and is told where these are in the palette (make_casas.py).
+DOOR_PAINTS = ["zincBlue", "wood", "metal", "zincRed", "awningTeal"]
+
 # The paint a street of resettlement houses was delivered in: pale, the skirt a shade deeper. One pair to a row.
 REALOJAMENTO = [("wall0", "wall3"), ("wall4", "paintWhite"), ("wall1", "wall3"), ("paintMint", "paintWhite"), ("wall3", "paintWhite"), ("wall2", "wall3")]
 
@@ -1063,6 +1082,12 @@ def casa_de_realojamento(b, x, z, yaw, rng, ground=0.0, paint=("wall0", "wall3")
     pale paint the row was delivered in (`paint`: the skirt, the wall). What makes each one somebody's is what
     the owner did since: the skirt painted over in a colour of their own, a water tank on its stand, blocks
     stacked for the room to come, a dish, pots on the veranda. `shop`: one window is a hatch with its awning.
+
+    It is a house a family is given (Phase 5, D-5.8): **its front wall has a real doorway in it and no door is
+    drawn here**. The game hangs the door, shut for everyone and swung for its family, and draws the inside for
+    whoever is let in (`kit_casas.interior_de_realojamento`, the same inside for every house of this kind). To
+    the street the whole house is solid: it is marked so on the walk grid, doorway and all. Keep the house on the
+    half metre (the walk grid's lines). Returns what the pack says of it (`homes` in the manifest).
     """
     b.at(x, z)
     height = 2.6
@@ -1080,8 +1105,17 @@ def casa_de_realojamento(b, x, z, yaw, rng, ground=0.0, paint=("wall0", "wall3")
     ridge, eave_f, eave_b, ex = height + 1.15, depth / 2 + 1.3, -depth / 2 - 0.35, width / 2 + 0.3
 
     b.level = BOTH
-    b.box(at(0.0, height / 2, 0.0), (width, height, depth), high, yaw=yaw, top="tarShade")
-    b.box(at(0.0, 0.45, 0.0), (width + 0.05, 0.9, depth + 0.05), low, yaw=yaw, top=low)
+    up = (0.0, 1.0, 0.0)
+    # The walls, and the skirt a hand's breadth proud of them: each a face, the front one in pieces round the doorway
+    # (DOOR_WIDE by DOOR_HIGH, standing on the veranda's step). Solid to the street all the same.
+    b.solids.append((x, z, width / 2, depth / 2, yaw, ground, ground + height))
+    for out, top, colour in ((0.0, height, high), (0.025, 0.9, low)):
+        w, d = width + out * 2, depth + out * 2
+        b.rect(at(0.0, top / 2, -d / 2), _mul(right, -1.0), up, w, top, colour)
+        for side in (-1, 1):
+            b.rect(at(side * w / 2, top / 2, 0.0), _mul(front, -side), up, d, top, colour)
+            b.rect(at(side * (w / 4 + DOOR_WIDE / 4), top / 2, d / 2), right, up, w / 2 - DOOR_WIDE / 2, top, colour)
+    b.rect(at(0.0, (DOOR_SILL + DOOR_HIGH + height) / 2, depth / 2), right, up, DOOR_WIDE, height - DOOR_SILL - DOOR_HIGH, high)
     # The roof: two slopes from a ridge along the street; the front one reaches out over the veranda.
     b.face([at(-ex, ridge, 0.0), at(ex, ridge, 0.0), at(ex, height + 0.12, eave_f), at(-ex, height + 0.12, eave_f)], roof, toward=(0.0, 1.0, 0.0), two_sided=True)
     b.face([at(-ex, ridge, 0.0), at(ex, ridge, 0.0), at(ex, height + 0.25, eave_b), at(-ex, height + 0.25, eave_b)], roof, toward=(0.0, 1.0, 0.0), two_sided=True)
@@ -1095,8 +1129,7 @@ def casa_de_realojamento(b, x, z, yaw, rng, ground=0.0, paint=("wall0", "wall3")
     for side in (-1, 1):
         b.box(at(side * (width / 2 - 0.15), (height + 0.3) / 2, depth / 2 + 1.05), (0.18, height + 0.3, 0.18), high, yaw=yaw)
     # The door, and a framed window either side of it.
-    door = rng.choice(["zincBlue", "wood", "metal", "zincRed", "awningTeal"])
-    b.rect(at(0.0, 1.21, depth / 2 + 0.035), right, (0.0, 1.0, 0.0), 0.95, 2.1, door)
+    door = rng.choice(DOOR_PAINTS)
     for side in (-1, 1):
         wx = side * 2.45
         if shop and side == 1:
@@ -1107,7 +1140,10 @@ def casa_de_realojamento(b, x, z, yaw, rng, ground=0.0, paint=("wall0", "wall3")
             b.rect(at(wx, 1.6, depth / 2 + 0.03), right, (0.0, 1.0, 0.0), 1.24, 1.24, "paintWhite")
             b.rect(at(wx, 1.6, depth / 2 + 0.045), right, (0.0, 1.0, 0.0), 1.0, 1.0, "windowLit" if rng.random() < 0.45 else "window")
     side_x = rng.choice([-1, 1])
-    b.rect(at(side_x * (width / 2 + 0.035), 1.6, rng.uniform(-1.0, 1.0)), _mul(front, -side_x), (0.0, 1.0, 0.0), 0.9, 0.9, "window")
+    # The side window is in the middle of its wall, where the inside has its opening (the dice are still thrown:
+    # everything after this in the bairro was drawn with them).
+    rng.uniform(-1.0, 1.0)
+    b.rect(at(side_x * (width / 2 + 0.035), 1.6, 0.0), _mul(front, -side_x), (0.0, 1.0, 0.0), 0.9, 0.9, "window")
     # The water tank on its stand of block, at the side of one house in three: seen from the end of the street.
     if rng.random() < 0.34:
         tx = -side_x * (width / 2 + 0.85)
@@ -1133,7 +1169,8 @@ def casa_de_realojamento(b, x, z, yaw, rng, ground=0.0, paint=("wall0", "wall3")
         centre = _add(foot, (0.0, 0.6, 0.0))
         b.face([_add(centre, _add(_mul(side, math.cos(a) * 0.4), _mul(up, math.sin(a) * 0.4))) for a in [2 * math.pi * k / 7 for k in range(7)]], "paintWhite", two_sided=True)
     b.level = BOTH
-    return max(width, depth) / 2
+    # The inside is drawn with its side window on its right hand: a house whose window is on the other is its mirror image.
+    return {"pos": [round(x, 3), round(ground, 3), round(z, 3)], "facing": 180 if abs(math.sin(yaw / 2)) > 0.5 else 0, "kind": "realojamento", "flip": side_x < 0, "door": door}
 
 
 def muro(b, x0, z0, x1, z1, colour, height=1.7, thick=0.2):

@@ -13,6 +13,7 @@ import { checkEmail, checkPassword } from "@nzila/protocol";
 import { Button, Choice } from "@nzila/ui";
 import { useState } from "preact/hooks";
 import { forgotPassword, linkEmail, linkPhone, mailVerifyCode, phoneOffered, register, resetPassword, sendCode, signInEmail, signInPhone, verifyEmail } from "../world/account.ts";
+import "./guardar.css";
 
 type Said = "badphone" | "slow" | "wrong" | "none" | "offline" | "bademail" | "short" | "long" | "obvious" | "wronglogin" | "taken" | "registered" | "mailed" | "verified" | null;
 type Way = "phone" | "email";

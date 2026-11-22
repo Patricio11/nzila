@@ -6,7 +6,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import { type Keyring } from "@nzila/db";
 import { MAX_TRANSFER, accountId, sink } from "@nzila/economy";
 import { BASE_BISCATOS, BISCATO_KINDS, isBiscatoKind, taperPercent } from "@nzila/economy/biscatos";
-import { adultOf, loadWorldSeed, recordViagem, viagensHoje, whereaboutsOf, bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, lastPresente, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
+import { adultOf, familyHomeOf, giveFamilyHome, loadWorldSeed, recordViagem, viagensHoje, whereaboutsOf, bankedOn, buy, cardDays, doneInDistrict, doneOn, fillCard, giveGift, giveThings, heldBy, lastPresente, markDone, newcomersAmong, receiptsOf, samePhone, take } from "@nzila/db";
 import { BASE_CATALOGUE, BASE_RECADOS, BASE_SHOPS, apagaoOn, dayOf, payFor, placeOf, priceBasket, recadosFor, stampsOf, unitsCarried, weekOf } from "@nzila/economy";
 import { biscatosPaidToday, payBiscato, payHospital } from "@nzila/db";
 import { calarKamba, conversa, escrever, kambasDe, MENSAGEM_MAX_CHARS, novidades, pedidosPara, pedirKamba, responderKamba, separar, entreNos, type Escrito } from "@nzila/db";
@@ -449,17 +449,47 @@ export function buildApp(deps: Deps): FastifyInstance {
   // in; before they have stood anywhere, in the one their family's card wakes them in: families of little money
   // in the bairro that takes them, everyone else in the first.
   const world = deps.world ? Promise.resolve(deps.world) : loadWorldSeed();
+  /** The bairro a player's family wakes them in: families of little money in the one that takes them, everyone else in the first. Null while no bairro is built. */
+  const wakesIn = async (tier: string | undefined) => {
+    const districts = (await world).districts.filter((one) => one.pack);
+    return districts.find((one) => tier !== undefined && one.wakes?.includes(tier)) ?? districts[0] ?? null;
+  };
   const bairroOf = async (playerId: string): Promise<{ districtId: string; pack: string } | null> => {
     const districts = (await world).districts.filter((one) => one.pack);
-    const first = districts[0];
-    if (!first) return null;
     const known = (id: string | undefined): (typeof districts)[number] | undefined => districts.find((one) => one.id === id);
     const standing = known((await presence.standing(playerId))?.districtId) ?? known((await whereaboutsOf(deps.sql, playerId))?.districtId);
     if (standing) return { districtId: standing.id, pack: standing.pack! };
-    const tier = (await originOfPlayer(deps.sql, origins, playerId))?.tier;
-    const wakes = districts.find((one) => tier !== undefined && one.wakes?.includes(tier)) ?? first;
-    return { districtId: wakes.id, pack: wakes.pack! };
+    const wakes = await wakesIn((await originOfPlayer(deps.sql, origins, playerId))?.tier);
+    return wakes ? { districtId: wakes.id, pack: wakes.pack! } : null;
   };
+
+  // ------------------------------------------------------------ the family's house (Phase 5; D-3.13, D-5.8)
+  // With the card of origin comes a house, in the bairro the card wakes the player in, when that bairro has houses
+  // to give (the registry says how many). It is given the first time it is asked for, and it is never lost (D-5.2).
+  // Which house: the one with the fewest families. The zone reads it and opens that house to them alone.
+  const homeOf = async (playerId: string): Promise<{ districtId: string; pack: string; house: number; kind: string } | null> => {
+    const packOf = async (districtId: string): Promise<string | undefined> => (await world).districts.find((one) => one.id === districtId)?.pack;
+    const held = await familyHomeOf(deps.sql, playerId);
+    if (held) {
+      const pack = await packOf(held.districtId);
+      return pack ? { districtId: held.districtId, pack, house: held.house, kind: held.kind } : null;
+    }
+    // Nobody has a family before their card is dealt.
+    const card = await originOfPlayer(deps.sql, origins, playerId);
+    const wakes = card ? await wakesIn(card.tier) : null;
+    if (!wakes?.homes) return null;
+    const given = await giveFamilyHome(deps.sql, playerId, { districtId: wakes.id, houses: wakes.homes.count, kind: wakes.homes.kind }, roll);
+    return { districtId: given.districtId, pack: wakes.pack!, house: given.house, kind: given.kind };
+  };
+
+  declare(app, gate, {
+    method: "GET",
+    url: "/v1/me/casa",
+    guard: "player",
+    body: nothing,
+    perMinute: 30,
+    handler: async (_body, caller) => ({ home: await homeOf(caller.player.id) }),
+  });
 
   // Where the player is, for the phone to open the right bairro and nothing else first (megabytes are money).
   declare(app, gate, {
@@ -568,6 +598,8 @@ export function buildApp(deps: Deps): FastifyInstance {
         // Not a refusal: an answer. The phone goes there, and nothing is logged as having gone wrong.
         return { elsewhere: here.pack };
       }
+      // The family's house is theirs before they stand in the street: the zone reads it as they come in.
+      await homeOf(caller.player.id);
       const room = zoneRoomOf(body.districtId);
       const zones = await presence.zones();
       if (!zones.some((zone) => zone.rooms.some((one) => one.name === room))) throw new Refusal(503, "no_zone");

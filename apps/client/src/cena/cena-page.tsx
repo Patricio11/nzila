@@ -65,6 +65,8 @@ export function Cena() {
     const still = params.has("still");
     let boxes: TestScene | null = null;
     let district: DistrictScene | null = null;
+    // The doors of the houses families are given (D-5.8): hung by the game, not drawn in the pack, so hung here too.
+    let doors: { frame(cena: WorldRenderer, x: number, z: number): void } | null = null;
     let closed = false;
     const numbers = (name: string): number[] | undefined => params.get(name)?.split(",").map(Number);
     const asked = numbers("at");
@@ -78,6 +80,7 @@ export function Cena() {
         (opened) => {
           if (closed) opened.close();
           else district = opened;
+          if (opened.manifest.homes?.length) void import("../dentro/dentro.tsx").then((module) => (doors = new module.Casas(opened, () => {})), () => {});
           // `&transito=3` holds the traffic at that second of its timetable (3: a van stands at each line's first paragem).
           if (params.has("transito")) opened.trafficAt = Number(params.get("transito")) * 1000;
           window.__cenaMoment = (second) => void (opened.trafficAt = second * 1000);
@@ -108,6 +111,7 @@ export function Cena() {
         else if (still) district.postcard();
         else district.stroll(now / 1000);
         district.update();
+        doors?.frame(renderer, 0, 0);
       }
       renderer.render(elapsed);
       const measured = renderer.counts();

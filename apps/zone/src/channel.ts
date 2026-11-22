@@ -51,8 +51,26 @@ export interface Place {
   readonly yaw: number;
 }
 
+/**
+ * A place that is one family's alone (a home, Phase 5, D-5.8): its ground, laid over the street's for them and for
+ * nobody else (to the street the house is a wall); the rectangle that is its inside, in millimetres [minX, minZ,
+ * maxX, maxZ]; and whose it is. Two people are in the same room only when they are inside under the same key:
+ * many families are given the same house of a bairro, and each has its own inside.
+ */
+export interface Own {
+  readonly ground: Ground;
+  readonly rect: readonly [number, number, number, number];
+  readonly key: string;
+}
+
+const insideOf = (own: Own | null, x: number, z: number): string | null => (own && x > own.rect[0] && x < own.rect[2] && z > own.rect[1] && z < own.rect[3] ? own.key : null);
+
 interface Seat {
   readonly playerId: string;
+  /** The place that is theirs, when they have one here. */
+  readonly own: Own | null;
+  /** The key of the place they are inside of now; null in the street. */
+  within: string | null;
   /** The stick frames that have arrived and not yet been used, oldest first, each with its number. */
   readonly waiting: { seq: number; frame: InputFrame }[];
   /** The number of the newest frame that was used, which the client is told so that it can replay the later ones. */
@@ -91,6 +109,10 @@ export class Channel {
   private readonly obstacles: Obstacle[];
   private readonly seats = new Map<number, Seat>();
   private nextId = 1;
+  /** How many here have a place of their own: with none, nothing of it is asked at each step. */
+  private owners = 0;
+  /** Whether anyone is inside a place of their own now. */
+  private indoors = false;
 
   constructor(ground: Ground, obstacles: readonly Obstacle[] = [], seed = 1) {
     this.ground = ground;
@@ -103,18 +125,24 @@ export class Channel {
     return this.seats.size;
   }
 
-  /** Whether a body could stand at a point: on ground a person may be on, and not on top of anyone. */
-  private free(x: number, z: number): boolean {
-    const cell = this.ground.flagsAt(Math.floor(x / this.ground.cellMm), Math.floor(z / this.ground.cellMm));
+  /**
+   * Whether a body could stand at a point: on ground a person may be on (their own, when they have a place of their
+   * own), and not on top of anyone who is in the same place as they would be.
+   */
+  private free(x: number, z: number, own: Own | null = null): boolean {
+    const ground = own?.ground ?? this.ground;
+    const cell = ground.flagsAt(Math.floor(x / ground.cellMm), Math.floor(z / ground.cellMm));
     if ((cell & 1) === 0) return false;
-    return !this.world.characters.some((other) => Math.hypot(other.state.x - x, other.state.z - z) < DEFAULT_CHARACTER.radiusMm * 2);
+    const within = insideOf(own, x, z);
+    return !this.world.characters.some((other) => this.seats.get(other.id)!.within === within && Math.hypot(other.state.x - x, other.state.z - z) < DEFAULT_CHARACTER.radiusMm * 2);
   }
 
   /**
    * Someone comes into the channel, at the place asked for or as near it as there is room. Returns
-   * the number they are known by here, or null when there is no room anywhere round that place.
+   * the number they are known by here, or null when there is no room anywhere round that place. `own`: the place
+   * that is theirs here (the family's house), which they may be standing in.
    */
-  join(playerId: string, at: Place): number | null {
+  join(playerId: string, at: Place, own: Own | null = null): number | null {
     for (let n = 0; n <= ARRIVAL_RINGS; n++) {
       const ring = n * ARRIVAL_RING_MM;
       const round = n === 0 ? 1 : Math.floor((2 * Math.PI * ring) / ARRIVAL_APART_MM);
@@ -125,11 +153,13 @@ export class Channel {
         const angle = Math.PI / 2 + (k / round) * Math.PI * 2;
         const x = Math.round(at.x + Math.sin(angle) * ring);
         const z = Math.round(at.z + Math.cos(angle) * ring);
-        if (!this.free(x, z)) continue;
+        if (!this.free(x, z, own)) continue;
         const id = this.nextId++;
-        const y = this.ground.heightAt(Math.floor(x / this.ground.cellMm), Math.floor(z / this.ground.cellMm));
+        const y = (own?.ground ?? this.ground).heightAt(Math.floor(x / this.ground.cellMm), Math.floor(z / this.ground.cellMm));
         addCharacter(this.world, id, { x, y, z, yaw: ((at.yaw % 36_000) + 36_000) % 36_000 });
-        this.seats.set(id, { playerId, waiting: [], lastInputSeq: 0, newestSeq: 0, owed: 0, running: false, ackTick: 0, sent: new Map(), seen: [], wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle, fast: 0, jumps: 0, wasAir: false, jumpAsked: false, tired: false });
+        if (own) this.owners++;
+        this.indoors ||= insideOf(own, x, z) !== null;
+        this.seats.set(id, { playerId, own, within: insideOf(own, x, z), waiting: [], lastInputSeq: 0, newestSeq: 0, owed: 0, running: false, ackTick: 0, sent: new Map(), seen: [], wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle, fast: 0, jumps: 0, wasAir: false, jumpAsked: false, tired: false });
         return id;
       }
     }
@@ -144,6 +174,7 @@ export class Channel {
     const body = this.world.characters.find((one) => one.id === id);
     if (!seat || !body) return null;
     this.seats.delete(id);
+    if (seat.own) this.owners--;
     removeEntity(this.world, id);
     return { playerId: seat.playerId, at: { x: body.state.x, y: body.state.y, z: body.state.z, yaw: body.state.yaw } };
   }
@@ -250,7 +281,8 @@ export class Channel {
         this.riding.delete(id);
         this.sitting.delete(id);
         const seat = this.seats.get(id)!;
-        Object.assign(seat, { wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle });
+        // Set down in the street: out of any place of their own.
+        Object.assign(seat, { wasX: x, wasZ: z, stoodFor: STOOD_STEPS, anim: DOING.idle, within: null });
         seat.waiting.length = 0;
         return true;
       }
@@ -305,7 +337,9 @@ export class Channel {
   /** One step of the world: a twentieth of a second. */
   tick(): void {
     const map = { ground: this.ground, obstacles: this.obstacles };
-    const rules = { solidPeople: true };
+    // A place of one's own is walked by its own ground, and two who are not in the same place are not in each
+    // other's way (two families of one house, each in their own inside).
+    const rules = this.owners > 0 ? { solidPeople: true, groundOf: (id: number) => this.seats.get(id)?.own?.ground, apart: (a: number, b: number) => this.seats.get(a)!.within !== this.seats.get(b)!.within } : { solidPeople: true };
     const moves = new Map<number, MoveInput>();
     const late: { id: number; move: MoveInput }[] = [];
     for (const [id, seat] of this.seats) {
@@ -339,8 +373,11 @@ export class Channel {
     stepWorld(this.world, map, { moves }, DEFAULT_CHARACTER, rules);
     // Frames that arrived late, walked with the time their owners had not used.
     for (const one of late) stepPerson(this.world, map, one.id, one.move, DEFAULT_CHARACTER, rules);
+    this.indoors = false;
     for (const body of this.world.characters) {
       const seat = this.seats.get(body.id)!;
+      seat.within = insideOf(seat.own, body.state.x, body.state.z);
+      this.indoors ||= seat.within !== null;
       if (this.riding.has(body.id)) {
         seat.anim = DOING.sit;
         continue;
@@ -370,6 +407,11 @@ export class Channel {
     return this.seats.get(id)?.seen ?? [];
   }
 
+  /** The key of the place of their own that someone is inside of; null in the street, and for a number nobody has. */
+  withinOf(id: number): string | null {
+    return this.seats.get(id)?.within ?? null;
+  }
+
   /** Everyone in the channel, as a client is told of them. */
   entities(): EntityState[] {
     return this.world.characters.map((body): EntityState => ({ id: body.id, kind: "player", x: body.state.x, y: body.state.y, z: body.state.z, yaw: body.state.yaw, anim: this.seats.get(body.id)!.anim, vehicleId: this.riding.get(body.id)?.vehicle ?? null, seat: this.riding.get(body.id)?.seat ?? null }));
@@ -382,7 +424,9 @@ export class Channel {
   snapshotFor(id: number, all: readonly EntityState[] = this.entities()): Uint8Array | null {
     const seat = this.seats.get(id);
     if (!seat) return null;
-    const snapshot: Snapshot = { tick: this.world.tick, lastInputSeq: seat.lastInputSeq, entities: selectVisible(all, id, SIGHT_MM, SEEN_AT_MOST) };
+    // A home is its family's: whoever is inside one sees who is inside with them, and the street sees the street.
+    const together = this.indoors ? all.filter((one) => this.seats.get(one.id)?.within === seat.within) : all;
+    const snapshot: Snapshot = { tick: this.world.tick, lastInputSeq: seat.lastInputSeq, entities: selectVisible(together, id, SIGHT_MM, SEEN_AT_MOST) };
     seat.seen = snapshot.entities.map((entity) => entity.id);
     const bytes = encodeSnapshot(snapshot, seat.sent.get(seat.ackTick) ?? null);
     seat.sent.set(snapshot.tick, snapshot);

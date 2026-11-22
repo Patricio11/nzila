@@ -213,4 +213,25 @@ describe("one more step for one person", () => {
     for (let n = 0; n < 120; n++) stepPerson(road, open, 1, north);
     expect(road.characters[0]!.state.z).toBeLessThan(4000);
   });
+
+  test("a ground of one's own (a home, Phase 5): open to its person where the street's is a wall, and two who are apart are not in each other's way", () => {
+    // The street ends in a wall at z = 2 m; one person's own ground goes on through it.
+    const walled: SimMap = { ground: { cellMm: 500, flagsAt: (_cx, cz) => (cz < 4 ? CELL_WALK : 0), heightAt: () => 0 }, obstacles: [] };
+    const rules = { solidPeople: true, groundOf: (id: number) => (id === 1 ? open.ground : undefined), apart: (a: number, b: number) => a === 1 || b === 1 };
+    const world = createWorld(1);
+    addCharacter(world, 1, { x: 0, y: 0, z: 0, yaw: 0 });
+    addCharacter(world, 2, { x: 3000, y: 0, z: 0, yaw: 0 });
+    // Someone stands in the first one's way, apart from them: walked through.
+    addCharacter(world, 3, { x: 0, y: 0, z: 1200, yaw: 0 });
+    const moves = new Map([[1, north], [2, north]]);
+    for (let n = 0; n < 80; n++) stepWorld(world, walled, { moves }, undefined, rules);
+    expect(world.characters[0]!.state.z).toBeGreaterThan(4000);
+    expect(world.characters[1]!.state.z).toBeLessThan(2000);
+    // A frame walked late keeps the same rules.
+    const before = world.characters[0]!.state.z;
+    stepPerson(world, walled, 1, north, undefined, rules);
+    expect(world.characters[0]!.state.z).toBeGreaterThan(before);
+    stepPerson(world, walled, 2, north, undefined, rules);
+    expect(world.characters[1]!.state.z).toBeLessThan(2000);
+  });
 });

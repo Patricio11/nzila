@@ -397,3 +397,70 @@ describe("what a client is told", () => {
     expect(channel.snapshotFor(a)!.length).toBeLessThan(12);
   });
 });
+
+describe("a place of one's own (the family's house, Phase 5)", () => {
+  // A row of houses stands from z = 10 m to z = 16,5 m, a wall to the street. One of them is two metres wide and
+  // open to its families from its front wall to its back one.
+  const street: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cz >= 20 && cz <= 32 ? 0 : ground.flagsAt(cx, cz)), heightAt: () => 0 };
+  const inside: Ground = { cellMm: 500, flagsAt: (cx, cz) => (cx >= -2 && cx < 2 && cz >= 20 && cz < 32 ? 1 : street.flagsAt(cx, cz)), heightAt: () => 0 };
+  const house = (key: string) => ({ ground: inside, rect: [-1000, 10_500, 1000, 16_000] as const, key });
+  const seenBy = (channel: Channel, id: number): number[] => (channel.snapshotFor(id), [...channel.seenBy(id)].sort((a, b) => a - b));
+
+  test("its family walks in where the street meets a wall; inside they see only who is inside with them, and the street does not see in", () => {
+    const channel = new Channel(street);
+    const mae = channel.join("mae", { x: -500, y: 0, z: 8000, yaw: 0 }, house("familia-1"))!;
+    const filho = channel.join("filho", { x: 500, y: 0, z: 8000, yaw: 0 }, house("familia-1"))!;
+    const vizinho = channel.join("vizinho", { x: 0, y: 0, z: 6000, yaw: 0 }, house("familia-2"))!;
+    const estranho = channel.join("estranho", { x: 3000, y: 0, z: 8000, yaw: 0 })!;
+    // In the street everyone sees everyone.
+    expect(seenBy(channel, estranho)).toEqual([mae, filho, vizinho, estranho]);
+    expect(channel.withinOf(mae)).toBeNull();
+    for (let seq = 1; seq <= 90; seq++) {
+      for (const id of [mae, filho, estranho]) channel.input(id, { seq, ackTick: 0, frames: [north] });
+      channel.tick();
+    }
+    // The family is in; the stranger stands at the wall.
+    expect(channel.placeOf(mae)!.z).toBeGreaterThan(11_000);
+    expect(channel.placeOf(filho)!.z).toBeGreaterThan(11_000);
+    expect(channel.placeOf(estranho)!.z).toBeLessThan(10_000);
+    expect(channel.withinOf(mae)).toBe("familia-1");
+    expect(channel.withinOf(estranho)).toBeNull();
+    expect(seenBy(channel, mae)).toEqual([mae, filho]);
+    expect(seenBy(channel, estranho)).toEqual([vizinho, estranho]);
+    // Another family of the same house walks into the same walls and is in a room of their own: nobody is in their
+    // way, though the first family stands where they walk, and neither sees the other.
+    for (let seq = 1; seq <= 110; seq++) {
+      channel.input(vizinho, { seq, ackTick: 0, frames: [north] });
+      channel.tick();
+    }
+    expect(channel.placeOf(vizinho)!.z).toBeGreaterThan(12_000);
+    expect(channel.withinOf(vizinho)).toBe("familia-2");
+    expect(seenBy(channel, vizinho)).toEqual([vizinho]);
+    expect(seenBy(channel, mae)).toEqual([mae, filho]);
+    expect(channel.withinOf(999)).toBeNull();
+  });
+
+  test("someone who went to sleep at home wakes there, even where another family of the same house stands; set down in the street, they are in the street", () => {
+    const channel = new Channel(street);
+    const bed = { x: 0, y: 0, z: 12_000, yaw: 0 };
+    const first = channel.join("first", bed, house("a"))!;
+    const second = channel.join("second", bed, house("b"))!;
+    expect(channel.placeOf(first)).toMatchObject({ x: 0, z: 12_000 });
+    expect(channel.placeOf(second)).toMatchObject({ x: 0, z: 12_000 });
+    expect(channel.withinOf(second)).toBe("b");
+    // Someone of the first family arrives at the same bed: beside who is there, still inside.
+    const third = channel.join("third", bed, house("a"))!;
+    expect(channel.placeOf(third)).not.toMatchObject({ x: 0, z: 12_000 });
+    expect(channel.withinOf(third)).toBe("a");
+    // With no house of their own here, the same place is a wall: they are put where there is ground, outside.
+    const stranger = channel.join("stranger", bed)!;
+    expect(channel.placeOf(stranger)!.z).toBeLessThan(10_000);
+    // Taken to the hospital from their bed: in the street at once, and seen there.
+    expect(channel.put(first, here)).toBe(true);
+    expect(channel.withinOf(first)).toBeNull();
+    channel.leave(third);
+    channel.leave(second);
+    channel.tick();
+    expect(seenBy(channel, stranger)).toEqual([first, stranger]);
+  });
+});

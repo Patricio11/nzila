@@ -1218,6 +1218,49 @@ describe("two bairros (Task 11.2, D-11.1 and D-11.2)", () => {
     await presence.retire("zona-bairros");
   });
 
+  test("the family's house (Phase 5; D-3.13, D-5.8): given with the card in the bairro the card wakes them in, once, the emptiest house first; never where no houses are built; in the player's data, and gone with the account", async () => {
+    // A bairro of three houses, so that a fourth family must share one.
+    const world = {
+      provinces: [{ id: "ao-lua", nameKey: "world.ao-lua.name", open: true }],
+      districts: [
+        { id: "ao-lua/l1", provinceId: "ao-lua", nameKey: "world.ao-lua.l1.name", open: true, pack: "l1" },
+        { id: "ao-lua/zango", provinceId: "ao-lua", nameKey: "world.ao-lua.zango.name", open: true, pack: "zango", wakes: ["aperto"], homes: { kind: "realojamento", count: 3 } },
+      ],
+    };
+    const street = (roll: number) => buildApp({ guests: true, sql, pepper, keyring, mailer, limiter: { allow: () => true }, presence, world, roll: () => roll });
+    const homeOf = async (token: string, roll: number) => ((await street(roll).inject({ method: "GET", url: "/v1/me/casa", headers: as(token) })).json() as { home: { districtId: string; pack: string; house: number; kind: string } | null }).home;
+    // Houses given by other tests to this bairro are not these three: the count begins clean.
+    await sql`DELETE FROM family_homes WHERE district_id = 'ao-lua/zango'`;
+    const poor = [];
+    for (let n = 0; n < 5; n++) {
+      const one = await newGuest(1520 + n);
+      // Nobody has a family before their card is dealt, so nobody has a house.
+      if (n === 0) expect(await homeOf(one.token, 0)).toBeNull();
+      expect(((await dealing(0).inject({ method: "POST", url: "/v1/me/origin", headers: as(one.token), payload: {} })).json() as { origin: { tier: string } }).origin.tier).toBe("aperto");
+      poor.push(one);
+    }
+    // The first is given the first of the empty houses the dice point at; asked again, whatever the dice, the same one.
+    expect(await homeOf(poor[0]!.token, 0)).toEqual({ districtId: "ao-lua/zango", pack: "zango", house: 1, kind: "realojamento" });
+    expect(await homeOf(poor[0]!.token, 0.99)).toMatchObject({ house: 1 });
+    // The next are given houses nobody has yet, and the fourth shares: no house has two families while one has none.
+    expect(await homeOf(poor[1]!.token, 0)).toMatchObject({ house: 2 });
+    expect(await homeOf(poor[2]!.token, 0.99)).toMatchObject({ house: 3 });
+    expect(await homeOf(poor[3]!.token, 0.5)).toMatchObject({ house: 2 });
+    // Coming into the street gives it too: the zone reads it as they come in.
+    await presence.announce({ id: "zona-casas", address: "ws://zona-casas", rooms: [{ name: "ao-lua.zango", channels: [] }] });
+    expect((await street(0).inject({ method: "POST", url: "/v1/play/join", headers: as(poor[4]!.token), payload: { districtId: "ao-lua/zango" } })).json()).toMatchObject({ room: "ao-lua.zango" });
+    expect((await sql`SELECT house FROM family_homes WHERE player_id = ${poor[4]!.playerId}`).map((row) => ({ ...row }))).toEqual([{ house: 1 }]);
+    await presence.retire("zona-casas");
+    // A family that wakes where no houses are built has none yet.
+    const rich = await newGuest(1530);
+    await dealing(0.9999).inject({ method: "POST", url: "/v1/me/origin", headers: as(rich.token), payload: {} });
+    expect(await homeOf(rich.token, 0)).toBeNull();
+    // It is theirs: in what the game holds of them, and gone when they go.
+    expect(((await street(0).inject({ method: "GET", url: "/v1/me/data", headers: as(poor[1]!.token) })).json() as { home: unknown }).home).toEqual({ districtId: "ao-lua/zango", house: 2, kind: "realojamento" });
+    expect((await street(0).inject({ method: "DELETE", url: "/v1/me", headers: as(poor[1]!.token), payload: { biNumber: poor[1]!.biNumber } })).statusCode).toBe(200);
+    expect(await sql`SELECT 1 FROM family_homes WHERE player_id = ${poor[1]!.playerId}`).toEqual([]);
+  });
+
   test("the candongueiro between bairros: only at a way out the zone names; the first crossing of the day is on the house, the next is the fare, through the ledger; the ticket opens the other bairro", async () => {
     const one = await newGuest(1502);
     const cash = ((await post(one.token, "/v1/me/origin")).json() as { wallet: { cash: number } }).wallet.cash;

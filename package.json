@@ -39,7 +39,8 @@
     "pack:l1": "node tools/pack/src/dev-pack.ts l1",
     "pack:zango": "node tools/pack/src/dev-pack.ts zango",
     "pack:bairro": "node tools/pack/src/dev-pack.ts",
-    "pack:bairros": "node tools/pack/src/dev-pack.ts bairros"
+    "pack:bairros": "node tools/pack/src/dev-pack.ts bairros",
+    "pack:casas": "node tools/pack/src/dev-pack.ts casas"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

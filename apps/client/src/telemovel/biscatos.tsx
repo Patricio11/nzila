@@ -11,6 +11,7 @@ import { askAsPlayer } from "../world/account.ts";
 import { type WorldProvider } from "../world/provider.ts";
 import type { Marked } from "./telemovel.tsx";
 import "./biscatos.css";
+import "./telemovel.css";
 
 // The words of this app came with it.
 tr.extend(ptAOLater);

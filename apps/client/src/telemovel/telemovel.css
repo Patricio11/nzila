@@ -1,4 +1,5 @@
-/* The Telemóvel's apps. Tokens only. The sheet itself is in @nzila/ui. */
+/* The Telemóvel's apps. Tokens only. The sheet itself is in @nzila/ui. Fetched with the Telemóvel: what the form at the
+   door uses (guardar.css) is the only part of these that is in the first download (F-287). */
 .tm-map { display: flex; flex-direction: column; gap: var(--s-3); }
 .tm-map-name { margin: 0; font: var(--type-title); color: var(--n-luz); }
 .tm-map-frame { border-radius: var(--r-paper); overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--n-linha); background: var(--n-noite-2); }
@@ -9,7 +10,6 @@
 .tm-place { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); padding: var(--s-3); border-radius: var(--r-paper); background: var(--n-noite-2); box-shadow: inset 0 0 0 1.5px var(--n-linha); color: var(--n-luz); }
 .tm-place strong { font: var(--type-title); }
 .tm-place p { margin: 0; font: var(--type-body); color: var(--n-luz-suave); }
-.tm-hint, .tm-note { margin: 0; font: var(--type-small); color: var(--n-luz-suave); }
 .tm-settings { display: flex; flex-direction: column; gap: var(--s-4); }
 .tm-row { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); font: var(--type-label); color: var(--n-luz); }
 .tm-centre { margin: 0; display: flex; justify-content: center; }
@@ -18,37 +18,24 @@
 .tm-bi { display: flex; flex-direction: column; align-items: center; gap: var(--s-4); }
 .tm-bi-photo { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
 .tm-bi-keys { display: flex; flex-direction: column; align-items: stretch; gap: var(--s-3); width: min(100%, 300px); }
-.tm-keys { display: flex; justify-content: center; gap: var(--s-3); }
 .tm-name { width: min(100%, 340px); display: flex; flex-direction: column; gap: var(--s-2); }
-.tm-name-label { font: var(--type-label); color: var(--n-luz); }
-.tm-name-input { box-sizing: border-box; width: 100%; min-height: var(--target); padding: 0 var(--s-3); border: 0; border-radius: var(--r-paper); background: var(--n-papel); color: var(--n-tinta); font: var(--type-title); box-shadow: inset 0 0 0 2px var(--n-luz-fundo), 0 4px 0 var(--n-luz-fundo); }
-.tm-name-input:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 2px; }
 .tm-name-said { margin: 0; min-height: 2.7em; font: var(--type-small); color: var(--n-luz-suave); }
 .tm-name-good { color: var(--n-dourado-claro); }
 
 /* Os meus dados. */
 .tm-data { display: flex; flex-direction: column; gap: var(--s-3); width: min(100%, 340px); margin: 0 auto; }
 .tm-data .tm-bi-keys { align-self: center; margin-top: var(--s-2); }
-.tm-data-title { margin: 0; font: var(--type-title); color: var(--n-luz); }
 .tm-data-said { margin: 0; min-height: 1.4em; font: var(--type-small); color: var(--n-dourado-claro); }
-.tm-data-end { min-height: var(--target); padding: 0; border: 0; background: none; cursor: pointer; color: var(--n-luz-suave); font: var(--type-label); text-decoration: underline; text-underline-offset: 4px; }
-.tm-data-end:focus-visible { outline: 3px solid var(--n-escudo); outline-offset: 3px; }
 .tm-data-delete { text-align: center; padding-top: var(--s-4); }
 .tm-data-delete .tm-note { font: var(--type-body); }
 
-/* Saving the BI: a number, then the code sent to it. */
-.tm-save { width: min(100%, 340px); margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-2); }
-.tm-save-code { letter-spacing: 0.35em; text-align: center; font: var(--type-number-l); }
-.tm-save-said { margin: 0; min-height: 2.7em; font: var(--type-small); color: var(--n-dourado-claro); }
+/* The BI once it is kept. */
 .tm-bi-saved { margin: 0; text-align: center; font: var(--type-label); color: var(--n-dourado-claro); }
 .tm-bi-why { text-align: center; margin-top: calc(var(--s-2) * -1); }
-.frontdoor .tm-save { text-align: left; }
 
 /* O meu pano: the colourways to choose from, and a strip of the cloth as it will be worn. */
 .tm-pano { display: flex; flex-direction: column; gap: var(--s-2); }
 .tm-pano-sample { height: 56px; border-radius: var(--r-button); overflow: hidden; box-shadow: inset 0 0 0 2px var(--n-pano-preto), 0 3px 0 var(--n-noite-fundo); }
-.tm-save-small { font: var(--type-label); font-size: 17px; }
-.tm-save .n-choice { margin-bottom: var(--s-2); }
 
 /* Which channel of the district the player is in: a small plate beside the district's name, in the cloth's red. */
 .tm-map-canal {
