@@ -194,6 +194,30 @@ const PICTURES: Readonly<Record<string, readonly Shape[]>> = {
     ["k-noite", "M14 20h4v2h-4z"],
     ["k-luz", "M8 9l5 0-5 5z"],
   ],
+  ventoinha: [
+    ["k-prata", "M8 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0z"],
+    ["k-azul", "M14 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"],
+    ["k-noite", "M15 20h2v7h-2z M10 27h12v2H10z"],
+    ["", "M16 5v5 M16 14v5 M9.5 12h4.5 M18 12h4.5"],
+  ],
+  fogao: [
+    ["k-luz", "M6 6h20v22H6z"],
+    ["k-noite", "M6 6h20v4H6z M9 15h14v10H9z"],
+    ["k-prata", "M9 12.5h14v1.5H9z"],
+    ["k-laranja", "M11 22c0-3 2-3 2-5 1 2 3 2 3 5z M16 22c0-2 1.5-2 1.5-4 1 1.5 2.5 2 2.5 4z"],
+  ],
+  geleira: [
+    ["k-luz", "M8 3h16v26H8z"],
+    ["k-prata", "M8 12h16v1H8z M20 6h1.5v4H20z M20 15h1.5v7H20z"],
+    ["k-noite", "M8 28h16v2H8z"],
+  ],
+  estante: [
+    ["k-chocolate", "M3 4h26v24H3z"],
+    ["k-papel", "M5 6h22v5H5z M5 13h22v5H5z"],
+    ["k-ouro", "M9.5 23.5h2v2h-2z M20.5 23.5h2v2h-2z"],
+    ["k-azul", "M8 7.5h2v3.5H8z M12 7.5h2v3.5h-2z"],
+    ["", "M16 20v8"],
+  ],
   pano: [
     ["k-chocolate", "M5 24h22l-2 4H7z"],
     ["k-vermelho", "M4 9h24v15H4z"],

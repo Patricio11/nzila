@@ -21,6 +21,9 @@ import { buildTestScene, type TestScene } from "../render/test-scene.ts";
 import { DistrictScene } from "../render/district-scene.ts";
 import { runBench } from "../bench/bench.ts";
 import { dataMeter } from "../net/data-meter.ts";
+import { Mesh } from "three";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { type StreamState } from "../render/chunk-stream.ts";
 import { renderBenchScene } from "../render/bench-scene.ts";
 import { rememberTier, rememberedTier } from "../render/tier-store.ts";
@@ -82,6 +85,24 @@ export function Cena() {
         (opened) => {
           if (closed) opened.close();
           else district = opened;
+          // `&moveis=x,z`: every thing a house is furnished with, set out in a row there, a metre and a half apart:
+          // for looking at them without buying them (the team's, F-291).
+          const row = numbers("moveis");
+          if (row) {
+            void fetch("/packs/casas/casas.json")
+              .then((answer) => answer.json() as Promise<{ moveis: { id: string; model: string }[] }>)
+              .then(async (pack) => {
+                for (const [n, thing] of pack.moveis.entries()) {
+                  const model = (await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(await (await fetch(`/packs/casas/${thing.model}`)).arrayBuffer(), "")).scene;
+                  model.traverse((node) => {
+                    if (node instanceof Mesh) node.material = renderer.paletteMaterial;
+                  });
+                  model.position.set(row[0]! + (n - (pack.moveis.length - 1) / 2) * 1.6, 0, row[1]!);
+                  model.rotation.y = Math.PI;
+                  renderer.scene.add(model);
+                }
+              });
+          }
           if (opened.manifest.homes?.length) void import("../dentro/dentro.tsx").then((module) => (doors = new module.Casas(opened, () => {})), () => {});
           // `&transito=3` holds the traffic at that second of its timetable (3: a van stands at each line's first paragem).
           if (params.has("transito")) opened.trafficAt = Number(params.get("transito")) * 1000;

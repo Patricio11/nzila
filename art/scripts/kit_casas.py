@@ -160,5 +160,55 @@ def televisao(b):
     b.rect((0.0, 0.84, 0.028), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.84, 0.48, "window")
 
 
+def ventoinha(b):
+    """A standing fan: a round foot, a pole, and the cage with its blades, turned to the room."""
+    b.tube([(0.0, 0.0, 0.0), (0.0, 0.05, 0.0)], [0.2, 0.18], 8, "tarShade")
+    b.tube([(0.0, 0.05, 0.0), (0.0, 1.05, 0.0)], [0.02, 0.02], 4, "rim", cap=False)
+    b.tube([(0.0, 1.1, -0.06), (0.0, 1.1, 0.1)], [0.2, 0.2], 8, "rim")
+    b.tube([(0.0, 1.1, 0.1), (0.0, 1.1, 0.12)], [0.06, 0.06], 6, "zincBlue")
+    b.box((0.0, 1.1, -0.1), (0.1, 0.1, 0.1), "tarShade", skip_bottom=False)
+
+
+def fogao(b):
+    """A gas stove of four rings, white, with its oven door: half a metre square, the bottle beside it in life and inside it here."""
+    b.box((0.0, 0.42, 0.0), (0.48, 0.84, 0.46), "paintWhite", skip_bottom=True)
+    b.box((0.0, 0.85, 0.0), (0.48, 0.02, 0.46), "tarShade", skip_bottom=True)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            b.tube([(sx * 0.11, 0.86, sz * 0.1), (sx * 0.11, 0.88, sz * 0.1)], [0.07, 0.07], 6, "metal")
+    b.rect((0.0, 0.36, 0.232), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.38, 0.34, "window")
+    b.box((0.0, 0.6, 0.24), (0.34, 0.02, 0.02), "rim", skip_bottom=False)
+    for k in range(4):
+        b.box((-0.15 + k * 0.1, 0.76, 0.235), (0.04, 0.04, 0.02), "tarShade", skip_bottom=False)
+
+
+def geleira(b):
+    """A fridge, white, a head taller than a table: the freezer's door above, the fridge's below, each with its handle."""
+    b.box((0.0, 0.75, -0.01), (0.48, 1.5, 0.44), "paintWhite", skip_bottom=True)
+    b.box((0.0, 1.06, 0.212), (0.46, 0.012, 0.01), "rim", skip_bottom=False)
+    b.box((0.17, 1.26, 0.225), (0.03, 0.22, 0.03), "rim", skip_bottom=False)
+    b.box((0.17, 0.8, 0.225), (0.03, 0.34, 0.03), "rim", skip_bottom=False)
+    b.box((0.0, 0.03, -0.01), (0.48, 0.06, 0.44), "tarShade", skip_bottom=True)
+
+
+def estante(b):
+    """The wall unit of the sala, two metres wide: dark wood, shelves with glasses and a photograph, cupboards below, a place for the television that is not in it."""
+    b.box((0.0, 0.3, 0.0), (1.94, 0.6, 0.42), "acaciaTrunk", skip_bottom=True)
+    for sx in (-1, 1):
+        b.box((sx * 0.94, 1.2, 0.0), (0.06, 1.2, 0.4), "acaciaTrunk", skip_bottom=True)
+    b.box((0.0, 1.78, 0.0), (1.94, 0.05, 0.42), "acaciaTrunk", skip_bottom=False)
+    b.box((0.0, 1.2, -0.19), (1.9, 1.2, 0.03), "wood", skip_bottom=True)
+    for y in (1.0, 1.4):
+        b.box((0.0, y, 0.0), (1.84, 0.03, 0.38), "acaciaTrunk", skip_bottom=False)
+    for k in range(4):
+        b.rect((-0.72 + k * 0.48, 0.3, 0.212), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.4, 0.5, "wood")
+        b.box((-0.72 + k * 0.48, 0.42, 0.22), (0.03, 0.03, 0.02), "awningGold", skip_bottom=False)
+    for k, colour in enumerate(["glassBlue", "paintWhite", "glassBlue", "awningGold", "paintWhite"]):
+        b.box((-0.7 + k * 0.33, 1.08, 0.02), (0.1, 0.13, 0.1), colour, skip_bottom=False)
+    b.box((0.45, 1.52, 0.05), (0.26, 0.2, 0.03), "awningGold", skip_bottom=False)
+    b.rect((0.45, 1.52, 0.068), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.2, 0.14, "paintWhite")
+    b.box((-0.5, 1.5, 0.0), (0.34, 0.16, 0.2), "cloth", skip_bottom=False)
+
+
 # Every thing a house is furnished with, by its name in the catalogue.
-MOVEIS = {"cadeira": cadeira, "mesa": mesa, "colchao": colchao, "cama": cama, "sofa": sofa, "televisao": televisao}
+MOVEIS = {"cadeira": cadeira, "mesa": mesa, "colchao": colchao, "cama": cama, "sofa": sofa, "televisao": televisao, "ventoinha": ventoinha, "fogao": fogao, "geleira": geleira, "estante": estante}

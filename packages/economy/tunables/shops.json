@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "shops": {
     "moveis": {
       "stock": [
@@ -8,7 +8,11 @@
         { "item": "colchao", "price": 8000 },
         { "item": "cama", "price": 30000 },
         { "item": "sofa", "price": 45000 },
-        { "item": "televisao", "price": 60000 }
+        { "item": "televisao", "price": 60000 },
+        { "item": "ventoinha", "price": 6000 },
+        { "item": "fogao", "price": 25000 },
+        { "item": "estante", "price": 35000 },
+        { "item": "geleira", "price": 70000 }
       ]
     },
     "banca": {

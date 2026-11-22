@@ -96,6 +96,10 @@ const PAGES = [
   ["largo-barbeiro", "/cena?pack=l1&hour=10&tier=normal&at=258,168.5,1.7&look=254,172,1.0"],
   ["zango-chafariz", "/cena?pack=zango&hour=7.5&tier=normal&at=124,121,1.7&look=118,112,0.9"],
   ["zango-bola", "/cena?pack=zango&hour=17&tier=normal&at=147,98,1.5&look=141,89,0.4"],
+  // Every thing a house is furnished with, in a row on the campo's edge (Task 5.3): looked at without buying them.
+  ["moveis-todos", "/cena?pack=zango&hour=11&tier=normal&at=150,98.5,1.5&look=150,104,0.5&moveis=150,104"],
+  ["moveis-esquerda", "/cena?pack=zango&hour=11&tier=normal&at=146,100.5,1.4&look=146,104,0.6&moveis=150,104"],
+  ["moveis-direita", "/cena?pack=zango&hour=11&tier=normal&at=154,100.5,1.4&look=154,104,0.6&moveis=150,104"],
   ["zango-poupanca", "/cena?pack=zango&hour=16&tier=poupanca&at=171.5,96,1.7&look=176,120,1.2"],
   // A thing in the hand (F-257): carried, and held out.
   ["mao-tem", "/pose?tem=flores,perfume,pano,gelado&ang=25&pausa&t=1"],

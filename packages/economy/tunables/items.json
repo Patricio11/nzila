@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "carryUnits": 24,
   "items": [
     { "id": "pao", "kind": "comida", "size": 1, "use": "comer", "fome": 900, "energia": 0 },
@@ -38,6 +38,10 @@
     { "id": "colchao", "kind": "mobilia", "size": 20, "use": null, "fome": 0, "energia": 0, "chao": [2, 4], "lugares": -1 },
     { "id": "cama", "kind": "mobilia", "size": 24, "use": null, "fome": 0, "energia": 0, "chao": [3, 4], "lugares": -1 },
     { "id": "sofa", "kind": "mobilia", "size": 24, "use": null, "fome": 0, "energia": 0, "chao": [4, 2], "lugares": 3 },
-    { "id": "televisao", "kind": "mobilia", "size": 14, "use": null, "fome": 0, "energia": 0, "chao": [2, 1] }
+    { "id": "televisao", "kind": "mobilia", "size": 14, "use": null, "fome": 0, "energia": 0, "chao": [2, 1] },
+    { "id": "ventoinha", "kind": "mobilia", "size": 6, "use": null, "fome": 0, "energia": 0, "chao": [1, 1] },
+    { "id": "fogao", "kind": "mobilia", "size": 18, "use": null, "fome": 0, "energia": 0, "chao": [1, 1] },
+    { "id": "geleira", "kind": "mobilia", "size": 24, "use": null, "fome": 0, "energia": 0, "chao": [1, 1] },
+    { "id": "estante", "kind": "mobilia", "size": 24, "use": null, "fome": 0, "energia": 0, "chao": [4, 1] }
   ]
 }
