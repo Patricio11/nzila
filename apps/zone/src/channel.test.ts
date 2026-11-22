@@ -471,6 +471,21 @@ describe("a place of one's own (the family's house, Phase 5)", () => {
     expect(channel.standUp(second, { x: 0, y: 0, z: 13_600, yaw: 0 })).toBe(true);
     expect(channel.placeOf(second)).toMatchObject({ x: 0, z: 13_600 });
     expect(channel.withinOf(second)).toBe("b");
+    // Let into a neighbour's inside (Task 5.4): the stranger is given it over nothing of his own, walks where it is
+    // open, and is inside under the neighbour's key; the visit over, the house is a wall to him again.
+    expect(channel.ownOf(stranger)).toBeNull();
+    channel.setOwn(stranger, { ...house("b"), also: null });
+    channel.setOwn(999, house("b"));
+    expect(channel.put(stranger, { x: 500, y: 0, z: 14_000, yaw: 0 })).toBe(true);
+    channel.tick();
+    expect(channel.withinOf(stranger)).toBe("b");
+    // And someone with a house of their own who is let into another's is inside whichever they stand in.
+    channel.setOwn(third, { ground: inside, rect: [-1000, 10_500, 1000, 12_500], key: "visita", also: channel.ownOf(third) });
+    channel.tick();
+    expect(channel.withinOf(third)).toBe(channel.placeOf(third)!.z < 12_500 ? "visita" : "a");
+    channel.setOwn(stranger, null);
+    expect(channel.put(stranger, { x: 500, y: 0, z: 14_000, yaw: 0 })).toBe(true);
+    expect(channel.placeOf(stranger)!.z).toBeGreaterThan(16_500);
     // Taken to the hospital from their bed: in the street at once, and seen there.
     expect(channel.put(first, here)).toBe(true);
     expect(channel.withinOf(first)).toBeNull();

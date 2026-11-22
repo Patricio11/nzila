@@ -9,7 +9,7 @@
 
 import { homeGround, homeRect, homeToWorld, type HomeKind, type HomeSite } from "@nzila/world/casas";
 import { EVENT, type WorldEvent } from "@nzila/protocol";
-import { encodePorta } from "@nzila/protocol/casa";
+import { VISITA_DITOS, encodePorta, encodeVisita } from "@nzila/protocol/casa";
 import { type Ground } from "@nzila/sim";
 // Only what the street already draws with: anything else of the renderer's library would be added to the first
 // download of every player (it is one file, F-270), so the doors are made here corner by corner.
@@ -52,11 +52,14 @@ export interface Cena {
 export interface Rede {
   mais: WorldEvent[];
   post(bytes: Uint8Array): void;
+  /** Who someone in the street is, as the zone said. */
+  who(entity: number): { readonly name: string } | null | undefined;
 }
 
 /** The player's own house, as being inside needs it: the rectangle one is inside of, and the height of its walls. */
 export interface Casa {
-  readonly id: "casa";
+  /** "casa": the player's own. "visita": a neighbour's they were let into (Task 5.4). */
+  readonly id: "casa" | "visita";
   readonly house: number;
   readonly rect: readonly [number, number, number, number];
   readonly height: number;
@@ -137,8 +140,22 @@ export class Casas {
   private readonly angles = new Map<number, number>();
   /** What is seen through someone else's open door: the dark of a house one cannot see into. */
   private readonly backs = new Map<number, Mesh>();
-  /** The inside's own paint: lit by its bulb after dark. */
+  /** The insides' own paint: lit by the bulb after dark. */
   private lit: MeshLambertMaterial | null = null;
+  /** The houses that are open to the player, their own and one they are visiting: each laid over the street's ground. */
+  private readonly open_: { house: number; site: HomeSite; kind: HomeKind; moveis: Moveis }[] = [];
+  private laid: { of: Ground; n: number; own: Ground } | null = null;
+  /** The neighbour's house the player was let into (Task 5.4): which, whose, and what is set down in it. */
+  visita: { casa: Casa; house: number; de: string; moveis: Moveis; inside: Object3D } | null = null;
+  /** The door of a house not their own that the player stands at, to knock: the house's place in the pack's list. */
+  bater: number | null = null;
+  /** Who is at the player's door, until they are let in or the knock grows old. */
+  pedidos: { entity: number; nome: string; ate: number }[] = [];
+  /** Until when "nobody is at home" is said, after a knock that nobody heard. */
+  ninguem = 0;
+  /** The middle of every doorway of the bairro, for finding the one the player stands at. */
+  private portas: (readonly [number, number])[] = [];
+  private readonly onGone: (id: string) => void;
   /** What the player has set down in their house, once its inside is there (Task 5.3). */
   moveis: Moveis | null = null;
   private pack: Pack | null = null;
@@ -153,9 +170,10 @@ export class Casas {
   private readonly bairro: Bairro;
   private readonly onHome: (casa: Casa) => void;
 
-  constructor(bairro: Bairro, onHome: (casa: Casa) => void) {
+  constructor(bairro: Bairro, onHome: (casa: Casa) => void, onGone: (id: string) => void = () => {}) {
     this.bairro = bairro;
     this.onHome = onHome;
+    this.onGone = onGone;
     this.sites = bairro.manifest.homes ?? [];
   }
 
@@ -194,6 +212,10 @@ export class Casas {
     const into: Corners = { position: [], normal: [], uv: [] };
     for (const site of this.sites) this.leaf(into, site, 0);
     const doors = model(into);
+    this.portas = this.sites.map((site) => {
+      const kind = this.kinds.get(site.kind);
+      return kind ? homeToWorld(site, kind.door) : ([Infinity, Infinity] as const);
+    });
     const mesh = new Mesh(doors, cena.paletteMaterial);
     // Spread over the whole bairro: never left out because its middle is behind the camera.
     mesh.frustumCulled = false;
@@ -231,7 +253,7 @@ export class Casas {
   private dark(cena: Cena, n: number, shown: boolean): void {
     const site = this.sites[n];
     const kind = site ? this.kinds.get(site.kind) : undefined;
-    if (!shown || !site || !kind || n === this.mine) {
+    if (!shown || !site || !kind || n === this.mine || n === this.visita?.house) {
       const back = this.backs.get(n);
       if (back) {
         cena.scene.remove(back);
@@ -250,14 +272,19 @@ export class Casas {
     this.backs.set(n, back);
   }
 
-  /** The player's own house: its inside set in it, its ground laid over the street's, and a sign over it to find it by. */
-  private async open(cena: Cena, house: number, site: HomeSite, kind: HomeKind): Promise<void> {
-    // The inside has a paint of its own: the same palette, and after dark the glow of the bulb on every wall of it.
-    const lit = cena.paletteMaterial.clone();
-    lit.emissiveMap = lit.map;
-    lit.emissive.setRGB(1, 0.82, 0.56);
-    lit.emissiveIntensity = 0;
-    this.lit = lit;
+  /**
+   * A house's inside set in it, and its ground laid over the street's for the player: their own, or a neighbour's
+   * they were let into. What is set down in it is the zone's to say.
+   */
+  private async inside(cena: Cena, house: number, site: HomeSite, kind: HomeKind, assentos: Assento[], own = true): Promise<{ inside: Object3D; moveis: Moveis }> {
+    // The insides have a paint of their own: the same palette, and after dark the glow of the bulb on every wall.
+    if (!this.lit) {
+      this.lit = cena.paletteMaterial.clone();
+      this.lit.emissiveMap = this.lit.map;
+      this.lit.emissive.setRGB(1, 0.82, 0.56);
+      this.lit.emissiveIntensity = 0;
+    }
+    const lit = this.lit;
     const inside = (await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(await meteredFetch(CASAS + kind.model), "")).scene;
     inside.traverse((node) => {
       if (!(node instanceof Mesh)) return;
@@ -269,20 +296,39 @@ export class Casas {
     inside.rotation.y = site.facing === 180 ? Math.PI : 0;
     inside.scale.x = site.flip ? -1 : 1;
     cena.scene.add(inside);
-    this.moveis = new Moveis(inside, site, kind, lit, this.pack?.moveis ?? [], this.bairro.manifest.seats, this.paints);
-    // The ground the player walks is the street's with their house open in it: laid again whenever the street's
-    // own changes (a chunk arriving), and the same rule the zone walks them by.
+    const moveis = new Moveis(inside, site, kind, lit, this.pack?.moveis ?? [], assentos, this.paints, own);
+    this.open_.push({ house, site, kind, moveis });
+    this.ground();
+    return { inside, moveis };
+  }
+
+  /**
+   * The ground the player walks: the street's with every house that is open to them laid in it, by the same rule
+   * the zone walks them by. Laid again whenever the street's own changes (a chunk arriving) or a house opens or
+   * shuts to them. A doorway is theirs only while its door stands open; where a thing is set down, they do not walk.
+   */
+  private patched = false;
+  private ground(): void {
+    this.laid = null;
+    if (this.patched) return;
+    this.patched = true;
     const chunks = this.bairro.chunks;
     const street = chunks.ground.bind(chunks);
-    let laid: { of: Ground; own: Ground } | null = null;
     chunks.ground = () => {
       const now = street();
       if (!now) return null;
-      // Its doorway is theirs to walk only while the door stands open, as the zone has it.
-      // And where a thing is set down, they do not walk.
-      if (laid?.of !== now) laid = { of: now, own: homeGround(now, site, kind, () => this.abertas.has(house - 1), (cx, cz) => this.moveis?.taken(cx, cz) === true) };
-      return laid.own;
+      if (this.laid?.of !== now || this.laid.n !== this.open_.length) {
+        let own = now;
+        for (const one of this.open_) own = homeGround(own, one.site, one.kind, () => this.abertas.has(one.house), (cx, cz) => one.moveis.taken(cx, cz));
+        this.laid = { of: now, n: this.open_.length, own };
+      }
+      return this.laid.own;
     };
+  }
+
+  /** The player's own house: its inside set in it, its ground laid over the street's, and a sign over it to find it by. */
+  private async open(cena: Cena, house: number, site: HomeSite, kind: HomeKind): Promise<void> {
+    this.moveis = (await this.inside(cena, house - 1, site, kind, this.bairro.manifest.seats)).moveis;
     // A small gold sign over its roof, turning: one house among many that are the same.
     const [dx, dz] = homeToWorld(site, kind.door);
     const sign: Corners = { position: [], normal: [], uv: [] };
@@ -297,6 +343,39 @@ export class Casas {
     this.mine = house - 1;
     this.casa = { id: "casa", house, rect: homeRect(site, kind), height: kind.height, door: [dx, dz], wake: homeToWorld(site, kind.wake), look: site.facing === 180 ? 0 : Math.PI };
     this.onHome(this.casa);
+  }
+
+  /** Let into a neighbour's house (Task 5.4): its inside is set in it and its ground is the player's to walk, while the visit lasts. */
+  private async visitar(cena: Cena, house: number, de: string): Promise<void> {
+    const site = this.sites[house];
+    const kind = site ? this.kinds.get(site.kind) : undefined;
+    if (!site || !kind || this.visita) return;
+    // The seats of a house one visits are its family's to offer: not yet (F-293).
+    const { inside, moveis } = await this.inside(cena, house, site, kind, [], false);
+    const casa: Casa = { id: "visita", house: house + 1, rect: homeRect(site, kind), height: kind.height, door: homeToWorld(site, kind.door), wake: homeToWorld(site, kind.wake), look: 0 };
+    this.visita = { casa, house, de, moveis, inside };
+    this.onHome(casa);
+  }
+
+  /** The visit is over: the house is a house of the street again. */
+  private sair(cena: Cena): void {
+    const visita = this.visita;
+    if (!visita) return;
+    this.visita = null;
+    cena.scene.remove(visita.inside);
+    const at = this.open_.findIndex((one) => one.moveis === visita.moveis);
+    if (at >= 0) this.open_.splice(at, 1);
+    this.ground();
+    this.onGone("visita");
+  }
+
+  /** A knock at the door the player stands at; and whoever is at their own door, let in. */
+  bate(net: Rede | null): void {
+    net?.post(encodeVisita("bater"));
+  }
+  deixa(net: Rede | null, entity: number): void {
+    net?.post(encodeVisita("deixar", entity));
+    this.pedidos = this.pedidos.filter((one) => one.entity !== entity);
   }
 
   /** A hand to the player's own door: opened if it is shut, shut if it is open. The zone decides, and says so to everyone. */
@@ -326,6 +405,17 @@ export class Casas {
           if (event.args[1] === 1) this.abertas.add(house);
           else this.abertas.delete(house);
           if (!this.angles.has(house)) this.angles.set(house, event.args[1] === 1 ? 0 : OPEN);
+        } else if (event.kind === EVENT.VISITA) {
+          const dito = VISITA_DITOS[event.args[0] ?? -1];
+          const nome = net.who(event.subject)?.name ?? "";
+          if (dito === "bate") this.pedidos = [...this.pedidos.filter((one) => one.entity !== event.subject), { entity: event.subject, nome, ate: now + 45_000 }];
+          else if (dito === "entra") void this.visitar(cena, (event.args[1] ?? 0) - 1, nome).catch(() => {});
+          else if (dito === "saiu") this.sair(cena);
+          else if (dito === "ninguem") this.ninguem = now + 4000;
+        } else if (event.kind === EVENT.MOVEIS && event.args[6] === 1) {
+          // What stands in the house one visits: kept until its inside is there to set it in.
+          if (this.visita) this.visita.moveis.hear(event);
+          else left.push(event);
         } else if (event.kind === EVENT.MOVEIS && this.moveis) this.moveis.hear(event);
         else left.push(event);
       }
@@ -342,6 +432,15 @@ export class Casas {
       this.mark.visible = !(x > casa.rect[0] && x < casa.rect[2] && z > casa.rect[1] && z < casa.rect[3]);
     }
     this.perto = casa !== null && Math.hypot(x - casa.door[0], z - casa.door[1]) < NEAR_M;
+    // The door of somebody else's house that the player stands at, from the street: to knock at.
+    this.pedidos = this.pedidos.filter((one) => one.ate > now);
+    const visiting = this.visita?.casa.rect;
+    const within = (rect: readonly number[] | undefined): boolean => rect !== undefined && x > rect[0]! && x < rect[2]! && z > rect[1]! && z < rect[3]!;
+    let at: number | null = null;
+    if (!within(casa?.rect) && !within(visiting)) {
+      for (const [n, door] of this.portas.entries()) if (n !== this.mine && n !== this.visita?.house && Math.hypot(x - door[0], z - door[1]) < NEAR_M) at = n;
+    }
+    this.bater = at;
     if (body) this.moveis?.frame(net, x, y, z, body.rotation.y, casa !== null && x > casa.rect[0] && x < casa.rect[2] && z > casa.rect[1] && z < casa.rect[3], body, sit);
     this.destrancada = this.abertas.has(this.mine);
     if (casa && this.destrancada && !this.angles.has(this.mine)) this.angles.set(this.mine, 0);

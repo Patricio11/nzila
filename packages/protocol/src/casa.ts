@@ -34,3 +34,13 @@ export function encodeMovel(m: { op: (typeof MOVEL_OPS)[number]; id: number; ite
     .u8(m.rot)
     .finish();
 }
+
+/** What is asked about a visit (Task 5.4): a knock at the door one stands at; or, from inside one's own house, whoever knocked let in. */
+export const VISITA_OPS = ["bater", "deixar"] as const;
+/** What EVENT.VISITA says: somebody knocks; come in; the visit is over; nobody is at home. */
+export const VISITA_DITOS = ["bate", "entra", "saiu", "ninguem"] as const;
+
+/** Client to zone. `entity`: whoever knocked, when letting them in; 0 when knocking. */
+export function encodeVisita(op: (typeof VISITA_OPS)[number], entity = 0): Uint8Array {
+  return new Writer().u8(MSG.VISITA).u8(VISITA_OPS.indexOf(op)).uint(entity).finish();
+}

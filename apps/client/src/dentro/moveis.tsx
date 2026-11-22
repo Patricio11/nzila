@@ -54,6 +54,8 @@ interface Rede {
 declare global {
   interface Window {
     /** For the tests: what is set down in the player's house, what they carry to furnish with, and what was last said of an asking. */
+    /** The same, of the neighbour's house the player is visiting. */
+    __visita?: Window["__moveis"];
     __moveis?: { postos: { id: number; item: string; cx: number; cz: number; rot: number; x: number; z: number }[]; levo: string[]; dito: string | null; frente: number | null; assentos: { x: number; z: number; deita: boolean }[]; deitado: boolean };
   }
 }
@@ -89,6 +91,8 @@ export class Moveis {
   deitado = false;
   /** Whether the list of the hand's work is open on the screen. */
   aberto = false;
+  /** Whether this is the player's own house: a neighbour's they visit is seen, and nothing in it is theirs to move. */
+  private readonly own: boolean;
   /** The televisions' screens, each a small picture of its own that changes. */
   private readonly ecras: BufferAttribute[] = [];
   private readonly ecra: MeshLambertMaterial;
@@ -103,7 +107,8 @@ export class Moveis {
    * `assentos`: the bairro's own list of seats; the house's are added to it, so that a chair at home is sat on as a
    * bench in the street is (the gold button, the seated body, one's own eyes: D-0.41), and the zone counts them the same way.
    */
-  constructor(casa: Object3D, site: HomeSite, kind: HomeKind, paint: MeshLambertMaterial, sorts: readonly Sort[], assentos: Assento[], paints: Readonly<Record<string, readonly [number, number]>> = {}) {
+  constructor(casa: Object3D, site: HomeSite, kind: HomeKind, paint: MeshLambertMaterial, sorts: readonly Sort[], assentos: Assento[], paints: Readonly<Record<string, readonly [number, number]>> = {}, own = true) {
+    this.own = own;
     this.paints = paints;
     // The screen lights itself: the palette's own colours, by day and by night.
     this.ecra = paint.clone();
@@ -142,7 +147,7 @@ export class Moveis {
       const [wide, deep] = thing.rot % 2 === 1 ? [thing.chao[1], thing.chao[0]] : thing.chao;
       return this.casa.localToWorld(new Vector3((thing.cx + wide / 2) * cell, 0, (thing.cz + deep / 2) * cell));
     };
-    window.__moveis = { postos: this.postos.map((thing) => ({ id: thing.id, item: thing.item, cx: thing.cx, cz: thing.cz, rot: thing.rot, x: middle(thing).x, z: middle(thing).z })), levo: this.levo, dito: this.dito, frente: this.frente?.id ?? null, assentos: this.vistos, deitado: this.deitado };
+    window[this.own ? "__moveis" : "__visita"] = { postos: this.postos.map((thing) => ({ id: thing.id, item: thing.item, cx: thing.cx, cz: thing.cz, rot: thing.rot, x: middle(thing).x, z: middle(thing).z })), levo: this.levo, dito: this.dito, frente: this.frente?.id ?? null, assentos: this.vistos, deitado: this.deitado };
     for (const listener of this.listeners) listener();
   }
 
@@ -151,6 +156,7 @@ export class Moveis {
 
   /** What the player carries that a house is furnished with. */
   private async carried(): Promise<void> {
+    if (!this.own) return;
     const { answer } = await askAsPlayer<{ items: { item: string; quantity: number }[] }>("GET", "/v1/me/items");
     this.levo = (answer?.items ?? []).filter((one) => this.sorts.has(one.item)).map((one) => one.item);
     this.tell();

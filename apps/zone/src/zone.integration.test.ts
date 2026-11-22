@@ -31,7 +31,7 @@ import {
 import { decodeCorridas, encodeCorrida, type CorridasSaid } from "@nzila/protocol/corridas";
 import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, encodeSair } from "@nzila/protocol/sair";
 import { A_DOIS_DITOS, encodeADois } from "@nzila/protocol";
-import { MOVEL_RECUSAS, encodeMovel, encodePorta } from "@nzila/protocol/casa";
+import { MOVEL_RECUSAS, VISITA_DITOS, encodeMovel, encodePorta, encodeVisita } from "@nzila/protocol/casa";
 import { createChatFilter } from "@nzila/i18n";
 import { memoryPresence, pickChannel } from "@nzila/presence";
 import { type Ground } from "@nzila/sim";
@@ -1612,4 +1612,58 @@ describe("the family's house (Phase 5, D-5.8 to D-5.10)", () => {
     expect(said(again).things).toEqual([["colchao", -2, -4, 1]]);
     await Promise.all([again.leave(), b.leave(), c.leave()]);
   }, 70_000);
+});
+
+describe("who comes in (Task 5.4, D-5.13)", () => {
+  test("a knock at a door where nobody is at home is told so; with someone at home it is heard there, and let in, the visitor walks into the house, sees who lives there and what is set down in it, and touches none of it; a stranger is still at a wall; when the one at home goes, the visitor is set down outside", async () => {
+    const [dona, visita, estranho] = [await player(), await player(), await player()];
+    await sql`INSERT INTO family_homes (player_id, district_id, house, kind) VALUES (${dona.id}, 'ao-lua/l1', 1, 'casa')`;
+    await sql`INSERT INTO home_things (owner_id, item, cx, cz, rot) VALUES (${dona.id}, 'cadeira', -4, -4, 0)`;
+    const south: InputFrame = { dx: 0, dz: -127, run: false, brake: false };
+    const a = await phone(dona.token, PROTOCOL_VERSION, "casa");
+    const b = await phone(visita.token, PROTOCOL_VERSION, "casa1");
+    const c = await phone(estranho.token, PROTOCOL_VERSION, "casa");
+    const [aId, bId] = [a.state.accepted!.entityId, b.state.accepted!.entityId];
+    const visits = (of: typeof a) => of.state.events.filter((event) => event.kind === EVENT.VISITA).map((event) => [event.subject, VISITA_DITOS[event.args[0]!], event.args[1]]);
+    const inTo = async (of: typeof a): Promise<void> => {
+      for (let n = 0; n < 60 && Math.abs(of.me().x + 82_500) > 150; n++) await of.walk(2, { dx: of.me().x > -82_500 ? -127 : 127, dz: 0, run: false, brake: false });
+      for (let n = 0; n < 80 && of.me().z > -81_300; n++) await of.walk(2, south);
+    };
+    // She is in the street: a knock at her door finds nobody at home.
+    b.socket.send(encodeVisita("bater"));
+    await until(() => visits(b).length === 1);
+    expect(visits(b)).toEqual([[0, "ninguem", 0]]);
+    // She goes in, leaving her door open. Nobody may be let in who did not knock.
+    a.socket.send(encodePorta(true));
+    await until(() => a.state.events.some((event) => event.kind === EVENT.PORTA));
+    await inTo(a);
+    a.socket.send(encodeVisita("deixar", bId));
+    await b.walk(40, south);
+    expect(b.me().z).toBeGreaterThan(-80_000);
+    // A knock: she hears who it is. Let in, the visitor is told, and told what stands in the house.
+    b.socket.send(encodeVisita("bater"));
+    await until(() => visits(a).length === 1);
+    expect(visits(a)).toEqual([[bId, "bate", 1]]);
+    a.socket.send(encodeVisita("deixar", bId));
+    await until(() => visits(b).length === 2 && b.state.events.some((event) => event.kind === EVENT.MOVEIS));
+    expect(visits(b)[1]).toEqual([aId, "entra", 1]);
+    expect(b.state.events.filter((event) => event.kind === EVENT.MOVEIS).map((event) => [event.text, event.args[0], event.args[1], event.args[6]])).toEqual([["cadeira", -4, -4, 1]]);
+    // In at the door: the two see each other inside, and the street sees neither. The stranger still meets a wall.
+    await inTo(b);
+    await c.walk(40, south);
+    await until(() => b.me().z < -81_000 && a.seen(bId) !== undefined && b.seen(aId) !== undefined && c.seen(bId) === undefined);
+    expect(c.me().z).toBeGreaterThan(-80_000);
+    // The visitor sets nothing down and takes nothing up: it is not their house.
+    await sql`INSERT INTO items (owner_id, place, item, quantity) VALUES (${visita.id}, 'mochila', 'cadeira', 1)`;
+    const asked = b.state.events.length;
+    b.socket.send(encodeMovel({ op: "por", id: 0, item: "cadeira", cx: 0, cz: 0, rot: 0 }));
+    await until(() => b.state.events.length > asked);
+    expect(MOVEL_RECUSAS[b.state.events.at(-1)!.args[5]!]).toBe("fora");
+    expect((await sql`SELECT count(*)::int AS n FROM home_things WHERE owner_id = ${dona.id}`)[0]!.n).toBe(1);
+    // She leaves the game: the visit is over, and the visitor is set down before the door, in the street.
+    await a.leave();
+    await until(() => visits(b).length === 3 && b.me().z > -80_000, 8000);
+    expect(visits(b)[2]).toEqual([0, "saiu", 1]);
+    await Promise.all([b.leave(), c.leave()]);
+  }, 60_000);
 });

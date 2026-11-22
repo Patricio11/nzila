@@ -61,14 +61,19 @@ export interface Own {
   readonly ground: Ground;
   readonly rect: readonly [number, number, number, number];
   readonly key: string;
+  /**
+   * Another place they may also be in (Task 5.4): someone let into a neighbour's house still has their own. This
+   * place's ground is laid over that one's, so that both are theirs to walk; being inside is asked of this one first.
+   */
+  readonly also?: Own | null;
 }
 
-const insideOf = (own: Own | null, x: number, z: number): string | null => (own && x > own.rect[0] && x < own.rect[2] && z > own.rect[1] && z < own.rect[3] ? own.key : null);
+const insideOf = (own: Own | null | undefined, x: number, z: number): string | null => (own ? (x > own.rect[0] && x < own.rect[2] && z > own.rect[1] && z < own.rect[3] ? own.key : insideOf(own.also, x, z)) : null);
 
 interface Seat {
   readonly playerId: string;
-  /** The place that is theirs, when they have one here. */
-  readonly own: Own | null;
+  /** The place that is theirs, when they have one here; and with it, any they were let into. */
+  own: Own | null;
   /** The key of the place they are inside of now; null in the street. */
   within: string | null;
   /** The stick frames that have arrived and not yet been used, oldest first, each with its number. */
@@ -409,6 +414,23 @@ export class Channel {
   /** The numbers of whoever was in the last snapshot made for someone (themselves among them). */
   seenBy(id: number): readonly number[] {
     return this.seats.get(id)?.seen ?? [];
+  }
+
+  /**
+   * Gives someone a place that is theirs to be in, or takes it away: let into a neighbour's house, and the visit
+   * over (Task 5.4). Taken from under them while they stand inside it, they are in a wall: the room sets them down
+   * outside first.
+   */
+  setOwn(id: number, own: Own | null): void {
+    const seat = this.seats.get(id);
+    if (!seat) return;
+    this.owners += (own ? 1 : 0) - (seat.own ? 1 : 0);
+    seat.own = own;
+  }
+
+  /** The place that is someone's to be in. */
+  ownOf(id: number): Own | null {
+    return this.seats.get(id)?.own ?? null;
   }
 
   /** The key of the place of their own that someone is inside of; null in the street, and for a number nobody has. */

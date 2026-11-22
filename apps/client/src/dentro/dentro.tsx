@@ -39,7 +39,7 @@ export type Vista = (typeof VISTAS)[number];
 declare global {
   interface Window {
     /** For the tests: the place the player is inside of, how it is seen, and where the camera stands; the player's own house here, and how far its door stands open (0 to 1). */
-    __dentro?: { onde: string | null; vista: Vista; sentado: boolean; camera: [number, number, number]; casa?: { house: number; door: readonly [number, number]; wake: readonly [number, number] } | null; porta?: number; olhar?: number; aviso?: string | null; aberta?: boolean };
+    __dentro?: { onde: string | null; vista: Vista; sentado: boolean; camera: [number, number, number]; casa?: { house: number; door: readonly [number, number]; wake: readonly [number, number] } | null; porta?: number; olhar?: number; aviso?: string | null; aberta?: boolean; bater?: boolean; pedidos?: number[] };
   }
 }
 
@@ -112,6 +112,16 @@ export class Dentro {
   get moveis(): Moveis | null {
     return this.casas.moveis;
   }
+  /** Visits (Task 5.4): the door of a neighbour's that the player stands at, who is at the player's own door, whose house they are in, and whether a knock found nobody. */
+  get visitas(): { bater: boolean; pedidos: readonly { entity: number; nome: string }[]; de: string | null; ninguem: boolean } {
+    return { bater: this.casas.bater !== null, pedidos: this.casas.pedidos, de: this.casas.visita?.de ?? null, ninguem: this.casas.ninguem > performance.now() };
+  }
+  bater(): void {
+    this.casas.bate(this.net);
+  }
+  deixar(entity: number): void {
+    this.casas.deixa(this.net, entity);
+  }
   /** A hand to the door. */
   mexer(): void {
     this.casas.porta(this.net);
@@ -121,7 +131,12 @@ export class Dentro {
   constructor(bairro: Bairro & { readonly manifest: { readonly insides?: readonly Lugar[] | undefined } }) {
     this.lugares = [...(bairro.manifest.insides ?? [])];
     // The player's own house is a place that is gone into, from the moment its inside is there.
-    this.casas = new Casas(bairro, (casa) => this.lugares.push(casa));
+    // So is a neighbour's they are let into, for as long as the visit lasts (Task 5.4).
+    this.casas = new Casas(
+      bairro,
+      (casa) => this.lugares.push(casa),
+      (id) => void this.lugares.splice(0, this.lugares.length, ...this.lugares.filter((one) => one.id !== id)),
+    );
   }
 
   listen(listener: () => void): () => void {
@@ -165,8 +180,8 @@ export class Dentro {
     // theirs, where home is, said once for a quarter of a minute.
     const fresh = performance.now() - this.since < 15_000;
     this.aviso = this.casas.tem && this.casas.tarde && !at ? (this.casas.longe ? "dentro.tarde.longe" : "dentro.tarde") : this.casas.longe && fresh ? "dentro.longe" : null;
-    const home = { casa, porta: this.casas.aberta, olhar: eu.cam.yaw, aviso: this.aviso, aberta: this.casas.destrancada };
-    const saying = `${this.aviso}|${this.casas.perto}|${this.casas.destrancada}`;
+    const home = { casa, porta: this.casas.aberta, olhar: eu.cam.yaw, aviso: this.aviso, aberta: this.casas.destrancada, bater: this.casas.bater !== null, pedidos: this.casas.pedidos.map((one) => one.entity) };
+    const saying = `${this.aviso}|${this.casas.perto}|${this.casas.destrancada}|${this.casas.bater}|${this.casas.pedidos.map((one) => one.entity).join()}|${this.casas.visita?.house}|${this.casas.ninguem > performance.now()}`;
     if (saying !== this.said) {
       this.said = saying;
       for (const listener of this.listeners) listener();
@@ -236,10 +251,12 @@ export function Ui({ dentro }: { dentro: Dentro }) {
   useEffect(() => dentro.listen(() => redraw((n) => n + 1)), [dentro]);
   const vista = dentro.vista;
   const porta = dentro.porta;
+  const visitas = dentro.visitas;
   return (
     <>
       <div class="dentro-vista">
         {dentro.onde?.id === "casa" ? <p>{tr.t("dentro.casa")}</p> : null}
+        {dentro.onde?.id === "visita" ? <p>{tr.t("dentro.visita", { nome: visitas.de ?? "" })}</p> : null}
         {dentro.onde ? (
           <Button kind="quiet" onPress={() => dentro.mudar()}>
             {tr.t(vista === "porta" ? "dentro.vista.porta" : vista === "cima" ? "dentro.vista.cima" : "dentro.vista.olhos")}
@@ -247,6 +264,13 @@ export function Ui({ dentro }: { dentro: Dentro }) {
         ) : null}
         {dentro.onde && vista === "olhos" && !dentro.sentado ? <p role="status">{tr.t("dentro.olhos.senta")}</p> : null}
         {dentro.onde?.id === "casa" && dentro.moveis ? <Painel moveis={dentro.moveis} /> : null}
+        {visitas.pedidos.map((one) => (
+          <p role="status" class="dentro-pedido">
+            {tr.t("dentro.bate", { nome: one.nome })}
+            <Button onPress={() => dentro.deixar(one.entity)}>{tr.t("dentro.deixar")}</Button>
+          </p>
+        ))}
+        {visitas.ninguem ? <p role="status">{tr.t("dentro.ninguem")}</p> : null}
         {dentro.aviso ? (
           <p role="status" class="dentro-aviso">
             {tr.t(dentro.aviso as MessageKey, { em: dentro.longe ? tr.t(`origin.bairro.${dentro.longe}.em` as MessageKey) : "" })}
@@ -256,6 +280,10 @@ export function Ui({ dentro }: { dentro: Dentro }) {
       {porta.perto ? (
         <div class="dentro-porta">
           <Button onPress={() => dentro.mexer()}>{tr.t(porta.aberta ? "dentro.porta.fechar" : "dentro.porta.abrir")}</Button>
+        </div>
+      ) : visitas.bater ? (
+        <div class="dentro-porta">
+          <Button onPress={() => dentro.bater()}>{tr.t("dentro.bater")}</Button>
         </div>
       ) : null}
     </>

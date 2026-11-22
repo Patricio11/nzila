@@ -3484,6 +3484,68 @@ test.describe("two phones in the same street", () => {
     await page.screenshot({ path: info.outputPath("moveis-de-volta.png") });
   });
 
+  test("who comes in (Task 5.4, D-5.13): a neighbour knocks at the door; whoever is at home sees who it is and lets them in; the visitor walks in, and the two are in the house together, seen by each other and by nobody in the street", async ({ page, browser, request }, info) => {
+    if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok() || !(await request.get("/packs/casas/casas.json")).ok()) {
+      info.annotations.push({ type: "skipped", description: "The packs are not built. A visit was not checked here." });
+      test.skip();
+      return;
+    }
+    test.setTimeout(300_000);
+    const seen = watch(page);
+    const other = await (await browser.newContext({ ...info.project.use, baseURL: info.project.use.baseURL ?? "" })).newPage();
+    seconds.push(other);
+    const born = async (phone: Page, tag: string): Promise<{ token: string; name: string }> => {
+      const deviceId = `visita-${tag}-${Date.now()}-abcdefgh`;
+      const guest = (await (await phone.request.post("/api/v1/guests", { data: { deviceId, platform: "android", ageBand: "18_plus" } })).json()) as { token: string; name: string };
+      const dealt = (await (await phone.request.post("/api/v1/me/origin", { headers: { authorization: `Bearer ${guest.token}` }, data: {} })).json()) as { origin: unknown };
+      await phone.addInitScript((account) => localStorage.setItem("nzila.conta", JSON.stringify(account)), { deviceId, ageBand: "18_plus", ...guest, origin: dealt.origin });
+      return guest;
+    };
+    const dona = await born(page, "dona");
+    const vizinho = await born(other, "vizinho");
+    const house = ((await (await page.request.get("/api/v1/me/casa", { headers: { authorization: `Bearer ${dona.token}` } })).json()) as { home: { house: number } }).home.house;
+    // She is at home, her door open.
+    await page.goto("/andar?pack=zango&paragem=casa&tier=poupanca&hour=15");
+    await page.waitForFunction(() => window.__andar?.linked === true && window.__dentro?.casa != null, undefined, { timeout: 60_000 });
+    const casa = (await page.evaluate(() => window.__dentro!.casa))!;
+    const inward = Math.sign(casa.wake[1] - casa.door[1]);
+    await page.locator(".dentro-porta").getByRole("button").click();
+    await page.waitForFunction(() => window.__dentro!.porta! > 0.95, undefined, { timeout: 10_000 });
+    await walkTo(page, casa.door[0], casa.door[1] + inward * 2.6, 0.5, 120);
+    await page.waitForFunction(() => window.__dentro!.onde === "casa", undefined, { timeout: 10_000 });
+    // He comes to her door (the tests' zone sets him down before it): it is not his, and he may knock.
+    await other.goto(`/andar?pack=zango&paragem=casa${house}&tier=poupanca&hour=15`);
+    await other.waitForFunction(() => window.__andar?.linked === true && window.__dentro?.bater === true, undefined, { timeout: 60_000 });
+    // The door is open, and it is still a wall to him.
+    await walkTo(other, casa.door[0], casa.door[1] + inward * 0.2, 0.9, 60).catch(() => {});
+    expect(await other.evaluate(() => window.__dentro!.onde)).toBeNull();
+    const knock = other.locator(".dentro-porta").getByRole("button");
+    await expect(knock).toHaveText("Bater à porta");
+    await other.screenshot({ path: info.outputPath("visita-a-porta.png") });
+    await knock.click();
+    // She is told who is at the door, and lets him in.
+    await expect(page.locator(".dentro-pedido")).toContainText(`${vizinho.name} está à porta.`, { timeout: 15_000 });
+    await page.screenshot({ path: info.outputPath("visita-bate.png") });
+    await page.locator(".dentro-pedido").getByRole("button", { name: "Deixar entrar" }).click();
+    await expect(page.locator(".dentro-pedido")).toHaveCount(0);
+    // In he walks: he is in her house, with her; each sees the other.
+    await other.waitForFunction(() => window.__visita !== undefined, undefined, { timeout: 15_000 });
+    await walkTo(other, casa.door[0], casa.door[1] + inward * 1.9, 0.5, 160);
+    await other.waitForFunction(() => window.__dentro!.onde === "visita" && window.__andar!.players === 1, undefined, { timeout: 15_000 });
+    await expect(other.locator(".dentro-vista p").first()).toHaveText(`Em casa de ${dona.name}`);
+    await page.waitForFunction(() => window.__andar!.players === 1, undefined, { timeout: 15_000 });
+    await other.waitForTimeout(1200);
+    await other.screenshot({ path: info.outputPath("visita-dentro.png") });
+    await page.screenshot({ path: info.outputPath("visita-em-casa.png") });
+    // He walks out and away: the visit is over, and her house is a house of the street to him again.
+    await walkTo(other, casa.door[0], casa.door[1] - inward * 3.4, 1.2, 200);
+    await other.waitForFunction(() => window.__dentro!.onde === null, undefined, { timeout: 15_000 });
+    // From the street he no longer sees her; from her window she sees him go.
+    await other.waitForFunction(() => window.__andar!.players === 0, undefined, { timeout: 15_000 });
+    expect(await page.evaluate(() => window.__andar!.players)).toBe(1);
+    expect(seen.errors).toEqual([]);
+  });
+
   test("every family's house is in Zango (D-5.9, D-5.10): a family whose card names a richer bairro wakes in Zango too, in a public place; the family's message gives the house's number; after dark, away from home, they are told it is late and that whoever sleeps in the street can be robbed", async ({ page, request }, info) => {
     if (!(await request.get("/packs/dev-people/pessoas.json")).ok() || !(await request.get("/packs/zango/manifest.json")).ok() || !(await request.get("/packs/casas/casas.json")).ok()) {
       info.annotations.push({ type: "skipped", description: "The packs are not built. A house for every family was not checked here." });

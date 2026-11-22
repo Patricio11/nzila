@@ -11,7 +11,7 @@ Opened 2026-11-20, when Phase 4 completed (`docs/completed/PHASE_4_COMPLETE.md`)
 | 5.1 Property model | 4.1 | 4.1 is met. **Begun 2026-11-22.** Built: being inside and its three views (D-5.7); the family's house, for every family, in Zango (D-5.8, D-5.9); its door, opened and shut by hand and seen by everyone; waking in it; the way home told. Not built: a door for places that are not homes, the hand seen on the handle, a lock; units in buildings; the quintal as part of the home |
 | 5.2 Renting | 5.1 | The ledger and the worker's jobs exist (the nightly audit is the first job); rent is the first weekly one |
 | 5.3 Furnishing | 4.2, 5.1 | **Begun 2026-11-22 (D-5.11).** Built: six things bought at a furniture seller's, carried home in the Mochila, set down where one stands, turned, taken up; solid, and where they were left. Not built: sitting and sleeping on them, a kupapata to bring the big ones, the shopping's dearer things, more than six, seeing them in a house one visits (F-291) |
-| 5.4 Doors, visits and housemates | 5.1, 3.5 | 3.5 (talk and safety) is built |
+| 5.4 Doors, visits and housemates | 5.1, 3.5 | **Begun 2026-11-22 (D-5.13).** Built: a knock, being let in by someone inside, the two in the house together, the visit's end. Not built: keys and who comes in when nobody is home, sending a visitor out, sitting in a house one visits, locks and the ladder of security, housemates (F-293) |
 | 5.5 Storage and what is on display | 5.3 | The input to Phase 7's burglary caps |
 | 5.7 Appliances that do something | 4.3, 5.3 | A geleira home needs a kupapata (6.2) |
 | 5.8 Owning a home and letting it | 5.2, 5.4, 5.7 | |
@@ -92,6 +92,14 @@ Opened 2026-11-20, when Phase 4 completed (`docs/completed/PHASE_4_COMPLETE.md`)
 - **Nothing is moved from under somebody**, and nothing is set down that would shut the floor off from the door: with a thing where it is asked to stand, every cell of floor must still be walked to from the doorway (`mayStand`). A sofa across the way between the sala and the quarto is refused; the player cannot shut themselves in.
 - **The television is on.** Its screen is a small lit picture that changes colour, the same on every set of the house. It is a picture that moves and no more: what is on it, and its sound, are 5.7's.
 - **From above, from the side that has the room.** Lying against a wall, the view from above looked over that wall's cut edge and the wall hid the bed: with a wall close behind the player, the camera goes over to the other side.
+
+**D-5.13 Who comes in: a knock, and a hand that lets in (Task 5.4's first piece; built 2026-11-22).** Q5 asked who may come in; what is built is the roadmap's own answer and no more: **a visit is asked at the door and let in by someone inside.**
+
+- **A knock.** At the door of a house that is not theirs a player has "Bater à porta". Whoever is at home there hears who it is ("Caluanda 1002 está à porta.") with "Deixar entrar"; nobody at home, and the one who knocked reads "Ninguém em casa.". A house many families were given is knocked at for all of them that are in: the first to answer has the visitor. A knock from someone the one at home has shut out (or who has shut them out) is not heard. It waits a minute.
+- **Let in.** The zone gives the visitor the house as its family has it (`Channel.setOwn`, over whatever house is the visitor's own): its ground, with what is set down in it in the way; and they are inside under the family's key, so the two see each other, talk, and reach each other, and the street sees neither. The phone is told which house, sets its inside in it and what stands in it (said to the visitor whenever it changes), and offers its three views. **The door is not opened by being let in**: the one at home opens it with their hand, as in life.
+- **A visitor touches nothing.** Setting down, taking up and turning are the house's own player's; the zone refuses anyone else.
+- **Over.** A visit ends when the visitor walks out and twelve metres from the door, or when the one at home leaves the game: still inside then, the visitor is set down before the door, in the street. One is in one neighbour's house at a time.
+- **Not a lock.** Nobody walks into a house they were not let into, door open or shut, so nothing needs locking yet; a lock is for who may come in when nobody is home (keys, 5.4), and for thieves (7.2).
 
 ## What "done" means for this phase
 

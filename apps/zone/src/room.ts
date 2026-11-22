@@ -42,7 +42,7 @@ import {
   type MesaPedido,
   CHAT_REFUSAL,
 } from "@nzila/protocol";
-import { MOVEIS_AT_MOST, MOVEL_OPS, MOVEL_RECUSAS } from "@nzila/protocol/casa";
+import { MOVEIS_AT_MOST, MOVEL_OPS, MOVEL_RECUSAS, VISITA_DITOS, VISITA_OPS } from "@nzila/protocol/casa";
 import { CORRIDA_FASES, CORRIDA_KINDS, encodeCorridas } from "@nzila/protocol/corridas";
 import { SAIR_DITOS, SAIR_FINS, SAIR_RECUSAS, type SairDito, type SairRecusa } from "@nzila/protocol/sair";
 import { Saidas, type Fim, type Saida } from "./saidas.ts";
@@ -50,7 +50,7 @@ import { BolaDoCampo, type Kicker } from "./bola.ts";
 import { type Presence } from "@nzila/presence";
 import { type Sql } from "postgres";
 import { BISCATO_GRACE_MS, BISCATO_NOTE_S, scoreRonda, spotNear, takeInputs, type Ronda } from "./biscatos.ts";
-import { Channel, type Place } from "./channel.ts";
+import { Channel, type Own, type Place } from "./channel.ts";
 import { BOARD_REACH_MM as RIDE_REACH_MM, Corridas, poseOf, type Corrida } from "./corridas.ts";
 import { CAIXA_REACH_MM, GATEWAY_REACH_MM, MET_TTL_S, PLACE_REACH_MM, SHOP_REACH_MM, type District } from "./district.ts";
 import { MESA_SEEN_MM, Mesas, type Terminada } from "./mesas.ts";
@@ -193,6 +193,9 @@ const BENCH_REACH_MM = 2500;
 export const DOOR_REACH_MM = 2500;
 const DOORWAY_HALF_MM = 700;
 const DOORWAY_DEEP_MM = 550;
+/** How long a knock waits to be answered; and how far from the door a visitor walks for the visit to be over. */
+const KNOCK_LASTS_MS = 60_000;
+const VISIT_ENDS_MM = 12_000;
 /** How many steps of sitting a step of lying down is worth, in rest. */
 const SLEEP_RESTS = 4;
 const BENCH_STEP_MM = 600;
@@ -441,7 +444,10 @@ export class ChannelRoom {
     const stop = paragem === undefined ? undefined : district.paragens.get(paragem);
     if (stop) at = stop;
     if (standing) at = standing;
-    // Before their own door, a pace and a half out from it: for the tests alone.
+    // Before a door, a pace and a half out from it, their own ("casa") or the house of a number ("casa37"): for the tests alone.
+    const numbered = this.doorstep ? /^casa(\d+)$/.exec(paragem ?? "") : null;
+    const before = numbered ? district.homes?.(Number(numbered[1]), "", () => false) : null;
+    if (before) at = { x: before.door.x, y: before.wake.y, z: Math.round(before.door.z + Math.sign(before.door.z - before.wake.z) * 1500), yaw: before.wake.yaw };
     if (this.doorstep && paragem === "casa" && home) {
       // Houses look up or down the bairro: out of the door is along Z, away from where its family wakes.
       at = { x: home.door.x, y: home.wake.y, z: Math.round(home.door.z + Math.sign(home.door.z - home.wake.z) * 1500), yaw: home.wake.yaw };
@@ -551,6 +557,7 @@ export class ChannelRoom {
       else if (message.type === "lado") this.bolas[message.campo]?.trocar(held.playerId, Date.now());
       else if (message.type === "porta") this.porta(held, message.open);
       else if (message.type === "movel") this.movel(line, held, message);
+      else if (message.type === "visita") this.visita(line, held, message);
       // A second "join" on a line already in means nothing.
     } catch {
       this.strike(line, held);
@@ -1080,12 +1087,103 @@ export class ChannelRoom {
     return { cx: thing.cx, cz: thing.cz, rot: thing.rot, chao: BASE_CATALOGUE.items.get(thing.item)?.chao ?? [1, 1] };
   }
 
-  /** Says to someone what is set down in their house, whole; and why what they last asked was not done, when it was not. */
-  private tellThings(line: Line, playerId: string, why = 0): void {
+  /**
+   * Says to someone what is set down in a house, whole: their own, with why what they last asked was not done when
+   * it was not; or the house they are visiting (`visit`), which they see and do not touch.
+   */
+  private tellThings(line: Line, playerId: string, why = 0, visit = false): void {
     const things = this.things.get(playerId) ?? [];
     const tick = this.channel.world.tick;
-    if (things.length === 0) line.send(encodeEvent({ kind: EVENT.MOVEIS, tick, subject: 0, args: [0, 0, 0, 0, 0, why], text: "" }));
-    for (const [n, thing] of things.entries()) line.send(encodeEvent({ kind: EVENT.MOVEIS, tick, subject: thing.id, args: [thing.cx, thing.cz, thing.rot, n, things.length, why], text: thing.item }));
+    const last = visit ? 1 : 0;
+    if (things.length === 0) line.send(encodeEvent({ kind: EVENT.MOVEIS, tick, subject: 0, args: [0, 0, 0, 0, 0, why, last], text: "" }));
+    for (const [n, thing] of things.entries()) line.send(encodeEvent({ kind: EVENT.MOVEIS, tick, subject: thing.id, args: [thing.cx, thing.cz, thing.rot, n, things.length, why, last], text: thing.item }));
+    // Whoever is visiting sees what the house's own player sees.
+    if (!visit) for (const [guest, visit] of this.visits) if (visit.host === playerId && this.lineOf(guest)) this.tellThings(this.lineOf(guest)!, playerId, 0, true);
+  }
+
+  /** Who knocked at which house and when; and who is visiting whom, with the place that was theirs before they were let in (Task 5.4). */
+  private readonly knocks = new Map<string, { house: number; at: number }>();
+  private readonly visits = new Map<string, { host: string; home: Own | null; house: number }>();
+
+  /**
+   * A visit (Task 5.4). A knock at the door one stands at is heard by whoever is at home there (every family of
+   * that house that is in: the first to open has the visitor); nobody at home, and the one who knocked is told so.
+   * Let in from inside, the visitor is given the house as its family has it: its ground, its inside, what is set
+   * down in it, and each other. A door is not opened by this: the one at home opens it with their hand.
+   */
+  private visita(line: Line, held: Held, asked: { op: number; entity: number }): void {
+    const tick = this.channel.world.tick;
+    const tell = (to: Line, subject: number, dito: (typeof VISITA_DITOS)[number], house: number): void => to.send(encodeEvent({ kind: EVENT.VISITA, tick, subject, args: [VISITA_DITOS.indexOf(dito), house], text: "" }));
+    if (VISITA_OPS[asked.op] === "bater") {
+      const at = this.channel.placeOf(held.entityId);
+      if (!at || this.channel.withinOf(held.entityId) !== null) return;
+      let house = 0;
+      for (const [hostId, home] of this.homes) {
+        if (hostId === held.playerId || Math.hypot(at.x - home.door.x, at.z - home.door.z) > DOOR_REACH_MM) continue;
+        const hostLine = this.lineOf(hostId);
+        const host = hostLine ? this.held.get(hostLine) : undefined;
+        // At home, and neither has shut the other out: a knock from someone blocked is not heard.
+        if (!host || this.channel.withinOf(host.entityId) !== hostId || this.shut.get(hostId)?.has(held.playerId) || this.shut.get(held.playerId)?.has(hostId)) continue;
+        house = home.house;
+        tell(hostLine!, held.entityId, "bate", house);
+      }
+      if (house === 0) return tell(line, 0, "ninguem", 0);
+      this.knocks.set(held.playerId, { house, at: Date.now() });
+      return;
+    }
+    const home = this.homes.get(held.playerId);
+    const guestLine = this.lineOfEntity.get(asked.entity);
+    const guest = guestLine ? this.held.get(guestLine) : undefined;
+    const knock = guest ? this.knocks.get(guest.playerId) : undefined;
+    if (!home?.kind || !guest || !guestLine || !knock || knock.house !== home.house || Date.now() - knock.at > KNOCK_LASTS_MS || this.channel.withinOf(held.entityId) !== held.playerId) return;
+    this.knocks.delete(guest.playerId);
+    // A visit they were on is over first: one is in one neighbour's house at a time.
+    this.endVisit(guest.playerId);
+    const theirs = this.channel.ownOf(guest.entityId);
+    const into = this.district.homes!(home.house, held.playerId, () => this.doors.has(home.house), (cx, cz) => this.under.get(held.playerId)?.has(`${cx},${cz}`) === true, theirs?.ground);
+    if (!into) return;
+    this.channel.setOwn(guest.entityId, { ...into.own, also: theirs });
+    this.visits.set(guest.playerId, { host: held.playerId, home: theirs, house: home.house });
+    // Who is letting them in, said first: from the street they had not seen whoever was inside.
+    const face = this.faces.get(held.entityId);
+    if (face && !guest.told.has(held.entityId)) {
+      guest.told.add(held.entityId);
+      guestLine.send(face);
+    }
+    tell(guestLine, held.entityId, "entra", home.house);
+    this.tellThings(guestLine, held.playerId, 0, true);
+  }
+
+  /** A visit is over: the house is a wall to the visitor again. Still inside it, they are set down before its door first. */
+  private endVisit(guestId: string): void {
+    const visit = this.visits.get(guestId);
+    if (!visit) return;
+    this.visits.delete(guestId);
+    const line = this.lineOf(guestId);
+    const guest = line ? this.held.get(line) : undefined;
+    if (!line || !guest) return;
+    const door = this.homes.get(visit.host)?.door;
+    const inside = this.channel.withinOf(guest.entityId) === visit.host;
+    this.channel.setOwn(guest.entityId, visit.home);
+    if (inside && door) {
+      const at = this.channel.placeOf(guest.entityId)!;
+      if (this.channel.sittingOf(guest.entityId)) this.channel.standUp(guest.entityId, { ...at, x: door.x, z: Math.round(door.z + Math.sign(door.z - at.z) * 1500) });
+      else this.channel.put(guest.entityId, { ...at, x: door.x, z: Math.round(door.z + Math.sign(door.z - at.z) * 1500) });
+    }
+    line.send(encodeEvent({ kind: EVENT.VISITA, tick: this.channel.world.tick, subject: 0, args: [VISITA_DITOS.indexOf("saiu"), visit.house], text: "" }));
+  }
+
+  /** Each second: a visit is over when the one at home has gone, or the visitor has walked away from the house. */
+  private visitsGoOn(): void {
+    for (const [guestId, visit] of this.visits) {
+      const guestLine = this.lineOf(guestId);
+      const guest = guestLine ? this.held.get(guestLine) : undefined;
+      const hostLine = this.lineOf(visit.host);
+      const door = this.homes.get(visit.host)?.door;
+      const at = guest ? this.channel.placeOf(guest.entityId) : null;
+      if (!guest || !at) this.visits.delete(guestId);
+      else if (!hostLine || !door || (this.channel.withinOf(guest.entityId) !== visit.host && Math.hypot(at.x - door.x, at.z - door.z) > VISIT_ENDS_MM)) this.endVisit(guestId);
+    }
   }
 
   /**
@@ -1455,7 +1553,10 @@ export class ChannelRoom {
         line.send(bytes);
       }
     }
-    if (tick % (1000 / STEP_MS) === 0) for (const held of this.held.values()) held.heard = 0;
+    if (tick % (1000 / STEP_MS) === 0) {
+      for (const held of this.held.values()) held.heard = 0;
+      if (this.visits.size > 0) this.visitsGoOn();
+    }
     if (tick % STEPS_A_NOTE === 0) {
       void this.writeDown();
       void this.heed();

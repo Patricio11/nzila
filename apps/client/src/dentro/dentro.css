@@ -7,6 +7,8 @@
 /* The hand to one's own door: in the middle, over the place where words are written, where a thumb finds it. */
 .dentro-porta { position: absolute; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 5; }
 .dentro-porta .n-button { margin: 0; white-space: nowrap; }
+/* Somebody at the door: who, and the hand that lets them in. */
+.dentro-vista .dentro-pedido { display: flex; flex-direction: column; gap: var(--s-1); align-items: flex-start; }
 /* The hand's work in the house: what is carried to set down, and the thing before the player. */
 .dentro-moveis { display: flex; flex-direction: column; gap: var(--s-1); align-items: flex-start; }
 .dentro-moveis-lista { display: flex; flex-direction: column; gap: var(--s-1); align-items: stretch; padding: var(--s-2); border-radius: var(--r-paper); background: var(--n-noite); }

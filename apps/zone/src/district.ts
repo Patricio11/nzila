@@ -74,6 +74,8 @@ export interface District {
     family: string,
     open: () => boolean,
     taken?: (cx: number, cz: number) => boolean,
+    /** The ground this house is laid over, when it is not the street's own: the ground of someone who already has a house, and is let into this one (Task 5.4). */
+    under?: Ground,
   ) => {
     readonly own: Own;
     readonly wake: Place;
@@ -192,7 +194,7 @@ async function homesOf(manifest: ManifestRead, packDir: URL, street: Ground): Pr
   if (sites.length === 0 || !existsSync(file)) return undefined;
   const kinds = new Map((JSON.parse(await readFile(file, "utf8")) as { kinds: HomeKind[] }).kinds.map((kind) => [kind.id, kind]));
   const mm = (metres: number): number => Math.round(metres * 1000);
-  return (house, family, open, taken) => {
+  return (house, family, open, taken, under) => {
     const site = sites[house - 1];
     const kind = site ? kinds.get(site.kind) : undefined;
     if (!site || !kind) return null;
@@ -200,7 +202,7 @@ async function homesOf(manifest: ManifestRead, packDir: URL, street: Ground): Pr
     const [wx, wz] = homeToWorld(site, kind.wake);
     const [dx, dz] = homeToWorld(site, kind.door);
     return {
-      own: { ground: homeGround(street, site, kind, open, taken), rect: [mm(minX), mm(minZ), mm(maxX), mm(maxZ)], key: family },
+      own: { ground: homeGround(under ?? street, site, kind, open, taken), rect: [mm(minX), mm(minZ), mm(maxX), mm(maxZ)], key: family },
       kind,
       seatsOf: (things) => homeSeats(site, kind, things),
       cellAt: (x, z) => {
